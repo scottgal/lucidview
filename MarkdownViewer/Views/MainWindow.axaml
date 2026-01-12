@@ -35,7 +35,7 @@
                             Classes="header-btn"
                             Click="OnToggleSidePanel"
                             ToolTip.Tip="Menu (Ctrl+B)">
-                        <PathIcon Data="M2 5h20M2 12h20M2 19h20"
+                        <PathIcon Data="M2,4 L22,4 L22,6 L2,6 Z M2,11 L22,11 L22,13 L2,13 Z M2,18 L22,18 L22,20 L2,20 Z"
                                   Width="18" Height="18"
                                   Foreground="{DynamicResource AppText}" />
                     </Button>
@@ -46,7 +46,7 @@
                             Classes="header-btn"
                             Click="OnToggleToc"
                             ToolTip.Tip="Table of Contents">
-                        <PathIcon Data="M3 4h10M3 8h18M3 12h10M3 16h18M3 20h10"
+                        <PathIcon Data="M3,4 L10,4 L10,6 L3,6 Z M3,9 L21,9 L21,11 L3,11 Z M3,14 L14,14 L14,16 L3,16 Z M3,19 L21,19 L21,21 L3,21 Z"
                                   Width="18" Height="18"
                                   Foreground="{DynamicResource AppText}" />
                     </Button>
@@ -127,14 +127,14 @@
                                 Click="OnFontSizeDecrease"
                                 IsEnabled="False"
                                 ToolTip.Tip="Decrease font size (Ctrl+-)">
-                            <TextBlock Text="A" FontSize="13" FontWeight="Medium" />
+                            <TextBlock Text="A" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource AppText}" />
                         </Button>
                         <Button x:Name="FontIncreaseBtn"
                                 Classes="header-btn font-btn-large"
                                 Click="OnFontSizeIncrease"
                                 IsEnabled="False"
                                 ToolTip.Tip="Increase font size (Ctrl++)">
-                            <TextBlock Text="A" FontSize="18" FontWeight="Medium" />
+                            <TextBlock Text="A" FontSize="18" FontWeight="Medium" Foreground="{DynamicResource AppText}" />
                         </Button>
                     </StackPanel>
                 </Grid>
@@ -288,35 +288,39 @@
                             </Grid>
                         </Border>
 
-                        <!-- Rendered Markdown -->
-                        <ScrollViewer x:Name="RenderedScroller"
-                                      IsVisible="True"
-                                      HorizontalScrollBarVisibility="Auto"
-                                      VerticalScrollBarVisibility="Visible"
-                                      AllowAutoHide="False"
-                                      Background="{DynamicResource AppBackground}"
-                                      PointerWheelChanged="OnMarkdownPointerWheelChanged">
-                            <LayoutTransformControl x:Name="MarkdownLayoutTransform">
-                                <Border Padding="40,32">
-                                    <md:MarkdownScrollViewer x:Name="MdViewer"
-                                                              Markdown=""
-                                                              SaveScrollValueWhenContentUpdated="True">
-                                        <md:MarkdownScrollViewer.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Header="Copy" Click="OnCopyText" InputGesture="Ctrl+C">
-                                                    <MenuItem.Icon>
-                                                        <PathIcon Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
-                                                    </MenuItem.Icon>
-                                                </MenuItem>
-                                                <MenuItem Header="Select All" Click="OnSelectAll" InputGesture="Ctrl+A" />
-                                                <Separator />
-                                                <MenuItem Header="Copy as HTML" Click="OnCopyAsHtml" />
-                                            </ContextMenu>
-                                        </md:MarkdownScrollViewer.ContextMenu>
-                                    </md:MarkdownScrollViewer>
-                                </Border>
-                            </LayoutTransformControl>
-                        </ScrollViewer>
+                        <!-- Rendered Markdown - DockPanel for fixed gutters at edges -->
+                        <DockPanel x:Name="RenderedPanel" IsVisible="True" Background="{DynamicResource AppBackground}">
+                            <!-- Left gutter (docked to left edge of window) -->
+                            <Border DockPanel.Dock="Left" Width="18" Background="{DynamicResource AppBackgroundSecondary}" />
+
+                            <!-- ScrollViewer fills remaining space, its scrollbar naturally at right edge -->
+                            <ScrollViewer x:Name="RenderedScroller"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Visible"
+                                          AllowAutoHide="False"
+                                          PointerWheelChanged="OnMarkdownPointerWheelChanged">
+                                <LayoutTransformControl x:Name="MarkdownLayoutTransform">
+                                    <Border Padding="40,32" MaxWidth="1200" HorizontalAlignment="Center">
+                                        <md:MarkdownScrollViewer x:Name="MdViewer"
+                                                                  Markdown=""
+                                                                  SaveScrollValueWhenContentUpdated="False">
+                                            <md:MarkdownScrollViewer.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Copy" Click="OnCopyText" InputGesture="Ctrl+C">
+                                                        <MenuItem.Icon>
+                                                            <PathIcon Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="Select All" Click="OnSelectAll" InputGesture="Ctrl+A" />
+                                                    <Separator />
+                                                    <MenuItem Header="Copy as HTML" Click="OnCopyAsHtml" />
+                                                </ContextMenu>
+                                            </md:MarkdownScrollViewer.ContextMenu>
+                                        </md:MarkdownScrollViewer>
+                                    </Border>
+                                </LayoutTransformControl>
+                            </ScrollViewer>
+                        </DockPanel>
 
                         <!-- Raw Markdown -->
                         <ScrollViewer x:Name="RawScroller"

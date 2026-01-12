@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 using MarkdownViewer.Models;
-using MermaidSharp;
+using Naiad;
 
 namespace MarkdownViewer.Services;
 
@@ -127,10 +127,12 @@ public partial class MarkdownService
     {
         _mermaidCounter = 0;
         var mermaidRegex = MermaidBlockRegex();
+        var matches = mermaidRegex.Matches(content);
 
-        return mermaidRegex.Replace(content, match =>
+        foreach (Match match in matches)
         {
             var mermaidCode = match.Groups[1].Value.Trim();
+            string replacement;
 
             try
             {
@@ -143,7 +145,7 @@ public partial class MarkdownService
 
                 // Return as image reference
                 var fileUri = new Uri(svgPath).AbsoluteUri;
-                return $"![Mermaid Diagram]({fileUri})";
+                replacement = $"![Mermaid Diagram]({fileUri})";
             }
             catch (Exception ex)
             {
@@ -153,16 +155,20 @@ public partial class MarkdownService
                     ? $"Naiad cannot yet render '{diagramType}' diagrams"
                     : ex.Message;
 
-                // On error, show the code with error message
-                return $"""
-                    > ⚠️ **Mermaid Render Error**: {errorMessage}
+                // On error, show syntax-highlighted mermaid code with warning
+                replacement = $"""
+                    > ⚠️ **Naiad cannot yet render '{diagramType}' diagrams**
 
                     ```mermaid
                     {mermaidCode}
                     ```
                     """;
             }
-        });
+
+            content = content.Replace(match.Value, replacement);
+        }
+
+        return content;
     }
 
     private static string DetectMermaidDiagramType(string code)

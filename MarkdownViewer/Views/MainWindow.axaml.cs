@@ -268,7 +268,7 @@ public partial class MainWindow : Window
 
         // Reset to preview tab
         PreviewTab.IsChecked = true;
-        RenderedScroller.IsVisible = true;
+        RenderedPanel.IsVisible = true;
         RawScroller.IsVisible = false;
 
         // Calculate pages after layout (estimate based on content length)
@@ -482,7 +482,7 @@ public partial class MainWindow : Window
     private void OnTabChanged(object? sender, RoutedEventArgs e)
     {
         var isPreview = PreviewTab.IsChecked == true;
-        RenderedScroller.IsVisible = isPreview;
+        RenderedPanel.IsVisible = isPreview;
         RawScroller.IsVisible = !isPreview;
     }
 
@@ -641,7 +641,7 @@ public partial class MainWindow : Window
         // Markdown.Avalonia doesn't support text selection natively
         // Switch to raw view for selection
         RawTab.IsChecked = true;
-        RenderedScroller.IsVisible = false;
+        RenderedPanel.IsVisible = false;
         RawScroller.IsVisible = true;
     }
 
@@ -808,7 +808,7 @@ public partial class MainWindow : Window
 
         // Switch to raw view to show line-based search results
         RawTab.IsChecked = true;
-        RenderedScroller.IsVisible = false;
+        RenderedPanel.IsVisible = false;
         RawScroller.IsVisible = true;
 
         // Scroll to the line containing the result
@@ -1022,7 +1022,7 @@ public partial class MainWindow : Window
         {
             // Switch to preview tab
             PreviewTab.IsChecked = true;
-            RenderedScroller.IsVisible = true;
+            RenderedPanel.IsVisible = true;
             RawScroller.IsVisible = false;
 
             // Scroll to heading by searching for it in the rendered content

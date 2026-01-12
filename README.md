@@ -1,12 +1,19 @@
 # ***lucid*VIEW**
 
-A modern, lightweight cross-platform markdown viewer built with [Avalonia UI](https://avaloniaui.net/).
+A [***mostly*lucid**](https://www.mostlylucid.net) 'time boxed tool' to deliver modern, lightweight cross-platform markdown viewer built with [Avalonia UI](https://avaloniaui.net/).
 
-**by [mostlylucid](https://www.mostlylucid.net)**
+This is the result of being annoyed by existing ones and wondering why a .NET 'native' one didn't exist.
+
+Well the answer is *because it's a PITA otherwise* using WebViews really is the best way to do this but here's what happens if you don't. 
+
+Anyway here's the tool and code. Feel free to fork and fix it's public domain. Any problems open an issue but no promises. As I say 'time boxed' and this is what I did today 🤓
+
+
+**by [***mostly*lucid**](https://www.mostlylucid.net)**
 
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-UnLicense-green)
 
 ## Features
 
@@ -175,12 +182,13 @@ dotnet publish MarkdownViewer/MarkdownViewer.csproj -c Release -r linux-x64 -o p
 
 - [Avalonia UI](https://avaloniaui.net/) - Cross-platform .NET UI framework
 - [Markdown.Avalonia](https://github.com/whistyun/Markdown.Avalonia) - Markdown rendering
+- [Naiad](https://github.com/SimonCropp/Naiad) - A *pre-release* Mermaid to SVG library. 
 
 ### Version
 1.0.0
 
 ### Author
-[mostlylucid](https://www.mostlylucid.net)
+[***mostly*lucid**](https://www.mostlylucid.net)
 
 ### License
 [The Unlicense](https://unlicense.org/) - Public Domain
