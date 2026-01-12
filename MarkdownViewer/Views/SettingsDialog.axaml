@@ -2,40 +2,64 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="MarkdownViewer.Views.SettingsDialog"
         Title="Preferences"
-        Width="400" Height="350"
+        Width="450" Height="420"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppBackground}">
 
-    <Grid Margin="16" RowDefinitions="*,Auto">
+    <Grid Margin="20" RowDefinitions="*,Auto">
         <ScrollViewer Grid.Row="0">
-            <StackPanel Spacing="16">
-                <!-- Appearance -->
-                <TextBlock Text="Appearance" FontWeight="SemiBold" FontSize="16" />
-
-                <StackPanel Spacing="8" Margin="0,0,0,8">
-                    <CheckBox x:Name="DarkModeCheckBox" Content="Dark mode" />
+            <StackPanel Spacing="20">
+                <!-- Theme -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Theme" FontWeight="SemiBold" FontSize="14"
+                               Foreground="{DynamicResource AppText}" />
+                    <ComboBox x:Name="ThemeComboBox" Width="200" HorizontalAlignment="Left">
+                        <ComboBoxItem Content="Light" Tag="Light" />
+                        <ComboBoxItem Content="Dark" Tag="Dark" />
+                        <ComboBoxItem Content="VS Code" Tag="VSCode" />
+                        <ComboBoxItem Content="GitHub" Tag="GitHub" />
+                    </ComboBox>
                 </StackPanel>
 
                 <!-- Typography -->
-                <TextBlock Text="Typography" FontWeight="SemiBold" FontSize="16" />
-
-                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" Margin="0,0,0,8">
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Font family:" VerticalAlignment="Center" Margin="0,0,16,8" />
-                    <TextBox Grid.Row="0" Grid.Column="1" x:Name="FontFamilyBox" Margin="0,0,0,8" />
-
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Font size:" VerticalAlignment="Center" Margin="0,0,16,8" />
-                    <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="FontSizeBox" Minimum="10" Maximum="24" Increment="1" Margin="0,0,0,8" />
-
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Code font:" VerticalAlignment="Center" Margin="0,0,16,0" />
-                    <TextBox Grid.Row="2" Grid.Column="1" x:Name="CodeFontBox" />
-                </Grid>
-
-                <!-- Display -->
-                <TextBlock Text="Display" FontWeight="SemiBold" FontSize="16" />
-
                 <StackPanel Spacing="8">
-                    <CheckBox x:Name="WordWrapCheckBox" Content="Word wrap" />
+                    <TextBlock Text="Typography" FontWeight="SemiBold" FontSize="14"
+                               Foreground="{DynamicResource AppText}" />
+
+                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto" Margin="0,4,0,0">
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="Font family:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppTextSecondary}" />
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="FontFamilyBox" Margin="0,0,0,8" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0"
+                                   Text="Font size:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppTextSecondary}" />
+                        <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="FontSizeBox"
+                                       Minimum="10" Maximum="24" Increment="1"
+                                       Width="100" HorizontalAlignment="Left" Margin="0,0,0,8" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0"
+                                   Text="Code font:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppTextSecondary}" />
+                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="CodeFontBox" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- Layout -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Layout" FontWeight="SemiBold" FontSize="14"
+                               Foreground="{DynamicResource AppText}" />
+
+                    <CheckBox x:Name="WordWrapCheckBox" Content="Word wrap"
+                              Foreground="{DynamicResource AppTextSecondary}" />
+                    <CheckBox x:Name="NavPanelCheckBox" Content="Show navigation panel by default"
+                              Foreground="{DynamicResource AppTextSecondary}" />
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

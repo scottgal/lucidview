@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using Avalonia.Styling;
 using MarkdownViewer.Models;
 using MarkdownViewer.Services;
 using System.Windows.Input;
@@ -14,8 +13,11 @@ public partial class MainWindow : Window
 {
     private readonly AppSettings _settings;
     private readonly MarkdownService _markdownService;
+    private readonly NavigationService _navigationService;
+    private readonly ThemeService _themeService;
     private string? _currentFilePath;
     private string _rawContent = string.Empty;
+    private List<HeadingItem> _headings = [];
     private double _zoomLevel = 1.0;
 
     public MainWindow()
@@ -24,12 +26,22 @@ public partial class MainWindow : Window
 
         _settings = AppSettings.Load();
         _markdownService = new MarkdownService();
+        _navigationService = new NavigationService();
+        _themeService = new ThemeService(Application.Current!);
 
         Width = _settings.WindowWidth;
         Height = _settings.WindowHeight;
-        ApplyTheme(_settings.IsDarkMode);
 
         DataContext = this;
+
+        // Apply saved theme
+        ApplyTheme(_settings.Theme);
+        UpdateThemeComboBox(_settings.Theme);
+
+        // Apply nav panel state
+        NavPanel.IsVisible = _settings.ShowNavigationPanel;
+        NavPanelToggle.IsChecked = _settings.ShowNavigationPanel;
+        NavPanelCheck.IsChecked = _settings.ShowNavigationPanel;
 
         // Drag and drop
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
@@ -53,10 +65,12 @@ public partial class MainWindow : Window
     public ICommand OpenUrlCommand => new RelayCommand(async () => await OpenUrl());
     public ICommand OpenSettingsCommand => new RelayCommand(async () => await OpenSettings());
     public ICommand ToggleFullScreenCommand => new RelayCommand(ToggleFullScreen);
+    public ICommand ToggleNavPanelCommand => new RelayCommand(ToggleNavPanel);
     public ICommand ZoomInCommand => new RelayCommand(ZoomIn);
     public ICommand ZoomOutCommand => new RelayCommand(ZoomOut);
     public ICommand ResetZoomCommand => new RelayCommand(ResetZoom);
     public ICommand ExitCommand => new RelayCommand(() => Close());
+    public ICommand NavigateToHeadingCommand => new RelayCommand<HeadingItem>(NavigateToHeading);
 
     #endregion
 
@@ -123,13 +137,12 @@ public partial class MainWindow : Window
     {
         try
         {
-            StatusText.Text = $"Downloading...";
+            StatusText.Text = "Downloading...";
 
             using var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("MarkdownViewer/1.0");
             var content = await httpClient.GetStringAsync(url);
 
-            // Set base URL for relative images
             var uri = new Uri(url);
             var baseUrl = $"{uri.Scheme}://{uri.Host}{string.Join("", uri.Segments.Take(uri.Segments.Length - 1))}";
             _markdownService.SetBaseUrl(baseUrl);
@@ -150,12 +163,19 @@ public partial class MainWindow : Window
     private Task DisplayMarkdown(string content)
     {
         _rawContent = content;
+
+        // Extract headings for navigation
+        _headings = _navigationService.ExtractHeadings(content);
+        var flatHeadings = FlattenHeadings(_headings);
+        NavTreeView.ItemsSource = flatHeadings;
+
+        // Process and display markdown
         var processed = _markdownService.ProcessMarkdown(content);
         MarkdownViewer.Markdown = processed;
         RawTextBlock.Text = content;
 
         WelcomePanel.IsVisible = false;
-        ContentPanel.IsVisible = true;
+        ContentGrid.IsVisible = true;
 
         // Reset to preview tab
         PreviewTab.IsChecked = true;
@@ -165,11 +185,102 @@ public partial class MainWindow : Window
         return Task.CompletedTask;
     }
 
-    private void OnTabChanged(object? sender, RoutedEventArgs e)
+    private static List<HeadingItem> FlattenHeadings(List<HeadingItem> headings)
     {
-        var isPreview = PreviewTab.IsChecked == true;
-        RenderedScroller.IsVisible = isPreview;
-        RawScroller.IsVisible = !isPreview;
+        var result = new List<HeadingItem>();
+        foreach (var heading in headings)
+        {
+            result.Add(heading);
+            result.AddRange(FlattenHeadings(heading.Children));
+        }
+        return result;
+    }
+
+    #endregion
+
+    #region Navigation
+
+    private void ToggleNavPanel()
+    {
+        var isVisible = !NavPanel.IsVisible;
+        NavPanel.IsVisible = isVisible;
+        NavPanelToggle.IsChecked = isVisible;
+        NavPanelCheck.IsChecked = isVisible;
+        _settings.ShowNavigationPanel = isVisible;
+        _settings.Save();
+    }
+
+    private void OnNavPanelToggle(object? sender, RoutedEventArgs e)
+    {
+        var isVisible = NavPanelToggle.IsChecked == true;
+        NavPanel.IsVisible = isVisible;
+        NavPanelCheck.IsChecked = isVisible;
+        _settings.ShowNavigationPanel = isVisible;
+        _settings.Save();
+    }
+
+    private void NavigateToHeading(HeadingItem? heading)
+    {
+        if (heading == null) return;
+
+        // Switch to preview tab if on raw
+        PreviewTab.IsChecked = true;
+        RenderedScroller.IsVisible = true;
+        RawScroller.IsVisible = false;
+
+        // TODO: Implement scroll to heading
+        // This would require finding the visual element for the heading
+        // and scrolling to it. For now, just ensure we're on preview.
+    }
+
+    #endregion
+
+    #region Theme
+
+    private void ApplyTheme(AppTheme theme)
+    {
+        _themeService.ApplyTheme(theme);
+        _settings.Theme = theme;
+    }
+
+    private void UpdateThemeComboBox(AppTheme theme)
+    {
+        ThemeComboBox.SelectedIndex = theme switch
+        {
+            AppTheme.Light => 0,
+            AppTheme.Dark => 1,
+            AppTheme.VSCode => 2,
+            AppTheme.GitHub => 3,
+            _ => 1
+        };
+    }
+
+    private void OnThemeSelected(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem item && item.Tag is string themeName)
+        {
+            if (Enum.TryParse<AppTheme>(themeName, out var theme))
+            {
+                ApplyTheme(theme);
+                UpdateThemeComboBox(theme);
+                _settings.Save();
+            }
+        }
+    }
+
+    private void OnThemeComboChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        // Guard against initialization-time calls
+        if (_themeService == null) return;
+
+        if (ThemeComboBox.SelectedItem is ComboBoxItem item && item.Tag is string themeName)
+        {
+            if (Enum.TryParse<AppTheme>(themeName, out var theme))
+            {
+                ApplyTheme(theme);
+                _settings.Save();
+            }
+        }
     }
 
     #endregion
@@ -180,21 +291,20 @@ public partial class MainWindow : Window
     {
         var dialog = new SettingsDialog(_settings);
         await dialog.ShowDialog(this);
-        ApplyTheme(_settings.IsDarkMode);
-    }
-
-    private void ApplyTheme(bool isDark)
-    {
-        var app = Application.Current as App;
-        app?.SetTheme(isDark ? ThemeVariant.Dark : ThemeVariant.Light);
-        ThemeToggle.IsChecked = isDark;
-        DarkModeCheck.IsChecked = isDark;
-        ThemeIcon.Text = isDark ? "Dark" : "Light";
+        ApplyTheme(_settings.Theme);
+        UpdateThemeComboBox(_settings.Theme);
     }
 
     #endregion
 
     #region View
+
+    private void OnTabChanged(object? sender, RoutedEventArgs e)
+    {
+        var isPreview = PreviewTab.IsChecked == true;
+        RenderedScroller.IsVisible = isPreview;
+        RawScroller.IsVisible = !isPreview;
+    }
 
     private void ToggleFullScreen()
     {
@@ -267,22 +377,6 @@ public partial class MainWindow : Window
 
     #region Event Handlers
 
-    private void OnThemeToggleClick(object? sender, RoutedEventArgs e)
-    {
-        var isDark = ThemeToggle.IsChecked == true;
-        _settings.IsDarkMode = isDark;
-        ApplyTheme(isDark);
-        _settings.Save();
-    }
-
-    private void OnDarkModeClick(object? sender, RoutedEventArgs e)
-    {
-        var isDark = !(DarkModeCheck.IsChecked == true);
-        _settings.IsDarkMode = isDark;
-        ApplyTheme(isDark);
-        _settings.Save();
-    }
-
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
         _settings.WindowWidth = (int)Width;
@@ -331,19 +425,37 @@ public partial class MainWindow : Window
     #endregion
 }
 
-public class RelayCommand(Action? execute = null, Func<Task>? executeAsync = null) : ICommand
+public class RelayCommand : ICommand
 {
-    public RelayCommand(Action execute) : this(execute, null) { }
-    public RelayCommand(Func<Task> executeAsync) : this(null, executeAsync) { }
+    private readonly Action? _execute;
+    private readonly Func<Task>? _executeAsync;
+
+    public RelayCommand(Action execute) => _execute = execute;
+    public RelayCommand(Func<Task> executeAsync) => _executeAsync = executeAsync;
 
     public event EventHandler? CanExecuteChanged;
     public bool CanExecute(object? parameter) => true;
 
     public async void Execute(object? parameter)
     {
-        if (executeAsync != null)
-            await executeAsync();
+        if (_executeAsync != null)
+            await _executeAsync();
         else
-            execute?.Invoke();
+            _execute?.Invoke();
+    }
+}
+
+public class RelayCommand<T> : ICommand
+{
+    private readonly Action<T?> _execute;
+
+    public RelayCommand(Action<T?> execute) => _execute = execute;
+
+    public event EventHandler? CanExecuteChanged;
+    public bool CanExecute(object? parameter) => true;
+
+    public void Execute(object? parameter)
+    {
+        _execute((T?)parameter);
     }
 }
