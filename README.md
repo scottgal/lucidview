@@ -1,4 +1,4 @@
-# lucidVIEW
+# ***lucid*VIEW**
 
 A modern, lightweight cross-platform markdown viewer built with [Avalonia UI](https://avaloniaui.net/).
 
