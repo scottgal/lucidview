@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<linker>
+  <!-- Preserve Avalonia types that use reflection -->
+  <assembly fullname="Avalonia.Base" preserve="all" />
+  <assembly fullname="Avalonia.Controls" preserve="all" />
+  <assembly fullname="Avalonia.Markup.Xaml" preserve="all" />
+  <assembly fullname="Avalonia.Themes.Fluent" preserve="all" />
+
+  <!-- Preserve Markdown.Avalonia -->
+  <assembly fullname="Markdown.Avalonia" preserve="all" />
+  <assembly fullname="Markdown.Avalonia.Svg" preserve="all" />
+  <assembly fullname="Markdown.Avalonia.SyntaxHigh" preserve="all" />
+
+  <!-- Preserve AvaloniaEdit for syntax highlighting -->
+  <assembly fullname="AvaloniaEdit" preserve="all" />
+  <assembly fullname="AvaloniaEdit.TextMate" preserve="all" />
+
+  <!-- Preserve our app assembly -->
+  <assembly fullname="MarkdownViewer">
+    <type fullname="MarkdownViewer.*" preserve="all" />
+  </assembly>
+</linker>

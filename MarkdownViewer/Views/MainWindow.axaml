@@ -16,9 +16,12 @@
         <KeyBinding Gesture="Ctrl+Shift+O" Command="{Binding OpenUrlCommand}" />
         <KeyBinding Gesture="F11" Command="{Binding ToggleFullScreenCommand}" />
         <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleNavPanelCommand}" />
+        <KeyBinding Gesture="Ctrl+F" Command="{Binding ToggleSearchCommand}" />
+        <KeyBinding Gesture="Escape" Command="{Binding CloseSearchCommand}" />
         <KeyBinding Gesture="Ctrl+Add" Command="{Binding ZoomInCommand}" />
         <KeyBinding Gesture="Ctrl+Subtract" Command="{Binding ZoomOutCommand}" />
         <KeyBinding Gesture="Ctrl+D0" Command="{Binding ResetZoomCommand}" />
+        <KeyBinding Gesture="F1" Command="{Binding OpenHelpCommand}" />
     </Window.KeyBindings>
 
     <DockPanel>
@@ -52,6 +55,11 @@
             </MenuItem>
             <MenuItem Header="_Settings">
                 <MenuItem Header="_Preferences..." Command="{Binding OpenSettingsCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_User Manual" Command="{Binding OpenHelpCommand}" InputGesture="F1" />
+                <Separator />
+                <MenuItem Header="_About Markdown Viewer" x:Name="AboutMenuItem" Click="OnAboutClicked" />
             </MenuItem>
         </Menu>
 
@@ -179,6 +187,45 @@
 
                 <!-- Main Content -->
                 <DockPanel Grid.Column="1">
+                    <!-- Search Bar -->
+                    <Border x:Name="SearchPanel"
+                            DockPanel.Dock="Top"
+                            IsVisible="False"
+                            Background="{DynamicResource AppBackgroundSecondary}"
+                            BorderBrush="{DynamicResource AppBorder}"
+                            BorderThickness="0,0,0,1"
+                            Padding="12,8">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                            <TextBox x:Name="SearchBox"
+                                     Watermark="Search... (Enter to find, Esc to close)"
+                                     KeyDown="OnSearchKeyDown" />
+                            <Button Grid.Column="1"
+                                    Classes="toolbar"
+                                    Content="Prev"
+                                    ToolTip.Tip="Previous match (Shift+Enter)"
+                                    Click="OnSearchPrevious"
+                                    Margin="8,0,0,0" />
+                            <Button Grid.Column="2"
+                                    Classes="toolbar"
+                                    Content="Next"
+                                    ToolTip.Tip="Next match (Enter)"
+                                    Click="OnSearchNext"
+                                    Margin="4,0,0,0" />
+                            <TextBlock Grid.Column="3"
+                                       x:Name="SearchResultsText"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AppTextSecondary}"
+                                       FontSize="12"
+                                       Margin="12,0,0,0" />
+                            <Button Grid.Column="4"
+                                    Classes="toolbar"
+                                    Content="X"
+                                    ToolTip.Tip="Close search (Esc)"
+                                    Click="OnCloseSearch"
+                                    Margin="8,0,0,0" />
+                        </Grid>
+                    </Border>
+
                     <!-- Tab Strip -->
                     <Border DockPanel.Dock="Top" Classes="tab-strip">
                         <StackPanel Orientation="Horizontal" Spacing="0">

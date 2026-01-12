@@ -6,50 +6,68 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- Compiled bindings for AOT compatibility -->
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 
-    <!-- AOT and Single File Settings -->
+    <!-- AOT and Trimming - Aggressive optimization -->
     <PublishAot>true</PublishAot>
-    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
     <SelfContained>true</SelfContained>
-    <TrimMode>partial</TrimMode>
-    <InvariantGlobalization>false</InvariantGlobalization>
+    <PublishSingleFile>false</PublishSingleFile>
+
+    <!-- Additional size optimizations -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StackTraceSupport>false</StackTraceSupport>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
+    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
+    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+    <DebuggerSupport>false</DebuggerSupport>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <EventSourceSupport>false</EventSourceSupport>
 
     <!-- App Info -->
     <AssemblyName>MarkdownViewer</AssemblyName>
     <RootNamespace>MarkdownViewer</RootNamespace>
     <Version>1.0.0</Version>
-    <Description>Lightweight cross-platform GitHub-style markdown viewer</Description>
+    <Description>Lightweight cross-platform markdown viewer</Description>
   </PropertyGroup>
 
-  <!-- Prevent trimming of Avalonia reflection-based assemblies -->
+  <!-- Preserve Avalonia types from trimming -->
   <ItemGroup>
-    <TrimmerRootAssembly Include="Avalonia.Controls" />
-    <TrimmerRootAssembly Include="Avalonia.Base" />
-    <TrimmerRootAssembly Include="Avalonia.Markup.Xaml" />
     <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />
-    <TrimmerRootAssembly Include="AvaloniaEdit" />
-    <TrimmerRootAssembly Include="TextMateSharp" />
+    <TrimmerRootAssembly Include="Markdown.Avalonia" />
+  </ItemGroup>
+
+  <!-- Trimmer configuration -->
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="TrimmerRoots.xml" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Avalonia Core -->
+    <!-- Avalonia Core - minimal set -->
     <PackageReference Include="Avalonia" Version="11.2.2" />
     <PackageReference Include="Avalonia.Desktop" Version="11.2.2" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.2" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.2" />
+    <!-- Removed: Avalonia.Fonts.Inter - saves ~3MB -->
 
     <!-- Markdown Rendering with Syntax Highlighting -->
     <PackageReference Include="Markdown.Avalonia" Version="11.0.2" />
     <PackageReference Include="Markdown.Avalonia.Svg" Version="11.0.2" />
     <PackageReference Include="Markdown.Avalonia.SyntaxHigh" Version="11.0.2" />
 
-    <!-- AvaloniaEdit with TextMate for code highlighting -->
-    <PackageReference Include="AvaloniaEdit.TextMate" Version="11.1.0" />
-    <PackageReference Include="TextMateSharp.Grammars" Version="1.0.64" />
-
-    <!-- Diagnostics (debug only) -->
+    <!-- Diagnostics (debug only, excluded from release) -->
     <PackageReference Include="Avalonia.Diagnostics" Version="11.2.2" Condition="'$(Configuration)' == 'Debug'" />
+  </ItemGroup>
+
+  <!-- Include README.md in output for Help menu -->
+  <ItemGroup>
+    <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

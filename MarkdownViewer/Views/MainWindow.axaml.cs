@@ -15,10 +15,13 @@ public partial class MainWindow : Window
     private readonly MarkdownService _markdownService;
     private readonly NavigationService _navigationService;
     private readonly ThemeService _themeService;
+    private readonly SearchService _searchService;
     private string? _currentFilePath;
     private string _rawContent = string.Empty;
     private List<HeadingItem> _headings = [];
     private double _zoomLevel = 1.0;
+    private List<SearchResult> _searchResults = [];
+    private int _currentSearchIndex = -1;
 
     public MainWindow()
     {
@@ -28,6 +31,7 @@ public partial class MainWindow : Window
         _markdownService = new MarkdownService();
         _navigationService = new NavigationService();
         _themeService = new ThemeService(Application.Current!);
+        _searchService = new SearchService();
 
         Width = _settings.WindowWidth;
         Height = _settings.WindowHeight;
@@ -71,6 +75,9 @@ public partial class MainWindow : Window
     public ICommand ResetZoomCommand => new RelayCommand(ResetZoom);
     public ICommand ExitCommand => new RelayCommand(() => Close());
     public ICommand NavigateToHeadingCommand => new RelayCommand<HeadingItem>(NavigateToHeading);
+    public ICommand ToggleSearchCommand => new RelayCommand(ToggleSearch);
+    public ICommand CloseSearchCommand => new RelayCommand(CloseSearch);
+    public ICommand OpenHelpCommand => new RelayCommand(async () => await OpenHelp());
 
     #endregion
 
@@ -339,6 +346,147 @@ public partial class MainWindow : Window
 
     #endregion
 
+    #region Search
+
+    private void ToggleSearch()
+    {
+        if (!ContentGrid.IsVisible) return;
+
+        SearchPanel.IsVisible = !SearchPanel.IsVisible;
+        if (SearchPanel.IsVisible)
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+        }
+        else
+        {
+            ClearSearch();
+        }
+    }
+
+    private void CloseSearch()
+    {
+        SearchPanel.IsVisible = false;
+        ClearSearch();
+    }
+
+    private void ClearSearch()
+    {
+        _searchResults.Clear();
+        _currentSearchIndex = -1;
+        SearchResultsText.Text = "";
+    }
+
+    private void OnSearchKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                SearchPrevious();
+            else
+                SearchNext();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            CloseSearch();
+            e.Handled = true;
+        }
+    }
+
+    private void OnSearchPrevious(object? sender, RoutedEventArgs e) => SearchPrevious();
+    private void OnSearchNext(object? sender, RoutedEventArgs e) => SearchNext();
+    private void OnCloseSearch(object? sender, RoutedEventArgs e) => CloseSearch();
+
+    private void SearchNext()
+    {
+        PerformSearch();
+        if (_searchResults.Count == 0) return;
+
+        _currentSearchIndex = (_currentSearchIndex + 1) % _searchResults.Count;
+        HighlightCurrentResult();
+    }
+
+    private void SearchPrevious()
+    {
+        PerformSearch();
+        if (_searchResults.Count == 0) return;
+
+        _currentSearchIndex = _currentSearchIndex <= 0
+            ? _searchResults.Count - 1
+            : _currentSearchIndex - 1;
+        HighlightCurrentResult();
+    }
+
+    private void PerformSearch()
+    {
+        var query = SearchBox.Text;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            ClearSearch();
+            return;
+        }
+
+        _searchResults = _searchService.Search(_rawContent, query);
+        _currentSearchIndex = -1;
+
+        if (_searchResults.Count == 0)
+        {
+            SearchResultsText.Text = "No matches";
+        }
+    }
+
+    private void HighlightCurrentResult()
+    {
+        if (_currentSearchIndex < 0 || _currentSearchIndex >= _searchResults.Count)
+            return;
+
+        var result = _searchResults[_currentSearchIndex];
+        SearchResultsText.Text = $"{_currentSearchIndex + 1} of {_searchResults.Count}";
+
+        // Switch to raw view to show line-based search results
+        RawTab.IsChecked = true;
+        RenderedScroller.IsVisible = false;
+        RawScroller.IsVisible = true;
+
+        // Scroll to the line containing the result
+        var lines = _rawContent.Split('\n');
+        if (result.Line < lines.Length)
+        {
+            // Calculate approximate scroll position based on line number
+            var lineHeight = 18.0; // Approximate line height for monospace text
+            var scrollOffset = result.Line * lineHeight;
+            RawScroller.Offset = new Vector(0, Math.Max(0, scrollOffset - 100));
+        }
+    }
+
+    private async Task OpenHelp()
+    {
+        // Try to find README.md in the application directory
+        var exePath = AppContext.BaseDirectory;
+        var readmePath = Path.Combine(exePath, "README.md");
+
+        if (File.Exists(readmePath))
+        {
+            await LoadFile(readmePath);
+        }
+        else
+        {
+            // Try development location
+            var devPath = Path.Combine(exePath, "..", "..", "..", "..", "README.md");
+            if (File.Exists(devPath))
+            {
+                await LoadFile(Path.GetFullPath(devPath));
+            }
+            else
+            {
+                StatusText.Text = "README.md not found";
+            }
+        }
+    }
+
+    #endregion
+
     #region Drag and Drop
 
     private void OnDragEnter(object? sender, DragEventArgs e)
@@ -382,6 +530,69 @@ public partial class MainWindow : Window
         _settings.WindowWidth = (int)Width;
         _settings.WindowHeight = (int)Height;
         _settings.Save();
+    }
+
+    private async void OnAboutClicked(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new Window
+        {
+            Title = "About Markdown Viewer",
+            Width = 350,
+            Height = 200,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false,
+            Background = Avalonia.Media.Brushes.Transparent
+        };
+
+        var content = new StackPanel
+        {
+            Margin = new Thickness(24),
+            Spacing = 8,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
+
+        content.Children.Add(new TextBlock
+        {
+            Text = "Markdown Viewer",
+            FontSize = 20,
+            FontWeight = Avalonia.Media.FontWeight.SemiBold,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+        });
+
+        content.Children.Add(new TextBlock
+        {
+            Text = "Version 1.0.0",
+            Foreground = Avalonia.Media.Brushes.Gray,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+        });
+
+        content.Children.Add(new TextBlock
+        {
+            Text = "A lightweight cross-platform markdown viewer",
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Margin = new Thickness(0, 8, 0, 0)
+        });
+
+        content.Children.Add(new TextBlock
+        {
+            Text = "Built with Avalonia UI",
+            Foreground = Avalonia.Media.Brushes.Gray,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+        });
+
+        var okButton = new Button
+        {
+            Content = "OK",
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Margin = new Thickness(0, 16, 0, 0),
+            Padding = new Thickness(24, 8)
+        };
+        okButton.Click += (_, _) => dialog.Close();
+        content.Children.Add(okButton);
+
+        dialog.Content = content;
+        await dialog.ShowDialog(this);
     }
 
     private void PopulateRecentFiles()
