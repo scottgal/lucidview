@@ -1,0 +1,39 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MarkdownViewer.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- Default theme colors (GitHub Dark) - will be overridden by ThemeService -->
+            <SolidColorBrush x:Key="AppBackground" Color="#0d1117" />
+            <SolidColorBrush x:Key="AppBackgroundSecondary" Color="#161b22" />
+            <SolidColorBrush x:Key="AppBackgroundTertiary" Color="#1c2128" />
+            <SolidColorBrush x:Key="AppSurface" Color="#161b22" />
+            <SolidColorBrush x:Key="AppSurfaceHover" Color="#1f242b" />
+            <SolidColorBrush x:Key="AppBorder" Color="#30363d" />
+            <SolidColorBrush x:Key="AppBorderSubtle" Color="#21262d" />
+            <SolidColorBrush x:Key="AppText" Color="#e6edf3" />
+            <SolidColorBrush x:Key="AppTextSecondary" Color="#8b949e" />
+            <SolidColorBrush x:Key="AppTextMuted" Color="#6e7681" />
+            <SolidColorBrush x:Key="AppAccent" Color="#58a6ff" />
+            <SolidColorBrush x:Key="AppAccentHover" Color="#79b8ff" />
+            <SolidColorBrush x:Key="AppLink" Color="#58a6ff" />
+            <SolidColorBrush x:Key="AppSuccess" Color="#3fb950" />
+            <SolidColorBrush x:Key="AppWarning" Color="#d29922" />
+            <SolidColorBrush x:Key="AppError" Color="#f85149" />
+            <SolidColorBrush x:Key="AppCodeBackground" Color="#161b22" />
+            <SolidColorBrush x:Key="AppCodeBorder" Color="#30363d" />
+            <SolidColorBrush x:Key="AppBlockquoteBorder" Color="#58a6ff" />
+            <SolidColorBrush x:Key="AppHeadingBorder" Color="#21262d" />
+            <SolidColorBrush x:Key="AppTableHeaderBg" Color="#161b22" />
+            <SolidColorBrush x:Key="AppSelectionBg" Color="#58a6ff30" />
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+        <StyleInclude Source="avares://MarkdownViewer/Styles/AppStyles.axaml" />
+    </Application.Styles>
+</Application>

@@ -1,0 +1,230 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+        xmlns:views="clr-namespace:MarkdownViewer.Views"
+        x:Class="MarkdownViewer.Views.MainWindow"
+        x:DataType="views:MainWindow"
+        Title="Markdown Viewer"
+        Width="1100" Height="750"
+        MinWidth="600" MinHeight="450"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackground}">
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenFileCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+O" Command="{Binding OpenUrlCommand}" />
+        <KeyBinding Gesture="F11" Command="{Binding ToggleFullScreenCommand}" />
+        <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleNavPanelCommand}" />
+        <KeyBinding Gesture="Ctrl+Add" Command="{Binding ZoomInCommand}" />
+        <KeyBinding Gesture="Ctrl+Subtract" Command="{Binding ZoomOutCommand}" />
+        <KeyBinding Gesture="Ctrl+D0" Command="{Binding ResetZoomCommand}" />
+    </Window.KeyBindings>
+
+    <DockPanel>
+        <!-- Menu Bar -->
+        <Menu DockPanel.Dock="Top" Background="{DynamicResource AppBackgroundSecondary}">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open File..." Command="{Binding OpenFileCommand}" InputGesture="Ctrl+O" />
+                <MenuItem Header="Open _URL..." Command="{Binding OpenUrlCommand}" InputGesture="Ctrl+Shift+O" />
+                <Separator />
+                <MenuItem Header="_Recent Files" x:Name="RecentFilesMenu" />
+                <Separator />
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Navigation Panel" Command="{Binding ToggleNavPanelCommand}" InputGesture="Ctrl+B">
+                    <MenuItem.Icon>
+                        <CheckBox x:Name="NavPanelCheck" IsChecked="False" IsHitTestVisible="False" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="_Full Screen" Command="{Binding ToggleFullScreenCommand}" InputGesture="F11" />
+                <MenuItem Header="_Zoom In" Command="{Binding ZoomInCommand}" InputGesture="Ctrl++" />
+                <MenuItem Header="Zoom _Out" Command="{Binding ZoomOutCommand}" InputGesture="Ctrl+-" />
+                <MenuItem Header="_Reset Zoom" Command="{Binding ResetZoomCommand}" InputGesture="Ctrl+0" />
+            </MenuItem>
+            <MenuItem Header="_Theme" x:Name="ThemeMenu">
+                <MenuItem Header="_Light" x:Name="ThemeLightItem" Click="OnThemeSelected" Tag="Light" />
+                <MenuItem Header="_Dark" x:Name="ThemeDarkItem" Click="OnThemeSelected" Tag="Dark" />
+                <MenuItem Header="_VS Code" x:Name="ThemeVSCodeItem" Click="OnThemeSelected" Tag="VSCode" />
+                <MenuItem Header="_GitHub" x:Name="ThemeGitHubItem" Click="OnThemeSelected" Tag="GitHub" />
+            </MenuItem>
+            <MenuItem Header="_Settings">
+                <MenuItem Header="_Preferences..." Command="{Binding OpenSettingsCommand}" />
+            </MenuItem>
+        </Menu>
+
+        <!-- Toolbar -->
+        <Border DockPanel.Dock="Top" Classes="toolbar-panel">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Left toolbar -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                    <Button Classes="toolbar" ToolTip.Tip="Open File (Ctrl+O)" Command="{Binding OpenFileCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="M3 3h18v18H3V3zm16 16V5H5v14h14z" Width="16" Height="16" />
+                            <TextBlock Text="Open" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="toolbar" ToolTip.Tip="Open URL (Ctrl+Shift+O)" Command="{Binding OpenUrlCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" Width="16" Height="16" />
+                            <TextBlock Text="URL" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Border Classes="separator-v" />
+                    <ToggleButton x:Name="NavPanelToggle"
+                                  Classes="theme-toggle"
+                                  ToolTip.Tip="Toggle Navigation (Ctrl+B)"
+                                  IsChecked="False"
+                                  Click="OnNavPanelToggle">
+                        <PathIcon Data="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z" Width="16" Height="16" />
+                    </ToggleButton>
+                </StackPanel>
+
+                <!-- Right toolbar -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                    <ComboBox x:Name="ThemeComboBox"
+                              Width="120"
+                              SelectedIndex="1"
+                              SelectionChanged="OnThemeComboChanged">
+                        <ComboBoxItem Content="Light" Tag="Light" />
+                        <ComboBoxItem Content="Dark" Tag="Dark" />
+                        <ComboBoxItem Content="VS Code" Tag="VSCode" />
+                        <ComboBoxItem Content="GitHub" Tag="GitHub" />
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Status Bar -->
+        <Border DockPanel.Dock="Bottom" Classes="status-panel">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                <TextBlock x:Name="StatusText" Text="Ready" Classes="status-text" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" x:Name="FileInfoText" Classes="status-text" Margin="16,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" x:Name="ZoomText" Text="100%" Classes="status-text" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid>
+            <!-- Drop Overlay -->
+            <Border x:Name="DropOverlay" IsVisible="False" Classes="drop-overlay" ZIndex="100">
+                <Border Classes="drop-card" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Spacing="16" HorizontalAlignment="Center">
+                        <PathIcon Data="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                                  Width="48" Height="48"
+                                  Foreground="{DynamicResource AppAccent}" />
+                        <TextBlock Text="Drop markdown file here"
+                                   FontSize="16"
+                                   Foreground="{DynamicResource AppText}"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Border>
+
+            <!-- Welcome Panel -->
+            <Border x:Name="WelcomePanel" IsVisible="True" Background="{DynamicResource AppBackground}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <TextBlock Text="Markdown Viewer" Classes="welcome-title" HorizontalAlignment="Center" />
+                    <TextBlock Text="Open a file or drag and drop to get started"
+                               Classes="welcome-subtitle"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,16" />
+                    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+                        <Button Content="Open File"
+                                Classes="welcome-btn-primary"
+                                Command="{Binding OpenFileCommand}" />
+                        <Button Content="Open URL"
+                                Classes="welcome-btn"
+                                Command="{Binding OpenUrlCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Content with Nav Panel -->
+            <Grid x:Name="ContentGrid" IsVisible="False" ColumnDefinitions="Auto,*">
+                <!-- Navigation Panel -->
+                <Border x:Name="NavPanel"
+                        Grid.Column="0"
+                        Classes="nav-panel"
+                        Width="260"
+                        IsVisible="False">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Padding="16,12">
+                            <TextBlock Text="Contents"
+                                       FontWeight="SemiBold"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource AppTextSecondary}" />
+                        </Border>
+                        <ScrollViewer>
+                            <ItemsControl x:Name="NavTreeView" Margin="8,0,8,8">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Classes="toolbar"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Left"
+                                                Margin="{Binding IndentMargin, StringFormat='0,2,0,2'}"
+                                                Command="{Binding #NavTreeView.((views:MainWindow)DataContext).NavigateToHeadingCommand}"
+                                                CommandParameter="{Binding}">
+                                            <TextBlock Text="{Binding Text}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       FontSize="13" />
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+
+                <!-- Main Content -->
+                <DockPanel Grid.Column="1">
+                    <!-- Tab Strip -->
+                    <Border DockPanel.Dock="Top" Classes="tab-strip">
+                        <StackPanel Orientation="Horizontal" Spacing="0">
+                            <RadioButton x:Name="PreviewTab"
+                                         Content="Preview"
+                                         GroupName="ViewTabs"
+                                         IsChecked="True"
+                                         Click="OnTabChanged"
+                                         Classes="tab" />
+                            <RadioButton x:Name="RawTab"
+                                         Content="Raw"
+                                         GroupName="ViewTabs"
+                                         Click="OnTabChanged"
+                                         Classes="tab" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Rendered Markdown -->
+                    <ScrollViewer x:Name="RenderedScroller"
+                                  IsVisible="True"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Background="{DynamicResource AppBackground}">
+                        <Border Padding="40,32" MaxWidth="920" HorizontalAlignment="Center">
+                            <md:MarkdownScrollViewer x:Name="MarkdownViewer"
+                                                      Markdown=""
+                                                      SaveScrollValueWhenContentUpdated="True" />
+                        </Border>
+                    </ScrollViewer>
+
+                    <!-- Raw Markdown -->
+                    <ScrollViewer x:Name="RawScroller"
+                                  IsVisible="False"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Background="{DynamicResource AppBackground}">
+                        <Border Padding="24,16">
+                            <SelectableTextBlock x:Name="RawTextBlock"
+                                                 FontFamily="Cascadia Code, JetBrains Mono, Consolas, monospace"
+                                                 FontSize="13"
+                                                 Foreground="{DynamicResource AppText}"
+                                                 TextWrapping="NoWrap" />
+                        </Border>
+                    </ScrollViewer>
+                </DockPanel>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

@@ -1,0 +1,208 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ==================== GLOBAL OVERRIDES ==================== -->
+
+    <Style Selector="Window">
+        <Setter Property="Background" Value="{DynamicResource AppBackground}" />
+    </Style>
+
+    <!-- ==================== TOOLBAR BUTTON ==================== -->
+
+    <Style Selector="Button.toolbar">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondary}" />
+    </Style>
+
+    <Style Selector="Button.toolbar:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    </Style>
+
+    <Style Selector="Button.toolbar:pressed">
+        <Setter Property="Background" Value="{DynamicResource AppBorderSubtle}" />
+    </Style>
+
+    <!-- ==================== TAB BUTTONS ==================== -->
+
+    <Style Selector="RadioButton.tab">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondary}" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="BorderThickness" Value="0,0,0,2" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Center"
+                                      TextBlock.FontWeight="{TemplateBinding FontWeight}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="RadioButton.tab:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceHover}" />
+    </Style>
+
+    <Style Selector="RadioButton.tab:checked">
+        <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccent}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- ==================== THEME TOGGLE ==================== -->
+
+    <Style Selector="ToggleButton.theme-toggle">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondary}" />
+    </Style>
+
+    <Style Selector="ToggleButton.theme-toggle:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    </Style>
+
+    <Style Selector="ToggleButton.theme-toggle:checked">
+        <Setter Property="Background" Value="{DynamicResource AppBorderSubtle}" />
+        <Setter Property="Foreground" Value="{DynamicResource AppAccent}" />
+    </Style>
+
+    <!-- ==================== NAVIGATION TREE ==================== -->
+
+    <Style Selector="TreeViewItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0" />
+    </Style>
+
+    <Style Selector="ListBoxItem.nav-item">
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondary}" />
+    </Style>
+
+    <Style Selector="ListBoxItem.nav-item:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    </Style>
+
+    <Style Selector="ListBoxItem.nav-item:selected">
+        <Setter Property="Background" Value="{DynamicResource AppSelectionBg}" />
+        <Setter Property="Foreground" Value="{DynamicResource AppAccent}" />
+    </Style>
+
+    <!-- ==================== SEPARATOR ==================== -->
+
+    <Style Selector="Border.separator-v">
+        <Setter Property="Width" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource AppBorder}" />
+        <Setter Property="Margin" Value="8,6" />
+    </Style>
+
+    <Style Selector="Border.separator-h">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource AppBorder}" />
+    </Style>
+
+    <!-- ==================== PANELS ==================== -->
+
+    <Style Selector="Border.toolbar-panel">
+        <Setter Property="Background" Value="{DynamicResource AppBackgroundSecondary}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="12,6" />
+    </Style>
+
+    <Style Selector="Border.status-panel">
+        <Setter Property="Background" Value="{DynamicResource AppBackgroundSecondary}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+        <Setter Property="Padding" Value="12,6" />
+    </Style>
+
+    <Style Selector="Border.nav-panel">
+        <Setter Property="Background" Value="{DynamicResource AppBackgroundSecondary}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+        <Setter Property="BorderThickness" Value="0,0,1,0" />
+    </Style>
+
+    <Style Selector="Border.tab-strip">
+        <Setter Property="Background" Value="{DynamicResource AppBackgroundTertiary}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="12,0" />
+    </Style>
+
+    <!-- ==================== DROP OVERLAY ==================== -->
+
+    <Style Selector="Border.drop-overlay">
+        <Setter Property="Background" Value="#80000000" />
+    </Style>
+
+    <Style Selector="Border.drop-card">
+        <Setter Property="Background" Value="{DynamicResource AppSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccent}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="40" />
+    </Style>
+
+    <!-- ==================== WELCOME PANEL ==================== -->
+
+    <Style Selector="TextBlock.welcome-title">
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontWeight" Value="Light" />
+        <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    </Style>
+
+    <Style Selector="TextBlock.welcome-subtitle">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondary}" />
+    </Style>
+
+    <Style Selector="Button.welcome-btn">
+        <Setter Property="Padding" Value="20,10" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+
+    <Style Selector="Button.welcome-btn-primary">
+        <Setter Property="Background" Value="{DynamicResource AppAccent}" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Padding" Value="20,10" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+
+    <Style Selector="Button.welcome-btn-primary:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppAccentHover}" />
+    </Style>
+
+    <!-- ==================== STATUS BAR ==================== -->
+
+    <Style Selector="TextBlock.status-text">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondary}" />
+    </Style>
+
+    <!-- ==================== MENU ==================== -->
+
+    <Style Selector="Menu">
+        <Setter Property="Background" Value="{DynamicResource AppBackgroundSecondary}" />
+    </Style>
+
+</Styles>

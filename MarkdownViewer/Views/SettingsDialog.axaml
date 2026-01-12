@@ -1,0 +1,53 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MarkdownViewer.Views.SettingsDialog"
+        Title="Preferences"
+        Width="400" Height="350"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+
+    <Grid Margin="16" RowDefinitions="*,Auto">
+        <ScrollViewer Grid.Row="0">
+            <StackPanel Spacing="16">
+                <!-- Appearance -->
+                <TextBlock Text="Appearance" FontWeight="SemiBold" FontSize="16" />
+
+                <StackPanel Spacing="8" Margin="0,0,0,8">
+                    <CheckBox x:Name="DarkModeCheckBox" Content="Dark mode" />
+                </StackPanel>
+
+                <!-- Typography -->
+                <TextBlock Text="Typography" FontWeight="SemiBold" FontSize="16" />
+
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" Margin="0,0,0,8">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Font family:" VerticalAlignment="Center" Margin="0,0,16,8" />
+                    <TextBox Grid.Row="0" Grid.Column="1" x:Name="FontFamilyBox" Margin="0,0,0,8" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Font size:" VerticalAlignment="Center" Margin="0,0,16,8" />
+                    <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="FontSizeBox" Minimum="10" Maximum="24" Increment="1" Margin="0,0,0,8" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Code font:" VerticalAlignment="Center" Margin="0,0,16,0" />
+                    <TextBox Grid.Row="2" Grid.Column="1" x:Name="CodeFontBox" />
+                </Grid>
+
+                <!-- Display -->
+                <TextBlock Text="Display" FontWeight="SemiBold" FontSize="16" />
+
+                <StackPanel Spacing="8">
+                    <CheckBox x:Name="WordWrapCheckBox" Content="Word wrap" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8"
+                    Margin="0,16,0,0">
+            <Button Content="Reset Defaults" Click="OnResetDefaults" />
+            <Button Content="Cancel" Click="OnCancel" Width="80" />
+            <Button Content="Save" Click="OnSave" Width="80" Classes="accent" />
+        </StackPanel>
+    </Grid>
+</Window>

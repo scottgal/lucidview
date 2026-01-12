@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(if exist \"E:\\\\source\\\\markdown.viewer\\\\MarkdownViewer\\\\Services\\\\UploadService.cs\" del \"E:\\\\source\\\\markdown.viewer\\\\MarkdownViewer\\\\Services\\\\UploadService.cs\")",
+      "Bash(dotnet restore:*)",
+      "Bash(timeout 5 dotnet run:*)",
+      "Bash(timeout 8 dotnet run:*)"
+    ]
+  }
+}
