@@ -1,6 +1,6 @@
 # ***lucid*VIEW**
  
-An Avalonia Markdown Viewer with code highlighting and Mermaid support using Naiad Time-boxed weekend project. Fork it, fix it, ship it. Public domain.
+An Avalonia Markdown Viewer with code highlighting and Mermaid support using Naiad. A "time-boxed-tool" 8 hour project. Fork it, fix it, ship it. Public domain.
 
 **by [***mostly*lucid**](https://www.mostlylucid.net)**
 
