@@ -1,0 +1,81 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  PROJECT_PATH: 'MarkdownViewer/MarkdownViewer.csproj'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+
+    - name: Build
+      run: dotnet build ${{ env.PROJECT_PATH }} -c Release --no-restore
+
+    - name: Test (if tests exist)
+      run: |
+        if (Test-Path "*.Tests.csproj" -PathType Leaf) {
+          dotnet test --no-build -c Release
+        }
+      shell: pwsh
+      continue-on-error: true
+
+  build-aot-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Publish AOT
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} -c Release -r win-x64 `
+          --self-contained true `
+          -p:PublishAot=true `
+          -p:PublishTrimmed=true `
+          -o publish/win-x64
+      shell: pwsh
+
+    - name: Check binary size
+      run: |
+        $exe = Get-ChildItem "publish/win-x64/MarkdownViewer.exe"
+        $sizeMB = [math]::Round($exe.Length / 1MB, 2)
+        Write-Host "Binary size: $sizeMB MB"
+
+        # Calculate total publish folder size
+        $totalSize = (Get-ChildItem "publish/win-x64" -Recurse | Measure-Object -Property Length -Sum).Sum
+        $totalSizeMB = [math]::Round($totalSize / 1MB, 2)
+        Write-Host "Total publish size: $totalSizeMB MB"
+      shell: pwsh
+
+    - name: Upload AOT artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-x64-aot
+        path: publish/win-x64
+        retention-days: 7

@@ -1,0 +1,214 @@
+name: Build and Publish to Microsoft Store
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      submit_to_store:
+        description: 'Submit to Microsoft Store'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  PROJECT_PATH: 'MarkdownViewer/MarkdownViewer.csproj'
+  PACKAGE_PATH: 'MarkdownViewer/Package.appxmanifest'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        if ("${{ github.ref }}" -match "refs/tags/v(.+)") {
+          $version = $matches[1]
+        } else {
+          $version = "1.0.0"
+        }
+        # Ensure 4-part version for MSIX
+        $parts = $version.Split('.')
+        while ($parts.Count -lt 4) {
+          $parts += "0"
+        }
+        $msixVersion = $parts[0..3] -join '.'
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "MSIX_VERSION=$msixVersion" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+
+    - name: Update version in manifest
+      run: |
+        $manifest = Get-Content "${{ env.PACKAGE_PATH }}" -Raw
+        $manifest = $manifest -replace 'Version="[\d.]+"', 'Version="${{ steps.version.outputs.MSIX_VERSION }}"'
+        Set-Content "${{ env.PACKAGE_PATH }}" $manifest
+      shell: pwsh
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+
+    - name: Build Release
+      run: dotnet build ${{ env.PROJECT_PATH }} -c Release --no-restore
+
+    - name: Publish AOT (Windows x64)
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} -c Release -r win-x64 `
+          --self-contained true `
+          -p:PublishAot=true `
+          -p:PublishTrimmed=true `
+          -o publish/win-x64
+
+    - name: Create MSIX Package
+      run: |
+        # Install Windows SDK if needed for makeappx
+        $sdkPath = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
+
+        # Create package directory structure
+        New-Item -ItemType Directory -Force -Path "package/Assets"
+
+        # Copy published files
+        Copy-Item "publish/win-x64/*" -Destination "package/" -Recurse
+
+        # Copy assets
+        Copy-Item "MarkdownViewer/Assets/*" -Destination "package/Assets/" -ErrorAction SilentlyContinue
+
+        # Copy and update manifest
+        Copy-Item "${{ env.PACKAGE_PATH }}" -Destination "package/AppxManifest.xml"
+
+        # Create MSIX package
+        & "$sdkPath\makeappx.exe" pack /d "package" /p "MarkdownViewer_${{ steps.version.outputs.MSIX_VERSION }}_x64.msix" /nv
+      shell: pwsh
+
+    - name: Sign MSIX Package (if certificate available)
+      if: ${{ secrets.SIGNING_CERTIFICATE != '' }}
+      run: |
+        $certPath = "cert.pfx"
+        [System.Convert]::FromBase64String("${{ secrets.SIGNING_CERTIFICATE }}") | Set-Content $certPath -Encoding Byte
+
+        $sdkPath = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
+        & "$sdkPath\signtool.exe" sign /fd SHA256 /f $certPath /p "${{ secrets.SIGNING_PASSWORD }}" "MarkdownViewer_${{ steps.version.outputs.MSIX_VERSION }}_x64.msix"
+
+        Remove-Item $certPath
+      shell: pwsh
+
+    - name: Upload MSIX artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: msix-package
+        path: "*.msix"
+        retention-days: 30
+
+    - name: Upload to Microsoft Store
+      if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || github.event.inputs.submit_to_store == 'true' }}
+      env:
+        STORE_TENANT_ID: ${{ secrets.STORE_TENANT_ID }}
+        STORE_CLIENT_ID: ${{ secrets.STORE_CLIENT_ID }}
+        STORE_CLIENT_SECRET: ${{ secrets.STORE_CLIENT_SECRET }}
+        STORE_APP_ID: ${{ secrets.STORE_APP_ID }}
+      run: |
+        # Install StoreBroker module
+        Install-Module -Name StoreBroker -Force -Scope CurrentUser
+        Import-Module StoreBroker
+
+        # Authenticate with Partner Center
+        $cred = New-Object System.Management.Automation.PSCredential($env:STORE_CLIENT_ID, (ConvertTo-SecureString $env:STORE_CLIENT_SECRET -AsPlainText -Force))
+        Set-StoreBrokerAuthentication -TenantId $env:STORE_TENANT_ID -ClientId $env:STORE_CLIENT_ID -ClientSecret $env:STORE_CLIENT_SECRET
+
+        # Create new submission
+        $appSubmission = New-ApplicationSubmission -AppId $env:STORE_APP_ID -Force
+
+        # Get submission ID
+        $submissionId = $appSubmission.id
+
+        # Upload MSIX package
+        $msixPath = Get-ChildItem "*.msix" | Select-Object -First 1
+        Set-ApplicationSubmissionPackage -AppId $env:STORE_APP_ID -SubmissionId $submissionId -PackagePath $msixPath.FullName
+
+        # Commit submission
+        Complete-ApplicationSubmission -AppId $env:STORE_APP_ID -SubmissionId $submissionId
+
+        Write-Host "Submission $submissionId created and uploaded successfully!"
+      shell: pwsh
+
+  # Build for other platforms (artifacts only, not for Store)
+  build-cross-platform:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            rid: osx-x64
+            name: macOS-x64
+          - os: macos-latest
+            rid: osx-arm64
+            name: macOS-ARM64
+          - os: ubuntu-latest
+            rid: linux-x64
+            name: Linux-x64
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        if [[ "${{ github.ref }}" =~ refs/tags/v(.+) ]]; then
+          echo "VERSION=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=1.0.0" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+
+    - name: Publish
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} -c Release -r ${{ matrix.rid }} \
+          --self-contained true \
+          -o publish/${{ matrix.rid }}
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.name }}
+        path: publish/${{ matrix.rid }}
+        retention-days: 30
+
+  release:
+    needs: [build, build-cross-platform]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/**/*
+        draft: false
+        prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
