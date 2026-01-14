@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <linker>
-  <!-- Preserve ALL Avalonia assemblies -->
-  <assembly fullname="Avalonia.Base" preserve="all" />
-  <assembly fullname="Avalonia.Controls" preserve="all" />
-  <assembly fullname="Avalonia.Desktop" preserve="all" />
-  <assembly fullname="Avalonia.Markup.Xaml" preserve="all" />
-  <assembly fullname="Avalonia.Themes.Fluent" preserve="all" />
+    <!-- Preserve ALL Avalonia assemblies -->
+    <assembly fullname="Avalonia.Base" preserve="all"/>
+    <assembly fullname="Avalonia.Controls" preserve="all"/>
+    <assembly fullname="Avalonia.Desktop" preserve="all"/>
+    <assembly fullname="Avalonia.Markup.Xaml" preserve="all"/>
+    <assembly fullname="Avalonia.Themes.Fluent" preserve="all"/>
 
-  <!-- Preserve Markdown.Avalonia packages -->
-  <assembly fullname="OneWare.Markdown.Avalonia.Tight" preserve="all" />
-  <assembly fullname="ColorTextBlock.Avalonia" preserve="all" />
+    <!-- Preserve Markdown.Avalonia packages -->
+    <assembly fullname="OneWare.Markdown.Avalonia.Tight" preserve="all"/>
+    <assembly fullname="ColorTextBlock.Avalonia" preserve="all"/>
 
-  <!-- Preserve our app assembly -->
-  <assembly fullname="lucidVIEW">
-    <type fullname="MarkdownViewer.*" preserve="all" />
-  </assembly>
+    <!-- Preserve our app assembly -->
+    <assembly fullname="lucidVIEW">
+        <type fullname="MarkdownViewer.*" preserve="all"/>
+    </assembly>
 </linker>

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Avalonia;
 
 namespace MarkdownViewer.Services;
 
@@ -9,7 +10,7 @@ public partial class NavigationService
         var headings = new List<HeadingItem>();
         var lines = markdown.Split('\n');
 
-        for (int i = 0; i < lines.Length; i++)
+        for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i].TrimEnd();
 
@@ -24,7 +25,6 @@ public partial class NavigationService
                 text = CleanHeadingText(text);
 
                 if (!string.IsNullOrWhiteSpace(text))
-                {
                     headings.Add(new HeadingItem
                     {
                         Level = level,
@@ -32,7 +32,6 @@ public partial class NavigationService
                         Line = i,
                         Slug = GenerateSlug(text)
                     });
-                }
             }
         }
 
@@ -66,19 +65,12 @@ public partial class NavigationService
 
         foreach (var heading in flat)
         {
-            while (stack.Count > 0 && stack.Peek().Level >= heading.Level)
-            {
-                stack.Pop();
-            }
+            while (stack.Count > 0 && stack.Peek().Level >= heading.Level) stack.Pop();
 
             if (stack.Count == 0)
-            {
                 root.Add(heading);
-            }
             else
-            {
                 stack.Peek().Children.Add(heading);
-            }
 
             stack.Push(heading);
         }
@@ -117,5 +109,5 @@ public class HeadingItem
     public List<HeadingItem> Children { get; set; } = [];
 
     public string DisplayText => new string(' ', (Level - 1) * 2) + Text;
-    public Avalonia.Thickness ItemPadding => new((Level - 1) * 16, 6, 8, 6);
+    public Thickness ItemPadding => new((Level - 1) * 16, 6, 8, 6);
 }

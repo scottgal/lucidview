@@ -3,9 +3,9 @@ namespace MarkdownViewer.Services;
 public class PaginationService
 {
     // Standard page dimensions at 96 DPI
-    public const double PageWidthA4 = 794;  // 210mm at 96 DPI
+    public const double PageWidthA4 = 794; // 210mm at 96 DPI
     public const double PageHeightA4 = 1123; // 297mm at 96 DPI
-    public const double PageWidthLetter = 816;  // 8.5" at 96 DPI
+    public const double PageWidthLetter = 816; // 8.5" at 96 DPI
     public const double PageHeightLetter = 1056; // 11" at 96 DPI
 
     // Default margins

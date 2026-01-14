@@ -1,65 +1,65 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
 
-    <!-- Using OneWare.Markdown.Avalonia fork which is compatible with Avalonia 11.3+ -->
-    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+        <!-- Using OneWare.Markdown.Avalonia fork which is compatible with Avalonia 11.3+ -->
+        <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
 
-    <!-- Single file deployment - truly single exe -->
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+        <!-- Single file deployment - truly single exe -->
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>true</SelfContained>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
 
-    <!-- No trimming - Markdown.Avalonia uses custom IBinding -->
-    <PublishTrimmed>false</PublishTrimmed>
+        <!-- No trimming - Markdown.Avalonia uses custom IBinding -->
+        <PublishTrimmed>false</PublishTrimmed>
 
-    <!-- No debug symbols in release -->
-    <DebugType>none</DebugType>
-    <DebugSymbols>false</DebugSymbols>
+        <!-- No debug symbols in release -->
+        <DebugType>none</DebugType>
+        <DebugSymbols>false</DebugSymbols>
 
-    <!-- App Info -->
-    <AssemblyName>lucidVIEW</AssemblyName>
-    <RootNamespace>MarkdownViewer</RootNamespace>
-    <Version>1.0.0</Version>
-    <Product>lucidVIEW</Product>
-    <Description>A modern, lightweight cross-platform markdown viewer</Description>
-    <Copyright>Copyright 2026</Copyright>
-    <ApplicationIcon>favicon.ico</ApplicationIcon>
-  </PropertyGroup>
+        <!-- App Info -->
+        <AssemblyName>lucidVIEW</AssemblyName>
+        <RootNamespace>MarkdownViewer</RootNamespace>
+        <Version>1.0.0</Version>
+        <Product>lucidVIEW</Product>
+        <Description>A modern, lightweight cross-platform markdown viewer</Description>
+        <Copyright>Copyright 2026</Copyright>
+        <ApplicationIcon>favicon.ico</ApplicationIcon>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <!-- Avalonia Core -->
-    <PackageReference Include="Avalonia" Version="11.3.10" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.10" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.10" />
-    <PackageReference Include="LiveMarkdown.Avalonia" Version="1.7.0" />
+    <ItemGroup>
+        <!-- Avalonia Core -->
+        <PackageReference Include="Avalonia" Version="11.3.10"/>
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.10"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.10"/>
+        <PackageReference Include="LiveMarkdown.Avalonia" Version="1.7.0"/>
 
-    <!-- Markdown Rendering with Syntax Highlighting (YouYan fork for Avalonia 11.2+ compatibility) -->
-    <PackageReference Include="Naiad" Version="0.1.1" />
-    <PackageReference Include="SkiaSharp" Version="3.119.1" />
+        <!-- Markdown Rendering with Syntax Highlighting (YouYan fork for Avalonia 11.2+ compatibility) -->
+        <PackageReference Include="Naiad" Version="0.1.1"/>
+        <PackageReference Include="SkiaSharp" Version="3.119.1"/>
 
-    <!-- SVG Support -->
-    <PackageReference Include="Svg.Skia" Version="3.4.1" />
+        <!-- SVG Support -->
+        <PackageReference Include="Svg.Skia" Version="3.4.1"/>
 
-    <!-- Diagnostics (debug only) -->
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.10" Condition="'$(Configuration)' == 'Debug'" />
-    <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.0" />
-  </ItemGroup>
+        <!-- Diagnostics (debug only) -->
+        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.10" Condition="'$(Configuration)' == 'Debug'"/>
+        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.0"/>
+    </ItemGroup>
 
-  <!-- Include README.md in output for Help menu -->
-  <ItemGroup>
-    <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+    <!-- Include README.md in output for Help menu -->
+    <ItemGroup>
+        <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
 
-  <!-- Embedded SVG assets -->
-  <ItemGroup>
-    <AvaloniaResource Include="Assets\*.svg" />
-  </ItemGroup>
+    <!-- Embedded SVG assets -->
+    <ItemGroup>
+        <AvaloniaResource Include="Assets\*.svg"/>
+    </ItemGroup>
 
 </Project>

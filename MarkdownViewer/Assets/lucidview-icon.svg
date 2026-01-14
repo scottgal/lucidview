@@ -1,19 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <!-- Dark background -->
-  <rect width="256" height="256" rx="32" fill="#1a1a2e"/>
+    <!-- Dark background -->
+    <rect width="256" height="256" rx="32" fill="#1a1a2e"/>
 
-  <!-- "l" - lucid part (gray, italic) -->
-  <text x="60" y="180"
-        font-family="Raleway, Segoe UI, sans-serif"
-        font-size="140"
-        font-weight="600"
-        font-style="italic"
-        fill="#DDDDDD">l</text>
+    <!-- "l" - lucid part (gray, italic) -->
+    <text x="60" y="180"
+          font-family="Raleway, Segoe UI, sans-serif"
+          font-size="140"
+          font-weight="600"
+          font-style="italic"
+          fill="#DDDDDD">l
+    </text>
 
-  <!-- "V" - VIEW part (white, bold) -->
-  <text x="110" y="180"
-        font-family="Raleway, Segoe UI, sans-serif"
-        font-size="140"
-        font-weight="700"
-        fill="#FFFFFF">V</text>
+    <!-- "V" - VIEW part (white, bold) -->
+    <text x="110" y="180"
+          font-family="Raleway, Segoe UI, sans-serif"
+          font-size="140"
+          font-weight="700"
+          fill="#FFFFFF">V
+    </text>
 </svg>

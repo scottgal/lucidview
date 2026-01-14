@@ -1,7 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:md="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
-        xmlns:views="clr-namespace:MarkdownViewer.Views"
         xmlns:services="clr-namespace:MarkdownViewer.Services"
         xmlns:models="clr-namespace:MarkdownViewer.Models"
         x:Class="MarkdownViewer.Views.MainWindow"
@@ -35,9 +34,10 @@
                             Classes="header-btn"
                             Click="OnToggleSidePanel"
                             ToolTip.Tip="Menu (Ctrl+B)">
-                        <PathIcon Data="M2,4 L22,4 L22,6 L2,6 Z M2,11 L22,11 L22,13 L2,13 Z M2,18 L22,18 L22,20 L2,20 Z"
-                                  Width="18" Height="18"
-                                  Foreground="{DynamicResource AppText}" />
+                        <PathIcon
+                            Data="M2,4 L22,4 L22,6 L2,6 Z M2,11 L22,11 L22,13 L2,13 Z M2,18 L22,18 L22,20 L2,20 Z"
+                            Width="18" Height="18"
+                            Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- TOC Button -->
@@ -46,9 +46,10 @@
                             Classes="header-btn"
                             Click="OnToggleToc"
                             ToolTip.Tip="Table of Contents">
-                        <PathIcon Data="M3,4 L10,4 L10,6 L3,6 Z M3,9 L21,9 L21,11 L3,11 Z M3,14 L14,14 L14,16 L3,16 Z M3,19 L21,19 L21,21 L3,21 Z"
-                                  Width="18" Height="18"
-                                  Foreground="{DynamicResource AppText}" />
+                        <PathIcon
+                            Data="M3,4 L10,4 L10,6 L3,6 Z M3,9 L21,9 L21,11 L3,11 Z M3,14 L14,14 L14,16 L3,16 Z M3,19 L21,19 L21,21 L3,21 Z"
+                            Width="18" Height="18"
+                            Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- Center: Zoom Controls -->
@@ -91,7 +92,8 @@
                                    Foreground="{DynamicResource AppTextSecondary}"
                                    FontSize="12" />
                         <Button Classes="header-btn" Click="OnResetZoom" ToolTip.Tip="Reset zoom (1:1)">
-                            <TextBlock Text="1:1" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppText}" />
+                            <TextBlock Text="1:1" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AppText}" />
                         </Button>
                     </StackPanel>
 
@@ -127,14 +129,16 @@
                                 Click="OnFontSizeDecrease"
                                 IsEnabled="False"
                                 ToolTip.Tip="Decrease font size (Ctrl+-)">
-                            <TextBlock Text="A" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource AppText}" />
+                            <TextBlock Text="A" FontSize="13" FontWeight="Medium"
+                                       Foreground="{DynamicResource AppText}" />
                         </Button>
                         <Button x:Name="FontIncreaseBtn"
                                 Classes="header-btn font-btn-large"
                                 Click="OnFontSizeIncrease"
                                 IsEnabled="False"
                                 ToolTip.Tip="Increase font size (Ctrl++)">
-                            <TextBlock Text="A" FontSize="18" FontWeight="Medium" Foreground="{DynamicResource AppText}" />
+                            <TextBlock Text="A" FontSize="18" FontWeight="Medium"
+                                       Foreground="{DynamicResource AppText}" />
                         </Button>
                     </StackPanel>
                 </Grid>
@@ -143,11 +147,16 @@
             <!-- Status Bar -->
             <Border DockPanel.Dock="Bottom" Classes="status-panel">
                 <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-                    <TextBlock x:Name="StatusText" Text="Ready" Classes="status-text" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="1" x:Name="FileDateText" Classes="status-text" Margin="16,0" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="2" x:Name="WordCountText" Classes="status-text" Margin="16,0" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="3" x:Name="FileInfoText" Classes="status-text" Margin="16,0" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="4" x:Name="FontSizeText" Text="16px" Classes="status-text" VerticalAlignment="Center" Margin="16,0,0,0" />
+                    <TextBlock x:Name="StatusText" Text="Ready" Classes="status-text" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" x:Name="FileDateText" Classes="status-text" Margin="16,0"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" x:Name="WordCountText" Classes="status-text" Margin="16,0"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" x:Name="FileInfoText" Classes="status-text" Margin="16,0"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="4" x:Name="FontSizeText" Text="16px" Classes="status-text"
+                               VerticalAlignment="Center" Margin="16,0,0,0" />
                 </Grid>
             </Border>
 
@@ -187,9 +196,11 @@
                                        Foreground="{DynamicResource BrandVIEW}" />
                         </StackPanel>
                         <!-- mostlylucid Logo (styled as text) -->
-                        <Button Classes="link-btn" Click="OnMostlyLucidClick" Cursor="Hand" HorizontalAlignment="Center">
+                        <Button Classes="link-btn" Click="OnMostlyLucidClick" Cursor="Hand"
+                                HorizontalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="by " FontSize="14" Foreground="{DynamicResource AppTextSecondary}" VerticalAlignment="Center" />
+                                <TextBlock Text="by " FontSize="14" Foreground="{DynamicResource AppTextSecondary}"
+                                           VerticalAlignment="Center" />
                                 <TextBlock Text="mostly"
                                            FontSize="16"
                                            FontWeight="SemiBold"
@@ -245,7 +256,8 @@
                                                 Classes="header-btn"
                                                 Click="OnCloseToc"
                                                 ToolTip.Tip="Close TOC">
-                                            <PathIcon Data="M18 6L6 18M6 6l12 12" Width="14" Height="14" Foreground="{DynamicResource AppText}" />
+                                            <PathIcon Data="M18 6L6 18M6 6l12 12" Width="14" Height="14"
+                                                      Foreground="{DynamicResource AppText}" />
                                         </Button>
                                     </Grid>
                                 </Border>
@@ -329,7 +341,8 @@
 
                                 <!-- Publication date -->
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock x:Name="MetadataDateLabel" Text="Published:" Classes="metadata-label" IsVisible="False" />
+                                    <TextBlock x:Name="MetadataDateLabel" Text="Published:" Classes="metadata-label"
+                                               IsVisible="False" />
                                     <TextBlock x:Name="MetadataDateText" Classes="metadata-date" />
                                 </StackPanel>
                             </Grid>
@@ -338,9 +351,11 @@
                         <!-- Content Views - stacked, only one visible at a time -->
                         <Grid>
                             <!-- Rendered Markdown - DockPanel for fixed gutters at edges -->
-                            <DockPanel x:Name="RenderedPanel" IsVisible="True" Background="{DynamicResource AppBackground}">
+                            <DockPanel x:Name="RenderedPanel" IsVisible="True"
+                                       Background="{DynamicResource AppBackground}">
                                 <!-- Left gutter (docked to left edge of window) -->
-                                <Border DockPanel.Dock="Left" Width="18" Background="{DynamicResource AppBackgroundSecondary}" />
+                                <Border DockPanel.Dock="Left" Width="18"
+                                        Background="{DynamicResource AppBackgroundSecondary}" />
 
                                 <!-- ScrollViewer fills remaining space, its scrollbar naturally at right edge -->
                                 <ScrollViewer x:Name="RenderedScroller"
@@ -352,12 +367,15 @@
                                             <md:MarkdownRenderer x:Name="MdViewer">
                                                 <md:MarkdownRenderer.ContextMenu>
                                                     <ContextMenu>
-                                                        <MenuItem Header="Copy" Click="OnCopyText" InputGesture="Ctrl+C">
+                                                        <MenuItem Header="Copy" Click="OnCopyText"
+                                                                  InputGesture="Ctrl+C">
                                                             <MenuItem.Icon>
-                                                                <PathIcon Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                                                                <PathIcon
+                                                                    Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
-                                                        <MenuItem Header="Select All" Click="OnSelectAll" InputGesture="Ctrl+A" />
+                                                        <MenuItem Header="Select All" Click="OnSelectAll"
+                                                                  InputGesture="Ctrl+A" />
                                                         <Separator />
                                                         <MenuItem Header="Copy as HTML" Click="OnCopyAsHtml" />
                                                     </ContextMenu>
@@ -415,9 +433,9 @@
                             <PathIcon Data="M19 12H5M12 19l-7-7 7-7" Width="18" Height="18" />
                         </Button>
                         <StackPanel Grid.Column="1"
-                                   Orientation="Horizontal"
-                                   VerticalAlignment="Center"
-                                   Margin="8,0,0,0">
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    Margin="8,0,0,0">
                             <TextBlock Text="lucid"
                                        FontSize="16"
                                        FontWeight="SemiBold"
@@ -448,8 +466,9 @@
                         <!-- Open URL -->
                         <Button Classes="panel-item" Click="OnOpenUrl">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-                                          Width="20" Height="20" />
+                                <PathIcon
+                                    Data="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                                    Width="20" Height="20" />
                                 <TextBlock Text="Open URL..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -483,13 +502,15 @@
                         <Expander Classes="panel-expander" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <PathIcon Data="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"
-                                              Width="20" Height="20" />
+                                    <PathIcon
+                                        Data="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"
+                                        Width="20" Height="20" />
                                     <TextBlock Text="Theme" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
                             <UniformGrid Columns="2" Margin="0" HorizontalAlignment="Stretch">
-                                <Button x:Name="ThemeLightCard" Classes="theme-card" Tag="Light" Click="OnThemeCardClick">
+                                <Button x:Name="ThemeLightCard" Classes="theme-card" Tag="Light"
+                                        Click="OnThemeCardClick">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview theme-preview-light">
                                             <TextBlock Text="A" FontSize="24" FontWeight="Medium"
@@ -509,7 +530,8 @@
                                         <TextBlock Text="Dark" HorizontalAlignment="Center" FontSize="12" />
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="ThemeVSCodeCard" Classes="theme-card" Tag="VSCode" Click="OnThemeCardClick">
+                                <Button x:Name="ThemeVSCodeCard" Classes="theme-card" Tag="VSCode"
+                                        Click="OnThemeCardClick">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview theme-preview-vscode">
                                             <TextBlock Text="A" FontSize="24" FontWeight="Medium"
@@ -519,7 +541,8 @@
                                         <TextBlock Text="VS Code" HorizontalAlignment="Center" FontSize="12" />
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="ThemeGitHubCard" Classes="theme-card" Tag="GitHub" Click="OnThemeCardClick">
+                                <Button x:Name="ThemeGitHubCard" Classes="theme-card" Tag="GitHub"
+                                        Click="OnThemeCardClick">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview theme-preview-github">
                                             <TextBlock Text="A" FontSize="24" FontWeight="Medium"
@@ -563,8 +586,9 @@
                         <!-- Print -->
                         <Button Classes="panel-item" Click="OnPrint">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="M6 9V2h12v7 M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M6 14h12v8H6z"
-                                          Width="20" Height="20" />
+                                <PathIcon
+                                    Data="M6 9V2h12v7 M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M6 14h12v8H6z"
+                                    Width="20" Height="20" />
                                 <TextBlock Text="Print..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -583,8 +607,9 @@
                         <!-- Settings -->
                         <Button Classes="panel-item" Click="OnOpenSettings">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-                                          Width="20" Height="20" />
+                                <PathIcon
+                                    Data="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                                    Width="20" Height="20" />
                                 <TextBlock Text="Settings" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -592,8 +617,9 @@
                         <!-- Help -->
                         <Button Classes="panel-item" Click="OnOpenHelp">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01"
-                                          Width="20" Height="20" />
+                                <PathIcon
+                                    Data="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01"
+                                    Width="20" Height="20" />
                                 <TextBlock Text="Help (F1)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>

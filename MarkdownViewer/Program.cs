@@ -3,7 +3,7 @@ using Avalonia.Data.Core.Plugins;
 
 namespace MarkdownViewer;
 
-class Program
+internal class Program
 {
     [STAThread]
     public static void Main(string[] args)

@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace MarkdownViewer.Services;
 
-public partial class SearchService
+public class SearchService
 {
     public List<SearchResult> Search(string content, string query, bool caseSensitive = false, bool wholeWord = false)
     {
@@ -16,13 +16,12 @@ public partial class SearchService
         var options = caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase;
         var regex = new Regex(pattern, options);
 
-        for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++)
+        for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
         {
             var line = lines[lineIndex];
             var matches = regex.Matches(line);
 
             foreach (Match match in matches)
-            {
                 results.Add(new SearchResult
                 {
                     Line = lineIndex,
@@ -31,7 +30,6 @@ public partial class SearchService
                     Context = GetContext(line, match.Index, 40),
                     MatchText = match.Value
                 });
-            }
         }
 
         return results;

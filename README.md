@@ -1,6 +1,7 @@
 # ***lucid*VIEW**
- 
-An Avalonia Markdown Viewer with code highlighting and Mermaid support using Naiad Time-boxed weekend project. Fork it, fix it, ship it. Public domain.
+
+An Avalonia Markdown Viewer with code highlighting and Mermaid support using Naiad Time-boxed weekend project. Fork it,
+fix it, ship it. Public domain.
 
 **by [***mostly*lucid**](https://www.mostlylucid.net)**
 
@@ -13,6 +14,7 @@ An Avalonia Markdown Viewer with code highlighting and Mermaid support using Nai
 ## Why?
 
 Every markdown viewer either:
+
 - Wraps a Chromium browser (100MB+ bloat)
 - Looks like it's from 2005
 - Doesn't support mermaid diagrams
@@ -27,11 +29,14 @@ This one doesn't. Single exe. Cross-platform. Fast.
 ## Features
 
 **Rendering**
-- Real-time markdown with [LiveMarkdown.Avalonia](https://github.com/DearVa/LiveMarkdown.Avalonia) - syntax highlighting built-in
+
+- Real-time markdown with [LiveMarkdown.Avalonia](https://github.com/DearVa/LiveMarkdown.Avalonia) - syntax highlighting
+  built-in
 - Mermaid diagrams via [Naiad](https://github.com/SimonCropp/Naiad)
 - Local & remote images that actually work
 
 **UI**
+
 - 4 themes: Light, Dark, VS Code, GitHub
 - TOC navigation panel
 - Search (Ctrl+F)
@@ -39,6 +44,7 @@ This one doesn't. Single exe. Cross-platform. Fast.
 - Preview/Raw toggle
 
 **Deployment**
+
 - Single file executable
 - No dependencies
 - ~50MB
@@ -49,12 +55,12 @@ This one doesn't. Single exe. Cross-platform. Fast.
 
 Grab from [Releases](../../releases):
 
-| Platform | Download |
-|----------|----------|
-| Windows | `lucidVIEW-win-x64.zip` |
-| macOS Intel | `lucidVIEW-osx-x64.zip` |
-| macOS ARM | `lucidVIEW-osx-arm64.zip` |
-| Linux | `lucidVIEW-linux-x64.zip` |
+| Platform    | Download                  |
+|-------------|---------------------------|
+| Windows     | `lucidVIEW-win-x64.zip`   |
+| macOS Intel | `lucidVIEW-osx-x64.zip`   |
+| macOS ARM   | `lucidVIEW-osx-arm64.zip` |
+| Linux       | `lucidVIEW-linux-x64.zip` |
 
 Extract. Run. Done.
 
@@ -70,15 +76,15 @@ Or drag & drop. Or Ctrl+O. Or paste a URL (Ctrl+Shift+O).
 
 ### Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `Ctrl+O` | Open file |
-| `Ctrl+Shift+O` | Open URL |
-| `Ctrl+F` | Search |
-| `Ctrl+B` | Menu panel |
-| `Ctrl++/-` | Zoom |
-| `F11` | Fullscreen |
-| `F1` | Help |
+| Key            | Action     |
+|----------------|------------|
+| `Ctrl+O`       | Open file  |
+| `Ctrl+Shift+O` | Open URL   |
+| `Ctrl+F`       | Search     |
+| `Ctrl+B`       | Menu panel |
+| `Ctrl++/-`     | Zoom       |
+| `F11`          | Fullscreen |
+| `F1`           | Help       |
 
 ---
 
@@ -91,6 +97,7 @@ dotnet run --project MarkdownViewer/MarkdownViewer.csproj
 ```
 
 Publish:
+
 ```bash
 dotnet publish MarkdownViewer/MarkdownViewer.csproj -c Release -r win-x64
 ```
@@ -99,13 +106,13 @@ dotnet publish MarkdownViewer/MarkdownViewer.csproj -c Release -r win-x64
 
 ## Stack
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| [Avalonia](https://avaloniaui.net/) | 11.3.10 | Cross-platform UI |
-| [LiveMarkdown.Avalonia](https://github.com/DearVa/LiveMarkdown.Avalonia) | 1.7.0 | Markdown rendering + syntax highlighting |
-| [Naiad](https://github.com/SimonCropp/Naiad) | 0.1.1 | Mermaid diagrams |
-| [SkiaSharp](https://github.com/mono/SkiaSharp) | 3.119.1 | Graphics |
-| [Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia) | 3.4.1 | SVG support |
+| Package                                                                  | Version | Purpose                                  |
+|--------------------------------------------------------------------------|---------|------------------------------------------|
+| [Avalonia](https://avaloniaui.net/)                                      | 11.3.10 | Cross-platform UI                        |
+| [LiveMarkdown.Avalonia](https://github.com/DearVa/LiveMarkdown.Avalonia) | 1.7.0   | Markdown rendering + syntax highlighting |
+| [Naiad](https://github.com/SimonCropp/Naiad)                             | 0.1.1   | Mermaid diagrams                         |
+| [SkiaSharp](https://github.com/mono/SkiaSharp)                           | 3.119.1 | Graphics                                 |
+| [Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia)                    | 3.4.1   | SVG support                              |
 
 ---
 

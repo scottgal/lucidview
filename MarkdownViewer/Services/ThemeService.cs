@@ -55,9 +55,6 @@ public class ThemeService
 
     private static void SetColor(IResourceDictionary resources, string key, string hex)
     {
-        if (Color.TryParse(hex, out var color))
-        {
-            resources[key] = new SolidColorBrush(color);
-        }
+        if (Color.TryParse(hex, out var color)) resources[key] = new SolidColorBrush(color);
     }
 }

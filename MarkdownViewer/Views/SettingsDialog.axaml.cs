@@ -46,12 +46,8 @@ public partial class SettingsDialog : Window
     {
         // Theme
         if (ThemeComboBox.SelectedItem is ComboBoxItem item && item.Tag is string themeName)
-        {
             if (Enum.TryParse<AppTheme>(themeName, out var theme))
-            {
                 _settings.Theme = theme;
-            }
-        }
 
         // Typography
         _settings.FontFamily = FontFamilyBox.Text ?? "Inter, Segoe UI, -apple-system, sans-serif";

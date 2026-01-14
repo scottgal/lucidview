@@ -46,6 +46,7 @@ public class AppSettings
         catch
         {
         }
+
         return new AppSettings();
     }
 
@@ -54,10 +55,7 @@ public class AppSettings
         try
         {
             var directory = Path.GetDirectoryName(SettingsPath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory)) Directory.CreateDirectory(directory);
 
             var json = JsonSerializer.Serialize(this, AppSettingsContext.Default.AppSettings);
             File.WriteAllText(SettingsPath, json);
@@ -77,10 +75,7 @@ public class AppSettings
             LastOpened = DateTime.UtcNow
         });
 
-        if (RecentFiles.Count > 20)
-        {
-            RecentFiles = RecentFiles.Take(20).ToList();
-        }
+        if (RecentFiles.Count > 20) RecentFiles = RecentFiles.Take(20).ToList();
 
         Save();
     }

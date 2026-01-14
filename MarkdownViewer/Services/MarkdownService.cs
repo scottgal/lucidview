@@ -1,3 +1,4 @@
+using System.Security;
 using System.Text.RegularExpressions;
 using MarkdownViewer.Models;
 using MermaidSharp;
@@ -10,16 +11,17 @@ public partial class MarkdownService
 {
     private string? _basePath;
     private string? _baseUrl;
-    private readonly string _tempDir;
     private bool _isDarkMode = true;
+
+    private int _mermaidCounter;
 
     public MarkdownService()
     {
-        _tempDir = Path.Combine(Path.GetTempPath(), "lucidview-mermaid");
-        Directory.CreateDirectory(_tempDir);
+        TempDirectory = Path.Combine(Path.GetTempPath(), "lucidview-mermaid");
+        Directory.CreateDirectory(TempDirectory);
     }
 
-    public string TempDirectory => _tempDir;
+    public string TempDirectory { get; }
 
     public void SetDarkMode(bool isDark)
     {
@@ -39,7 +41,7 @@ public partial class MarkdownService
     }
 
     /// <summary>
-    /// Extract metadata from markdown content (categories, publication date)
+    ///     Extract metadata from markdown content (categories, publication date)
     /// </summary>
     public DocumentMetadata ExtractMetadata(string content)
     {
@@ -58,9 +60,7 @@ public partial class MarkdownService
         // Extract publication date: <datetime class="hidden">2026-01-14T12:00</datetime>
         var dateMatch = DatetimeRegex().Match(content);
         if (dateMatch.Success && DateTime.TryParse(dateMatch.Groups[1].Value, out var pubDate))
-        {
             metadata.PublicationDate = pubDate;
-        }
 
         return metadata;
     }
@@ -96,15 +96,10 @@ public partial class MarkdownService
             // Already absolute URL - leave as-is
             if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                 path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
                 return match.Value;
-            }
 
             // Already absolute file path - leave as-is
-            if (Path.IsPathRooted(path))
-            {
-                return match.Value;
-            }
+            if (Path.IsPathRooted(path)) return match.Value;
 
             // Resolve relative path
             string resolvedPath;
@@ -130,8 +125,6 @@ public partial class MarkdownService
             return $"![{alt}]({resolvedPath})";
         });
     }
-
-    private int _mermaidCounter;
 
     private string ProcessMermaidBlocks(string content)
     {
@@ -192,7 +185,7 @@ public partial class MarkdownService
 
                 // Render SVG to PNG using SkiaSharp (handles text better than Svg.Skia control)
                 var filename = $"diagram_{_mermaidCounter++}.png";
-                var pngPath = Path.Combine(_tempDir, filename);
+                var pngPath = Path.Combine(TempDirectory, filename);
 
                 using var svg = new SKSvg();
                 svg.FromSvg(svgContent);
@@ -231,16 +224,16 @@ public partial class MarkdownService
 
                 // On error, show syntax-highlighted mermaid code with warning
                 replacement = $"""
-                    > ⚠️ **{errorHeader}**
-                    >
-                    > {ex.Message}
-                    >
-                    > *Note: Complex features like `<br/>` in labels or nested subgraphs may not be supported.*
+                               > ⚠️ **{errorHeader}**
+                               >
+                               > {ex.Message}
+                               >
+                               > *Note: Complex features like `<br/>` in labels or nested subgraphs may not be supported.*
 
-                    ```mermaid
-                    {mermaidCode}
-                    ```
-                    """;
+                               ```mermaid
+                               {mermaidCode}
+                               ```
+                               """;
             }
 
             content = content.Replace(match.Value, replacement);
@@ -291,8 +284,8 @@ public partial class MarkdownService
     private static partial Regex DatetimeRegex();
 
     /// <summary>
-    /// Convert foreignObject elements to SVG text elements for Avalonia compatibility
-    /// Also convert filled shapes to stroked outlines for dark mode
+    ///     Convert foreignObject elements to SVG text elements for Avalonia compatibility
+    ///     Also convert filled shapes to stroked outlines for dark mode
     /// </summary>
     private string ConvertForeignObjectToText(string svgContent)
     {
@@ -322,7 +315,8 @@ public partial class MarkdownService
 
             // Return SVG text element with theme-appropriate fill color
             var textColor = _isDarkMode ? "#e6edf3" : "#333333";
-            return $@"<text x=""{centerX}"" y=""{centerY}"" text-anchor=""middle"" dy=""0.35em"" fill=""{textColor}"" font-size=""14"">{System.Security.SecurityElement.Escape(textContent)}</text>";
+            return
+                $@"<text x=""{centerX}"" y=""{centerY}"" text-anchor=""middle"" dy=""0.35em"" fill=""{textColor}"" font-size=""14"">{SecurityElement.Escape(textContent)}</text>";
         });
 
         // Convert filled shapes to stroked outlines for dark mode compatibility
@@ -349,6 +343,8 @@ public partial class MarkdownService
         return "";
     }
 
-    [GeneratedRegex(@"<foreignObject\s+x=""(?<x>[^""]+)""\s+y=""(?<y>[^""]+)""\s+width=""(?<width>[^""]+)""\s+height=""(?<height>[^""]+)""[^>]*>(?<content>[\s\S]*?)</foreignObject>", RegexOptions.Compiled)]
+    [GeneratedRegex(
+        @"<foreignObject\s+x=""(?<x>[^""]+)""\s+y=""(?<y>[^""]+)""\s+width=""(?<width>[^""]+)""\s+height=""(?<height>[^""]+)""[^>]*>(?<content>[\s\S]*?)</foreignObject>",
+        RegexOptions.Compiled)]
     private static partial Regex ForeignObjectRegex();
 }
