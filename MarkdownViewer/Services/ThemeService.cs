@@ -51,10 +51,23 @@ public class ThemeService
         SetColor(resources, "AppSelectionBg", definition.SelectionBg);
         SetColor(resources, "BrandLucid", definition.BrandLucid);
         SetColor(resources, "BrandVIEW", definition.BrandVIEW);
+
+        // LiveMarkdown theme resources (Color values)
+        SetColorValue(resources, "ForegroundColor", definition.Text);
+        SetColorValue(resources, "BorderColor", definition.Border);
+        SetColorValue(resources, "CardBackgroundColor", definition.TableHeaderBg);
+        SetColorValue(resources, "SecondaryCardBackgroundColor", definition.CodeBackground);
+        SetColorValue(resources, "CodeInlineColor", definition.Text);
+        SetColorValue(resources, "QuoteBorderColor", definition.BlockquoteBorder);
     }
 
     private static void SetColor(IResourceDictionary resources, string key, string hex)
     {
         if (Color.TryParse(hex, out var color)) resources[key] = new SolidColorBrush(color);
+    }
+
+    private static void SetColorValue(IResourceDictionary resources, string key, string hex)
+    {
+        if (Color.TryParse(hex, out var color)) resources[key] = color;
     }
 }

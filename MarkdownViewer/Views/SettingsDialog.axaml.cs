@@ -1,5 +1,9 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using MarkdownViewer.Models;
 
 namespace MarkdownViewer.Views;
@@ -12,6 +16,7 @@ public partial class SettingsDialog : Window
     {
         InitializeComponent();
         _settings = new AppSettings();
+        LoadFontFamilies();
     }
 
     public SettingsDialog(AppSettings settings) : this()
@@ -33,7 +38,8 @@ public partial class SettingsDialog : Window
         };
 
         // Typography
-        FontFamilyBox.Text = _settings.FontFamily;
+        FontFamilyComboBox.Text = _settings.FontFamily;
+        SelectFontFamily(_settings.FontFamily);
         FontSizeBox.Value = (decimal)_settings.FontSize;
         CodeFontBox.Text = _settings.CodeFontFamily;
 
@@ -50,7 +56,10 @@ public partial class SettingsDialog : Window
                 _settings.Theme = theme;
 
         // Typography
-        _settings.FontFamily = FontFamilyBox.Text ?? "Inter, Segoe UI, -apple-system, sans-serif";
+        var fontFamily = FontFamilyComboBox.Text;
+        if (string.IsNullOrWhiteSpace(fontFamily))
+            fontFamily = FontFamilyComboBox.SelectedItem as string;
+        _settings.FontFamily = fontFamily ?? "Inter, Segoe UI, -apple-system, sans-serif";
         _settings.FontSize = (double)(FontSizeBox.Value ?? 15);
         _settings.CodeFontFamily = CodeFontBox.Text ?? "Cascadia Code, JetBrains Mono, Consolas, monospace";
 
@@ -77,10 +86,42 @@ public partial class SettingsDialog : Window
         var defaults = new AppSettings();
 
         ThemeComboBox.SelectedIndex = 1; // Dark
-        FontFamilyBox.Text = defaults.FontFamily;
+        FontFamilyComboBox.Text = defaults.FontFamily;
+        SelectFontFamily(defaults.FontFamily);
         FontSizeBox.Value = (decimal)defaults.FontSize;
         CodeFontBox.Text = defaults.CodeFontFamily;
         WordWrapCheckBox.IsChecked = defaults.WordWrap;
         NavPanelCheckBox.IsChecked = defaults.ShowNavigationPanel;
+    }
+
+    private void LoadFontFamilies()
+    {
+        try
+        {
+            var fonts = FontManager.Current.SystemFonts;
+            var names = fonts
+                .Select(font => font.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            FontFamilyComboBox.ItemsSource = names;
+        }
+        catch
+        {
+            FontFamilyComboBox.ItemsSource = Array.Empty<string>();
+        }
+    }
+
+    private void SelectFontFamily(string fontFamily)
+    {
+        if (FontFamilyComboBox.ItemsSource is not IEnumerable<string> names)
+            return;
+
+        var primary = fontFamily.Split(',')[0].Trim();
+        var match = names.FirstOrDefault(name =>
+            name.Equals(primary, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+            FontFamilyComboBox.SelectedItem = match;
     }
 }
