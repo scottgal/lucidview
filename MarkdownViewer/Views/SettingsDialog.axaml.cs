@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -11,6 +12,7 @@ namespace MarkdownViewer.Views;
 public partial class SettingsDialog : Window
 {
     private readonly AppSettings _settings;
+    private readonly ObservableCollection<string> _fontNames = new();
 
     public SettingsDialog()
     {
@@ -38,10 +40,9 @@ public partial class SettingsDialog : Window
         };
 
         // Typography
-        FontFamilyComboBox.Text = _settings.FontFamily;
-        SelectFontFamily(_settings.FontFamily);
+        SelectFontFamily(FontFamilyComboBox, _settings.FontFamily);
         FontSizeBox.Value = (decimal)_settings.FontSize;
-        CodeFontBox.Text = _settings.CodeFontFamily;
+        SelectFontFamily(CodeFontComboBox, _settings.CodeFontFamily);
 
         // Layout
         WordWrapCheckBox.IsChecked = _settings.WordWrap;
@@ -56,12 +57,11 @@ public partial class SettingsDialog : Window
                 _settings.Theme = theme;
 
         // Typography
-        var fontFamily = FontFamilyComboBox.Text;
-        if (string.IsNullOrWhiteSpace(fontFamily))
-            fontFamily = FontFamilyComboBox.SelectedItem as string;
-        _settings.FontFamily = fontFamily ?? "Inter, Segoe UI, -apple-system, sans-serif";
+        _settings.FontFamily = ReadComboValue(FontFamilyComboBox,
+            "Inter, Segoe UI, -apple-system, sans-serif");
         _settings.FontSize = (double)(FontSizeBox.Value ?? 15);
-        _settings.CodeFontFamily = CodeFontBox.Text ?? "Cascadia Code, JetBrains Mono, Consolas, monospace";
+        _settings.CodeFontFamily = ReadComboValue(CodeFontComboBox,
+            "Cascadia Code, JetBrains Mono, Consolas, monospace");
 
         // Layout
         _settings.WordWrap = WordWrapCheckBox.IsChecked == true;
@@ -86,10 +86,9 @@ public partial class SettingsDialog : Window
         var defaults = new AppSettings();
 
         ThemeComboBox.SelectedIndex = 1; // Dark
-        FontFamilyComboBox.Text = defaults.FontFamily;
-        SelectFontFamily(defaults.FontFamily);
+        SelectFontFamily(FontFamilyComboBox, defaults.FontFamily);
         FontSizeBox.Value = (decimal)defaults.FontSize;
-        CodeFontBox.Text = defaults.CodeFontFamily;
+        SelectFontFamily(CodeFontComboBox, defaults.CodeFontFamily);
         WordWrapCheckBox.IsChecked = defaults.WordWrap;
         NavPanelCheckBox.IsChecked = defaults.ShowNavigationPanel;
     }
@@ -105,23 +104,46 @@ public partial class SettingsDialog : Window
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            FontFamilyComboBox.ItemsSource = names;
+            _fontNames.Clear();
+            foreach (var name in names)
+                _fontNames.Add(name);
         }
         catch
         {
-            FontFamilyComboBox.ItemsSource = Array.Empty<string>();
+            _fontNames.Clear();
+        }
+
+        FontFamilyComboBox.ItemsSource = _fontNames;
+        CodeFontComboBox.ItemsSource = _fontNames;
+    }
+
+    private void SelectFontFamily(ComboBox comboBox, string fontFamily)
+    {
+        var primary = fontFamily.Split(',')[0].Trim();
+        if (_fontNames.Count == 0)
+        {
+            comboBox.Text = primary;
+            return;
+        }
+
+        var match = _fontNames.FirstOrDefault(name =>
+            name.Equals(primary, StringComparison.OrdinalIgnoreCase));
+        if (match == null && !string.IsNullOrWhiteSpace(primary))
+        {
+            _fontNames.Insert(0, primary);
+            match = primary;
+        }
+
+        if (!string.IsNullOrWhiteSpace(match))
+        {
+            comboBox.SelectedItem = match;
+            comboBox.Text = match;
         }
     }
 
-    private void SelectFontFamily(string fontFamily)
+    private static string ReadComboValue(ComboBox comboBox, string fallback)
     {
-        if (FontFamilyComboBox.ItemsSource is not IEnumerable<string> names)
-            return;
-
-        var primary = fontFamily.Split(',')[0].Trim();
-        var match = names.FirstOrDefault(name =>
-            name.Equals(primary, StringComparison.OrdinalIgnoreCase));
-        if (match != null)
-            FontFamilyComboBox.SelectedItem = match;
+        var value = comboBox.SelectedItem as string ?? comboBox.Text;
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 }

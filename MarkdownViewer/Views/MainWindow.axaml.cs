@@ -5,10 +5,12 @@ using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using LiveMarkdown.Avalonia;
 using MarkdownViewer.Models;
 using MarkdownViewer.Services;
@@ -29,6 +31,7 @@ public partial class MainWindow : Window
     private string? _currentFilePath;
     private int _currentSearchIndex = -1;
     private int _fontSize = 16;
+    private Style? _codeBlockStyle;
     private List<HeadingItem> _headings = [];
     private bool _isSidePanelOpen;
     private string _rawContent = string.Empty;
@@ -62,6 +65,7 @@ public partial class MainWindow : Window
         // Apply saved theme
         ApplyTheme(_settings.Theme);
         UpdateThemeCardSelection(_settings.Theme);
+        ApplyTypography();
 
         // Drag and drop
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
@@ -575,6 +579,40 @@ public partial class MainWindow : Window
 
     #endregion
 
+    #region Typography
+
+    private void ApplyTypography()
+    {
+        MdViewer.FontFamily = new FontFamily(_settings.FontFamily);
+
+        var codeFont = new FontFamily(_settings.CodeFontFamily);
+        RawTextBlock.FontFamily = codeFont;
+        RawTextBlock.FontSize = _settings.CodeFontSize;
+        ApplyCodeBlockStyle(codeFont, _settings.CodeFontSize);
+
+        _fontSize = _settings.FontSize > 0 ? (int)_settings.FontSize : 16;
+        ApplyFontSize();
+    }
+
+    private void ApplyCodeBlockStyle(FontFamily codeFont, double codeFontSize)
+    {
+        if (_codeBlockStyle != null)
+            MdViewer.Styles.Remove(_codeBlockStyle);
+
+        _codeBlockStyle = new Style(x => x.OfType<CodeBlock>())
+        {
+            Setters =
+            {
+                new Setter(TextElement.FontFamilyProperty, codeFont),
+                new Setter(TextElement.FontSizeProperty, codeFontSize)
+            }
+        };
+
+        MdViewer.Styles.Add(_codeBlockStyle);
+    }
+
+    #endregion
+
     #region Settings
 
     private void OnOpenSettings(object? sender, RoutedEventArgs e)
@@ -589,6 +627,7 @@ public partial class MainWindow : Window
         await dialog.ShowDialog(this);
         ApplyTheme(_settings.Theme);
         UpdateThemeCardSelection(_settings.Theme);
+        ApplyTypography();
     }
 
     #endregion

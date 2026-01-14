@@ -63,7 +63,7 @@
                                       IsChecked="True"
                                       Click="OnFitModeToggle"
                                       ToolTip.Tip="Fit to width">
-                            <PathIcon Data="M4 12h16M4 12l3-3M4 12l3 3M20 12l-3-3M20 12l-3 3"
+                            <PathIcon Data="M4 12h16 M4 12l3-3 M4 12l3 3 M20 12l-3-3 M20 12l-3 3"
                                       Width="16" Height="16"
                                       Foreground="{DynamicResource AppText}" />
                         </ToggleButton>
