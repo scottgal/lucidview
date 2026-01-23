@@ -5,6 +5,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{71ADAD97-F
 		..\README.md = ..\README.md
 		..\.github\workflows\release.yml = ..\.github\workflows\release.yml
 		..\.github\workflows\store-publish.yml = ..\.github\workflows\store-publish.yml
+		..\publish.ps1 = ..\publish.ps1
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarkdownViewer", "..\MarkdownViewer\MarkdownViewer.csproj", "{71425109-E745-4C91-B495-477691F60B53}"

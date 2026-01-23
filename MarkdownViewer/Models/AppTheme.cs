@@ -5,7 +5,9 @@ public enum AppTheme
     Light,
     Dark,
     VSCode,
-    GitHub
+    GitHub,
+    MostlyLucidDark,
+    MostlyLucidLight
 }
 
 public enum CodeTheme
@@ -142,6 +144,72 @@ public static class ThemeColors
         BrandVIEW = "#FFFFFF" // White for dark theme
     };
 
+    /// <summary>
+    /// mostlylucid dark theme - matches mostlylucid.net dark mode
+    /// Deep blue-black with purple accents
+    /// </summary>
+    public static readonly ThemeDefinition MostlyLucidDark = new()
+    {
+        Name = "mostlylucid dark",
+        Background = "#0f0f23",          // Deep dark blue-black
+        BackgroundSecondary = "#1a1a2e", // Slightly lighter
+        BackgroundTertiary = "#16213e",  // Card/panel background
+        Surface = "#1a1a2e",
+        SurfaceHover = "#1f1f3a",
+        Border = "#2d2d5a",              // Subtle purple-blue border
+        BorderSubtle = "#252550",
+        Text = "#e4e4f0",                // Slightly warm white
+        TextSecondary = "#a0a0c0",       // Muted lavender
+        TextMuted = "#6c6c8a",
+        Accent = "#7c3aed",              // Vibrant purple (primary brand)
+        AccentHover = "#8b5cf6",         // Lighter purple on hover
+        Link = "#60a5fa",                // Blue links
+        Success = "#34d399",             // Emerald green
+        Warning = "#fbbf24",             // Amber
+        Error = "#f87171",               // Red
+        CodeBackground = "#1e1e3f",      // Dark purple code background
+        CodeBorder = "#3d3d6b",
+        BlockquoteBorder = "#7c3aed",    // Purple accent for quotes
+        HeadingBorder = "#2d2d5a",
+        TableHeaderBg = "#1a1a2e",
+        SelectionBg = "#7c3aed40",       // Purple selection
+        BrandLucid = "#a78bfa",          // Light purple for "lucid"
+        BrandVIEW = "#ffffff"            // White for "VIEW"
+    };
+
+    /// <summary>
+    /// mostlylucid light theme - matches mostlylucid.net light mode
+    /// Clean white with purple accents
+    /// </summary>
+    public static readonly ThemeDefinition MostlyLucidLight = new()
+    {
+        Name = "mostlylucid light",
+        Background = "#ffffff",          // Clean white
+        BackgroundSecondary = "#f8f7ff", // Very subtle purple tint
+        BackgroundTertiary = "#f0eeff",  // Light lavender
+        Surface = "#ffffff",
+        SurfaceHover = "#f5f3ff",        // Light purple hover
+        Border = "#e0dcf5",              // Soft purple border
+        BorderSubtle = "#ebe8f7",
+        Text = "#1a1625",                // Dark purple-black
+        TextSecondary = "#4a4560",       // Muted purple-gray
+        TextMuted = "#7a7590",
+        Accent = "#7c3aed",              // Vibrant purple (primary brand)
+        AccentHover = "#6d28d9",         // Darker purple on hover
+        Link = "#2563eb",                // Blue links
+        Success = "#059669",             // Emerald green
+        Warning = "#d97706",             // Amber
+        Error = "#dc2626",               // Red
+        CodeBackground = "#f5f3ff",      // Very light purple code background
+        CodeBorder = "#e0dcf5",
+        BlockquoteBorder = "#7c3aed",    // Purple accent for quotes
+        HeadingBorder = "#e0dcf5",
+        TableHeaderBg = "#f8f7ff",
+        SelectionBg = "#7c3aed20",       // Light purple selection
+        BrandLucid = "#6d28d9",          // Dark purple for "lucid"
+        BrandVIEW = "#1a1625"            // Dark for "VIEW"
+    };
+
     public static ThemeDefinition GetTheme(AppTheme theme)
     {
         return theme switch
@@ -150,6 +218,8 @@ public static class ThemeColors
             AppTheme.Dark => Dark,
             AppTheme.VSCode => VSCode,
             AppTheme.GitHub => GitHub,
+            AppTheme.MostlyLucidDark => MostlyLucidDark,
+            AppTheme.MostlyLucidLight => MostlyLucidLight,
             _ => Dark
         };
     }

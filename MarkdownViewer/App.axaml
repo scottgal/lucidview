@@ -3,6 +3,7 @@
              x:Class="MarkdownViewer.App"
              RequestedThemeVariant="Dark">
 
+    <!-- Register embedded Raleway font -->
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -43,6 +44,8 @@
             <!-- Brand colors - lucid (gray) + VIEW (white/black depending on theme) -->
             <SolidColorBrush x:Key="BrandLucid" Color="#DDDDDD" />
             <SolidColorBrush x:Key="BrandVIEW" Color="#FFFFFF" />
+            <!-- Embedded Raleway font family -->
+            <FontFamily x:Key="RalewayFont">avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway</FontFamily>
         </ResourceDictionary>
     </Application.Resources>
 

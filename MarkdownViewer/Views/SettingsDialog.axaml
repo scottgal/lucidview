@@ -22,6 +22,8 @@
                         <ComboBoxItem Content="Dark" Tag="Dark" />
                         <ComboBoxItem Content="VS Code" Tag="VSCode" />
                         <ComboBoxItem Content="GitHub" Tag="GitHub" />
+                        <ComboBoxItem Content="mostlylucid dark" Tag="MostlyLucidDark" />
+                        <ComboBoxItem Content="mostlylucid light" Tag="MostlyLucidLight" />
                     </ComboBox>
                 </StackPanel>
 

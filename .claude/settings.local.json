@@ -55,7 +55,15 @@
       "Bash(dotnet nuget why:*)",
       "Bash(ildasm:*)",
       "Bash(wmic process where \"name=''lucidVIEW.exe''\" delete)",
-      "WebFetch(domain:docs.avaloniaui.net)"
+      "WebFetch(domain:docs.avaloniaui.net)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "Bash(Select-String -Pattern \"\\(error|warning CS\\)\")",
+      "Bash(Select-Object -First 20)",
+      "Bash(curl:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \".\\\\publish.ps1\" -Platform win)",
+      "Bash(cmd /c \"taskkill /F /PID 415968\")"
     ]
   }
 }

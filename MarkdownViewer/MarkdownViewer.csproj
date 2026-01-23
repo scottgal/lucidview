@@ -15,9 +15,17 @@
         <SelfContained>true</SelfContained>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+        <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
 
         <!-- No trimming - Markdown.Avalonia uses custom IBinding -->
         <PublishTrimmed>false</PublishTrimmed>
+
+        <!-- ReadyToRun for faster startup (pre-compiles IL to native) -->
+        <PublishReadyToRun>true</PublishReadyToRun>
+        <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
+
+        <!-- Optimize for size -->
+        <OptimizationPreference>Size</OptimizationPreference>
 
         <!-- No debug symbols in release -->
         <DebugType>none</DebugType>
@@ -35,9 +43,9 @@
 
     <ItemGroup>
         <!-- Avalonia Core -->
-        <PackageReference Include="Avalonia" Version="11.3.10"/>
-        <PackageReference Include="Avalonia.Desktop" Version="11.3.10"/>
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.10"/>
+        <PackageReference Include="Avalonia" Version="11.3.11" />
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
         <PackageReference Include="LiveMarkdown.Avalonia" Version="1.7.0"/>
 
         <!-- Markdown Rendering with Syntax Highlighting (YouYan fork for Avalonia 11.2+ compatibility) -->
@@ -48,18 +56,24 @@
         <PackageReference Include="Svg.Skia" Version="3.4.1"/>
 
         <!-- Diagnostics (debug only) -->
-        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.10" Condition="'$(Configuration)' == 'Debug'"/>
-        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.0"/>
+        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.11" Condition="'$(Configuration)' == 'Debug'" />
+        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.2" />
     </ItemGroup>
 
     <!-- Include README.md in output for Help menu -->
     <ItemGroup>
         <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest"/>
+        <Content Include="default-settings.json" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
     <!-- Embedded SVG assets -->
     <ItemGroup>
         <AvaloniaResource Include="Assets\*.svg"/>
+    </ItemGroup>
+
+    <!-- Embedded Raleway font (SIL Open Font License) -->
+    <ItemGroup>
+        <AvaloniaResource Include="Assets\Raleway-*.ttf"/>
     </ItemGroup>
 
 </Project>

@@ -12,6 +12,7 @@ public partial class MarkdownService
     private string? _basePath;
     private string? _baseUrl;
     private bool _isDarkMode = true;
+    private ImageCacheService? _imageCacheService;
 
     private int _mermaidCounter;
 
@@ -22,6 +23,14 @@ public partial class MarkdownService
     }
 
     public string TempDirectory { get; }
+
+    /// <summary>
+    /// Set the image cache service for caching remote images
+    /// </summary>
+    public void SetImageCacheService(ImageCacheService? cacheService)
+    {
+        _imageCacheService = cacheService;
+    }
 
     public void SetDarkMode(bool isDark)
     {
@@ -75,13 +84,139 @@ public partial class MarkdownService
         // Some markdown parsers don't handle bold wrapping links well
         content = BoldLinkRegex().Replace(content, "[**$1**]($2)");
 
-        // Process relative image paths
+        // Convert HTML img tags to markdown syntax
+        content = ProcessHtmlImageTags(content);
+
+        // Process relative image paths and cache remote images
         content = ProcessImagePaths(content);
 
         // Process mermaid code blocks (placeholder for now)
         content = ProcessMermaidBlocks(content);
 
         return content.Trim();
+    }
+
+    /// <summary>
+    /// Extract all image URLs from markdown content for pre-caching.
+    /// Resolves relative paths to absolute URLs when base URL is set.
+    /// </summary>
+    public List<string> ExtractImageUrls(string content)
+    {
+        var urls = new List<string>();
+
+        // Extract from markdown syntax: ![alt](url)
+        foreach (Match match in ImageRegex().Matches(content))
+        {
+            var url = match.Groups[2].Value;
+            var resolved = ResolveImageUrl(url);
+            if (resolved != null)
+                urls.Add(resolved);
+        }
+
+        // Extract from HTML img tags: <img src="url">
+        foreach (Match match in HtmlImgRegex().Matches(content))
+        {
+            var url = match.Groups[1].Value;
+            var resolved = ResolveImageUrl(url);
+            if (resolved != null)
+                urls.Add(resolved);
+        }
+
+        return urls.Distinct().ToList();
+    }
+
+    /// <summary>
+    /// Resolve an image path to an absolute URL for caching.
+    /// Returns null for local file paths (no caching needed).
+    /// </summary>
+    private string? ResolveImageUrl(string path)
+    {
+        // Already absolute URL
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return path;
+        }
+
+        // Skip absolute file paths and data URIs
+        if (Path.IsPathRooted(path) || path.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        // Resolve relative path against base URL (for remote markdown files)
+        if (!string.IsNullOrEmpty(_baseUrl))
+        {
+            return ResolveRelativeUrl(_baseUrl, path);
+        }
+
+        // Local file - no URL caching needed
+        return null;
+    }
+
+    /// <summary>
+    /// Properly resolve a relative URL against a base URL.
+    /// Handles ../, ./, and absolute paths starting with /
+    /// </summary>
+    private static string ResolveRelativeUrl(string baseUrl, string relativePath)
+    {
+        try
+        {
+            // Handle paths starting with / (absolute from host root)
+            if (relativePath.StartsWith("/"))
+            {
+                var baseUri = new Uri(baseUrl);
+                return $"{baseUri.Scheme}://{baseUri.Host}{relativePath}";
+            }
+
+            // Handle ../ and ./ relative paths
+            var cleanBase = baseUrl.TrimEnd('/');
+            var cleanPath = relativePath;
+
+            // Process ../ segments
+            while (cleanPath.StartsWith("../"))
+            {
+                cleanPath = cleanPath[3..]; // Remove ../
+                var lastSlash = cleanBase.LastIndexOf('/');
+                if (lastSlash > cleanBase.IndexOf("://") + 2) // Don't go past the host
+                {
+                    cleanBase = cleanBase[..lastSlash];
+                }
+            }
+
+            // Remove leading ./
+            if (cleanPath.StartsWith("./"))
+            {
+                cleanPath = cleanPath[2..];
+            }
+
+            return $"{cleanBase}/{cleanPath}";
+        }
+        catch
+        {
+            // Fallback: simple concatenation
+            return $"{baseUrl.TrimEnd('/')}/{relativePath.TrimStart('.', '/')}";
+        }
+    }
+
+    /// <summary>
+    /// Convert HTML img tags to markdown image syntax
+    /// Handles: <img src="url" width="300" height="200" alt="text">
+    /// </summary>
+    private string ProcessHtmlImageTags(string content)
+    {
+        return HtmlImgRegex().Replace(content, match =>
+        {
+            var fullTag = match.Value;
+            var src = match.Groups[1].Value;
+
+            // Extract alt text if present
+            var altMatch = HtmlImgAltRegex().Match(fullTag);
+            var alt = altMatch.Success ? altMatch.Groups[1].Value : "Image";
+
+            // Convert to markdown syntax
+            return $"![{alt}]({src})";
+        });
     }
 
     private string ProcessImagePaths(string content)
@@ -93,37 +228,76 @@ public partial class MarkdownService
             var alt = match.Groups[1].Value;
             var path = match.Groups[2].Value;
 
-            // Already absolute URL - leave as-is
+            // Skip data URIs
+            if (path.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                return match.Value;
+
+            // Check if remote URL - try to use cached version
             if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                 path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                return match.Value;
+            {
+                return ProcessRemoteImage(alt, path);
+            }
 
-            // Already absolute file path - leave as-is
-            if (Path.IsPathRooted(path)) return match.Value;
+            // Already absolute file path - convert to file URI
+            if (Path.IsPathRooted(path))
+            {
+                try
+                {
+                    var fileUri = new Uri(path).AbsoluteUri;
+                    return $"![{alt}]({fileUri})";
+                }
+                catch
+                {
+                    return match.Value;
+                }
+            }
 
             // Resolve relative path
-            string resolvedPath;
-
             if (!string.IsNullOrEmpty(_baseUrl))
             {
-                // URL-based resolution
-                var cleanPath = path.TrimStart('.', '/');
-                resolvedPath = $"{_baseUrl}/{cleanPath}";
-            }
-            else if (!string.IsNullOrEmpty(_basePath))
-            {
-                // File-based resolution
-                resolvedPath = Path.GetFullPath(Path.Combine(_basePath, path));
-                // Convert to file URI for Avalonia
-                resolvedPath = new Uri(resolvedPath).AbsoluteUri;
-            }
-            else
-            {
-                return match.Value;
+                // URL-based resolution - resolve and try cache
+                var resolvedUrl = ResolveRelativeUrl(_baseUrl, path);
+                return ProcessRemoteImage(alt, resolvedUrl);
             }
 
-            return $"![{alt}]({resolvedPath})";
+            if (!string.IsNullOrEmpty(_basePath))
+            {
+                // File-based resolution
+                try
+                {
+                    var resolvedPath = Path.GetFullPath(Path.Combine(_basePath, path));
+                    var fileUri = new Uri(resolvedPath).AbsoluteUri;
+                    return $"![{alt}]({fileUri})";
+                }
+                catch
+                {
+                    return match.Value;
+                }
+            }
+
+            return match.Value;
         });
+    }
+
+    /// <summary>
+    /// Process a remote image URL - use cached version if available
+    /// </summary>
+    private string ProcessRemoteImage(string alt, string url)
+    {
+        // Use cached path if available
+        var cachedPath = _imageCacheService?.GetCachedPath(url);
+        if (cachedPath != null)
+        {
+            try
+            {
+                var fileUri = new Uri(cachedPath).AbsoluteUri;
+                return $"![{alt}]({fileUri})";
+            }
+            catch { }
+        }
+        // Return the resolved URL (will be loaded directly by renderer)
+        return $"![{alt}]({url})";
     }
 
     private string ProcessMermaidBlocks(string content)
@@ -140,41 +314,8 @@ public partial class MarkdownService
 
             try
             {
-                // Preprocess: strip HTML tags that Naiad can't handle
-                var processedCode = mermaidCode
-                    .Replace("<br/>", " ")
-                    .Replace("<br>", " ")
-                    .Replace("<br />", " ");
-
-                // Ensure proper indentation for Naiad parser
-                // Split into lines, find first non-empty line (diagram type), indent the rest
-                var lines = processedCode.Split('\n');
-                var normalizedLines = new List<string>();
-                var foundDiagramType = false;
-
-                foreach (var line in lines)
-                {
-                    var trimmed = line.TrimStart();
-                    if (string.IsNullOrWhiteSpace(trimmed))
-                    {
-                        normalizedLines.Add("");
-                        continue;
-                    }
-
-                    if (!foundDiagramType)
-                    {
-                        // First non-empty line is the diagram type - no indent
-                        normalizedLines.Add(trimmed);
-                        foundDiagramType = true;
-                    }
-                    else
-                    {
-                        // Content lines get consistent 4-space indent
-                        normalizedLines.Add("    " + trimmed);
-                    }
-                }
-
-                processedCode = string.Join("\n", normalizedLines);
+                // Preprocess mermaid code to match what mermaid.js handles
+                var processedCode = PreprocessMermaidCode(mermaidCode);
 
                 // Render mermaid to SVG using Naiad
                 var svgContent = Mermaid.Render(processedCode);
@@ -242,6 +383,66 @@ public partial class MarkdownService
         return content;
     }
 
+    /// <summary>
+    /// Preprocess mermaid code to handle various formats that mermaid.js supports
+    /// </summary>
+    private static string PreprocessMermaidCode(string mermaidCode)
+    {
+        var code = mermaidCode;
+
+        // 1. Handle HTML entities
+        code = code
+            .Replace("&amp;", "&")
+            .Replace("&lt;", "<")
+            .Replace("&gt;", ">")
+            .Replace("&quot;", "\"")
+            .Replace("&#39;", "'")
+            .Replace("&nbsp;", " ");
+
+        // 2. Handle HTML line breaks (mermaid.js allows these in labels)
+        code = code
+            .Replace("<br/>", "\\n")
+            .Replace("<br>", "\\n")
+            .Replace("<br />", "\\n");
+
+        // 3. Handle Windows line endings
+        code = code.Replace("\r\n", "\n").Replace("\r", "\n");
+
+        // 4. Normalize indentation for Naiad parser
+        var lines = code.Split('\n');
+        var normalizedLines = new List<string>();
+        var foundDiagramType = false;
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.TrimStart();
+
+            // Skip empty lines at the start
+            if (!foundDiagramType && string.IsNullOrWhiteSpace(trimmed))
+                continue;
+
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                normalizedLines.Add("");
+                continue;
+            }
+
+            if (!foundDiagramType)
+            {
+                // First non-empty line is the diagram type - no indent
+                normalizedLines.Add(trimmed);
+                foundDiagramType = true;
+            }
+            else
+            {
+                // Content lines get consistent 4-space indent
+                normalizedLines.Add("    " + trimmed);
+            }
+        }
+
+        return string.Join("\n", normalizedLines);
+    }
+
     private static string DetectMermaidDiagramType(string code)
     {
         var firstLine = code.Split('\n').FirstOrDefault()?.Trim().ToLowerInvariant() ?? "";
@@ -282,6 +483,13 @@ public partial class MarkdownService
 
     [GeneratedRegex(@"<datetime[^>]*>([^<]+)</datetime>", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex DatetimeRegex();
+
+    // HTML img tag patterns for GitHub-compatible content
+    [GeneratedRegex(@"<img\s+[^>]*src=[""']([^""']+)[""'][^>]*/?>", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex HtmlImgRegex();
+
+    [GeneratedRegex(@"alt=[""']([^""']*)[""']", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex HtmlImgAltRegex();
 
     /// <summary>
     ///     Convert foreignObject elements to SVG text elements for Avalonia compatibility

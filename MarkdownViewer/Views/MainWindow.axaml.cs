@@ -22,6 +22,7 @@ namespace MarkdownViewer.Views;
 public partial class MainWindow : Window
 {
     private readonly ObservableStringBuilder _markdownBuilder = new();
+    private readonly ImageCacheService _imageCacheService;
     private readonly MarkdownService _markdownService;
     private readonly NavigationService _navigationService;
     private readonly PaginationService _paginationService;
@@ -32,11 +33,11 @@ public partial class MainWindow : Window
     private int _currentSearchIndex = -1;
     private int _fontSize = 16;
     private Style? _codeBlockStyle;
+    private Style? _fontStyle;
     private List<HeadingItem> _headings = [];
     private bool _isSidePanelOpen;
     private string _rawContent = string.Empty;
     private List<SearchResult> _searchResults = [];
-    private double _zoomLevel = 1.0;
 
     public MainWindow()
     {
@@ -44,6 +45,8 @@ public partial class MainWindow : Window
 
         _settings = AppSettings.Load();
         _markdownService = new MarkdownService();
+        _imageCacheService = new ImageCacheService();
+        _markdownService.SetImageCacheService(_imageCacheService);
 
         // Initialize LiveMarkdown renderer
         MdViewer.MarkdownBuilder = _markdownBuilder;
@@ -137,27 +140,19 @@ public partial class MainWindow : Window
             canvas.DrawRoundRect(new SKRoundRect(new SKRect(0, 0, 64, 64), 8), bgPaint);
 
             // Draw "l" in gray (italic approximation via skew)
-            using var lucidPaint = new SKPaint
-            {
-                Color = new SKColor(0xDD, 0xDD, 0xDD),
-                TextSize = 36,
-                IsAntialias = true,
-                Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.BoldItalic)
-            };
+            using var lucidTypeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.BoldItalic);
+            using var lucidFont = new SKFont(lucidTypeface, 36);
+            using var lucidPaint = new SKPaint { Color = new SKColor(0xDD, 0xDD, 0xDD), IsAntialias = true };
             canvas.Save();
             canvas.Skew(-0.15f, 0);
-            canvas.DrawText("l", 14, 46, lucidPaint);
+            canvas.DrawText("l", 14, 46, SKTextAlign.Left, lucidFont, lucidPaint);
             canvas.Restore();
 
             // Draw "V" in white (bold)
-            using var viewPaint = new SKPaint
-            {
-                Color = SKColors.White,
-                TextSize = 36,
-                IsAntialias = true,
-                Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Bold)
-            };
-            canvas.DrawText("V", 30, 46, viewPaint);
+            using var viewTypeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Bold);
+            using var viewFont = new SKFont(viewTypeface, 36);
+            using var viewPaint = new SKPaint { Color = SKColors.White, IsAntialias = true };
+            canvas.DrawText("V", 30, 46, SKTextAlign.Left, viewFont, viewPaint);
 
             // Convert to Avalonia bitmap
             using var image = surface.Snapshot();
@@ -292,11 +287,12 @@ public partial class MainWindow : Window
             var basePath = Path.GetDirectoryName(path);
             _markdownService.SetBasePath(basePath);
 
+            // Display content immediately for fast response
             await DisplayMarkdown(content);
 
             _currentFilePath = path;
             Title = $"{Path.GetFileName(path)} - lucidVIEW";
-            EnableFontControls(true);
+            EnableDocumentControls(true);
             _settings.AddRecentFile(path);
             UpdateRecentFiles();
 
@@ -307,10 +303,34 @@ public partial class MainWindow : Window
             FileDateText.Text = fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm");
             WordCountText.Text = $"{wordCount:N0} words";
             FileInfoText.Text = $"{fileInfo.Length:N0} bytes";
+
+            // Cache remote images in background, then refresh
+            var imageUrls = _markdownService.ExtractImageUrls(content);
+            if (imageUrls.Count > 0)
+            {
+                _ = CacheImagesAndRefreshAsync(content, imageUrls);
+            }
         }
         catch (Exception ex)
         {
             StatusText.Text = $"Error: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Cache images in background and refresh display when done
+    /// </summary>
+    private async Task CacheImagesAndRefreshAsync(string content, List<string> imageUrls)
+    {
+        try
+        {
+            await _imageCacheService.PreCacheImagesAsync(imageUrls);
+            // Refresh markdown to use cached images
+            await DisplayMarkdown(content);
+        }
+        catch
+        {
+            // Ignore caching errors - original URLs still work
         }
     }
 
@@ -336,17 +356,25 @@ public partial class MainWindow : Window
             var baseUrl = $"{uri.Scheme}://{uri.Host}{string.Join("", uri.Segments.Take(uri.Segments.Length - 1))}";
             _markdownService.SetBaseUrl(baseUrl);
 
+            // Display content immediately for fast response
             await DisplayMarkdown(content);
 
             _currentFilePath = url;
             Title = $"{uri.Segments.LastOrDefault()?.TrimEnd('/') ?? "Remote"} - lucidVIEW";
-            EnableFontControls(true);
+            EnableDocumentControls(true);
             var wordCount = CountWords(content);
 
             StatusText.Text = url;
             FileDateText.Text = "Remote";
             WordCountText.Text = $"{wordCount:N0} words";
             FileInfoText.Text = $"{content.Length:N0} chars";
+
+            // Cache remote images in background, then refresh
+            var imageUrls = _markdownService.ExtractImageUrls(content);
+            if (imageUrls.Count > 0)
+            {
+                _ = CacheImagesAndRefreshAsync(content, imageUrls);
+            }
         }
         catch (Exception ex)
         {
@@ -360,8 +388,6 @@ public partial class MainWindow : Window
 
         // Extract headings for navigation
         _headings = _navigationService.ExtractHeadings(content);
-        var flatHeadings = FlattenHeadings(_headings);
-        NavTreeView.ItemsSource = flatHeadings;
 
         // Extract and display metadata (categories, publication date)
         var metadata = _markdownService.ExtractMetadata(content);
@@ -474,7 +500,7 @@ public partial class MainWindow : Window
         UpdatePanelOverlay(theme);
 
         // Update markdown service for theme-aware mermaid rendering
-        var isDark = theme != AppTheme.Light;
+        var isDark = theme != AppTheme.Light && theme != AppTheme.MostlyLucidLight;
         _markdownService.SetDarkMode(isDark);
 
         // Refresh current document to regenerate mermaid diagrams with new theme colors
@@ -484,7 +510,7 @@ public partial class MainWindow : Window
     private void UpdatePanelOverlay(AppTheme theme)
     {
         // Light themes get dark overlay, dark themes get light overlay
-        var isLightTheme = theme == AppTheme.Light;
+        var isLightTheme = theme == AppTheme.Light || theme == AppTheme.MostlyLucidLight;
         var overlayColor = isLightTheme ? "#60000000" : "#40ffffff";
 
         if (Application.Current?.Resources != null)
@@ -499,6 +525,8 @@ public partial class MainWindow : Window
         ThemeDarkCard.Classes.Remove("selected");
         ThemeVSCodeCard.Classes.Remove("selected");
         ThemeGitHubCard.Classes.Remove("selected");
+        ThemeMostlyLucidDarkCard.Classes.Remove("selected");
+        ThemeMostlyLucidLightCard.Classes.Remove("selected");
 
         // Add selected class to current theme
         switch (theme)
@@ -514,6 +542,12 @@ public partial class MainWindow : Window
                 break;
             case AppTheme.GitHub:
                 ThemeGitHubCard.Classes.Add("selected");
+                break;
+            case AppTheme.MostlyLucidDark:
+                ThemeMostlyLucidDarkCard.Classes.Add("selected");
+                break;
+            case AppTheme.MostlyLucidLight:
+                ThemeMostlyLucidLightCard.Classes.Add("selected");
                 break;
         }
     }
@@ -571,10 +605,14 @@ public partial class MainWindow : Window
         FontSizeText.Text = $"{_fontSize}px";
     }
 
-    private void EnableFontControls(bool enabled)
+    private void EnableDocumentControls(bool enabled)
     {
         FontDecreaseBtn.IsEnabled = enabled;
         FontIncreaseBtn.IsEnabled = enabled;
+        TocButton.IsEnabled = enabled;
+        ZoomControlsPanel.IsEnabled = enabled;
+        ViewTabsPanel.IsEnabled = enabled;
+        SearchButton.IsEnabled = enabled;
     }
 
     #endregion
@@ -583,7 +621,19 @@ public partial class MainWindow : Window
 
     private void ApplyTypography()
     {
-        MdViewer.FontFamily = new FontFamily(_settings.FontFamily);
+        // Apply font family via Style since MarkdownRenderer doesn't have a direct FontFamily property
+        if (_fontStyle != null)
+            MdViewer.Styles.Remove(_fontStyle);
+
+        var fontFamily = new FontFamily(_settings.FontFamily);
+        _fontStyle = new Style(x => x.OfType<LiveMarkdown.Avalonia.MarkdownRenderer>())
+        {
+            Setters =
+            {
+                new Setter(TextElement.FontFamilyProperty, fontFamily)
+            }
+        };
+        MdViewer.Styles.Add(_fontStyle);
 
         var codeFont = new FontFamily(_settings.CodeFontFamily);
         RawTextBlock.FontFamily = codeFont;
@@ -624,7 +674,18 @@ public partial class MainWindow : Window
     private async Task OpenSettings()
     {
         var dialog = new SettingsDialog(_settings);
+
+        // Subscribe to live settings changes
+        dialog.SettingsChanged += () =>
+        {
+            ApplyTheme(_settings.Theme);
+            UpdateThemeCardSelection(_settings.Theme);
+            ApplyTypography();
+        };
+
         await dialog.ShowDialog(this);
+
+        // Final apply in case dialog was closed without save
         ApplyTheme(_settings.Theme);
         UpdateThemeCardSelection(_settings.Theme);
         ApplyTypography();
@@ -1224,6 +1285,7 @@ public partial class MainWindow : Window
 
     #region Drag and Drop
 
+#pragma warning disable CS0618 // DragEventArgs.Data is obsolete - new DataTransfer API has different interface
     private void OnDragEnter(object? sender, DragEventArgs e)
     {
         if (e.Data.Contains(DataFormats.Files)) DropOverlay.IsVisible = true;
@@ -1249,6 +1311,7 @@ public partial class MainWindow : Window
             }
         }
     }
+#pragma warning restore CS0618
 
     #endregion
 }
@@ -1268,7 +1331,9 @@ public class RelayCommand : ICommand
         _executeAsync = executeAsync;
     }
 
+#pragma warning disable CS0067 // Event is never used - required by ICommand interface
     public event EventHandler? CanExecuteChanged;
+#pragma warning restore CS0067
 
     public bool CanExecute(object? parameter)
     {
@@ -1293,7 +1358,9 @@ public class RelayCommand<T> : ICommand
         _execute = execute;
     }
 
+#pragma warning disable CS0067 // Event is never used - required by ICommand interface
     public event EventHandler? CanExecuteChanged;
+#pragma warning restore CS0067
 
     public bool CanExecute(object? parameter)
     {

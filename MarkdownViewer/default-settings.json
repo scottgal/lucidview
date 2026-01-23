@@ -1,0 +1,16 @@
+{
+  "theme": "MostlyLucidDark",
+  "codeTheme": "Auto",
+  "fontFamily": "Raleway, Inter, Segoe UI, -apple-system, sans-serif",
+  "fontSize": 15,
+  "lineHeight": 1.6,
+  "codeFontFamily": "Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+  "codeFontSize": 13,
+  "windowWidth": 1100,
+  "windowHeight": 750,
+  "showNavigationPanel": false,
+  "navigationPanelWidth": 260,
+  "wordWrap": true,
+  "contentMaxWidth": 900,
+  "recentFiles": []
+}

@@ -45,6 +45,7 @@
                             Grid.Column="1"
                             Classes="header-btn"
                             Click="OnToggleToc"
+                            IsEnabled="False"
                             ToolTip.Tip="Table of Contents">
                         <PathIcon
                             Data="M3,4 L10,4 L10,6 L3,6 Z M3,9 L21,9 L21,11 L3,11 Z M3,14 L14,14 L14,16 L3,16 Z M3,19 L21,19 L21,21 L3,21 Z"
@@ -53,10 +54,12 @@
                     </Button>
 
                     <!-- Center: Zoom Controls -->
-                    <StackPanel Grid.Column="2"
+                    <StackPanel x:Name="ZoomControlsPanel"
+                                Grid.Column="2"
                                 Orientation="Horizontal"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
+                                IsEnabled="False"
                                 Spacing="6">
                         <ToggleButton x:Name="FitWidthToggle"
                                       Classes="header-btn"
@@ -98,7 +101,7 @@
                     </StackPanel>
 
                     <!-- Preview/Raw Toggle -->
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="0" Margin="8,0">
+                    <StackPanel x:Name="ViewTabsPanel" Grid.Column="3" Orientation="Horizontal" Spacing="0" Margin="8,0" IsEnabled="False">
                         <RadioButton x:Name="PreviewTab"
                                      Content="Preview"
                                      GroupName="ViewTabs"
@@ -113,9 +116,11 @@
                     </StackPanel>
 
                     <!-- Search Button -->
-                    <Button Grid.Column="4"
+                    <Button x:Name="SearchButton"
+                            Grid.Column="4"
                             Classes="header-btn"
                             Click="OnToggleSearch"
+                            IsEnabled="False"
                             ToolTip.Tip="Search (Ctrl+F)">
                         <PathIcon Data="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"
                                   Width="16" Height="16"
@@ -475,30 +480,7 @@
 
                         <Border Classes="panel-separator" />
 
-                        <!-- Recent Files -->
-                        <Expander Classes="panel-expander" IsExpanded="True">
-                            <Expander.Header>
-                                <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <PathIcon Data="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"
-                                              Width="20" Height="20" />
-                                    <TextBlock Text="Recent Files" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Expander.Header>
-                            <ItemsControl x:Name="RecentFilesList" Margin="32,4,8,4">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="models:RecentFile">
-                                        <Button Classes="panel-subitem"
-                                                Content="{Binding DisplayName}"
-                                                Tag="{Binding Path}"
-                                                Click="OnRecentFileClick" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Expander>
-
-                        <Border Classes="panel-separator" />
-
-                        <!-- Theme -->
+                        <!-- Theme (most used - at top) -->
                         <Expander Classes="panel-expander" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
@@ -552,30 +534,49 @@
                                         <TextBlock Text="GitHub" HorizontalAlignment="Center" FontSize="12" />
                                     </StackPanel>
                                 </Button>
+                                <Button x:Name="ThemeMostlyLucidDarkCard" Classes="theme-card" Tag="MostlyLucidDark"
+                                        Click="OnThemeCardClick">
+                                    <StackPanel Spacing="4">
+                                        <Border Classes="theme-preview" Background="#0f0f23" CornerRadius="6">
+                                            <TextBlock Text="A" FontSize="24" FontWeight="Medium"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Foreground="#e4e4f0" />
+                                        </Border>
+                                        <TextBlock Text="mostlylucid" HorizontalAlignment="Center" FontSize="11" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="ThemeMostlyLucidLightCard" Classes="theme-card" Tag="MostlyLucidLight"
+                                        Click="OnThemeCardClick">
+                                    <StackPanel Spacing="4">
+                                        <Border Classes="theme-preview" Background="#ffffff" BorderBrush="#e0dcf5" BorderThickness="1" CornerRadius="6">
+                                            <TextBlock Text="A" FontSize="24" FontWeight="Medium"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Foreground="#1a1625" />
+                                        </Border>
+                                        <TextBlock Text="mostlylucid" HorizontalAlignment="Center" FontSize="11" Foreground="#7c3aed" />
+                                    </StackPanel>
+                                </Button>
                             </UniformGrid>
                         </Expander>
 
                         <Border Classes="panel-separator" />
 
-                        <!-- Contents (TOC) -->
-                        <Expander x:Name="ContentsExpander" Classes="panel-expander" IsExpanded="True">
+                        <!-- Recent Files -->
+                        <Expander Classes="panel-expander" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <PathIcon Data="M4 6h16M4 12h10M4 18h16" Width="20" Height="20" />
-                                    <TextBlock Text="Contents" VerticalAlignment="Center" />
+                                    <PathIcon Data="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"
+                                              Width="20" Height="20" />
+                                    <TextBlock Text="Recent Files" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
-                            <ItemsControl x:Name="NavTreeView" Margin="8,4,8,4">
+                            <ItemsControl x:Name="RecentFilesList" Margin="32,4,8,4">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="services:HeadingItem">
+                                    <DataTemplate x:DataType="models:RecentFile">
                                         <Button Classes="panel-subitem"
-                                                HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Left"
-                                                Padding="{Binding ItemPadding}"
-                                                Click="OnHeadingClick">
-                                            <TextBlock Text="{Binding Text}"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </Button>
+                                                Content="{Binding DisplayName}"
+                                                Tag="{Binding Path}"
+                                                Click="OnRecentFileClick" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>

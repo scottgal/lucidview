@@ -16,10 +16,11 @@ public class AppSettings
     public CodeTheme CodeTheme { get; set; } = CodeTheme.Auto;
 
     // Typography
-    public string FontFamily { get; set; } = "Inter, Segoe UI, -apple-system, sans-serif";
+    // Raleway font with system fallbacks (use system Raleway if installed, otherwise fallback)
+    public string FontFamily { get; set; } = "Raleway, Inter, Segoe UI, sans-serif";
     public double FontSize { get; set; } = 15;
     public double LineHeight { get; set; } = 1.6;
-    public string CodeFontFamily { get; set; } = "Cascadia Code, JetBrains Mono, Fira Code, Consolas, monospace";
+    public string CodeFontFamily { get; set; } = "Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace";
     public double CodeFontSize { get; set; } = 13;
 
     // Layout
@@ -75,7 +76,7 @@ public class AppSettings
             LastOpened = DateTime.UtcNow
         });
 
-        if (RecentFiles.Count > 20) RecentFiles = RecentFiles.Take(20).ToList();
+        if (RecentFiles.Count > 10) RecentFiles = RecentFiles.Take(10).ToList();
 
         Save();
     }

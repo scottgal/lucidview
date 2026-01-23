@@ -48,7 +48,17 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Publish
-      run: dotnet publish ${{ env.PROJECT_PATH }} -c Release -r ${{ matrix.rid }} -o publish/${{ matrix.rid }}
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} -c Release -r ${{ matrix.rid }} -o publish/${{ matrix.rid }} \
+          -p:PublishSingleFile=true \
+          -p:SelfContained=true \
+          -p:EnableCompressionInSingleFile=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -p:IncludeAllContentForSelfExtract=true \
+          -p:PublishReadyToRun=true \
+          -p:PublishReadyToRunComposite=true \
+          -p:DebugType=none \
+          -p:DebugSymbols=false
 
     - name: Prepare release folder (Windows)
       if: matrix.os == 'windows-latest'
@@ -159,7 +169,10 @@ jobs:
           ### Features
 
           - Clean, modern UI with slide-out menu
-          - 4 themes: Light, Dark, VS Code, GitHub
+          - 6 themes: Light, Dark, VS Code, GitHub, mostlylucid dark, mostlylucid light
+          - Bundled Raleway font (SIL Open Font License)
+          - Remote image caching with SVG support
+          - Mermaid diagram rendering
           - Font size controls (A/A)
           - Print to browser
           - Search (Ctrl+F)

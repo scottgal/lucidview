@@ -13,7 +13,7 @@ on:
         type: boolean
 
 env:
-  DOTNET_VERSION: '9.0.x'
+  DOTNET_VERSION: '10.0.x'
   PROJECT_PATH: 'MarkdownViewer/MarkdownViewer.csproj'
   PACKAGE_PATH: 'MarkdownViewer/Package.appxmanifest'
 
@@ -61,12 +61,18 @@ jobs:
     - name: Build Release
       run: dotnet build ${{ env.PROJECT_PATH }} -c Release --no-restore
 
-    - name: Publish AOT (Windows x64)
+    - name: Publish (Windows x64)
       run: |
         dotnet publish ${{ env.PROJECT_PATH }} -c Release -r win-x64 `
           --self-contained true `
-          -p:PublishAot=true `
-          -p:PublishTrimmed=true `
+          -p:PublishSingleFile=true `
+          -p:EnableCompressionInSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:IncludeAllContentForSelfExtract=true `
+          -p:PublishReadyToRun=true `
+          -p:PublishReadyToRunComposite=true `
+          -p:DebugType=none `
+          -p:DebugSymbols=false `
           -o publish/win-x64
 
     - name: Create MSIX Package
@@ -182,6 +188,12 @@ jobs:
       run: |
         dotnet publish ${{ env.PROJECT_PATH }} -c Release -r ${{ matrix.rid }} \
           --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:EnableCompressionInSingleFile=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -p:IncludeAllContentForSelfExtract=true \
+          -p:PublishReadyToRun=true \
+          -p:DebugType=none \
           -o publish/${{ matrix.rid }}
 
     - name: Upload artifact
