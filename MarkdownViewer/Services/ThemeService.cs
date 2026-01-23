@@ -19,10 +19,9 @@ public class ThemeService
     {
         var definition = ThemeColors.GetTheme(theme);
 
-        // Set Avalonia theme variant
-        _app.RequestedThemeVariant = theme == AppTheme.Light
-            ? ThemeVariant.Light
-            : ThemeVariant.Dark;
+        // Set Avalonia theme variant based on whether it's a light or dark theme
+        var isLightTheme = theme == AppTheme.Light || theme == AppTheme.MostlyLucidLight;
+        _app.RequestedThemeVariant = isLightTheme ? ThemeVariant.Light : ThemeVariant.Dark;
 
         // Apply custom colors as resources
         var resources = _app.Resources;

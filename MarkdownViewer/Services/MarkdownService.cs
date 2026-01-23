@@ -12,6 +12,8 @@ public partial class MarkdownService
     private string? _basePath;
     private string? _baseUrl;
     private bool _isDarkMode = true;
+    private string _themeTextColor = "#e6edf3";      // Default to dark theme text
+    private string _themeBackgroundColor = "#0d1117"; // Default to dark theme background
     private ImageCacheService? _imageCacheService;
 
     private int _mermaidCounter;
@@ -35,6 +37,19 @@ public partial class MarkdownService
     public void SetDarkMode(bool isDark)
     {
         _isDarkMode = isDark;
+        // Use default colors for backwards compatibility
+        _themeTextColor = isDark ? "#e6edf3" : "#333333";
+        _themeBackgroundColor = isDark ? "#0d1117" : "#ffffff";
+    }
+
+    /// <summary>
+    /// Set theme colors for accurate Mermaid diagram rendering
+    /// </summary>
+    public void SetThemeColors(bool isDark, string textColor, string backgroundColor)
+    {
+        _isDarkMode = isDark;
+        _themeTextColor = textColor;
+        _themeBackgroundColor = backgroundColor;
     }
 
     public void SetBasePath(string? path)
@@ -386,41 +401,85 @@ public partial class MarkdownService
     /// </summary>
     private static string TryRenderMermaid(string mermaidCode)
     {
+        if (string.IsNullOrWhiteSpace(mermaidCode))
+            throw new ArgumentException("Mermaid code is empty");
+
         var strategies = new List<Func<string, string>>
         {
-            // Strategy 1: Full preprocessing
+            // Strategy 1: Full preprocessing (handles HTML entities, etc.)
             PreprocessMermaidCode,
 
-            // Strategy 2: Minimal preprocessing - just line endings
+            // Strategy 2: Strip indentation - Naiad parser is very sensitive to leading whitespace
+            StripIndentation,
+
+            // Strategy 3: Minimal preprocessing - just line endings
             code => code.Replace("\r\n", "\n").Replace("\r", "\n").Trim(),
 
-            // Strategy 3: Strip all formatting, keep just the structure
-            code => StripMermaidFormatting(code),
+            // Strategy 4: Strip all formatting aggressively
+            StripMermaidFormatting,
 
-            // Strategy 4: Raw code (maybe it's already valid)
+            // Strategy 5: Raw code (maybe it's already valid)
             code => code.Trim()
         };
 
         Exception? lastException = null;
+        var attemptedStrategies = new List<string>();
 
         foreach (var strategy in strategies)
         {
             try
             {
                 var processedCode = strategy(mermaidCode);
-                var svg = Mermaid.Render(processedCode);
+                if (string.IsNullOrWhiteSpace(processedCode))
+                {
+                    attemptedStrategies.Add("empty result");
+                    continue;
+                }
+
+                // Mermaid.Render can return null or throw - handle both
+                string? svg = null;
+                try
+                {
+                    svg = Mermaid.Render(processedCode);
+                }
+                catch (NullReferenceException)
+                {
+                    // Naiad library internal null reference - try next strategy
+                    attemptedStrategies.Add("null reference in renderer");
+                    continue;
+                }
+
                 if (!string.IsNullOrWhiteSpace(svg))
                     return svg;
+
+                attemptedStrategies.Add("empty SVG");
             }
             catch (Exception ex)
             {
                 lastException = ex;
-                // Try next strategy
+                attemptedStrategies.Add(ex.Message.Length > 50 ? ex.Message[..50] + "..." : ex.Message);
             }
         }
 
-        // All strategies failed - throw the last exception
-        throw lastException ?? new InvalidOperationException("Failed to render mermaid diagram");
+        // All strategies failed
+        var details = string.Join("; ", attemptedStrategies);
+        throw lastException ?? new InvalidOperationException($"Failed to render mermaid diagram. Attempts: {details}");
+    }
+
+    /// <summary>
+    /// Strip leading indentation from each line - Naiad parser is very strict about whitespace
+    /// </summary>
+    private static string StripIndentation(string code)
+    {
+        // Normalize line endings
+        code = code.Replace("\r\n", "\n").Replace("\r", "\n");
+
+        // Strip leading whitespace from each line while preserving content
+        var lines = code.Split('\n')
+            .Select(l => l.TrimStart())  // Only trim start, preserve trailing
+            .ToList();
+
+        return string.Join("\n", lines).Trim();
     }
 
     /// <summary>
@@ -614,23 +673,51 @@ public partial class MarkdownService
             centerY += h / 2 + 5; // +5 for baseline adjustment
 
             // Return SVG text element with theme-appropriate fill color and proper font
-            var textColor = _isDarkMode ? "#e6edf3" : "#333333";
             // Use system sans-serif fonts that are widely available
             const string fontFamily = "Segoe UI, Arial, sans-serif";
             return
-                $@"<text x=""{centerX}"" y=""{centerY}"" text-anchor=""middle"" dy=""0.35em"" fill=""{textColor}"" font-family=""{fontFamily}"" font-size=""14"">{SecurityElement.Escape(textContent)}</text>";
+                $@"<text x=""{centerX}"" y=""{centerY}"" text-anchor=""middle"" dy=""0.35em"" fill=""{_themeTextColor}"" font-family=""{fontFamily}"" font-size=""14"">{SecurityElement.Escape(textContent)}</text>";
         });
 
-        // Convert filled shapes to stroked outlines for dark mode compatibility
-        // Change node fills to transparent with colored stroke
-        svgContent = svgContent.Replace("fill=\"#ECECFF\"", "fill=\"none\"");
-        svgContent = svgContent.Replace("fill=\"#ffffde\"", "fill=\"none\""); // cluster fill
+        // Theme-aware SVG modifications
+        if (_isDarkMode)
+        {
+            // Dark mode: Convert filled shapes to transparent (outlines only look better on dark)
+            svgContent = svgContent.Replace("fill=\"#ECECFF\"", "fill=\"none\"");
+            svgContent = svgContent.Replace("fill=\"#ffffde\"", "fill=\"none\"");
+            svgContent = svgContent.Replace("fill=\"rgba(232,232,232,0.8)\"", "fill=\"none\"");
 
-        // Remove edge label backgrounds (gray boxes)
-        svgContent = svgContent.Replace("fill=\"rgba(232,232,232,0.8)\"", "fill=\"none\"");
+            // Replace dark text colors with theme text color
+            svgContent = svgContent.Replace("fill=\"#333\"", $"fill=\"{_themeTextColor}\"");
+            svgContent = svgContent.Replace("fill=\"#333333\"", $"fill=\"{_themeTextColor}\"");
+            svgContent = svgContent.Replace("fill=\"#000\"", $"fill=\"{_themeTextColor}\"");
+            svgContent = svgContent.Replace("fill=\"#000000\"", $"fill=\"{_themeTextColor}\"");
+            svgContent = svgContent.Replace("fill=\"black\"", $"fill=\"{_themeTextColor}\"");
+
+            // Fix stroke colors for visibility
+            svgContent = svgContent.Replace("stroke=\"#333\"", $"stroke=\"{_themeTextColor}\"");
+            svgContent = svgContent.Replace("stroke=\"#333333\"", $"stroke=\"{_themeTextColor}\"");
+        }
+        else
+        {
+            // Light mode: Keep light fills but ensure text is dark
+            // Keep fills for light backgrounds: #ECECFF (light blue), #ffffde (light yellow)
+
+            // Replace light text colors with theme text color (dark)
+            svgContent = svgContent.Replace("fill=\"#fff\"", $"fill=\"{_themeTextColor}\"");
+            svgContent = svgContent.Replace("fill=\"#ffffff\"", $"fill=\"{_themeTextColor}\"");
+            svgContent = svgContent.Replace("fill=\"white\"", $"fill=\"{_themeTextColor}\"");
+
+            // Ensure dark text stays dark for readability
+            svgContent = svgContent.Replace("fill=\"#e6edf3\"", $"fill=\"{_themeTextColor}\"");
+            svgContent = svgContent.Replace("fill=\"#c9d1d9\"", $"fill=\"{_themeTextColor}\"");
+        }
+
+        // General contrast fix: Replace any text fill color that would be unreadable
+        // This catches edge cases where Mermaid outputs unexpected colors
+        svgContent = ReplaceUnreadableTextColors(svgContent);
 
         // Replace Mermaid's default fonts with system fonts that are more reliable
-        // Mermaid uses various fonts that may not be available on all systems
         svgContent = Regex.Replace(svgContent,
             @"font-family\s*:\s*[""']?[^;""']+[""']?\s*;?",
             "font-family: 'Segoe UI', Arial, sans-serif;",
@@ -641,6 +728,126 @@ public partial class MarkdownService
             RegexOptions.IgnoreCase);
 
         return svgContent;
+    }
+
+    /// <summary>
+    /// Replace text/fill colors that would be unreadable on the current theme background
+    /// </summary>
+    private string ReplaceUnreadableTextColors(string svgContent)
+    {
+        // 1. Fix fill attributes on text elements: <text fill="#color">
+        svgContent = Regex.Replace(svgContent,
+            @"(<text[^>]*)(fill\s*=\s*"")(#[0-9a-fA-F]{3,6})("")",
+            match => FixColorAttribute(match, 3),
+            RegexOptions.IgnoreCase);
+
+        // 2. Fix fill in style attributes: style="fill: #color"
+        svgContent = Regex.Replace(svgContent,
+            @"(style\s*=\s*""[^""]*)(fill\s*:\s*)(#[0-9a-fA-F]{3,6})([^""]*"")",
+            match => FixColorInStyle(match, 3),
+            RegexOptions.IgnoreCase);
+
+        // 3. Fix standalone fill attributes on other elements (spans, tspan, etc.)
+        svgContent = Regex.Replace(svgContent,
+            @"(<(?:tspan|span|g)[^>]*)(fill\s*=\s*"")(#[0-9a-fA-F]{3,6})("")",
+            match => FixColorAttribute(match, 3),
+            RegexOptions.IgnoreCase);
+
+        // 4. Fix named colors that might be problematic
+        if (_isDarkMode)
+        {
+            // Dark backgrounds: fix light text colors
+            svgContent = Regex.Replace(svgContent, @"fill\s*=\s*""black""", $"fill=\"{_themeTextColor}\"", RegexOptions.IgnoreCase);
+            svgContent = Regex.Replace(svgContent, @"fill\s*:\s*black", $"fill: {_themeTextColor}", RegexOptions.IgnoreCase);
+        }
+        else
+        {
+            // Light backgrounds: fix dark text colors
+            svgContent = Regex.Replace(svgContent, @"fill\s*=\s*""white""", $"fill=\"{_themeTextColor}\"", RegexOptions.IgnoreCase);
+            svgContent = Regex.Replace(svgContent, @"fill\s*:\s*white", $"fill: {_themeTextColor}", RegexOptions.IgnoreCase);
+        }
+
+        return svgContent;
+    }
+
+    private string FixColorAttribute(Match match, int colorGroupIndex)
+    {
+        var colorHex = match.Groups[colorGroupIndex].Value;
+        if (IsLowContrast(colorHex, _themeBackgroundColor))
+        {
+            // Rebuild the match with fixed color
+            var result = "";
+            for (int i = 1; i < match.Groups.Count; i++)
+            {
+                result += i == colorGroupIndex ? _themeTextColor : match.Groups[i].Value;
+            }
+            return result;
+        }
+        return match.Value;
+    }
+
+    private string FixColorInStyle(Match match, int colorGroupIndex)
+    {
+        var colorHex = match.Groups[colorGroupIndex].Value;
+        if (IsLowContrast(colorHex, _themeBackgroundColor))
+        {
+            var result = "";
+            for (int i = 1; i < match.Groups.Count; i++)
+            {
+                result += i == colorGroupIndex ? _themeTextColor : match.Groups[i].Value;
+            }
+            return result;
+        }
+        return match.Value;
+    }
+
+    /// <summary>
+    /// Check if two colors have low contrast (would be hard to read)
+    /// Uses simplified relative luminance calculation
+    /// </summary>
+    private static bool IsLowContrast(string color1, string color2)
+    {
+        var lum1 = GetRelativeLuminance(color1);
+        var lum2 = GetRelativeLuminance(color2);
+
+        // Contrast ratio formula
+        var lighter = Math.Max(lum1, lum2);
+        var darker = Math.Min(lum1, lum2);
+        var contrastRatio = (lighter + 0.05) / (darker + 0.05);
+
+        // WCAG AA requires 4.5:1 for normal text, we use 3:1 as minimum readable
+        return contrastRatio < 3.0;
+    }
+
+    /// <summary>
+    /// Calculate relative luminance from hex color
+    /// </summary>
+    private static double GetRelativeLuminance(string hexColor)
+    {
+        try
+        {
+            // Normalize hex color
+            var hex = hexColor.TrimStart('#');
+            if (hex.Length == 3)
+                hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
+
+            if (hex.Length != 6) return 0.5; // Default to mid luminance
+
+            var r = Convert.ToInt32(hex[..2], 16) / 255.0;
+            var g = Convert.ToInt32(hex[2..4], 16) / 255.0;
+            var b = Convert.ToInt32(hex[4..6], 16) / 255.0;
+
+            // sRGB to linear
+            r = r <= 0.03928 ? r / 12.92 : Math.Pow((r + 0.055) / 1.055, 2.4);
+            g = g <= 0.03928 ? g / 12.92 : Math.Pow((g + 0.055) / 1.055, 2.4);
+            b = b <= 0.03928 ? b / 12.92 : Math.Pow((b + 0.055) / 1.055, 2.4);
+
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }
+        catch
+        {
+            return 0.5; // Default to mid luminance on parse error
+        }
     }
 
     private static string ExtractTextFromHtml(string html)

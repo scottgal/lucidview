@@ -63,6 +63,13 @@ jobs:
           -p:DebugType=none \
           -o publish/win-x64
 
+    - name: Copy content files
+      shell: bash
+      run: |
+        # Content files aren't in publish output with SingleFile - copy from source
+        cp README.md publish/win-x64/ 2>/dev/null || true
+        cp MarkdownViewer/default-settings.json publish/win-x64/ 2>/dev/null || true
+
     - name: Verify output
       shell: bash
       run: |
@@ -70,6 +77,8 @@ jobs:
           size=$(stat -c%s "publish/win-x64/lucidVIEW.exe" 2>/dev/null || stat -f%z "publish/win-x64/lucidVIEW.exe")
           size_mb=$(echo "scale=2; $size / 1048576" | bc)
           echo "Build successful! Size: ${size_mb} MB"
+          echo "Content files:"
+          ls -la publish/win-x64/*.json publish/win-x64/*.md 2>/dev/null || echo "No content files found"
         else
           echo "Build failed - lucidVIEW.exe not found"
           exit 1

@@ -63,7 +63,9 @@ jobs:
       run: |
         mkdir release
         Copy-Item "publish/${{ matrix.rid }}/${{ matrix.exe }}" "release/"
-        Copy-Item "publish/${{ matrix.rid }}/README.md" "release/" -ErrorAction SilentlyContinue
+        # Content files aren't in publish output with SingleFile - copy from source
+        Copy-Item "README.md" "release/" -ErrorAction SilentlyContinue
+        Copy-Item "MarkdownViewer/default-settings.json" "release/" -ErrorAction SilentlyContinue
       shell: pwsh
 
     - name: Prepare release folder (Unix)
@@ -71,7 +73,9 @@ jobs:
       run: |
         mkdir release
         cp "publish/${{ matrix.rid }}/${{ matrix.exe }}" release/
-        cp "publish/${{ matrix.rid }}/README.md" release/ 2>/dev/null || true
+        # Content files aren't in publish output with SingleFile - copy from source
+        cp README.md release/ 2>/dev/null || true
+        cp MarkdownViewer/default-settings.json release/ 2>/dev/null || true
         chmod +x "release/${{ matrix.exe }}"
 
     - name: Create archive (Windows)

@@ -1,7 +1,7 @@
 {
   "theme": "MostlyLucidDark",
   "codeTheme": "Auto",
-  "fontFamily": "Raleway, Inter, Segoe UI, -apple-system, sans-serif",
+  "fontFamily": "avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, sans-serif",
   "fontSize": 15,
   "lineHeight": 1.6,
   "codeFontFamily": "Consolas, Cascadia Code, JetBrains Mono, Menlo, Monaco, monospace",

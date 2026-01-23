@@ -532,7 +532,8 @@ public partial class MainWindow : Window
 
         // Update markdown service for theme-aware mermaid rendering
         var isDark = theme != AppTheme.Light && theme != AppTheme.MostlyLucidLight;
-        _markdownService.SetDarkMode(isDark);
+        var themeDefinition = ThemeColors.GetTheme(theme);
+        _markdownService.SetThemeColors(isDark, themeDefinition.Text, themeDefinition.Background);
 
         // Refresh current document to regenerate mermaid diagrams with new theme colors
         if (!string.IsNullOrEmpty(_rawContent)) _ = DisplayMarkdown(_rawContent);
