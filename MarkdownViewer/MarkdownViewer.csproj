@@ -21,8 +21,13 @@
         <PublishTrimmed>false</PublishTrimmed>
 
         <!-- ReadyToRun for faster startup (pre-compiles IL to native) -->
+        <!-- Composite disabled - breaks Markdown.Avalonia's StaticBinding reflection -->
         <PublishReadyToRun>true</PublishReadyToRun>
-        <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
+        <PublishReadyToRunComposite>false</PublishReadyToRunComposite>
+
+        <!-- Preserve all assemblies for dynamic binding resolution -->
+        <TrimMode>partial</TrimMode>
+        <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
 
         <!-- Optimize for size -->
         <OptimizationPreference>Size</OptimizationPreference>
@@ -51,6 +56,11 @@
         <!-- Markdown Rendering with Syntax Highlighting (YouYan fork for Avalonia 11.2+ compatibility) -->
         <PackageReference Include="Naiad" Version="0.1.1"/>
         <PackageReference Include="SkiaSharp" Version="3.119.1"/>
+        <!-- Native assets for cross-platform builds - ensures bundled libs are used instead of system -->
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.1"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.1"/>
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.1"/>
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.1"/>
 
         <!-- SVG Support -->
         <PackageReference Include="Svg.Skia" Version="3.4.1"/>

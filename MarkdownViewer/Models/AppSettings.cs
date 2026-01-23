@@ -16,11 +16,11 @@ public class AppSettings
     public CodeTheme CodeTheme { get; set; } = CodeTheme.Auto;
 
     // Typography
-    // Raleway font with system fallbacks (use system Raleway if installed, otherwise fallback)
-    public string FontFamily { get; set; } = "Raleway, Inter, Segoe UI, sans-serif";
+    // Bundled Raleway font with system fallbacks
+    public string FontFamily { get; set; } = "avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, sans-serif";
     public double FontSize { get; set; } = 15;
     public double LineHeight { get; set; } = 1.6;
-    public string CodeFontFamily { get; set; } = "Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace";
+    public string CodeFontFamily { get; set; } = "Consolas, Cascadia Code, JetBrains Mono, Menlo, Monaco, monospace";
     public double CodeFontSize { get; set; } = 13;
 
     // Layout

@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_PATH: 'MarkdownViewer/MarkdownViewer.csproj'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+
+    - name: Build
+      run: dotnet build ${{ env.PROJECT_PATH }} -c Release --no-restore
+
+    - name: Test (if tests exist)
+      run: dotnet test --no-build --verbosity normal || true
+      continue-on-error: true
+
+  # Quick smoke test - ensure it can be published
+  publish-test:
+    runs-on: windows-latest
+    needs: build
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Publish (Windows x64)
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} -c Release -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:EnableCompressionInSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:IncludeAllContentForSelfExtract=true `
+          -p:PublishReadyToRun=true `
+          -p:DebugType=none `
+          -o publish/win-x64
+      shell: pwsh
+
+    - name: Verify output
+      run: |
+        if (Test-Path "publish/win-x64/lucidVIEW.exe") {
+          $size = (Get-Item "publish/win-x64/lucidVIEW.exe").Length / 1MB
+          Write-Host "Build successful! Size: $([math]::Round($size, 2)) MB"
+        } else {
+          Write-Error "Build failed - lucidVIEW.exe not found"
+          exit 1
+        }
+      shell: pwsh

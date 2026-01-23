@@ -296,6 +296,7 @@ public partial class MarkdownService
             }
             catch { }
         }
+
         // Return the resolved URL (will be loaded directly by renderer)
         return $"![{alt}]({url})";
     }
@@ -314,11 +315,8 @@ public partial class MarkdownService
 
             try
             {
-                // Preprocess mermaid code to match what mermaid.js handles
-                var processedCode = PreprocessMermaidCode(mermaidCode);
-
-                // Render mermaid to SVG using Naiad
-                var svgContent = Mermaid.Render(processedCode);
+                // Try multiple preprocessing strategies until one works
+                var svgContent = TryRenderMermaid(mermaidCode);
 
                 // Post-process SVG: convert foreignObject to text elements
                 // Avalonia's SVG renderer doesn't support foreignObject (HTML in SVG)
@@ -384,6 +382,81 @@ public partial class MarkdownService
     }
 
     /// <summary>
+    /// Try to render mermaid code with multiple preprocessing strategies
+    /// </summary>
+    private static string TryRenderMermaid(string mermaidCode)
+    {
+        var strategies = new List<Func<string, string>>
+        {
+            // Strategy 1: Full preprocessing
+            PreprocessMermaidCode,
+
+            // Strategy 2: Minimal preprocessing - just line endings
+            code => code.Replace("\r\n", "\n").Replace("\r", "\n").Trim(),
+
+            // Strategy 3: Strip all formatting, keep just the structure
+            code => StripMermaidFormatting(code),
+
+            // Strategy 4: Raw code (maybe it's already valid)
+            code => code.Trim()
+        };
+
+        Exception? lastException = null;
+
+        foreach (var strategy in strategies)
+        {
+            try
+            {
+                var processedCode = strategy(mermaidCode);
+                var svg = Mermaid.Render(processedCode);
+                if (!string.IsNullOrWhiteSpace(svg))
+                    return svg;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                // Try next strategy
+            }
+        }
+
+        // All strategies failed - throw the last exception
+        throw lastException ?? new InvalidOperationException("Failed to render mermaid diagram");
+    }
+
+    /// <summary>
+    /// Aggressive stripping of formatting for fallback rendering
+    /// </summary>
+    private static string StripMermaidFormatting(string code)
+    {
+        // Normalize line endings
+        code = code.Replace("\r\n", "\n").Replace("\r", "\n");
+
+        // Remove all HTML
+        code = Regex.Replace(code, @"<[^>]+>", "", RegexOptions.IgnoreCase);
+
+        // Remove HTML entities
+        code = code
+            .Replace("&amp;", "&")
+            .Replace("&lt;", "<")
+            .Replace("&gt;", ">")
+            .Replace("&quot;", "\"")
+            .Replace("&#39;", "'")
+            .Replace("&nbsp;", " ");
+
+        // Remove style/class definitions that might cause issues
+        code = Regex.Replace(code, @":::[\w\s]+", "");
+        code = Regex.Replace(code, @"class\s+\w+\s+[\w,]+", "");
+
+        // Clean up lines
+        var lines = code.Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .ToList();
+
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
     /// Preprocess mermaid code to handle various formats that mermaid.js supports
     /// </summary>
     private static string PreprocessMermaidCode(string mermaidCode)
@@ -399,44 +472,63 @@ public partial class MarkdownService
             .Replace("&#39;", "'")
             .Replace("&nbsp;", " ");
 
-        // 2. Handle HTML line breaks (mermaid.js allows these in labels)
-        code = code
-            .Replace("<br/>", "\\n")
-            .Replace("<br>", "\\n")
-            .Replace("<br />", "\\n");
+        // 2. Handle HTML line breaks in labels - convert to actual newlines or remove
+        // Mermaid.js supports <br/> in labels but Naiad may not
+        code = Regex.Replace(code, @"<br\s*/?>", " ", RegexOptions.IgnoreCase);
 
-        // 3. Handle Windows line endings
+        // 3. Remove any HTML tags that might be in labels (common in copied content)
+        code = Regex.Replace(code, @"<[^>]+>", " ");
+
+        // 4. Handle Windows line endings
         code = code.Replace("\r\n", "\n").Replace("\r", "\n");
 
-        // 4. Normalize indentation for Naiad parser
+        // 5. Remove any BOM or invisible characters
+        code = code.Trim('\uFEFF', '\u200B', '\u200C', '\u200D');
+
+        // 6. Normalize whitespace in labels - collapse multiple spaces
+        code = Regex.Replace(code, @"[ \t]+", " ");
+
+        // 7. Process line by line - preserve structure but clean up
         var lines = code.Split('\n');
         var normalizedLines = new List<string>();
         var foundDiagramType = false;
 
         foreach (var line in lines)
         {
-            var trimmed = line.TrimStart();
+            var trimmed = line.Trim();
 
             // Skip empty lines at the start
             if (!foundDiagramType && string.IsNullOrWhiteSpace(trimmed))
                 continue;
 
+            // Skip comment-only lines that might cause issues
+            if (trimmed.StartsWith("%%") && trimmed.Length > 2 && !trimmed.StartsWith("%%{"))
+            {
+                // Keep directive comments like %%{init: ...}%%
+                if (!trimmed.Contains("{"))
+                    continue;
+            }
+
             if (string.IsNullOrWhiteSpace(trimmed))
             {
-                normalizedLines.Add("");
+                // Don't add multiple consecutive empty lines
+                if (normalizedLines.Count > 0 && !string.IsNullOrWhiteSpace(normalizedLines[^1]))
+                    normalizedLines.Add("");
                 continue;
             }
 
             if (!foundDiagramType)
             {
-                // First non-empty line is the diagram type - no indent
+                // First non-empty line is the diagram type - ensure proper format
+                // Handle variations like "flowchart LR", "graph TD", etc.
                 normalizedLines.Add(trimmed);
                 foundDiagramType = true;
             }
             else
             {
-                // Content lines get consistent 4-space indent
-                normalizedLines.Add("    " + trimmed);
+                // Content lines - keep original indentation style but normalize
+                // Don't force 4-space indent as it can break some syntax
+                normalizedLines.Add(trimmed);
             }
         }
 
@@ -521,10 +613,12 @@ public partial class MarkdownService
             centerX += w / 2;
             centerY += h / 2 + 5; // +5 for baseline adjustment
 
-            // Return SVG text element with theme-appropriate fill color
+            // Return SVG text element with theme-appropriate fill color and proper font
             var textColor = _isDarkMode ? "#e6edf3" : "#333333";
+            // Use system sans-serif fonts that are widely available
+            const string fontFamily = "Segoe UI, Arial, sans-serif";
             return
-                $@"<text x=""{centerX}"" y=""{centerY}"" text-anchor=""middle"" dy=""0.35em"" fill=""{textColor}"" font-size=""14"">{SecurityElement.Escape(textContent)}</text>";
+                $@"<text x=""{centerX}"" y=""{centerY}"" text-anchor=""middle"" dy=""0.35em"" fill=""{textColor}"" font-family=""{fontFamily}"" font-size=""14"">{SecurityElement.Escape(textContent)}</text>";
         });
 
         // Convert filled shapes to stroked outlines for dark mode compatibility
@@ -534,6 +628,17 @@ public partial class MarkdownService
 
         // Remove edge label backgrounds (gray boxes)
         svgContent = svgContent.Replace("fill=\"rgba(232,232,232,0.8)\"", "fill=\"none\"");
+
+        // Replace Mermaid's default fonts with system fonts that are more reliable
+        // Mermaid uses various fonts that may not be available on all systems
+        svgContent = Regex.Replace(svgContent,
+            @"font-family\s*:\s*[""']?[^;""']+[""']?\s*;?",
+            "font-family: 'Segoe UI', Arial, sans-serif;",
+            RegexOptions.IgnoreCase);
+        svgContent = Regex.Replace(svgContent,
+            @"font-family\s*=\s*""[^""]+""",
+            "font-family=\"Segoe UI, Arial, sans-serif\"",
+            RegexOptions.IgnoreCase);
 
         return svgContent;
     }

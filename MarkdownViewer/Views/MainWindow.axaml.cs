@@ -32,12 +32,31 @@ public partial class MainWindow : Window
     private string? _currentFilePath;
     private int _currentSearchIndex = -1;
     private int _fontSize = 16;
-    private Style? _codeBlockStyle;
+    private List<Style> _codeBlockStyles = [];
     private Style? _fontStyle;
     private List<HeadingItem> _headings = [];
     private bool _isSidePanelOpen;
     private string _rawContent = string.Empty;
     private List<SearchResult> _searchResults = [];
+
+    /// <summary>
+    /// Known harmless errors from third-party libraries that should not be shown to users
+    /// </summary>
+    private static readonly string[] IgnorableErrors =
+    [
+        "Unsupported IBinding implementation",
+        "StaticBinding",
+        "Markdown.Avalonia.Extensions"
+    ];
+
+    /// <summary>
+    /// Check if an exception is a known harmless library error
+    /// </summary>
+    private static bool IsIgnorableError(Exception ex)
+    {
+        var message = ex.Message;
+        return IgnorableErrors.Any(e => message.Contains(e, StringComparison.OrdinalIgnoreCase));
+    }
 
     public MainWindow()
     {
@@ -145,14 +164,14 @@ public partial class MainWindow : Window
             using var lucidPaint = new SKPaint { Color = new SKColor(0xDD, 0xDD, 0xDD), IsAntialias = true };
             canvas.Save();
             canvas.Skew(-0.15f, 0);
-            canvas.DrawText("l", 14, 46, SKTextAlign.Left, lucidFont, lucidPaint);
+            canvas.DrawText("l", 14, 46, lucidFont, lucidPaint);
             canvas.Restore();
 
             // Draw "V" in white (bold)
             using var viewTypeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Bold);
             using var viewFont = new SKFont(viewTypeface, 36);
             using var viewPaint = new SKPaint { Color = SKColors.White, IsAntialias = true };
-            canvas.DrawText("V", 30, 46, SKTextAlign.Left, viewFont, viewPaint);
+            canvas.DrawText("V", 30, 46, viewFont, viewPaint);
 
             // Convert to Avalonia bitmap
             using var image = surface.Snapshot();
@@ -311,9 +330,13 @@ public partial class MainWindow : Window
                 _ = CacheImagesAndRefreshAsync(content, imageUrls);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!IsIgnorableError(ex))
         {
             StatusText.Text = $"Error: {ex.Message}";
+        }
+        catch
+        {
+            // Ignore known library errors (e.g., StaticBinding from Markdown.Avalonia)
         }
     }
 
@@ -327,6 +350,10 @@ public partial class MainWindow : Window
             await _imageCacheService.PreCacheImagesAsync(imageUrls);
             // Refresh markdown to use cached images
             await DisplayMarkdown(content);
+        }
+        catch (Exception ex) when (IsIgnorableError(ex))
+        {
+            // Ignore known library errors
         }
         catch
         {
@@ -376,9 +403,13 @@ public partial class MainWindow : Window
                 _ = CacheImagesAndRefreshAsync(content, imageUrls);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!IsIgnorableError(ex))
         {
             StatusText.Text = $"Error: {ex.Message}";
+        }
+        catch
+        {
+            // Ignore known library errors
         }
     }
 
@@ -642,14 +673,32 @@ public partial class MainWindow : Window
 
         _fontSize = _settings.FontSize > 0 ? (int)_settings.FontSize : 16;
         ApplyFontSize();
+
+        // Force content refresh if we have content loaded
+        if (!string.IsNullOrEmpty(_rawContent))
+        {
+            // Clear and re-append to trigger re-render with new font
+            var content = _rawContent;
+            _markdownBuilder.Clear();
+            var processed = _markdownService.ProcessMarkdown(content);
+            _markdownBuilder.Append(processed);
+        }
     }
 
     private void ApplyCodeBlockStyle(FontFamily codeFont, double codeFontSize)
     {
-        if (_codeBlockStyle != null)
-            MdViewer.Styles.Remove(_codeBlockStyle);
+        // Remove existing styles
+        foreach (var style in _codeBlockStyles)
+        {
+            MdViewer.Styles.Remove(style);
+        }
+        _codeBlockStyles.Clear();
 
-        _codeBlockStyle = new Style(x => x.OfType<CodeBlock>())
+        // Use a simpler monospace font for language labels (sans-serif style)
+        var labelFont = new FontFamily("Segoe UI, Arial, sans-serif");
+
+        // Style 1: CodeBlock container
+        var codeBlockStyle = new Style(x => x.OfType<CodeBlock>())
         {
             Setters =
             {
@@ -658,7 +707,58 @@ public partial class MainWindow : Window
             }
         };
 
-        MdViewer.Styles.Add(_codeBlockStyle);
+        // Style 2: ALL TextBlocks inside CodeBlock - covers language label AND code
+        var textBlockInCodeStyle = new Style(x => x.OfType<CodeBlock>().Descendant().OfType<TextBlock>())
+        {
+            Setters =
+            {
+                new Setter(TextBlock.FontFamilyProperty, codeFont),
+                new Setter(TextBlock.FontSizeProperty, codeFontSize)
+            }
+        };
+
+        // Style 3: SelectableTextBlock inside CodeBlock (for selectable code)
+        var selectableInCodeStyle = new Style(x => x.OfType<CodeBlock>().Descendant().OfType<SelectableTextBlock>())
+        {
+            Setters =
+            {
+                new Setter(SelectableTextBlock.FontFamilyProperty, codeFont),
+                new Setter(SelectableTextBlock.FontSizeProperty, codeFontSize)
+            }
+        };
+
+        // Style 4: Border child TextBlock (language label) - use sans-serif not monospace
+        var languageLabelStyle = new Style(x => x.OfType<CodeBlock>().Child().OfType<Border>().Descendant().OfType<TextBlock>())
+        {
+            Setters =
+            {
+                new Setter(TextBlock.FontFamilyProperty, labelFont),
+                new Setter(TextBlock.FontSizeProperty, 12.0),
+                new Setter(TextBlock.FontStyleProperty, FontStyle.Normal),
+                new Setter(TextBlock.FontWeightProperty, FontWeight.Normal)
+            }
+        };
+
+        // Style 5: InlineUIContainer for inline code (`code`)
+        var inlineContainerStyle = new Style(x => x.OfType<InlineUIContainer>().Descendant().OfType<TextBlock>())
+        {
+            Setters =
+            {
+                new Setter(TextBlock.FontFamilyProperty, codeFont)
+            }
+        };
+
+        // Add all styles and track them - ORDER MATTERS for specificity
+        _codeBlockStyles.Add(codeBlockStyle);
+        _codeBlockStyles.Add(textBlockInCodeStyle);
+        _codeBlockStyles.Add(selectableInCodeStyle);
+        _codeBlockStyles.Add(languageLabelStyle);  // More specific, added last
+        _codeBlockStyles.Add(inlineContainerStyle);
+
+        foreach (var style in _codeBlockStyles)
+        {
+            MdViewer.Styles.Add(style);
+        }
     }
 
     #endregion

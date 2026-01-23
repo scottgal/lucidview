@@ -34,10 +34,7 @@
                             Classes="header-btn"
                             Click="OnToggleSidePanel"
                             ToolTip.Tip="Menu (Ctrl+B)">
-                        <PathIcon
-                            Data="M2,4 L22,4 L22,6 L2,6 Z M2,11 L22,11 L22,13 L2,13 Z M2,18 L22,18 L22,20 L2,20 Z"
-                            Width="18" Height="18"
-                            Foreground="{DynamicResource AppText}" />
+                        <TextBlock Text="☰" FontSize="18" Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- TOC Button -->
@@ -47,10 +44,7 @@
                             Click="OnToggleToc"
                             IsEnabled="False"
                             ToolTip.Tip="Table of Contents">
-                        <PathIcon
-                            Data="M3,4 L10,4 L10,6 L3,6 Z M3,9 L21,9 L21,11 L3,11 Z M3,14 L14,14 L14,16 L3,16 Z M3,19 L21,19 L21,21 L3,21 Z"
-                            Width="18" Height="18"
-                            Foreground="{DynamicResource AppText}" />
+                        <TextBlock Text="≡" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- Center: Zoom Controls -->
@@ -66,18 +60,14 @@
                                       IsChecked="True"
                                       Click="OnFitModeToggle"
                                       ToolTip.Tip="Fit to width">
-                            <PathIcon Data="M4 12h16 M4 12l3-3 M4 12l3 3 M20 12l-3-3 M20 12l-3 3"
-                                      Width="16" Height="16"
-                                      Foreground="{DynamicResource AppText}" />
+                            <TextBlock Text="↔" FontSize="16" Foreground="{DynamicResource AppText}" />
                         </ToggleButton>
                         <ToggleButton x:Name="FitHeightToggle"
                                       Classes="header-btn"
                                       IsChecked="False"
                                       Click="OnFitModeToggle"
                                       ToolTip.Tip="Fit to height">
-                            <PathIcon Data="M12 4v16M12 4l-3 3M12 4l3 3M12 20l-3-3M12 20l3-3"
-                                      Width="16" Height="16"
-                                      Foreground="{DynamicResource AppText}" />
+                            <TextBlock Text="↕" FontSize="16" Foreground="{DynamicResource AppText}" />
                         </ToggleButton>
                         <Slider x:Name="ZoomSlider"
                                 Width="100"
@@ -122,9 +112,7 @@
                             Click="OnToggleSearch"
                             IsEnabled="False"
                             ToolTip.Tip="Search (Ctrl+F)">
-                        <PathIcon Data="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"
-                                  Width="16" Height="16"
-                                  Foreground="{DynamicResource AppText}" />
+                        <TextBlock Text="⌕" FontSize="18" Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- Right: Font Size Controls -->
@@ -171,9 +159,8 @@
                 <Border x:Name="DropOverlay" IsVisible="False" Classes="drop-overlay" ZIndex="100">
                     <Border Classes="drop-card" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <StackPanel Spacing="16" HorizontalAlignment="Center">
-                            <PathIcon Data="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
-                                      Width="48" Height="48"
-                                      Foreground="{DynamicResource AppAccent}" />
+                            <TextBlock Text="📄" FontSize="48" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource AppAccent}" />
                             <TextBlock Text="Drop markdown file here"
                                        FontSize="16"
                                        Foreground="{DynamicResource AppText}"
@@ -261,8 +248,7 @@
                                                 Classes="header-btn"
                                                 Click="OnCloseToc"
                                                 ToolTip.Tip="Close TOC">
-                                            <PathIcon Data="M18 6L6 18M6 6l12 12" Width="14" Height="14"
-                                                      Foreground="{DynamicResource AppText}" />
+                                            <TextBlock Text="✕" FontSize="14" Foreground="{DynamicResource AppText}" />
                                         </Button>
                                     </Grid>
                                 </Border>
@@ -368,15 +354,17 @@
                                               VerticalScrollBarVisibility="Visible"
                                               AllowAutoHide="False">
                                     <LayoutTransformControl x:Name="MarkdownLayoutTransform">
-                                        <Border Padding="40,32" MaxWidth="1200" HorizontalAlignment="Center">
+                                        <Border Padding="40,32" MaxWidth="1200" HorizontalAlignment="Center"
+                                                TextElement.FontFamily="avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, Arial, sans-serif"
+                                                TextElement.FontStyle="Normal"
+                                                TextElement.FontWeight="Normal">
                                             <md:MarkdownRenderer x:Name="MdViewer">
                                                 <md:MarkdownRenderer.ContextMenu>
                                                     <ContextMenu>
                                                         <MenuItem Header="Copy" Click="OnCopyText"
                                                                   InputGesture="Ctrl+C">
                                                             <MenuItem.Icon>
-                                                                <PathIcon
-                                                                    Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                                                                <TextBlock Text="📋" FontSize="14" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="Select All" Click="OnSelectAll"
@@ -435,7 +423,7 @@
                                 Classes="header-btn"
                                 Click="OnCloseSidePanel"
                                 ToolTip.Tip="Close menu">
-                            <PathIcon Data="M19 12H5M12 19l-7-7 7-7" Width="18" Height="18" />
+                            <TextBlock Text="←" FontSize="18" Foreground="{DynamicResource AppText}" />
                         </Button>
                         <StackPanel Grid.Column="1"
                                     Orientation="Horizontal"
@@ -462,8 +450,7 @@
                         <!-- Open File -->
                         <Button Classes="panel-item" Click="OnOpenFile">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6"
-                                          Width="20" Height="20" />
+                                <TextBlock Text="📂" FontSize="18" Width="20" />
                                 <TextBlock Text="Open file..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -471,9 +458,7 @@
                         <!-- Open URL -->
                         <Button Classes="panel-item" Click="OnOpenUrl">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon
-                                    Data="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-                                    Width="20" Height="20" />
+                                <TextBlock Text="🔗" FontSize="18" Width="20" />
                                 <TextBlock Text="Open URL..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -484,9 +469,7 @@
                         <Expander Classes="panel-expander" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <PathIcon
-                                        Data="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"
-                                        Width="20" Height="20" />
+                                    <TextBlock Text="🎨" FontSize="18" Width="20" />
                                     <TextBlock Text="Theme" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -565,8 +548,7 @@
                         <Expander Classes="panel-expander" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <PathIcon Data="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"
-                                              Width="20" Height="20" />
+                                    <TextBlock Text="🕐" FontSize="18" Width="20" />
                                     <TextBlock Text="Recent Files" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -587,9 +569,7 @@
                         <!-- Print -->
                         <Button Classes="panel-item" Click="OnPrint">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon
-                                    Data="M6 9V2h12v7 M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M6 14h12v8H6z"
-                                    Width="20" Height="20" />
+                                <TextBlock Text="🖨" FontSize="18" Width="20" />
                                 <TextBlock Text="Print..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -597,8 +577,7 @@
                         <!-- Search -->
                         <Button Classes="panel-item" Click="OnToggleSearch">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"
-                                          Width="20" Height="20" />
+                                <TextBlock Text="🔍" FontSize="18" Width="20" />
                                 <TextBlock Text="Search (Ctrl+F)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -608,9 +587,7 @@
                         <!-- Settings -->
                         <Button Classes="panel-item" Click="OnOpenSettings">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon
-                                    Data="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-                                    Width="20" Height="20" />
+                                <TextBlock Text="⚙" FontSize="18" Width="20" />
                                 <TextBlock Text="Settings" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -618,9 +595,7 @@
                         <!-- Help -->
                         <Button Classes="panel-item" Click="OnOpenHelp">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon
-                                    Data="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01"
-                                    Width="20" Height="20" />
+                                <TextBlock Text="❓" FontSize="18" Width="20" />
                                 <TextBlock Text="Help (F1)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>

@@ -4,7 +4,7 @@
   "fontFamily": "Raleway, Inter, Segoe UI, -apple-system, sans-serif",
   "fontSize": 15,
   "lineHeight": 1.6,
-  "codeFontFamily": "Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+  "codeFontFamily": "Consolas, Cascadia Code, JetBrains Mono, Menlo, Monaco, monospace",
   "codeFontSize": 13,
   "windowWidth": 1100,
   "windowHeight": 750,

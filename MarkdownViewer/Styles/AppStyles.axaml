@@ -1,10 +1,25 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:LiveMarkdown="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia">
 
     <!-- ==================== GLOBAL OVERRIDES ==================== -->
 
     <Style Selector="Window">
         <Setter Property="Background" Value="{DynamicResource AppBackground}" />
+    </Style>
+
+    <!-- ==================== MARKDOWN RENDERER FONT OVERRIDES ==================== -->
+    <!-- Default: Bundled Raleway for text content, overridable via settings -->
+
+    <Style Selector="LiveMarkdown|MarkdownRenderer">
+        <Setter Property="(TextElement.FontFamily)" Value="avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, Arial, sans-serif" />
+        <Setter Property="(TextElement.FontStyle)" Value="Normal" />
+    </Style>
+
+    <!-- ALL TextBlocks in markdown get Raleway by default -->
+    <Style Selector="LiveMarkdown|MarkdownRenderer TextBlock">
+        <Setter Property="FontFamily" Value="avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, Arial, sans-serif" />
+        <Setter Property="FontStyle" Value="Normal" />
     </Style>
 
     <!-- ==================== HEADER BAR ==================== -->
@@ -382,6 +397,18 @@
         <Setter Property="Foreground" Value="{DynamicResource AppTextSecondary}" />
     </Style>
 
+    <!-- ==================== MARKDOWN IMAGES ==================== -->
+
+    <!-- Constrain inline images (badges) to reasonable max height -->
+    <!-- shields.io badges are typically ~20px high, allow some flexibility -->
+    <Style Selector="Image">
+        <Setter Property="MaxHeight" Value="500" />
+        <Setter Property="Stretch" Value="Uniform" />
+    </Style>
+
+    <!-- Small inline images (badges) should stay inline-sized -->
+    <!-- Target images that are naturally small (under 100px) -->
+
     <!-- ==================== METADATA PANEL ==================== -->
 
     <Style Selector="Border.metadata-panel">
@@ -415,6 +442,45 @@
         <Setter Property="Foreground" Value="{DynamicResource AppTextMuted}" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Margin" Value="0,0,6,0" />
+    </Style>
+
+    <!-- ==================== CODE BLOCK FONT OVERRIDES ==================== -->
+    <!-- Override LiveMarkdown's default fonts for code blocks with proper monospace -->
+
+    <!-- CodeBlock container - set monospace font via attached property -->
+    <Style Selector="LiveMarkdown|CodeBlock">
+        <Setter Property="(TextElement.FontFamily)" Value="Consolas, Cascadia Code, JetBrains Mono, monospace" />
+        <Setter Property="(TextElement.FontSize)" Value="13" />
+        <Setter Property="(TextElement.FontStyle)" Value="Normal" />
+        <Setter Property="(TextElement.FontWeight)" Value="Normal" />
+    </Style>
+
+    <!-- TextBlock inside CodeBlock - MUST be monospace -->
+    <Style Selector="LiveMarkdown|CodeBlock TextBlock">
+        <Setter Property="FontFamily" Value="Consolas, Cascadia Code, JetBrains Mono, monospace" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontStyle" Value="Normal" />
+        <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+
+    <!-- SelectableTextBlock inside CodeBlock - MUST be monospace -->
+    <Style Selector="LiveMarkdown|CodeBlock SelectableTextBlock">
+        <Setter Property="FontFamily" Value="Consolas, Cascadia Code, JetBrains Mono, monospace" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontStyle" Value="Normal" />
+        <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+
+    <!-- Any Border inside CodeBlock inherits monospace -->
+    <Style Selector="LiveMarkdown|CodeBlock Border">
+        <Setter Property="(TextElement.FontFamily)" Value="Consolas, Cascadia Code, JetBrains Mono, monospace" />
+        <Setter Property="(TextElement.FontStyle)" Value="Normal" />
+    </Style>
+
+    <!-- Span/Run elements inside CodeBlock - catch-all for inline text -->
+    <Style Selector="LiveMarkdown|CodeBlock Run">
+        <Setter Property="FontFamily" Value="Consolas, Cascadia Code, JetBrains Mono, monospace" />
+        <Setter Property="FontStyle" Value="Normal" />
     </Style>
 
 </Styles>

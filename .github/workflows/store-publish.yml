@@ -1,9 +1,6 @@
 name: Build and Publish to Microsoft Store
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       submit_to_store:
@@ -70,7 +67,7 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true `
           -p:IncludeAllContentForSelfExtract=true `
           -p:PublishReadyToRun=true `
-          -p:PublishReadyToRunComposite=true `
+          -p:PublishReadyToRunComposite=false `
           -p:DebugType=none `
           -p:DebugSymbols=false `
           -o publish/win-x64
