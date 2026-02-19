@@ -100,6 +100,21 @@ public class FlowchartCanvas : Control
     IBrush _arrowBrush = Brushes.Gray;
     IBrush _arrowHighlightBrush = Brushes.DodgerBlue;
 
+    // Cached semantic colors for decision edges (rebuilt when skin changes)
+    Color _semanticGreen = Color.FromRgb(46, 125, 50);
+    Color _semanticRed = Color.FromRgb(198, 40, 40);
+    IBrush _semanticGreenBrush = new SolidColorBrush(Color.FromRgb(46, 125, 50));
+    IBrush _semanticRedBrush = new SolidColorBrush(Color.FromRgb(198, 40, 40));
+    IPen _semanticGreenPen = new Pen(new SolidColorBrush(Color.FromRgb(46, 125, 50)), 2.0);
+    IPen _semanticRedPen = new Pen(new SolidColorBrush(Color.FromRgb(198, 40, 40)), 2.0);
+    IPen _semanticGreenDottedPen = new Pen(new SolidColorBrush(Color.FromRgb(46, 125, 50)), 1.5) { DashStyle = DashStyle.Dash };
+    IPen _semanticRedDottedPen = new Pen(new SolidColorBrush(Color.FromRgb(198, 40, 40)), 1.5) { DashStyle = DashStyle.Dash };
+    IPen _semanticGreenThickPen = new Pen(new SolidColorBrush(Color.FromRgb(46, 125, 50)), 3.5);
+    IPen _semanticRedThickPen = new Pen(new SolidColorBrush(Color.FromRgb(198, 40, 40)), 3.5);
+
+    // Cached shape-aware brushes/pens (rebuilt when skin changes)
+    Dictionary<NodeShape, (IBrush Fill, IBrush HighlightFill, IPen Stroke)> _shapeBrushes = new();
+
     public FlowchartLayoutResult? Layout
     {
         get => GetValue(LayoutProperty);
@@ -384,12 +399,10 @@ public class FlowchartCanvas : Control
         if (!string.IsNullOrEmpty(edge.Label))
         {
             var label = edge.Label!.Trim().ToLowerInvariant();
-            var greenColor = _isDarkMode ? Color.FromRgb(129, 199, 132) : Color.FromRgb(46, 125, 50);
-            var redColor = _isDarkMode ? Color.FromRgb(239, 154, 154) : Color.FromRgb(198, 40, 40);
             if (PositiveLabels.Any(l => label == l))
-                return new SolidColorBrush(greenColor);
+                return _semanticGreenBrush;
             if (NegativeLabels.Any(l => label == l))
-                return new SolidColorBrush(redColor);
+                return _semanticRedBrush;
         }
 
         return _arrowBrush;
@@ -455,6 +468,13 @@ public class FlowchartCanvas : Control
         context.DrawText(text, new Point(
             labelPos.X - text.Width / 2,
             labelPos.Y - text.Height / 2));
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _animTimer?.Stop();
+        _animTimer = null;
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -727,20 +747,43 @@ public class FlowchartCanvas : Control
             ?? new SolidColorBrush(Colors.LightGray, 0.25);
         _subgraphStrokePen = new Pen(
             TryParseBrush(skin.SubgraphStroke) ?? Brushes.Gray, 1);
+
+        // Rebuild semantic decision-edge colors
+        _semanticGreen = _isDarkMode ? Color.FromRgb(129, 199, 132) : Color.FromRgb(46, 125, 50);
+        _semanticRed = _isDarkMode ? Color.FromRgb(239, 154, 154) : Color.FromRgb(198, 40, 40);
+        _semanticGreenBrush = new SolidColorBrush(_semanticGreen);
+        _semanticRedBrush = new SolidColorBrush(_semanticRed);
+        _semanticGreenPen = new Pen(_semanticGreenBrush, 2.0);
+        _semanticRedPen = new Pen(_semanticRedBrush, 2.0);
+        _semanticGreenDottedPen = new Pen(new SolidColorBrush(_semanticGreen), 1.5) { DashStyle = DashStyle.Dash };
+        _semanticRedDottedPen = new Pen(new SolidColorBrush(_semanticRed), 1.5) { DashStyle = DashStyle.Dash };
+        _semanticGreenThickPen = new Pen(new SolidColorBrush(_semanticGreen), 3.5);
+        _semanticRedThickPen = new Pen(new SolidColorBrush(_semanticRed), 3.5);
+
+        // Rebuild shape-aware brushes
+        _shapeBrushes.Clear();
+        var palette = _isDarkMode ? DarkShapeColors : LightShapeColors;
+        foreach (var (shape, (fill, stroke)) in palette)
+        {
+            var fillColor = TryParseColor(fill) ?? Colors.White;
+            var strokeColor = TryParseColor(stroke) ?? Colors.Black;
+            _shapeBrushes[shape] = (
+                Fill: new SolidColorBrush(fillColor),
+                HighlightFill: new SolidColorBrush(BlendColor(fillColor, highlightColor, 0.2)),
+                Stroke: new Pen(new SolidColorBrush(strokeColor), 1.5));
+        }
     }
 
     IPen GetEdgePen(Edge edge, bool highlighted)
     {
-        // Semantic coloring for decision edges
+        // Semantic coloring for decision edges (using cached pens)
         if (!highlighted && !string.IsNullOrEmpty(edge.Label))
         {
             var label = edge.Label!.Trim().ToLowerInvariant();
-            var greenColor = _isDarkMode ? Color.FromRgb(129, 199, 132) : Color.FromRgb(46, 125, 50);
-            var redColor = _isDarkMode ? Color.FromRgb(239, 154, 154) : Color.FromRgb(198, 40, 40);
             if (PositiveLabels.Any(l => label == l))
-                return GetSemanticPen(edge.LineStyle, greenColor);
+                return GetCachedSemanticPen(edge.LineStyle, isGreen: true);
             if (NegativeLabels.Any(l => label == l))
-                return GetSemanticPen(edge.LineStyle, redColor);
+                return GetCachedSemanticPen(edge.LineStyle, isGreen: false);
         }
 
         // Highlighted edges use marching ants (animated dashed stroke) to show flow direction
@@ -762,16 +805,15 @@ public class FlowchartCanvas : Control
         };
     }
 
-    static IPen GetSemanticPen(EdgeStyle style, Color color)
+    IPen GetCachedSemanticPen(EdgeStyle style, bool isGreen) => (style, isGreen) switch
     {
-        var brush = new SolidColorBrush(color);
-        return style switch
-        {
-            EdgeStyle.Dotted => new Pen(brush, 1.5) { DashStyle = DashStyle.Dash },
-            EdgeStyle.Thick => new Pen(brush, 3.5),
-            _ => new Pen(brush, 2.0) // Slightly thicker for decision edges
-        };
-    }
+        (EdgeStyle.Dotted, true) => _semanticGreenDottedPen,
+        (EdgeStyle.Dotted, false) => _semanticRedDottedPen,
+        (EdgeStyle.Thick, true) => _semanticGreenThickPen,
+        (EdgeStyle.Thick, false) => _semanticRedThickPen,
+        (_, true) => _semanticGreenPen,
+        (_, false) => _semanticRedPen,
+    };
 
     IBrush GetNodeFillBrush(Node node, bool highlighted)
     {
@@ -789,15 +831,9 @@ public class FlowchartCanvas : Control
             }
         }
 
-        // Shape-aware coloring — pick palette based on dark/light mode
-        var palette = _isDarkMode ? DarkShapeColors : LightShapeColors;
-        if (palette.TryGetValue(node.Shape, out var colors))
-        {
-            var fillColor = TryParseColor(colors.Fill) ?? Colors.White;
-            if (highlighted)
-                return new SolidColorBrush(BlendColor(fillColor, Color.FromRgb(60, 130, 240), 0.2));
-            return new SolidColorBrush(fillColor);
-        }
+        // Shape-aware coloring — use cached brushes
+        if (_shapeBrushes.TryGetValue(node.Shape, out var cached))
+            return highlighted ? cached.HighlightFill : cached.Fill;
 
         return highlighted ? _nodeHighlightBrush : _nodeFillBrush;
     }
@@ -817,13 +853,9 @@ public class FlowchartCanvas : Control
             }
         }
 
-        // Shape-aware stroke coloring — pick palette based on dark/light mode
-        var palette = _isDarkMode ? DarkShapeColors : LightShapeColors;
-        if (palette.TryGetValue(node.Shape, out var colors))
-        {
-            var strokeColor = TryParseColor(colors.Stroke) ?? Colors.Black;
-            return new Pen(new SolidColorBrush(strokeColor), 1.5);
-        }
+        // Shape-aware stroke coloring — use cached pens
+        if (_shapeBrushes.TryGetValue(node.Shape, out var cached))
+            return cached.Stroke;
 
         return _nodeStrokePen;
     }
@@ -866,32 +898,8 @@ public class FlowchartCanvas : Control
 
     static IBrush? TryParseBrush(string? color)
     {
-        if (string.IsNullOrWhiteSpace(color)) return null;
-
-        // Handle rgba() format
-        if (color.StartsWith("rgba(", StringComparison.OrdinalIgnoreCase))
-        {
-            var inner = color.AsSpan()[5..^1];
-            var parts = inner.ToString().Split(',');
-            if (parts.Length == 4 &&
-                byte.TryParse(parts[0].Trim(), out var r) &&
-                byte.TryParse(parts[1].Trim(), out var g) &&
-                byte.TryParse(parts[2].Trim(), out var b) &&
-                double.TryParse(parts[3].Trim(), System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var a))
-            {
-                return new SolidColorBrush(Color.FromArgb((byte)(a * 255), r, g, b));
-            }
-        }
-
-        try
-        {
-            return new SolidColorBrush(Color.Parse(color));
-        }
-        catch
-        {
-            return null;
-        }
+        var c = TryParseColor(color);
+        return c is not null ? new SolidColorBrush(c.Value) : null;
     }
 
     static Color? TryParseColor(string? color)

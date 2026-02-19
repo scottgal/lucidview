@@ -167,6 +167,9 @@ public partial class MarkdownService
         // Convert HTML img tags to markdown syntax
         content = ProcessHtmlImageTags(content);
 
+        // Collapse consecutive image-only lines into a single line (for inline badge rendering)
+        content = CollapseConsecutiveImages(content);
+
         // Process relative image paths and cache remote images
         content = ProcessImagePaths(content);
 
@@ -936,7 +939,7 @@ public partial class MarkdownService
             var s when s.StartsWith("flowchart") => "flowchart",
             var s when s.StartsWith("graph") => "graph",
             var s when s.StartsWith("sequencediagram") => "sequence diagram",
-            var s when s.StartsWith("classDiagram") => "class diagram",
+            var s when s.StartsWith("classdiagram") => "class diagram",
             var s when s.StartsWith("statediagram") => "state diagram",
             var s when s.StartsWith("erdiagram") => "ER diagram",
             var s when s.StartsWith("journey") => "journey",
@@ -951,6 +954,64 @@ public partial class MarkdownService
             _ => firstLine.Split(' ').FirstOrDefault() ?? "unknown"
         };
     }
+
+    /// <summary>
+    /// Collapse consecutive lines that contain only image/badge markdown into a single line.
+    /// This makes shields.io badges and similar image sequences render inline instead of as blocks.
+    /// Handles both plain images ![alt](url) and linked images [![alt](img)](link).
+    /// </summary>
+    private static string CollapseConsecutiveImages(string content)
+    {
+        var lines = content.Split('\n');
+        var result = new List<string>();
+        var imageRun = new List<string>();
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].Trim();
+            if (IsImageOnlyLine(trimmed))
+            {
+                imageRun.Add(trimmed);
+            }
+            else
+            {
+                if (imageRun.Count > 1)
+                {
+                    // Multiple consecutive image lines → join as single line
+                    result.Add(string.Join(" ", imageRun));
+                }
+                else if (imageRun.Count == 1)
+                {
+                    // Single image line → keep as-is
+                    result.Add(imageRun[0]);
+                }
+                imageRun.Clear();
+                result.Add(lines[i]);
+            }
+        }
+
+        // Flush any trailing image run
+        if (imageRun.Count > 1)
+            result.Add(string.Join(" ", imageRun));
+        else if (imageRun.Count == 1)
+            result.Add(imageRun[0]);
+
+        return string.Join("\n", result);
+    }
+
+    /// <summary>
+    /// Check if a line contains only an image or linked image (badge pattern).
+    /// Matches: ![alt](url)  or  [![alt](img)](link)
+    /// </summary>
+    private static bool IsImageOnlyLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return false;
+        return ImageOnlyLineRegex().IsMatch(line);
+    }
+
+    // Matches a line that is entirely a markdown image or a linked image (badge)
+    [GeneratedRegex(@"^(\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)|!\[[^\]]*\]\([^)]+\))$", RegexOptions.Compiled)]
+    private static partial Regex ImageOnlyLineRegex();
 
     [GeneratedRegex(@"!\[(.*?)\]\(([^)]+)\)", RegexOptions.Compiled)]
     private static partial Regex ImageRegex();

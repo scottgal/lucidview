@@ -66,6 +66,12 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        // Window chrome: extend into title bar with system caption buttons
+        SystemDecorations = SystemDecorations.Full;
+        ExtendClientAreaToDecorationsHint = true;
+        ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.PreferSystemChrome;
+        ExtendClientAreaTitleBarHeightHint = 80;
+
         _settings = AppSettings.Load();
         _markdownService = new MarkdownService();
         _imageCacheService = new ImageCacheService();

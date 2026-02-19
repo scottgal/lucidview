@@ -9,7 +9,9 @@
         MinWidth="600" MinHeight="450"
         WindowStartupLocation="CenterScreen"
         SystemDecorations="Full"
-        ExtendClientAreaToDecorationsHint="False"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="PreferSystemChrome"
+        ExtendClientAreaTitleBarHeightHint="80"
         DragDrop.AllowDrop="True"
         Background="{DynamicResource AppBackground}">
 
@@ -28,12 +30,14 @@
         <KeyBinding Gesture="Alt+F4" Command="{Binding ExitCommand}" />
     </Window.KeyBindings>
 
-    <Grid>
-        <!-- Main Layout -->
+    <Grid Margin="0,32,0,0">
+        <!-- Main Layout (top margin reserves space for title bar drag region) -->
         <DockPanel>
             <!-- Clean Header Bar -->
             <Border DockPanel.Dock="Top" Classes="header-bar">
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
+                    <!-- Reserve space for system caption buttons (min/max/close) on the right -->
+                    <Border Grid.Column="6" Width="138" />
                     <!-- Left: Hamburger Menu -->
                     <Button Grid.Column="0"
                             Classes="header-btn"

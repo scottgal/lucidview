@@ -87,7 +87,19 @@
       "Bash(powershell.exe -Command \"Stop-Process -Name lucidVIEW -Force -ErrorAction SilentlyContinue; Stop-Process -Name dotnet -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 3; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-Object -Last 5\")",
       "Bash(powershell.exe -Command \"Get-Item ''E:\\\\source\\\\markdown.viewer\\\\MarkdownViewer\\\\bin\\\\Debug\\\\net10.0\\\\win-x64\\\\lucidVIEW.dll'' | Select-Object LastWriteTime\")",
       "Bash(powershell.exe -Command \"Get-Process lucidVIEW -ErrorAction SilentlyContinue | Select-Object Id, StartTime\")",
-      "Bash(powershell.exe -Command \"Stop-Process -Name lucidVIEW -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj --no-incremental 2>&1 | Select-Object -Last 5\")"
+      "Bash(powershell.exe -Command \"Stop-Process -Name lucidVIEW -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj --no-incremental 2>&1 | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"Get-Process | Where-Object { $_Modules.FileName -like ''*Naiad*'' -or $_ProcessName -like ''*lucid*'' -or $_ProcessName -like ''*dotnet*'' } | Select-Object Id, ProcessName -ErrorAction SilentlyContinue\")",
+      "Bash(powershell.exe -Command \"taskkill /F /IM lucidVIEW.exe 2>&1; taskkill /F /IM dotnet.exe 2>&1; Start-Sleep -Seconds 3; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj --no-incremental 2>&1 | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"taskkill /F /IM lucidVIEW.exe 2>&1; taskkill /F /IM dotnet.exe 2>&1; Start-Sleep -Seconds 3; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"taskkill /F /IM lucidVIEW.exe 2>&1; Start-Sleep -Seconds 2; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"taskkill /F /IM dotnet.exe 2>&1; Start-Sleep -Seconds 3; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"Get-Process | Where-Object {$_ProcessName -match ''lucid|dotnet|rider|msbuild''} | Format-Table Id,ProcessName -AutoSize\")",
+      "Bash(powershell.exe -Command \"Get-Process dotnet -ErrorAction SilentlyContinue\")",
+      "Bash(powershell.exe -Command \"taskkill /F /PID 25816; taskkill /F /PID 73272; taskkill /F /PID 85880; Start-Sleep -Seconds 3; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"Get-Content ''C:\\\\Blog\\\\mostlylucidweb\\\\Mostlylucid\\\\Markdown\\\\docsummarizer-rag-pipeline.md'' -First 20\")",
+      "Bash(git config:*)",
+      "Bash(ls:*)",
+      "Bash(git ls-tree:*)"
     ]
   }
 }

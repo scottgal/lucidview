@@ -399,14 +399,10 @@
 
     <!-- ==================== MARKDOWN IMAGES ==================== -->
 
-    <!-- Images scale with zoom via LayoutTransform; allow large diagrams -->
+    <!-- Images: display at natural size, never scale UP (prevents badge bloat) -->
     <Style Selector="Image">
-        <Setter Property="MaxHeight" Value="2000" />
-        <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="Stretch" Value="None" />
     </Style>
-
-    <!-- Small inline images (badges) should stay inline-sized -->
-    <!-- Target images that are naturally small (under 100px) -->
 
     <!-- ==================== METADATA PANEL ==================== -->
 
