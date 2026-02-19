@@ -63,7 +63,19 @@
       "Bash(Select-Object -First 20)",
       "Bash(curl:*)",
       "Bash(powershell -ExecutionPolicy Bypass -File \".\\\\publish.ps1\" -Platform win)",
-      "Bash(cmd /c \"taskkill /F /PID 415968\")"
+      "Bash(cmd /c \"taskkill /F /PID 415968\")",
+      "Bash(dotnet nuget search:*)",
+      "Bash(find:*)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(/tmp/test_c4component.txt:*)",
+      "Bash(/tmp/test_c4deployment.txt:*)",
+      "Bash(printf:*)",
+      "Bash(git submodule status:*)",
+      "Bash(git rm:*)",
+      "Bash(diff_output=\"no git\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

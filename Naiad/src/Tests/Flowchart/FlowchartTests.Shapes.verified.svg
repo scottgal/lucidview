@@ -1,0 +1,62 @@
+﻿<svg id="mermaid-svg" width="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 566.86 116.2" style="max-width: 566.86px;" role="graphics-document document" xmlns:xlink="http://www.w3.org/1999/xlink"><style xmlns="http://www.w3.org/1999/xhtml">@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css");</style><style>/* Mermaid skin: default */
+#mermaid-svg{
+  --flow-bg:#ffffff;
+  --flow-text:#333333;
+  --flow-node-fill:#ECECFF;
+  --flow-node-stroke:#9370DB;
+  --flow-edge-stroke:#333333;
+  --flow-edge-label-bg:rgba(232,232,232,0.8);
+  --flow-subgraph-fill:#ffffde;
+  --flow-subgraph-stroke:#aaaa33;
+  --flow-subgraph-title:#333333;
+  --flow-node-stroke-width:1px;
+  --flow-edge-stroke-width:2px;
+  --flow-edge-thick-width:3.5px;
+  font-family:Arial, sans-serif;
+  font-size:14px;
+  fill:var(--flow-text);
+}
+#mermaid-svg .flow-node-shape{
+  fill:var(--flow-node-fill);
+  stroke:var(--flow-node-stroke);
+  stroke-width:var(--flow-node-stroke-width);
+}
+#mermaid-svg .flow-node-label,
+#mermaid-svg .flow-node-label p{
+  color:var(--flow-text);
+  fill:var(--flow-text);
+  margin:0;
+}
+#mermaid-svg .flow-edge{
+  stroke:var(--flow-edge-stroke);
+  stroke-width:var(--flow-edge-stroke-width);
+  fill:none;
+}
+#mermaid-svg .flow-edge-dotted{stroke-dasharray:2;}
+#mermaid-svg .flow-edge-thick{stroke-width:var(--flow-edge-thick-width);}
+#mermaid-svg .flow-edge-label-box{
+  fill:var(--flow-edge-label-bg);
+  stroke:none;
+  opacity:0.9;
+}
+#mermaid-svg .flow-edge-label,
+#mermaid-svg .flow-edge-label p{
+  color:var(--flow-text);
+  fill:var(--flow-text);
+  margin:0;
+  text-align:center;
+}
+#mermaid-svg .flow-subgraph-box{
+  fill:var(--flow-subgraph-fill);
+  stroke:var(--flow-subgraph-stroke);
+  stroke-width:1px;
+}
+#mermaid-svg .flow-subgraph-title{
+  fill:var(--flow-subgraph-title);
+  font-weight:600;
+  font-size:13px;
+}
+#mermaid-svg .marker{
+  fill:var(--flow-edge-stroke);
+  stroke:var(--flow-edge-stroke);
+}</style><defs><marker id="mermaid-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker></defs><g transform="translate(20,20)"><path d="M0,14.1 H99.3 V62.1 H0 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><foreignObject x="0" y="14.1" width="99.3" height="48" class="flow-node-label"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center; vertical-align: middle; width: 99.3px; height: 48px;"><span class="nodeLabel"><p>Rectangle</p></span></div></foreignObject><path d="M154.3,14.1 H228.2 Q233.2,14.1 233.2,19.1 V57.1 Q233.2,62.1 228.2,62.1 H154.3 Q149.3,62.1 149.3,57.1 V19.1 Q149.3,14.1 154.3,14.1 Z" class="flow-node flow-node-shape flow-node-shape-rounded"/><foreignObject x="149.3" y="14.1" width="83.9" height="48" class="flow-node-label"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center; vertical-align: middle; width: 83.9px; height: 48px;"><span class="nodeLabel"><p>Rounded</p></span></div></foreignObject><path d="M341.93,4.5 L400.66,38.1 L341.93,71.7 L283.2,38.1 Z" class="flow-node flow-node-shape flow-node-shape-diamond"/><foreignObject x="283.2" y="4.5" width="117.46" height="67.2" class="flow-node-label"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center; vertical-align: middle; width: 117.46px; height: 67.2px;"><span class="nodeLabel"><p>Diamond</p></span></div></foreignObject><path d="M488.76,0 A38.1,38.1 0 1 1 488.76,76.2 A38.1,38.1 0 1 1 488.76,0 Z" class="flow-node flow-node-shape flow-node-shape-circle"/><foreignObject x="450.66" y="0" width="76.2" height="76.2" class="flow-node-label"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center; vertical-align: middle; width: 76.2px; height: 76.2px;"><span class="nodeLabel"><p>Circle</p></span></div></foreignObject></g></svg>

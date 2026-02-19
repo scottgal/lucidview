@@ -1,0 +1,35 @@
+﻿// Global using directives
+
+global using System.Diagnostics;
+global using System.Diagnostics.CodeAnalysis;
+global using System.Globalization;
+global using System.Text;
+global using MermaidSharp;
+global using MermaidSharp.Diagrams.Architecture;
+global using MermaidSharp.Diagrams.Block;
+global using MermaidSharp.Diagrams.C4;
+global using MermaidSharp.Diagrams.Class;
+global using MermaidSharp.Diagrams.EntityRelationship;
+global using MermaidSharp.Diagrams.Flowchart;
+global using MermaidSharp.Diagrams.Gantt;
+global using MermaidSharp.Diagrams.GitGraph;
+global using MermaidSharp.Diagrams.Kanban;
+global using MermaidSharp.Diagrams.Mindmap;
+global using MermaidSharp.Diagrams.Packet;
+global using MermaidSharp.Diagrams.Pie;
+global using MermaidSharp.Diagrams.Quadrant;
+global using MermaidSharp.Diagrams.Radar;
+global using MermaidSharp.Diagrams.Requirement;
+global using MermaidSharp.Diagrams.Sankey;
+global using MermaidSharp.Diagrams.Sequence;
+global using MermaidSharp.Diagrams.State;
+global using MermaidSharp.Diagrams.Timeline;
+global using MermaidSharp.Diagrams.Treemap;
+global using MermaidSharp.Diagrams.UserJourney;
+global using MermaidSharp.Diagrams.XYChart;
+global using MermaidSharp.Layout;
+global using MermaidSharp.Models;
+global using MermaidSharp.Rendering;
+global using Pidgin;
+global using static Pidgin.Parser;
+global using static Pidgin.Parser<char>;
