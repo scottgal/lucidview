@@ -109,7 +109,8 @@
       "mcp__claude_ai_Mermaid_Chart__validate_and_render_mermaid_diagram",
       "Bash(python3:*)",
       "WebFetch(domain:deepwiki.com)",
-      "WebFetch(domain:eclipse.dev)"
+      "WebFetch(domain:eclipse.dev)",
+      "Bash(gh run list:*)"
     ]
   }
 }
