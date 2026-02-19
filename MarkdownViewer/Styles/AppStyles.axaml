@@ -399,10 +399,9 @@
 
     <!-- ==================== MARKDOWN IMAGES ==================== -->
 
-    <!-- Constrain inline images (badges) to reasonable max height -->
-    <!-- shields.io badges are typically ~20px high, allow some flexibility -->
+    <!-- Images scale with zoom via LayoutTransform; allow large diagrams -->
     <Style Selector="Image">
-        <Setter Property="MaxHeight" Value="500" />
+        <Setter Property="MaxHeight" Value="2000" />
         <Setter Property="Stretch" Value="Uniform" />
     </Style>
 

@@ -9,11 +9,15 @@ using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using LiveMarkdown.Avalonia;
+using MarkdownViewer.Controls;
 using MarkdownViewer.Models;
 using MarkdownViewer.Services;
+using MermaidSharp.Rendering;
+using Microsoft.Playwright;
 using SkiaSharp;
 using VisualExtensions = Avalonia.VisualTree.VisualExtensions;
 
@@ -70,6 +74,7 @@ public partial class MainWindow : Window
         // Initialize LiveMarkdown renderer
         MdViewer.MarkdownBuilder = _markdownBuilder;
         MdViewer.ImageBasePath = _markdownService.TempDirectory;
+        MdViewer.LinkClick += OnLinkClick;
         _navigationService = new NavigationService();
         _themeService = new ThemeService(Application.Current!);
         _searchService = new SearchService();
@@ -201,6 +206,7 @@ public partial class MainWindow : Window
     public ICommand FontSizeDecreaseCommand => new RelayCommand(DecreaseFontSize);
     public ICommand PrintCommand => new RelayCommand(async () => await Print());
     public ICommand OpenHelpCommand => new RelayCommand(async () => await OpenHelp());
+    public ICommand DebugScreenshotCommand => new RelayCommand(async () => await DebugScreenshot());
 
     #endregion
 
@@ -237,7 +243,9 @@ public partial class MainWindow : Window
 
     private void OnEscape()
     {
-        if (_isSidePanelOpen)
+        if (WindowState == WindowState.FullScreen)
+            WindowState = WindowState.Normal;
+        else if (_isSidePanelOpen)
             CloseSidePanel();
         else if (SearchPanel.IsVisible)
             CloseSearch();
@@ -262,6 +270,88 @@ public partial class MainWindow : Window
     private void OnMostlyLucidClick(object? sender, RoutedEventArgs e)
     {
         OpenBrowserUrl("https://www.mostlylucid.net");
+    }
+
+    private void OnLinkClick(object? sender, LinkClickedEventArgs e)
+    {
+        var href = e.HRef;
+        if (href == null) return;
+
+        var url = href.ToString();
+        if (string.IsNullOrWhiteSpace(url)) return;
+
+        // Anchor links: scroll within document
+        if (url.StartsWith('#'))
+        {
+            var anchorText = Uri.UnescapeDataString(url[1..]).Replace("-", " ");
+            var heading = _headings
+                .SelectMany(h => FlattenHeadings([h]))
+                .FirstOrDefault(h => h.Text.Equals(anchorText, StringComparison.OrdinalIgnoreCase)
+                    || h.Text.Replace(" ", "-").Equals(url[1..], StringComparison.OrdinalIgnoreCase));
+            if (heading != null)
+            {
+                ScrollToHeading(heading);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        // HTTP(S) links: open in default browser
+        if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+            (href.IsAbsoluteUri && href.Scheme is "http" or "https"))
+        {
+            OpenBrowserUrl(href.IsAbsoluteUri ? href.AbsoluteUri : url);
+            e.Handled = true;
+            return;
+        }
+
+        // Resolve relative paths against current file's directory
+        var resolvedPath = TryResolveLocalPath(url);
+        if (resolvedPath != null)
+        {
+            var ext = Path.GetExtension(resolvedPath).ToLowerInvariant();
+            if (ext is ".md" or ".markdown" or ".mdown" or ".mkd" or ".txt")
+            {
+                _ = LoadFile(resolvedPath);
+                e.Handled = true;
+                return;
+            }
+
+            // Other local files: open with default app
+            OpenBrowserUrl(resolvedPath);
+            e.Handled = true;
+            return;
+        }
+
+        // file:// URIs
+        if (href.IsAbsoluteUri && href.Scheme == "file")
+        {
+            var localPath = href.LocalPath;
+            var ext = Path.GetExtension(localPath).ToLowerInvariant();
+            if (ext is ".md" or ".markdown" or ".mdown" or ".mkd" or ".txt")
+            {
+                _ = LoadFile(localPath);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // Fallback: try to open in browser
+        OpenBrowserUrl(url);
+        e.Handled = true;
+    }
+
+    private string? TryResolveLocalPath(string relativePath)
+    {
+        if (_currentFilePath == null) return null;
+
+        var dir = Path.GetDirectoryName(_currentFilePath);
+        if (dir == null) return null;
+
+        // Handle relative paths like ./other.md or ../other.md or other.md
+        var candidate = Path.GetFullPath(Path.Combine(dir, relativePath));
+        return File.Exists(candidate) ? candidate : null;
     }
 
     private void OpenBrowserUrl(string url)
@@ -377,6 +467,11 @@ public partial class MainWindow : Window
 
             using var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("lucidVIEW/1.0");
+            httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/markdown");
+            httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/x-markdown;q=0.95");
+            httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/plain;q=0.9");
+            httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/*;q=0.8");
+            httpClient.DefaultRequestHeaders.Accept.ParseAdd("*/*;q=0.5");
             var content = await httpClient.GetStringAsync(url);
 
             var uri = new Uri(url);
@@ -413,7 +508,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private Task DisplayMarkdown(string content)
+    private async Task DisplayMarkdown(string content)
     {
         _rawContent = content;
 
@@ -424,29 +519,63 @@ public partial class MainWindow : Window
         var metadata = _markdownService.ExtractMetadata(content);
         DisplayMetadata(metadata);
 
-        // Process and display markdown using LiveMarkdown's ObservableStringBuilder
-        var processed = _markdownService.ProcessMarkdown(content);
+        // Phase 1: Fast path — text processing + cached mermaid diagrams
+        var (processed, pendingDiagrams) = _markdownService.ProcessMarkdownFast(content);
+
+        // Show content immediately (with placeholders for uncached diagrams)
         _markdownBuilder.Clear();
         _markdownBuilder.Append(processed);
         RawTextBlock.Text = content;
 
         WelcomePanel.IsVisible = false;
         ContentGrid.IsVisible = true;
-
-        // Update TOC
         UpdateToc();
 
-        // Reset to preview tab
         PreviewTab.IsChecked = true;
         RenderedPanel.IsVisible = true;
         RawScroller.IsVisible = false;
 
-        // Calculate pages after layout (estimate based on content length)
-        var estimatedHeight = content.Split('\n').Length * 24.0; // rough estimate
+        var estimatedHeight = content.Split('\n').Length * 24.0;
         _paginationService.CalculatePages(estimatedHeight);
-        // Pagination removed
 
-        return Task.CompletedTask;
+        // Replace flowchart marker text with native FlowchartCanvas controls
+        // Defer to allow the visual tree to build first
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            ReplaceDiagramMarkers();
+            // Auto-screenshot for debugging (remove after confirmed working)
+            _ = DebugScreenshot();
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
+
+        // Phase 2: Render uncached diagrams in background, then swap in results
+        if (pendingDiagrams.Count > 0)
+        {
+            var ct = _markdownService.BeginNewRenderBatch();
+            try
+            {
+                var replacements = await _markdownService.RenderPendingDiagramsAsync(pendingDiagrams, ct);
+
+                // Apply replacements to the displayed content
+                var updated = processed;
+                foreach (var (placeholder, replacement) in replacements)
+                {
+                    updated = updated.Replace(placeholder, replacement);
+                }
+
+                // Save scroll position and refresh
+                var scrollOffset = RenderedScroller.Offset;
+                _markdownBuilder.Clear();
+                _markdownBuilder.Append(updated);
+                RenderedScroller.Offset = scrollOffset;
+
+                // Re-run flowchart replacement after pending diagrams update
+                Avalonia.Threading.Dispatcher.UIThread.Post(ReplaceDiagramMarkers, Avalonia.Threading.DispatcherPriority.Loaded);
+            }
+            catch (OperationCanceledException)
+            {
+                // New file/theme switch cancelled this batch — that's fine
+            }
+        }
     }
 
     private static List<HeadingItem> FlattenHeadings(List<HeadingItem> headings)
@@ -534,6 +663,9 @@ public partial class MainWindow : Window
         var isDark = theme != AppTheme.Light && theme != AppTheme.MostlyLucidLight;
         var themeDefinition = ThemeColors.GetTheme(theme);
         _markdownService.SetThemeColors(isDark, themeDefinition.Text, themeDefinition.Background);
+
+        // Invalidate mermaid cache since theme colors changed
+        _markdownService.InvalidateMermaidCache();
 
         // Refresh current document to regenerate mermaid diagrams with new theme colors
         if (!string.IsNullOrEmpty(_rawContent)) _ = DisplayMarkdown(_rawContent);
@@ -810,6 +942,23 @@ public partial class MainWindow : Window
             : WindowState.FullScreen;
     }
 
+    private void OnMinimizeWindow(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void OnToggleMaximizeWindow(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+    }
+
+    private void OnCloseWindow(object? sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
     #endregion
 
     #region Page Navigation
@@ -970,6 +1119,52 @@ public partial class MainWindow : Window
         catch
         {
         }
+    }
+
+    // Track which mermaid source the context menu applies to
+    private string? _contextMenuMermaidCode;
+    private string? _contextMenuImagePath;
+
+    private void OnContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Try to find if the right-click is over a mermaid diagram image
+        _contextMenuMermaidCode = null;
+        _contextMenuImagePath = null;
+
+        // Check all mermaid diagrams — if there's at least one, show the options
+        var diagrams = _markdownService.MermaidDiagrams;
+        var hasDiagrams = diagrams.Count > 0;
+
+        DiagramMenuSeparator.IsVisible = hasDiagrams;
+        DiagramSavePngItem.IsVisible = hasDiagrams;
+        DiagramSaveSvgItem.IsVisible = hasDiagrams;
+        DiagramViewItem.IsVisible = hasDiagrams;
+
+        if (hasDiagrams)
+        {
+            // Use the first diagram as default (for single-diagram docs this is perfect)
+            var first = diagrams.First();
+            _contextMenuImagePath = first.Key;
+            _contextMenuMermaidCode = first.Value;
+        }
+    }
+
+    private void OnSaveDiagramPng(object? sender, RoutedEventArgs e)
+    {
+        if (_contextMenuMermaidCode != null)
+            _ = SaveDiagramAs(_contextMenuMermaidCode, "png");
+    }
+
+    private void OnSaveDiagramSvg(object? sender, RoutedEventArgs e)
+    {
+        if (_contextMenuMermaidCode != null)
+            _ = SaveDiagramAs(_contextMenuMermaidCode, "svg");
+    }
+
+    private void OnViewDiagramFullSize(object? sender, RoutedEventArgs e)
+    {
+        if (_contextMenuImagePath != null)
+            ShowDiagramPopup(_contextMenuImagePath, _contextMenuMermaidCode);
     }
 
     #endregion
@@ -1133,34 +1328,114 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrEmpty(_rawContent))
         {
-            StatusText.Text = "No document to print";
+            StatusText.Text = "No document to export";
             return;
         }
 
         try
         {
-            StatusText.Text = "Preparing document for print...";
+            var suggestedName = Path.GetFileNameWithoutExtension(_currentFilePath ?? "document");
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export PDF",
+                SuggestedFileName = $"{suggestedName}.pdf",
+                DefaultExtension = "pdf",
+                FileTypeChoices =
+                [
+                    new FilePickerFileType("PDF Document") { Patterns = ["*.pdf"] }
+                ]
+            });
+
+            if (file is null)
+            {
+                StatusText.Text = "PDF export canceled";
+                return;
+            }
+
+            var outputPath = file.Path.LocalPath;
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                StatusText.Text = "Unable to resolve output path";
+                return;
+            }
+
+            StatusText.Text = "Exporting PDF...";
 
             // Generate HTML for printing (cross-platform approach)
             var html = GeneratePrintHtml(_rawContent);
 
-            // Save to temp file
-            var tempPath = Path.Combine(Path.GetTempPath(), $"lucidview_print_{Guid.NewGuid():N}.html");
+            // Render via headless Chromium and write PDF.
+            var tempPath = Path.Combine(Path.GetTempPath(), $"lucidview_export_{Guid.NewGuid():N}.html");
             await File.WriteAllTextAsync(tempPath, html);
 
-            // Open in default browser for printing
-            var psi = new ProcessStartInfo
+            try
             {
-                FileName = tempPath,
-                UseShellExecute = true
-            };
-            Process.Start(psi);
-
-            StatusText.Text = "Document opened in browser - use Ctrl+P to print";
+                await ExportPdfFromHtmlAsync(tempPath, outputPath);
+                StatusText.Text = $"PDF saved: {outputPath}";
+            }
+            finally
+            {
+                TryDeleteFile(tempPath);
+            }
+        }
+        catch (PlaywrightException ex) when (IsMissingPlaywrightBrowser(ex))
+        {
+            StatusText.Text = "Chromium missing for PDF export. Run playwright install chromium.";
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"Print error: {ex.Message}";
+            StatusText.Text = $"PDF export error: {ex.Message}";
+        }
+    }
+
+    private static async Task ExportPdfFromHtmlAsync(string htmlPath, string outputPath)
+    {
+        using var playwright = await Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+        {
+            Headless = true
+        });
+
+        var page = await browser.NewPageAsync();
+        var htmlUri = new Uri(htmlPath);
+
+        await page.GotoAsync(htmlUri.AbsoluteUri, new PageGotoOptions
+        {
+            WaitUntil = WaitUntilState.NetworkIdle
+        });
+
+        await page.PdfAsync(new PagePdfOptions
+        {
+            Path = outputPath,
+            Format = "A4",
+            PrintBackground = true,
+            Margin = new Margin
+            {
+                Top = "12mm",
+                Right = "12mm",
+                Bottom = "12mm",
+                Left = "12mm"
+            }
+        });
+    }
+
+    private static bool IsMissingPlaywrightBrowser(PlaywrightException ex)
+    {
+        return ex.Message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("download new browsers", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("playwright install", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // Ignore cleanup failures in temp directory.
         }
     }
 
@@ -1237,12 +1512,6 @@ public partial class MainWindow : Window
     <div class=""print-footer"">
         <p>Generated by lucidVIEW - {DateTime.Now:yyyy-MM-dd HH:mm}</p>
     </div>
-    <script>
-        // Auto-open print dialog
-        window.onload = function() {{
-            window.print();
-        }};
-    </script>
 </body>
 </html>";
     }
@@ -1309,6 +1578,265 @@ public partial class MainWindow : Window
 
     #endregion
 
+    #region Mermaid Diagram Export
+
+    private void OnRenderMermaid(object? sender, RoutedEventArgs e)
+    {
+        CloseSidePanel();
+        _ = ShowMermaidExportDialog();
+    }
+
+    private async Task ShowMermaidExportDialog()
+    {
+        var diagrams = _markdownService.MermaidDiagrams;
+        if (diagrams.Count == 0)
+        {
+            StatusText.Text = "No mermaid diagrams in current document";
+            return;
+        }
+
+        // If only one diagram, export it directly
+        if (diagrams.Count == 1)
+        {
+            var (_, mermaidCode) = diagrams.First();
+            await ExportMermaidDiagram(mermaidCode);
+            return;
+        }
+
+        // Multiple diagrams — export all, or let user choose via numbered file names
+        var diagramList = diagrams.Values.ToList();
+        await ExportAllMermaidDiagrams(diagramList);
+    }
+
+    private async Task ExportMermaidDiagram(string mermaidCode)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export Diagram",
+            SuggestedFileName = "diagram",
+            DefaultExtension = "svg",
+            FileTypeChoices =
+            [
+                new FilePickerFileType("SVG Image") { Patterns = ["*.svg"] },
+                new FilePickerFileType("PNG Image") { Patterns = ["*.png"] }
+            ]
+        });
+
+        if (file is null) return;
+
+        var outputPath = file.Path.LocalPath;
+        try
+        {
+            if (outputPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            {
+                var pngBytes = _markdownService.ExportMermaidToPngBytes(mermaidCode, 3f);
+                await File.WriteAllBytesAsync(outputPath, pngBytes);
+            }
+            else
+            {
+                var svg = _markdownService.ExportMermaidToSvg(mermaidCode);
+                await File.WriteAllTextAsync(outputPath, svg);
+            }
+            StatusText.Text = $"Diagram saved: {Path.GetFileName(outputPath)}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Export error: {ex.Message}";
+        }
+    }
+
+    private async Task ExportAllMermaidDiagrams(List<string> diagrams)
+    {
+        var folder = await StorageProvider.OpenFolderPickerAsync(
+            new FolderPickerOpenOptions { Title = "Export All Diagrams — Choose Folder" });
+
+        if (folder.Count == 0) return;
+
+        var outputDir = folder[0].Path.LocalPath;
+        var exported = 0;
+        for (var i = 0; i < diagrams.Count; i++)
+        {
+            try
+            {
+                var svgPath = Path.Combine(outputDir, $"diagram-{i + 1}.svg");
+                var svg = _markdownService.ExportMermaidToSvg(diagrams[i]);
+                await File.WriteAllTextAsync(svgPath, svg);
+
+                var pngPath = Path.Combine(outputDir, $"diagram-{i + 1}.png");
+                var pngBytes = _markdownService.ExportMermaidToPngBytes(diagrams[i], 3f);
+                await File.WriteAllBytesAsync(pngPath, pngBytes);
+
+                exported++;
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Error exporting diagram {i + 1}: {ex.Message}";
+            }
+        }
+
+        StatusText.Text = $"Exported {exported} diagrams (SVG + PNG) to {outputDir}";
+    }
+
+    /// <summary>
+    /// Save a specific mermaid diagram by its image path (called from right-click context).
+    /// </summary>
+    private async Task SaveDiagramAs(string mermaidCode, string format)
+    {
+        var ext = format.ToLowerInvariant();
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = $"Save Diagram as {ext.ToUpperInvariant()}",
+            SuggestedFileName = $"diagram.{ext}",
+            DefaultExtension = ext,
+            FileTypeChoices =
+            [
+                ext == "svg"
+                    ? new FilePickerFileType("SVG Image") { Patterns = ["*.svg"] }
+                    : new FilePickerFileType("PNG Image") { Patterns = ["*.png"] }
+            ]
+        });
+
+        if (file is null) return;
+
+        var outputPath = file.Path.LocalPath;
+        try
+        {
+            if (ext == "png")
+            {
+                var pngBytes = _markdownService.ExportMermaidToPngBytes(mermaidCode, 3f);
+                await File.WriteAllBytesAsync(outputPath, pngBytes);
+            }
+            else
+            {
+                var svg = _markdownService.ExportMermaidToSvg(mermaidCode);
+                await File.WriteAllTextAsync(outputPath, svg);
+            }
+            StatusText.Text = $"Diagram saved: {Path.GetFileName(outputPath)}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Export error: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Open a diagram in a popup viewer window at full size.
+    /// </summary>
+    private void ShowDiagramPopup(string imagePath, string? mermaidCode)
+    {
+        var popup = new Window
+        {
+            Title = "Diagram Viewer — lucidVIEW",
+            Width = 900,
+            Height = 700,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = this.Background
+        };
+
+        var scrollViewer = new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+        };
+
+        var image = new Avalonia.Controls.Image
+        {
+            Stretch = Avalonia.Media.Stretch.None,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
+
+        try
+        {
+            var bitmap = new Avalonia.Media.Imaging.Bitmap(imagePath);
+            image.Source = bitmap;
+        }
+        catch
+        {
+            return;
+        }
+
+        // Context menu with save options
+        var contextMenu = new ContextMenu();
+        var savePng = new MenuItem { Header = "Save as PNG..." };
+        var saveSvg = new MenuItem { Header = "Save as SVG..." };
+        savePng.Click += (_, _) =>
+        {
+            if (mermaidCode != null) _ = SaveDiagramAs(mermaidCode, "png");
+        };
+        saveSvg.Click += (_, _) =>
+        {
+            if (mermaidCode != null) _ = SaveDiagramAs(mermaidCode, "svg");
+        };
+        contextMenu.Items.Add(savePng);
+        contextMenu.Items.Add(saveSvg);
+
+        // Zoom controls
+        var zoomLevel = 1.0;
+        var layoutTransform = new LayoutTransformControl { Child = image };
+        scrollViewer.Content = layoutTransform;
+
+        popup.KeyDown += (_, args) =>
+        {
+            if (args.Key == Avalonia.Input.Key.Escape) popup.Close();
+            if (args.Key == Avalonia.Input.Key.Add || args.Key == Avalonia.Input.Key.OemPlus)
+            {
+                zoomLevel = Math.Min(zoomLevel + 0.25, 5.0);
+                layoutTransform.LayoutTransform = new ScaleTransform(zoomLevel, zoomLevel);
+            }
+            if (args.Key == Avalonia.Input.Key.Subtract || args.Key == Avalonia.Input.Key.OemMinus)
+            {
+                zoomLevel = Math.Max(zoomLevel - 0.25, 0.25);
+                layoutTransform.LayoutTransform = new ScaleTransform(zoomLevel, zoomLevel);
+            }
+            if (args.Key == Avalonia.Input.Key.D0 || args.Key == Avalonia.Input.Key.NumPad0)
+            {
+                zoomLevel = 1.0;
+                layoutTransform.LayoutTransform = null;
+            }
+        };
+
+        var dockPanel = new DockPanel();
+
+        // Bottom bar with zoom info and save buttons
+        var bottomBar = new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Margin = new Thickness(8)
+        };
+
+        if (mermaidCode != null)
+        {
+            var savePngBtn = new Button { Content = "Save PNG", Margin = new Thickness(4) };
+            var saveSvgBtn = new Button { Content = "Save SVG", Margin = new Thickness(4) };
+            savePngBtn.Click += (_, _) => _ = SaveDiagramAs(mermaidCode, "png");
+            saveSvgBtn.Click += (_, _) => _ = SaveDiagramAs(mermaidCode, "svg");
+            bottomBar.Children.Add(savePngBtn);
+            bottomBar.Children.Add(saveSvgBtn);
+        }
+
+        var zoomLabel = new Avalonia.Controls.TextBlock
+        {
+            Text = "Zoom: +/- keys, 0 to reset, Esc to close",
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            Margin = new Thickness(16, 0, 0, 0),
+            Foreground = Avalonia.Media.Brushes.Gray,
+            FontSize = 12
+        };
+        bottomBar.Children.Add(zoomLabel);
+
+        DockPanel.SetDock(bottomBar, Avalonia.Controls.Dock.Bottom);
+        dockPanel.Children.Add(bottomBar);
+        dockPanel.Children.Add(scrollViewer);
+
+        image.ContextMenu = contextMenu;
+        popup.Content = dockPanel;
+        popup.Show(this);
+    }
+
+    #endregion
+
     #region Heading Navigation
 
     private void OnHeadingClick(object? sender, RoutedEventArgs e)
@@ -1352,6 +1880,321 @@ public partial class MainWindow : Window
             var maxScroll = Math.Max(0, RenderedScroller.Extent.Height - RenderedScroller.Viewport.Height);
             var targetOffset = lineRatio * maxScroll;
             RenderedScroller.Offset = new Vector(0, targetOffset);
+        }
+    }
+
+    /// <summary>
+    /// Walk the visual tree to find flowchart marker text blocks and replace them
+    /// with native FlowchartCanvas controls. The markers are text like
+    /// "\u200B\u200BFLOWCHART:flowchart-0" inserted by MarkdownService.
+    /// </summary>
+    private void ReplaceDiagramMarkers()
+    {
+        var flowchartLayouts = _markdownService.FlowchartLayouts;
+        var diagramDocs = _markdownService.DiagramDocuments;
+        if (flowchartLayouts.Count == 0 && diagramDocs.Count == 0) return;
+
+        var markers = new List<(TextBlock TextBlock, string Prefix, string Key)>();
+        FindDiagramMarkers(MdViewer, markers);
+
+        Debug.WriteLine($"[DiagramCanvas] Found {markers.Count} markers, {flowchartLayouts.Count} flowcharts, {diagramDocs.Count} diagrams");
+
+        foreach (var (textBlock, prefix, key) in markers)
+        {
+            Control? replacement = null;
+
+            if (prefix == MarkdownService.FlowchartMarkerPrefix)
+            {
+                var layout = _markdownService.GetFlowchartLayout(key);
+                if (layout is null)
+                {
+                    Debug.WriteLine($"[DiagramCanvas] No flowchart layout for key '{key}'");
+                    continue;
+                }
+
+                Debug.WriteLine($"[DiagramCanvas] Replacing flowchart '{key}' — {layout.Width:F0}x{layout.Height:F0}");
+
+                var canvas = new FlowchartCanvas
+                {
+                    Layout = layout,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+                };
+
+                canvas.LinkClicked += (_, link) =>
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo(link) { UseShellExecute = true });
+                    }
+                    catch
+                    {
+                        // Ignore failed link navigation
+                    }
+                };
+
+                replacement = canvas;
+            }
+            else if (prefix == MarkdownService.DiagramMarkerPrefix)
+            {
+                if (!diagramDocs.TryGetValue(key, out var doc))
+                {
+                    Debug.WriteLine($"[DiagramCanvas] No document for key '{key}'");
+                    continue;
+                }
+
+                Debug.WriteLine($"[DiagramCanvas] Replacing diagram '{key}' — {doc.Width:F0}x{doc.Height:F0}");
+
+                var themeTextColor = ThemeColors.GetTheme(_settings.Theme).Text;
+                IBrush? textBrush = null;
+                if (Color.TryParse(themeTextColor, out var parsedColor))
+                    textBrush = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(parsedColor);
+
+                replacement = new DiagramCanvas
+                {
+                    Document = doc,
+                    DefaultTextBrush = textBrush,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+                };
+            }
+
+            if (replacement is null) continue;
+
+            // Add right-click context menu with Save PNG/SVG options
+            var mermaidCode = _markdownService.MermaidDiagrams.GetValueOrDefault(key);
+            if (mermaidCode is not null)
+            {
+                var contextMenu = new ContextMenu();
+                var savePng = new MenuItem { Header = "Save Diagram as PNG..." };
+                savePng.Click += (_, _) => _ = SaveDiagramAs(mermaidCode, "png");
+                var saveSvg = new MenuItem { Header = "Save Diagram as SVG..." };
+                saveSvg.Click += (_, _) => _ = SaveDiagramAs(mermaidCode, "svg");
+                contextMenu.Items.Add(savePng);
+                contextMenu.Items.Add(saveSvg);
+                replacement.ContextMenu = contextMenu;
+            }
+
+            ReplaceControlInVisualTree(textBlock, replacement);
+        }
+    }
+
+    /// <summary>
+    /// Walk the visual tree to find TextBlock/SelectableTextBlock controls that contain
+    /// diagram marker text (FLOWCHART: or DIAGRAM:). LiveMarkdown renders paragraph text
+    /// as Run elements inside MarkdownTextBlock (a SelectableTextBlock subclass), so we check Inlines.
+    /// </summary>
+    private static void FindDiagramMarkers(Visual parent, List<(TextBlock, string Prefix, string Key)> results)
+    {
+        foreach (var child in VisualExtensions.GetVisualChildren(parent))
+        {
+            if (child is TextBlock textBlock)
+            {
+                var match = ExtractDiagramMarkerKey(textBlock);
+                if (match is not null)
+                {
+                    results.Add((textBlock, match.Value.Prefix, match.Value.Key));
+                    continue; // Don't recurse into matched element
+                }
+            }
+
+            if (child is Visual visual)
+            {
+                FindDiagramMarkers(visual, results);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Extract a diagram marker key from a TextBlock by checking both
+    /// the Text property (simple TextBlock) and Inlines (LiveMarkdown's
+    /// MarkdownTextBlock uses Run elements in Inlines).
+    /// Returns the matching prefix and key, or null if not a marker.
+    /// </summary>
+    private static (string Prefix, string Key)? ExtractDiagramMarkerKey(TextBlock textBlock)
+    {
+        var text = textBlock.Text;
+
+        if (string.IsNullOrEmpty(text) && textBlock.Inlines is { Count: > 0 } inlines)
+        {
+            text = string.Concat(inlines.OfType<Run>().Select(r => r.Text ?? ""));
+        }
+
+        if (string.IsNullOrEmpty(text)) return null;
+
+        // Try flowchart prefix first
+        var idx = text.IndexOf(MarkdownService.FlowchartMarkerPrefix, StringComparison.Ordinal);
+        if (idx >= 0)
+        {
+            var key = text[(idx + MarkdownService.FlowchartMarkerPrefix.Length)..].Trim();
+            return string.IsNullOrEmpty(key) ? null : (MarkdownService.FlowchartMarkerPrefix, key);
+        }
+
+        // Try diagram prefix
+        idx = text.IndexOf(MarkdownService.DiagramMarkerPrefix, StringComparison.Ordinal);
+        if (idx >= 0)
+        {
+            var key = text[(idx + MarkdownService.DiagramMarkerPrefix.Length)..].Trim();
+            return string.IsNullOrEmpty(key) ? null : (MarkdownService.DiagramMarkerPrefix, key);
+        }
+
+        return null;
+    }
+
+    private static void ReplaceControlInVisualTree(Control target, Control replacement)
+    {
+        // Walk up the tree to find a Panel parent where we can do the swap
+        Visual? current = target;
+        while (current is not null)
+        {
+            var parent = VisualExtensions.GetVisualParent(current);
+            if (parent is null) break;
+
+            if (parent is Panel panel && current is Control ctrl)
+            {
+                var index = panel.Children.IndexOf(ctrl);
+                if (index >= 0)
+                {
+                    panel.Children[index] = replacement;
+                    // Force parent to re-measure since the new child has different size
+                    panel.InvalidateMeasure();
+                    panel.InvalidateArrange();
+                    return;
+                }
+            }
+            else if (parent is ContentControl contentControl && contentControl.Content == current)
+            {
+                contentControl.Content = replacement;
+                return;
+            }
+            else if (parent is Decorator decorator && decorator.Child == current as Control)
+            {
+                decorator.Child = replacement;
+                return;
+            }
+
+            current = parent;
+        }
+    }
+
+    /// <summary>
+    /// Debug: Capture a screenshot of the window + dump the visual tree to files.
+    /// Triggered by Ctrl+F12. Files saved to AppData/MarkdownViewer/debug/.
+    /// </summary>
+    private async Task DebugScreenshot()
+    {
+        try
+        {
+            var debugDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "MarkdownViewer", "debug");
+            Directory.CreateDirectory(debugDir);
+
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+
+            // Screenshot
+            var pixelSize = new PixelSize((int)Bounds.Width, (int)Bounds.Height);
+            if (pixelSize.Width > 0 && pixelSize.Height > 0)
+            {
+                var bitmap = new RenderTargetBitmap(pixelSize);
+                bitmap.Render(this);
+                var screenshotPath = Path.Combine(debugDir, $"screenshot_{timestamp}.png");
+                bitmap.Save(screenshotPath);
+                Debug.WriteLine($"[Debug] Screenshot saved: {screenshotPath}");
+            }
+
+            // Visual tree dump
+            var treePath = Path.Combine(debugDir, $"vtree_{timestamp}.txt");
+            var sb = new System.Text.StringBuilder();
+            DumpVisualTreeToString(MdViewer, 0, 12, sb);
+            await File.WriteAllTextAsync(treePath, sb.ToString());
+            Debug.WriteLine($"[Debug] Visual tree saved: {treePath}");
+
+            // Flowchart layout info
+            var infoPath = Path.Combine(debugDir, $"flowchart_info_{timestamp}.txt");
+            var infoSb = new System.Text.StringBuilder();
+            infoSb.AppendLine($"FlowchartLayouts count: {_markdownService.FlowchartLayouts.Count}");
+            foreach (var (key, layout) in _markdownService.FlowchartLayouts)
+            {
+                infoSb.AppendLine($"  Key='{key}' Nodes={layout.Model.Nodes.Count} Size={layout.Width:F0}x{layout.Height:F0}");
+            }
+            await File.WriteAllTextAsync(infoPath, infoSb.ToString());
+
+            Debug.WriteLine($"[Debug] All debug files saved to: {debugDir}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Debug] Screenshot failed: {ex.Message}");
+        }
+    }
+
+    private static void DumpVisualTreeToString(Visual parent, int depth, int maxDepth, System.Text.StringBuilder sb)
+    {
+        if (depth > maxDepth) return;
+        var indent = new string(' ', depth * 2);
+        foreach (var child in VisualExtensions.GetVisualChildren(parent))
+        {
+            var typeName = child.GetType().Name;
+            var extra = "";
+            if (child is TextBlock tb)
+            {
+                var text = tb.Text ?? "(null Text)";
+                if (tb.Text is null && tb.Inlines is { Count: > 0 } inl)
+                {
+                    var inlineTexts = string.Concat(inl.OfType<Run>().Select(r => r.Text ?? ""));
+                    text = $"(Inlines[{inl.Count}]: {inlineTexts})";
+                }
+                // Show hex for invisible chars
+                var hexPrefix = text.Length > 0 ? $" hex[0..3]={string.Join(" ", text.Take(3).Select(c => $"U+{(int)c:X4}"))}" : "";
+                extra = $" Text=\"{(text.Length > 100 ? text[..100] + "..." : text)}\"{hexPrefix}";
+            }
+            else if (child is Image img)
+            {
+                extra = $" Source={img.Source?.GetType().Name} W={img.Width} H={img.Height}";
+            }
+            else if (child is Control ctrl)
+            {
+                extra = $" W={ctrl.Bounds.Width:F0} H={ctrl.Bounds.Height:F0}";
+            }
+
+            sb.AppendLine($"{indent}{typeName}{extra}");
+
+            if (child is Visual v)
+            {
+                DumpVisualTreeToString(v, depth + 1, maxDepth, sb);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Debug: dump the visual tree to Debug output to understand LiveMarkdown's structure.
+    /// </summary>
+    private static void DumpVisualTree(Visual parent, int depth, int maxDepth)
+    {
+        if (depth > maxDepth) return;
+        var indent = new string(' ', depth * 2);
+        foreach (var child in VisualExtensions.GetVisualChildren(parent))
+        {
+            var typeName = child.GetType().Name;
+            var extra = "";
+            if (child is TextBlock tb)
+            {
+                var text = tb.Text ?? "(null Text)";
+                if (tb.Text is null && tb.Inlines is { Count: > 0 } inl)
+                {
+                    text = "(Inlines: " + string.Concat(inl.OfType<Run>().Select(r => r.Text ?? "")) + ")";
+                }
+                extra = $" Text=\"{(text.Length > 80 ? text[..80] + "..." : text)}\"";
+            }
+            else if (child is Image img)
+            {
+                extra = $" Source={img.Source?.GetType().Name}";
+            }
+
+            Debug.WriteLine($"[VTree]{indent}{typeName}{extra}");
+
+            if (child is Visual v)
+            {
+                DumpVisualTree(v, depth + 1, maxDepth);
+            }
         }
     }
 

@@ -3,6 +3,7 @@
   <component name="AvaloniaProject">
     <option name="projectPerEditor">
       <map>
+        <entry key="../MarkdownViewer/App.axaml" value="../MarkdownViewer/MarkdownViewer.csproj" />
         <entry key="../MarkdownViewer/Views/MainWindow.axaml" value="../MarkdownViewer/MarkdownViewer.csproj" />
         <entry key="lucid.viewer/App.axaml" value="lucid.viewer/lucid.viewer.csproj" />
         <entry key="lucid.viewer/Views/MainWindow.axaml" value="lucid.viewer/lucid.viewer.csproj" />

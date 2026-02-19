@@ -16,6 +16,9 @@ public class ImageCacheService : IDisposable
     private readonly Dictionary<string, string> _urlToLocalPath = new();
     private bool _disposed;
 
+    private static readonly TimeSpan MaxAge = TimeSpan.FromDays(7);
+    private const long MaxCacheSizeBytes = 500L * 1024 * 1024; // 500 MB
+
     public ImageCacheService()
     {
         _httpClient = new HttpClient();
@@ -24,6 +27,9 @@ public class ImageCacheService : IDisposable
 
         _cacheDir = Path.Combine(Path.GetTempPath(), "lucidview-images");
         Directory.CreateDirectory(_cacheDir);
+
+        // Run eviction on startup (non-blocking)
+        Task.Run(EvictStaleAndOversizedEntries);
     }
 
     /// <summary>
@@ -205,6 +211,44 @@ public class ImageCacheService : IDisposable
             ".ico" => ".ico",
             _ => ".png" // Default to PNG
         };
+    }
+
+    private void EvictStaleAndOversizedEntries()
+    {
+        try
+        {
+            if (!Directory.Exists(_cacheDir))
+                return;
+
+            var files = new DirectoryInfo(_cacheDir).GetFiles()
+                .OrderBy(f => f.LastAccessTimeUtc)
+                .ToList();
+
+            var cutoff = DateTime.UtcNow - MaxAge;
+
+            // Phase 1: Delete files older than MaxAge
+            for (var i = files.Count - 1; i >= 0; i--)
+            {
+                if (files[i].LastWriteTimeUtc < cutoff)
+                {
+                    try { files[i].Delete(); files.RemoveAt(i); } catch { }
+                }
+            }
+
+            // Phase 2: LRU eviction if total size exceeds limit
+            var totalSize = files.Sum(f => f.Length);
+            var idx = 0;
+            while (totalSize > MaxCacheSizeBytes && idx < files.Count)
+            {
+                totalSize -= files[idx].Length;
+                try { files[idx].Delete(); } catch { }
+                idx++;
+            }
+        }
+        catch
+        {
+            // Non-critical cleanup
+        }
     }
 
     public void Dispose()

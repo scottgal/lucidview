@@ -48,42 +48,43 @@
 
     <ItemGroup>
         <!-- Avalonia Core -->
-        <PackageReference Include="Avalonia" Version="11.3.11" />
-        <PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
-        <PackageReference Include="LiveMarkdown.Avalonia" Version="1.7.0"/>
+        <PackageReference Include="Avalonia" Version="11.3.12" />
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+        <PackageReference Include="LiveMarkdown.Avalonia" Version="1.7.0" />
+        <PackageReference Include="Microsoft.Playwright" Version="1.58.0" />
 
         <!-- Markdown Rendering with Syntax Highlighting (YouYan fork for Avalonia 11.2+ compatibility) -->
-        <PackageReference Include="Naiad" Version="0.1.1"/>
-        <PackageReference Include="SkiaSharp" Version="3.119.1"/>
+        <ProjectReference Include="..\Naiad\src\Naiad\Naiad.csproj" />
+        <PackageReference Include="SkiaSharp" Version="3.119.2" />
         <!-- Native assets for cross-platform builds - ensures bundled libs are used instead of system -->
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.1"/>
-        <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.1"/>
-        <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.1"/>
-        <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.1"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.2" />
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.2" />
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.3" />
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.3" />
 
         <!-- SVG Support -->
-        <PackageReference Include="Svg.Skia" Version="3.4.1"/>
+        <PackageReference Include="Svg.Skia" Version="3.4.1" />
 
         <!-- Diagnostics (debug only) -->
-        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.11" Condition="'$(Configuration)' == 'Debug'" />
-        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.2" />
+        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12" Condition="'$(Configuration)' == 'Debug'" />
+        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.3" />
     </ItemGroup>
 
     <!-- Include README.md in output for Help menu -->
     <ItemGroup>
-        <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest"/>
-        <Content Include="default-settings.json" CopyToOutputDirectory="PreserveNewest"/>
+        <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="default-settings.json" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <!-- Embedded SVG assets -->
     <ItemGroup>
-        <AvaloniaResource Include="Assets\*.svg"/>
+        <AvaloniaResource Include="Assets\*.svg" />
     </ItemGroup>
 
     <!-- Embedded Raleway font (SIL Open Font License) -->
     <ItemGroup>
-        <AvaloniaResource Include="Assets\Raleway-*.ttf"/>
+        <AvaloniaResource Include="Assets\Raleway-*.ttf" />
     </ItemGroup>
 
 </Project>

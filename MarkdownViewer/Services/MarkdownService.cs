@@ -2,6 +2,8 @@ using System.Security;
 using System.Text.RegularExpressions;
 using MarkdownViewer.Models;
 using MermaidSharp;
+using MermaidSharp.Diagrams.Flowchart;
+using MermaidSharp.Rendering;
 using SkiaSharp;
 using Svg.Skia;
 
@@ -15,13 +17,73 @@ public partial class MarkdownService
     private string _themeTextColor = "#e6edf3";      // Default to dark theme text
     private string _themeBackgroundColor = "#0d1117"; // Default to dark theme background
     private ImageCacheService? _imageCacheService;
+    private MermaidCacheService? _mermaidCache;
 
     private int _mermaidCounter;
+    private CancellationTokenSource? _renderCts;
+
+    /// <summary>
+    /// Maps rendered PNG file paths to their original mermaid source code.
+    /// Used for right-click "Save As" SVG/PNG export.
+    /// </summary>
+    private readonly Dictionary<string, string> _mermaidSourceMap = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Maps flowchart placeholder keys (e.g. "flowchart-0") to their native layout results.
+    /// Used by FlowchartCanvas to render flowcharts as native Avalonia controls instead of PNGs.
+    /// </summary>
+    private readonly Dictionary<string, FlowchartLayoutResult> _flowchartLayouts = new(StringComparer.Ordinal);
+    private int _flowchartCounter;
+
+    /// <summary>
+    /// Maps diagram placeholder keys (e.g. "diagram-0") to their SvgDocument for native rendering.
+    /// Used by DiagramCanvas to render non-flowchart diagrams as native Avalonia controls instead of PNGs.
+    /// </summary>
+    private readonly Dictionary<string, SvgDocument> _diagramDocuments = new(StringComparer.Ordinal);
+    private int _diagramCounter;
+
+    /// <summary>
+    /// Get all mermaid diagrams in the current document (PNG path → mermaid code).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> MermaidDiagrams => _mermaidSourceMap;
+
+    /// <summary>
+    /// Look up mermaid source code by image path (handles path separator differences).
+    /// </summary>
+    public string? GetMermaidSourceByImagePath(string imagePath)
+    {
+        var normalized = imagePath.Replace("/", "\\");
+        foreach (var (key, value) in _mermaidSourceMap)
+        {
+            if (key.Replace("/", "\\").Equals(normalized, StringComparison.OrdinalIgnoreCase))
+                return value;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Get all flowchart layouts for native rendering (placeholder key → layout).
+    /// </summary>
+    public IReadOnlyDictionary<string, FlowchartLayoutResult> FlowchartLayouts => _flowchartLayouts;
+
+    /// <summary>
+    /// Get all diagram documents for native rendering (placeholder key → SvgDocument).
+    /// </summary>
+    public IReadOnlyDictionary<string, SvgDocument> DiagramDocuments => _diagramDocuments;
+
+    /// <summary>
+    /// Look up a native flowchart layout by its placeholder key.
+    /// </summary>
+    public FlowchartLayoutResult? GetFlowchartLayout(string key)
+    {
+        return _flowchartLayouts.GetValueOrDefault(key);
+    }
 
     public MarkdownService()
     {
         TempDirectory = Path.Combine(Path.GetTempPath(), "lucidview-mermaid");
         Directory.CreateDirectory(TempDirectory);
+        _mermaidCache = new MermaidCacheService();
     }
 
     public string TempDirectory { get; }
@@ -89,14 +151,17 @@ public partial class MarkdownService
         return metadata;
     }
 
-    public string ProcessMarkdown(string content)
+    /// <summary>
+    /// Phase 1: Fast synchronous processing. Text transforms + cached mermaid diagrams.
+    /// Returns processed content with placeholders for uncached diagrams.
+    /// </summary>
+    public (string Content, List<MermaidWorkItem> PendingDiagrams) ProcessMarkdownFast(string content)
     {
         // Remove metadata tags from rendered content (they'll be shown separately)
         content = CategoryRegex().Replace(content, "");
         content = DatetimeRegex().Replace(content, "");
 
         // Fix bold links: **[text](url)** -> [**text**](url)
-        // Some markdown parsers don't handle bold wrapping links well
         content = BoldLinkRegex().Replace(content, "[**$1**]($2)");
 
         // Convert HTML img tags to markdown syntax
@@ -105,10 +170,103 @@ public partial class MarkdownService
         // Process relative image paths and cache remote images
         content = ProcessImagePaths(content);
 
-        // Process mermaid code blocks (placeholder for now)
-        content = ProcessMermaidBlocks(content);
+        // Process mermaid: use cache hits immediately, collect misses
+        var (processed, pending) = ProcessMermaidBlocksTwoPhase(content);
 
-        return content.Trim();
+        return (processed.Trim(), pending);
+    }
+
+    /// <summary>
+    /// Legacy synchronous API — renders everything inline. Used by print path.
+    /// </summary>
+    public string ProcessMarkdown(string content)
+    {
+        var (fast, pending) = ProcessMarkdownFast(content);
+
+        // Render any uncached diagrams synchronously
+        foreach (var item in pending)
+        {
+            try
+            {
+                var pngPath = RenderMermaidToPng(item.MermaidCode);
+                _mermaidSourceMap[pngPath] = item.MermaidCode;
+                var markdownPath = pngPath.Replace("\\", "/");
+                fast = fast.Replace(item.Placeholder, $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
+            }
+            catch (Exception ex)
+            {
+                fast = fast.Replace(item.Placeholder, FormatMermaidError(item.MermaidCode, ex));
+            }
+        }
+
+        return fast;
+    }
+
+    /// <summary>
+    /// Phase 2: Render uncached mermaid diagrams in parallel on background threads.
+    /// Returns a map of placeholder → markdown replacement.
+    /// </summary>
+    public async Task<Dictionary<string, string>> RenderPendingDiagramsAsync(
+        List<MermaidWorkItem> pending, CancellationToken ct)
+    {
+        var results = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (pending.Count == 0) return results;
+
+        // Limit parallelism to avoid memory pressure from large SVG rasterization
+        var semaphore = new SemaphoreSlim(Math.Max(1, Environment.ProcessorCount / 2));
+
+        var tasks = pending.Select(async item =>
+        {
+            await semaphore.WaitAsync(ct);
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                // Naiad rendering is CPU-bound — run on thread pool
+                var pngPath = await Task.Run(() => RenderMermaidToPng(item.MermaidCode), ct);
+                _mermaidSourceMap[pngPath] = item.MermaidCode;
+                var markdownPath = pngPath.Replace("\\", "/");
+                return (item.Placeholder, Replacement: $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return (item.Placeholder, Replacement: FormatMermaidError(item.MermaidCode, ex));
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }).ToList();
+
+        var completed = await Task.WhenAll(tasks);
+        foreach (var (placeholder, replacement) in completed)
+        {
+            results[placeholder] = replacement;
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Cancel any in-flight background diagram renders.
+    /// </summary>
+    public CancellationToken BeginNewRenderBatch()
+    {
+        _renderCts?.Cancel();
+        _renderCts = new CancellationTokenSource();
+        return _renderCts.Token;
+    }
+
+    /// <summary>
+    /// Invalidate mermaid cache (e.g. on theme change).
+    /// </summary>
+    public void InvalidateMermaidCache()
+    {
+        _mermaidCache?.InvalidateAll();
     }
 
     /// <summary>
@@ -316,90 +474,257 @@ public partial class MarkdownService
         return $"![{alt}]({url})";
     }
 
-    private string ProcessMermaidBlocks(string content)
+    /// <summary>
+    /// Two-phase mermaid processing: cache hits are inlined immediately,
+    /// cache misses produce placeholder tokens collected for async rendering.
+    /// </summary>
+    /// <summary>
+    /// Marker prefix used in markdown text for flowcharts that will be rendered natively.
+    /// LiveMarkdown renders this as a Run inside a MarkdownTextBlock that we find
+    /// in the visual tree and replace with FlowchartCanvas.
+    /// </summary>
+    internal const string FlowchartMarkerPrefix = "FLOWCHART:";
+    internal const string DiagramMarkerPrefix = "DIAGRAM:";
+
+    private (string Content, List<MermaidWorkItem> Pending) ProcessMermaidBlocksTwoPhase(string content)
     {
         _mermaidCounter = 0;
+        _flowchartCounter = 0;
+        _diagramCounter = 0;
+        _mermaidSourceMap.Clear();
+        _flowchartLayouts.Clear();
+        _diagramDocuments.Clear();
         var mermaidRegex = MermaidBlockRegex();
         var matches = mermaidRegex.Matches(content);
+        var pending = new List<MermaidWorkItem>();
 
         foreach (Match match in matches)
         {
             var mermaidCode = match.Groups[1].Value.Trim();
-            var diagramType = DetectMermaidDiagramType(mermaidCode);
-            string replacement;
 
-            try
+            // Try native flowchart rendering first (no PNG needed)
+            var nativeLayout = TryComputeFlowchartLayout(mermaidCode);
+            if (nativeLayout is not null)
             {
-                // Try multiple preprocessing strategies until one works
-                var svgContent = TryRenderMermaid(mermaidCode);
+                var flowchartKey = $"flowchart-{_flowchartCounter++}";
+                _flowchartLayouts[flowchartKey] = nativeLayout;
+                _mermaidSourceMap[flowchartKey] = mermaidCode;
 
-                // Post-process SVG: convert foreignObject to text elements
-                // Avalonia's SVG renderer doesn't support foreignObject (HTML in SVG)
-                svgContent = ConvertForeignObjectToText(svgContent);
-
-                // Render SVG to PNG using SkiaSharp (handles text better than Svg.Skia control)
-                var filename = $"diagram_{_mermaidCounter++}.png";
-                var pngPath = Path.Combine(TempDirectory, filename);
-
-                using var svg = new SKSvg();
-                svg.FromSvg(svgContent);
-                if (svg.Picture != null)
-                {
-                    var bounds = svg.Picture.CullRect;
-                    var scale = 2f; // 2x for crisp rendering
-                    var width = (int)(bounds.Width * scale);
-                    var height = (int)(bounds.Height * scale);
-
-                    using var bitmap = new SKBitmap(width, height);
-                    using var canvas = new SKCanvas(bitmap);
-                    canvas.Clear(SKColors.Transparent);
-                    canvas.Scale(scale);
-                    canvas.DrawPicture(svg.Picture);
-
-                    using var image = SKImage.FromBitmap(bitmap);
-                    using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-                    using var stream = File.OpenWrite(pngPath);
-                    data.SaveTo(stream);
-                }
-
-                // Use full path with forward slashes for markdown compatibility
-                var markdownPath = pngPath.Replace("\\", "/");
-                replacement = $"\n\n![Mermaid Diagram]({markdownPath})\n\n";
-            }
-            catch (Exception ex)
-            {
-                // Determine if it's a parse error or unsupported type
-                var isParseError = ex.Message.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
-                                   ex.Message.Contains("unexpected", StringComparison.OrdinalIgnoreCase);
-
-                var errorHeader = isParseError
-                    ? $"Mermaid parse error in '{diagramType}' diagram"
-                    : $"Cannot render '{diagramType}' diagram";
-
-                // On error, show syntax-highlighted mermaid code with warning
-                replacement = $"""
-                               > ⚠️ **{errorHeader}**
-                               >
-                               > {ex.Message}
-                               >
-                               > *Note: Complex features like `<br/>` in labels or nested subgraphs may not be supported.*
-
-                               ```mermaid
-                               {mermaidCode}
-                               ```
-                               """;
+                // Insert a text marker. LiveMarkdown renders it as a Run inside a
+                // MarkdownTextBlock. We find it in the visual tree and replace with FlowchartCanvas.
+                content = content.Replace(match.Value, $"\n\n{FlowchartMarkerPrefix}{flowchartKey}\n\n");
+                continue;
             }
 
-            content = content.Replace(match.Value, replacement);
+            // Try native SvgDocument rendering for all other diagram types
+            var nativeDoc = TryRenderToDocument(mermaidCode);
+            if (nativeDoc is not null)
+            {
+                var diagramKey = $"diagram-{_diagramCounter++}";
+                _diagramDocuments[diagramKey] = nativeDoc;
+                _mermaidSourceMap[diagramKey] = mermaidCode;
+
+                content = content.Replace(match.Value, $"\n\n{DiagramMarkerPrefix}{diagramKey}\n\n");
+                continue;
+            }
+
+            // Fallback: PNG pipeline with caching
+            var cacheKey = MermaidCacheService.ComputeKey(
+                mermaidCode, _isDarkMode, _themeTextColor, _themeBackgroundColor);
+            var cachedPath = _mermaidCache?.TryGet(cacheKey);
+
+            if (cachedPath != null)
+            {
+                // Cache hit — inline immediately and track source
+                var markdownPath = cachedPath.Replace("\\", "/");
+                _mermaidSourceMap[cachedPath] = mermaidCode;
+                content = content.Replace(match.Value, $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
+            }
+            else
+            {
+                // Cache miss — insert placeholder, queue for async rendering
+                var placeholder = $"<!--mermaid-pending-{_mermaidCounter++}-->";
+                content = content.Replace(match.Value, placeholder);
+                pending.Add(new MermaidWorkItem(placeholder, mermaidCode, cacheKey));
+            }
         }
 
-        return content;
+        return (content, pending);
     }
+
+    /// <summary>
+    /// If the mermaid code is a flowchart, compute a native layout and return it.
+    /// Returns null for non-flowchart diagrams or on parse/layout failure.
+    /// </summary>
+    private FlowchartLayoutResult? TryComputeFlowchartLayout(string mermaidCode)
+    {
+        try
+        {
+            var diagramType = Mermaid.DetectDiagramType(mermaidCode);
+            if (diagramType != DiagramType.Flowchart) return null;
+
+            var renderOptions = new RenderOptions
+            {
+                Theme = _isDarkMode ? "dark" : "default",
+                ThemeColors = new ThemeColorOverrides
+                {
+                    TextColor = _themeTextColor,
+                    BackgroundColor = _themeBackgroundColor
+                }
+            };
+
+            return Mermaid.ParseAndLayoutFlowchart(mermaidCode, renderOptions);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Try to render mermaid code to a structured SvgDocument for native Avalonia rendering.
+    /// Returns null on any failure (parsing, rendering, unsupported type).
+    /// </summary>
+    private SvgDocument? TryRenderToDocument(string mermaidCode)
+    {
+        try
+        {
+            var renderOptions = new RenderOptions
+            {
+                Theme = _isDarkMode ? "dark" : "default",
+                ThemeColors = new ThemeColorOverrides
+                {
+                    TextColor = _themeTextColor,
+                    BackgroundColor = _themeBackgroundColor
+                }
+            };
+
+            return Mermaid.RenderToDocument(mermaidCode, renderOptions);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Render mermaid code to a PNG file. Returns the file path.
+    /// Thread-safe — can be called from multiple threads concurrently.
+    /// </summary>
+    private string RenderMermaidToPng(string mermaidCode)
+    {
+        // Capture theme state for thread safety
+        var isDark = _isDarkMode;
+        var textColor = _themeTextColor;
+        var bgColor = _themeBackgroundColor;
+
+        var svgContent = TryRenderMermaid(mermaidCode);
+        svgContent = PostProcessSvg(svgContent);
+
+        // Rasterize to PNG
+        using var svg = new SKSvg();
+        svg.FromSvg(svgContent);
+        if (svg.Picture == null)
+            throw new InvalidOperationException("SVG produced null picture");
+
+        var bounds = svg.Picture.CullRect;
+        var scale = 2f;
+        var width = (int)(bounds.Width * scale);
+        var height = (int)(bounds.Height * scale);
+
+        byte[] pngData;
+        using (var bitmap = new SKBitmap(width, height))
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.Scale(scale);
+            canvas.DrawPicture(svg.Picture);
+
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            pngData = data.ToArray();
+        }
+
+        // Store in cache
+        var cacheKey = MermaidCacheService.ComputeKey(mermaidCode, isDark, textColor, bgColor);
+        return _mermaidCache?.Put(cacheKey, pngData)
+               ?? WriteTempPng(pngData);
+    }
+
+    /// <summary>
+    /// Render mermaid code to SVG string. Public API for export.
+    /// </summary>
+    public string ExportMermaidToSvg(string mermaidCode)
+    {
+        var svgContent = TryRenderMermaid(mermaidCode);
+        return PostProcessSvg(svgContent);
+    }
+
+    /// <summary>
+    /// Render mermaid code to PNG bytes. Public API for export.
+    /// </summary>
+    public byte[] ExportMermaidToPngBytes(string mermaidCode, float scale = 2f)
+    {
+        var svgContent = TryRenderMermaid(mermaidCode);
+        svgContent = PostProcessSvg(svgContent);
+
+        using var svg = new SKSvg();
+        svg.FromSvg(svgContent);
+        if (svg.Picture == null)
+            throw new InvalidOperationException("SVG produced null picture");
+
+        var bounds = svg.Picture.CullRect;
+        var width = (int)(bounds.Width * scale);
+        var height = (int)(bounds.Height * scale);
+
+        using var bitmap = new SKBitmap(width, height);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(SKColors.Transparent);
+        canvas.Scale(scale);
+        canvas.DrawPicture(svg.Picture);
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
+    }
+
+    private string WriteTempPng(byte[] pngData)
+    {
+        var path = Path.Combine(TempDirectory, $"diagram_{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(path, pngData);
+        return path;
+    }
+
+    private static string FormatMermaidError(string mermaidCode, Exception ex)
+    {
+        var diagramType = DetectMermaidDiagramType(mermaidCode);
+        var isParseError = ex.Message.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
+                           ex.Message.Contains("unexpected", StringComparison.OrdinalIgnoreCase);
+
+        var errorHeader = isParseError
+            ? $"Mermaid parse error in '{diagramType}' diagram"
+            : $"Cannot render '{diagramType}' diagram";
+
+        return $"""
+               > **{errorHeader}**
+               >
+               > {ex.Message}
+
+               ```mermaid
+               {mermaidCode}
+               ```
+               """;
+    }
+
+    /// <summary>
+    /// Work item for a mermaid diagram that needs rendering.
+    /// </summary>
+    public record MermaidWorkItem(string Placeholder, string MermaidCode, string CacheKey);
 
     /// <summary>
     /// Try to render mermaid code with multiple preprocessing strategies
     /// </summary>
-    private static string TryRenderMermaid(string mermaidCode)
+    private string TryRenderMermaid(string mermaidCode)
     {
         if (string.IsNullOrWhiteSpace(mermaidCode))
             throw new ArgumentException("Mermaid code is empty");
@@ -440,7 +765,16 @@ public partial class MarkdownService
                 string? svg = null;
                 try
                 {
-                    svg = Mermaid.Render(processedCode);
+                    var renderOptions = new RenderOptions
+                    {
+                        Theme = _isDarkMode ? "dark" : "default",
+                        ThemeColors = new ThemeColorOverrides
+                        {
+                            TextColor = _themeTextColor,
+                            BackgroundColor = _themeBackgroundColor
+                        }
+                    };
+                    svg = Mermaid.Render(processedCode, renderOptions);
                 }
                 catch (NullReferenceException)
                 {
@@ -643,14 +977,15 @@ public partial class MarkdownService
     private static partial Regex HtmlImgAltRegex();
 
     /// <summary>
-    ///     Convert foreignObject elements to SVG text elements for Avalonia compatibility
-    ///     Also convert filled shapes to stroked outlines for dark mode
+    /// Post-process SVG for Avalonia compatibility.
+    /// Since Naiad now generates native SVG text elements (no foreignObject) and
+    /// supports theme color overrides, this is much simpler than before.
+    /// Handles remaining foreignObject from other diagram types and font cleanup.
     /// </summary>
-    private string ConvertForeignObjectToText(string svgContent)
+    private string PostProcessSvg(string svgContent)
     {
-        // Replace foreignObject with text elements
+        // Convert any remaining foreignObject elements (from non-flowchart diagram types)
         var foreignObjectRegex = ForeignObjectRegex();
-
         svgContent = foreignObjectRegex.Replace(svgContent, match =>
         {
             var x = match.Groups["x"].Value;
@@ -659,65 +994,22 @@ public partial class MarkdownService
             var height = match.Groups["height"].Value;
             var innerHtml = match.Groups["content"].Value;
 
-            // Extract text from the HTML content (look for <p> tags or plain text)
             var textContent = ExtractTextFromHtml(innerHtml);
             if (string.IsNullOrWhiteSpace(textContent)) return "";
 
-            // Calculate center position for text
             var centerX = double.TryParse(x, out var xVal) ? xVal : 0;
             var centerY = double.TryParse(y, out var yVal) ? yVal : 0;
             var w = double.TryParse(width, out var wVal) ? wVal : 0;
             var h = double.TryParse(height, out var hVal) ? hVal : 0;
-
             centerX += w / 2;
-            centerY += h / 2 + 5; // +5 for baseline adjustment
+            centerY += h / 2 + 5;
 
-            // Return SVG text element with theme-appropriate fill color and proper font
-            // Use system sans-serif fonts that are widely available
             const string fontFamily = "Segoe UI, Arial, sans-serif";
             return
                 $@"<text x=""{centerX}"" y=""{centerY}"" text-anchor=""middle"" dy=""0.35em"" fill=""{_themeTextColor}"" font-family=""{fontFamily}"" font-size=""14"">{SecurityElement.Escape(textContent)}</text>";
         });
 
-        // Theme-aware SVG modifications
-        if (_isDarkMode)
-        {
-            // Dark mode: Convert filled shapes to transparent (outlines only look better on dark)
-            svgContent = svgContent.Replace("fill=\"#ECECFF\"", "fill=\"none\"");
-            svgContent = svgContent.Replace("fill=\"#ffffde\"", "fill=\"none\"");
-            svgContent = svgContent.Replace("fill=\"rgba(232,232,232,0.8)\"", "fill=\"none\"");
-
-            // Replace dark text colors with theme text color
-            svgContent = svgContent.Replace("fill=\"#333\"", $"fill=\"{_themeTextColor}\"");
-            svgContent = svgContent.Replace("fill=\"#333333\"", $"fill=\"{_themeTextColor}\"");
-            svgContent = svgContent.Replace("fill=\"#000\"", $"fill=\"{_themeTextColor}\"");
-            svgContent = svgContent.Replace("fill=\"#000000\"", $"fill=\"{_themeTextColor}\"");
-            svgContent = svgContent.Replace("fill=\"black\"", $"fill=\"{_themeTextColor}\"");
-
-            // Fix stroke colors for visibility
-            svgContent = svgContent.Replace("stroke=\"#333\"", $"stroke=\"{_themeTextColor}\"");
-            svgContent = svgContent.Replace("stroke=\"#333333\"", $"stroke=\"{_themeTextColor}\"");
-        }
-        else
-        {
-            // Light mode: Keep light fills but ensure text is dark
-            // Keep fills for light backgrounds: #ECECFF (light blue), #ffffde (light yellow)
-
-            // Replace light text colors with theme text color (dark)
-            svgContent = svgContent.Replace("fill=\"#fff\"", $"fill=\"{_themeTextColor}\"");
-            svgContent = svgContent.Replace("fill=\"#ffffff\"", $"fill=\"{_themeTextColor}\"");
-            svgContent = svgContent.Replace("fill=\"white\"", $"fill=\"{_themeTextColor}\"");
-
-            // Ensure dark text stays dark for readability
-            svgContent = svgContent.Replace("fill=\"#e6edf3\"", $"fill=\"{_themeTextColor}\"");
-            svgContent = svgContent.Replace("fill=\"#c9d1d9\"", $"fill=\"{_themeTextColor}\"");
-        }
-
-        // General contrast fix: Replace any text fill color that would be unreadable
-        // This catches edge cases where Mermaid outputs unexpected colors
-        svgContent = ReplaceUnreadableTextColors(svgContent);
-
-        // Replace Mermaid's default fonts with system fonts that are more reliable
+        // Replace Mermaid's default fonts with system fonts
         svgContent = Regex.Replace(svgContent,
             @"font-family\s*:\s*[""']?[^;""']+[""']?\s*;?",
             "font-family: 'Segoe UI', Arial, sans-serif;",
@@ -728,126 +1020,6 @@ public partial class MarkdownService
             RegexOptions.IgnoreCase);
 
         return svgContent;
-    }
-
-    /// <summary>
-    /// Replace text/fill colors that would be unreadable on the current theme background
-    /// </summary>
-    private string ReplaceUnreadableTextColors(string svgContent)
-    {
-        // 1. Fix fill attributes on text elements: <text fill="#color">
-        svgContent = Regex.Replace(svgContent,
-            @"(<text[^>]*)(fill\s*=\s*"")(#[0-9a-fA-F]{3,6})("")",
-            match => FixColorAttribute(match, 3),
-            RegexOptions.IgnoreCase);
-
-        // 2. Fix fill in style attributes: style="fill: #color"
-        svgContent = Regex.Replace(svgContent,
-            @"(style\s*=\s*""[^""]*)(fill\s*:\s*)(#[0-9a-fA-F]{3,6})([^""]*"")",
-            match => FixColorInStyle(match, 3),
-            RegexOptions.IgnoreCase);
-
-        // 3. Fix standalone fill attributes on other elements (spans, tspan, etc.)
-        svgContent = Regex.Replace(svgContent,
-            @"(<(?:tspan|span|g)[^>]*)(fill\s*=\s*"")(#[0-9a-fA-F]{3,6})("")",
-            match => FixColorAttribute(match, 3),
-            RegexOptions.IgnoreCase);
-
-        // 4. Fix named colors that might be problematic
-        if (_isDarkMode)
-        {
-            // Dark backgrounds: fix light text colors
-            svgContent = Regex.Replace(svgContent, @"fill\s*=\s*""black""", $"fill=\"{_themeTextColor}\"", RegexOptions.IgnoreCase);
-            svgContent = Regex.Replace(svgContent, @"fill\s*:\s*black", $"fill: {_themeTextColor}", RegexOptions.IgnoreCase);
-        }
-        else
-        {
-            // Light backgrounds: fix dark text colors
-            svgContent = Regex.Replace(svgContent, @"fill\s*=\s*""white""", $"fill=\"{_themeTextColor}\"", RegexOptions.IgnoreCase);
-            svgContent = Regex.Replace(svgContent, @"fill\s*:\s*white", $"fill: {_themeTextColor}", RegexOptions.IgnoreCase);
-        }
-
-        return svgContent;
-    }
-
-    private string FixColorAttribute(Match match, int colorGroupIndex)
-    {
-        var colorHex = match.Groups[colorGroupIndex].Value;
-        if (IsLowContrast(colorHex, _themeBackgroundColor))
-        {
-            // Rebuild the match with fixed color
-            var result = "";
-            for (int i = 1; i < match.Groups.Count; i++)
-            {
-                result += i == colorGroupIndex ? _themeTextColor : match.Groups[i].Value;
-            }
-            return result;
-        }
-        return match.Value;
-    }
-
-    private string FixColorInStyle(Match match, int colorGroupIndex)
-    {
-        var colorHex = match.Groups[colorGroupIndex].Value;
-        if (IsLowContrast(colorHex, _themeBackgroundColor))
-        {
-            var result = "";
-            for (int i = 1; i < match.Groups.Count; i++)
-            {
-                result += i == colorGroupIndex ? _themeTextColor : match.Groups[i].Value;
-            }
-            return result;
-        }
-        return match.Value;
-    }
-
-    /// <summary>
-    /// Check if two colors have low contrast (would be hard to read)
-    /// Uses simplified relative luminance calculation
-    /// </summary>
-    private static bool IsLowContrast(string color1, string color2)
-    {
-        var lum1 = GetRelativeLuminance(color1);
-        var lum2 = GetRelativeLuminance(color2);
-
-        // Contrast ratio formula
-        var lighter = Math.Max(lum1, lum2);
-        var darker = Math.Min(lum1, lum2);
-        var contrastRatio = (lighter + 0.05) / (darker + 0.05);
-
-        // WCAG AA requires 4.5:1 for normal text, we use 3:1 as minimum readable
-        return contrastRatio < 3.0;
-    }
-
-    /// <summary>
-    /// Calculate relative luminance from hex color
-    /// </summary>
-    private static double GetRelativeLuminance(string hexColor)
-    {
-        try
-        {
-            // Normalize hex color
-            var hex = hexColor.TrimStart('#');
-            if (hex.Length == 3)
-                hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
-
-            if (hex.Length != 6) return 0.5; // Default to mid luminance
-
-            var r = Convert.ToInt32(hex[..2], 16) / 255.0;
-            var g = Convert.ToInt32(hex[2..4], 16) / 255.0;
-            var b = Convert.ToInt32(hex[4..6], 16) / 255.0;
-
-            // sRGB to linear
-            r = r <= 0.03928 ? r / 12.92 : Math.Pow((r + 0.055) / 1.055, 2.4);
-            g = g <= 0.03928 ? g / 12.92 : Math.Pow((g + 0.055) / 1.055, 2.4);
-            b = b <= 0.03928 ? b / 12.92 : Math.Pow((b + 0.055) / 1.055, 2.4);
-
-            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        }
-        catch
-        {
-            return 0.5; // Default to mid luminance on parse error
-        }
     }
 
     private static string ExtractTextFromHtml(string html)

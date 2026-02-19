@@ -8,6 +8,10 @@
         Width="1100" Height="750"
         MinWidth="600" MinHeight="450"
         WindowStartupLocation="CenterScreen"
+        SystemDecorations="Full"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
         Background="{DynamicResource AppBackground}">
 
     <Window.KeyBindings>
@@ -21,6 +25,7 @@
         <KeyBinding Gesture="Ctrl+Subtract" Command="{Binding FontSizeDecreaseCommand}" />
         <KeyBinding Gesture="Ctrl+P" Command="{Binding PrintCommand}" />
         <KeyBinding Gesture="F1" Command="{Binding OpenHelpCommand}" />
+        <KeyBinding Gesture="Ctrl+F12" Command="{Binding DebugScreenshotCommand}" />
     </Window.KeyBindings>
 
     <Grid>
@@ -28,7 +33,7 @@
         <DockPanel>
             <!-- Clean Header Bar -->
             <Border DockPanel.Dock="Top" Classes="header-bar">
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
                     <!-- Left: Hamburger Menu -->
                     <Button Grid.Column="0"
                             Classes="header-btn"
@@ -132,6 +137,25 @@
                                 ToolTip.Tip="Increase font size (Ctrl++)">
                             <TextBlock Text="A" FontSize="18" FontWeight="Medium"
                                        Foreground="{DynamicResource AppText}" />
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Window Controls -->
+                    <StackPanel x:Name="CustomWindowControls" Grid.Column="6" Orientation="Horizontal" Spacing="0" Margin="8,0,0,0">
+                        <Button Classes="header-btn"
+                                Click="OnMinimizeWindow"
+                                ToolTip.Tip="Minimize">
+                            <TextBlock Text="—" FontSize="14" Foreground="{DynamicResource AppText}" />
+                        </Button>
+                        <Button Classes="header-btn"
+                                Click="OnToggleMaximizeWindow"
+                                ToolTip.Tip="Maximize/Restore">
+                            <TextBlock Text="□" FontSize="12" Foreground="{DynamicResource AppText}" />
+                        </Button>
+                        <Button Classes="header-btn"
+                                Click="OnCloseWindow"
+                                ToolTip.Tip="Close">
+                            <TextBlock Text="✕" FontSize="12" Foreground="{DynamicResource AppText}" />
                         </Button>
                     </StackPanel>
                 </Grid>
@@ -360,7 +384,7 @@
                                                 TextElement.FontWeight="Normal">
                                             <md:MarkdownRenderer x:Name="MdViewer">
                                                 <md:MarkdownRenderer.ContextMenu>
-                                                    <ContextMenu>
+                                                    <ContextMenu Opening="OnContextMenuOpening">
                                                         <MenuItem Header="Copy" Click="OnCopyText"
                                                                   InputGesture="Ctrl+C">
                                                             <MenuItem.Icon>
@@ -371,6 +395,10 @@
                                                                   InputGesture="Ctrl+A" />
                                                         <Separator />
                                                         <MenuItem Header="Copy as HTML" Click="OnCopyAsHtml" />
+                                                        <Separator x:Name="DiagramMenuSeparator" IsVisible="False" />
+                                                        <MenuItem x:Name="DiagramSavePngItem" Header="Save Diagram as PNG..." Click="OnSaveDiagramPng" IsVisible="False" />
+                                                        <MenuItem x:Name="DiagramSaveSvgItem" Header="Save Diagram as SVG..." Click="OnSaveDiagramSvg" IsVisible="False" />
+                                                        <MenuItem x:Name="DiagramViewItem" Header="View Diagram Full Size" Click="OnViewDiagramFullSize" IsVisible="False" />
                                                     </ContextMenu>
                                                 </md:MarkdownRenderer.ContextMenu>
                                             </md:MarkdownRenderer>
@@ -566,11 +594,19 @@
 
                         <Border Classes="panel-separator" />
 
-                        <!-- Print -->
+                        <!-- Export PDF -->
                         <Button Classes="panel-item" Click="OnPrint">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <TextBlock Text="🖨" FontSize="18" Width="20" />
-                                <TextBlock Text="Print..." VerticalAlignment="Center" />
+                                <TextBlock Text="Export PDF..." VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Render Mermaid Diagram -->
+                        <Button Classes="panel-item" Click="OnRenderMermaid">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="◇" FontSize="18" Width="20" />
+                                <TextBlock Text="Render Diagram..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 

@@ -137,11 +137,11 @@ After diagram.";
         // Act
         var processed = _service.ProcessMarkdown(content);
 
-        // Assert
-        Assert.Contains("Mermaid Diagram", processed);
-        Assert.Contains("flowchart TD", processed);
-        Assert.Contains("A --> B", processed);
+        // Assert — flowchart mermaid blocks are replaced with native rendering markers
+        Assert.Contains("FLOWCHART:flowchart-0", processed);
         Assert.DoesNotContain("```mermaid", processed);
+        // The raw mermaid code should NOT appear — it's been replaced
+        Assert.DoesNotContain("```", processed.Replace("```csharp", ""));
     }
 
     [Fact]
@@ -189,10 +189,14 @@ sequenceDiagram
         // Act
         var processed = _service.ProcessMarkdown(content);
 
-        // Assert
+        // Assert — mermaid blocks should be replaced with native markers or images
         Assert.DoesNotContain("```mermaid", processed);
-        Assert.Contains("flowchart LR", processed);
-        Assert.Contains("sequenceDiagram", processed);
+        // Flowchart uses native FlowchartCanvas marker, sequence uses native DiagramCanvas marker
+        Assert.True(
+            processed.Contains("FLOWCHART:") || processed.Contains("DIAGRAM:") || processed.Contains("Mermaid Diagram"),
+            "Should contain a native diagram marker or rendered image");
+        // Raw mermaid code should be replaced, not present as text
+        Assert.DoesNotContain("flowchart LR", processed);
     }
 
     [Fact]

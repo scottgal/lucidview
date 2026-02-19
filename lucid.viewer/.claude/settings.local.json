@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet tool list:*)",
+      "Bash(dotnet exec:*)",
+      "Bash(git stash:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(cmd.exe /c \"dir %USERPROFILE%\\\\.nuget\\\\packages\\\\msagl* /s /b 2>NUL\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path \"\"$env:USERPROFILE\\\\.nuget\\\\packages\\\\msagl*\"\" -Directory | Select-Object -ExpandProperty FullName\")",
+      "Bash(ls:*)",
+      "Bash(dir:*)",
+      "Bash(dotnet run:*)",
+      "Bash(pwsh -Command \"& ./publish.ps1 -Platform win -Clean\")",
+      "Bash(taskkill //F //PID 50848)",
+      "Bash(git ls-tree:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command \"Get-Process | Where-Object { $_.ProcessName -match ''lucid|dotnet'' } | Select-Object Id,ProcessName | Format-Table -AutoSize\")",
+      "Bash(powershell -NoProfile -Command:*)",
+      "Bash(echo:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "WebSearch",
+      "WebFetch(domain:docs.mermaidchart.com)",
+      "WebFetch(domain:mermaid.js.org)",
+      "WebFetch(domain:mermaid.ai)",
+      "WebFetch(domain:notepad.onghu.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:d2lang.com)",
+      "WebFetch(domain:reactflow.dev)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(python3 -c \"\nimport zipfile, sys\n# List types in the LiveMarkdown assembly to understand Image handling\nz = zipfile.ZipFile\\(r''E:\\\\source\\\\markdown.viewer\\\\MarkdownViewer\\\\bin\\\\Debug\\\\net10.0\\\\win-x64\\\\LiveMarkdown.Avalonia.dll''\\)\n\")",
+      "Bash(ilspycmd:*)",
+      "Bash(dotnet add package:*)",
+      "Bash(pwsh -Command \"& { $env:PLAYWRIGHT_BROWSERS_PATH = 0; dotnet tool install --global Microsoft.Playwright.CLI 2>&1; playwright install chromium 2>&1 }\")",
+      "Bash(pwsh -Command \"& { $env:PLAYWRIGHT_BROWSERS_PATH = ''0''; dotnet run --project . -- install-playwright 2>&1 }\":*)",
+      "Bash(pwsh -c \"bin/Debug/net10.0/playwright.ps1 install chromium\":*)",
+      "Bash(cmd /c \"dir /b \"\"E:\\\\source\\\\markdown.viewer\\\\Naiad\\\\src\\\\Naiad\\\\Diagrams\"\"\")",
+      "Bash(powershell -Command:*)",
+      "Bash(powershell -NoProfile:*)"
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "configProperties": {
+    "System.Runtime.TieredCompilation": true,
+    "System.GC.HeapCount": 0
+  }
+}
