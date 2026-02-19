@@ -9,9 +9,8 @@
         MinWidth="600" MinHeight="450"
         WindowStartupLocation="CenterScreen"
         SystemDecorations="Full"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="-1"
+        ExtendClientAreaToDecorationsHint="False"
+        DragDrop.AllowDrop="True"
         Background="{DynamicResource AppBackground}">
 
     <Window.KeyBindings>
@@ -26,6 +25,7 @@
         <KeyBinding Gesture="Ctrl+P" Command="{Binding PrintCommand}" />
         <KeyBinding Gesture="F1" Command="{Binding OpenHelpCommand}" />
         <KeyBinding Gesture="Ctrl+F12" Command="{Binding DebugScreenshotCommand}" />
+        <KeyBinding Gesture="Alt+F4" Command="{Binding ExitCommand}" />
     </Window.KeyBindings>
 
     <Grid>
@@ -33,7 +33,7 @@
         <DockPanel>
             <!-- Clean Header Bar -->
             <Border DockPanel.Dock="Top" Classes="header-bar">
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                     <!-- Left: Hamburger Menu -->
                     <Button Grid.Column="0"
                             Classes="header-btn"
@@ -140,24 +140,6 @@
                         </Button>
                     </StackPanel>
 
-                    <!-- Window Controls -->
-                    <StackPanel x:Name="CustomWindowControls" Grid.Column="6" Orientation="Horizontal" Spacing="0" Margin="8,0,0,0">
-                        <Button Classes="header-btn"
-                                Click="OnMinimizeWindow"
-                                ToolTip.Tip="Minimize">
-                            <TextBlock Text="—" FontSize="14" Foreground="{DynamicResource AppText}" />
-                        </Button>
-                        <Button Classes="header-btn"
-                                Click="OnToggleMaximizeWindow"
-                                ToolTip.Tip="Maximize/Restore">
-                            <TextBlock Text="□" FontSize="12" Foreground="{DynamicResource AppText}" />
-                        </Button>
-                        <Button Classes="header-btn"
-                                Click="OnCloseWindow"
-                                ToolTip.Tip="Close">
-                            <TextBlock Text="✕" FontSize="12" Foreground="{DynamicResource AppText}" />
-                        </Button>
-                    </StackPanel>
                 </Grid>
             </Border>
 
@@ -633,6 +615,16 @@
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <TextBlock Text="❓" FontSize="18" Width="20" />
                                 <TextBlock Text="Help (F1)" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Border Classes="panel-separator" />
+
+                        <!-- Exit -->
+                        <Button Classes="panel-item" Command="{Binding ExitCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="✕" FontSize="18" Width="20" />
+                                <TextBlock Text="Exit (Alt+F4)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>

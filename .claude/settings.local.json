@@ -75,7 +75,19 @@
       "Bash(git rm:*)",
       "Bash(diff_output=\"no git\")",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:reference.avaloniaui.net)",
+      "WebFetch(domain:api-docs.avaloniaui.net)",
+      "Bash(powershell.exe -Command \"Stop-Process -Name lucidVIEW -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-Object -Last 8\")",
+      "Bash(powershell.exe -Command \"taskkill /F /PID 61852 2>&1; Start-Sleep -Seconds 2; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Name lucidVIEW -Force -ErrorAction SilentlyContinue; Stop-Process -Name dotnet -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; cd E:\\\\source\\\\markdown.viewer; dotnet clean MarkdownViewer/MarkdownViewer.csproj -q 2>&1; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-String -Pattern ''Warning|Error|succeeded''\")",
+      "Bash(powershell.exe -Command \"cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj --no-incremental 2>&1 | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"Start-Sleep -Seconds 3; tasklist /FI ''IMAGENAME eq lucidVIEW.exe''\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Name lucidVIEW -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-Object -Last 10\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Name lucidVIEW -Force -ErrorAction SilentlyContinue; Stop-Process -Name dotnet -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 3; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj 2>&1 | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"Get-Item ''E:\\\\source\\\\markdown.viewer\\\\MarkdownViewer\\\\bin\\\\Debug\\\\net10.0\\\\win-x64\\\\lucidVIEW.dll'' | Select-Object LastWriteTime\")",
+      "Bash(powershell.exe -Command \"Get-Process lucidVIEW -ErrorAction SilentlyContinue | Select-Object Id, StartTime\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Name lucidVIEW -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; cd E:\\\\source\\\\markdown.viewer; dotnet build MarkdownViewer/MarkdownViewer.csproj --no-incremental 2>&1 | Select-Object -Last 5\")"
     ]
   }
 }

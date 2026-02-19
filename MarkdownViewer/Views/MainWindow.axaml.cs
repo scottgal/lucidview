@@ -80,19 +80,16 @@ public partial class MainWindow : Window
         _searchService = new SearchService();
         _paginationService = new PaginationService();
 
-        Width = _settings.WindowWidth;
-        Height = _settings.WindowHeight;
+        // Restore saved size, clamped to sensible defaults
+        Width = _settings.WindowWidth is > 0 and < 10000 ? _settings.WindowWidth : 1100;
+        Height = _settings.WindowHeight is > 0 and < 10000 ? _settings.WindowHeight : 750;
         _fontSize = _settings.FontSize > 0 ? (int)_settings.FontSize : 16;
 
         DataContext = this;
 
-        // Set window icon
-        SetWindowIcon();
-
-        // Apply saved theme
+        // Apply saved theme (needed before showing content)
         ApplyTheme(_settings.Theme);
         UpdateThemeCardSelection(_settings.Theme);
-        ApplyTypography();
 
         // Drag and drop
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
@@ -107,9 +104,16 @@ public partial class MainWindow : Window
         UpdateFontSizeDisplay();
         Closing += OnWindowClosing;
 
-        // Command line argument
+        // Command line argument - load file immediately
         var args = Environment.GetCommandLineArgs();
         if (args.Length > 1 && File.Exists(args[1])) _ = LoadFile(args[1]);
+
+        // Defer non-critical startup work until after window is shown
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            SetWindowIcon();
+            ApplyTypography();
+        }, Avalonia.Threading.DispatcherPriority.Background);
     }
 
     #region Mouse Wheel Zoom & Scroll
@@ -195,18 +199,33 @@ public partial class MainWindow : Window
 
     #region Commands
 
-    public ICommand OpenFileCommand => new RelayCommand(async () => await OpenFile());
-    public ICommand OpenUrlCommand => new RelayCommand(async () => await OpenUrl());
-    public ICommand OpenSettingsCommand => new RelayCommand(async () => await OpenSettings());
-    public ICommand ToggleFullScreenCommand => new RelayCommand(ToggleFullScreen);
-    public ICommand ToggleSidePanelCommand => new RelayCommand(ToggleSidePanel);
-    public ICommand ToggleSearchCommand => new RelayCommand(ToggleSearch);
-    public ICommand EscapeCommand => new RelayCommand(OnEscape);
-    public ICommand FontSizeIncreaseCommand => new RelayCommand(IncreaseFontSize);
-    public ICommand FontSizeDecreaseCommand => new RelayCommand(DecreaseFontSize);
-    public ICommand PrintCommand => new RelayCommand(async () => await Print());
-    public ICommand OpenHelpCommand => new RelayCommand(async () => await OpenHelp());
-    public ICommand DebugScreenshotCommand => new RelayCommand(async () => await DebugScreenshot());
+    private ICommand? _openFileCommand;
+    private ICommand? _openUrlCommand;
+    private ICommand? _openSettingsCommand;
+    private ICommand? _toggleFullScreenCommand;
+    private ICommand? _toggleSidePanelCommand;
+    private ICommand? _toggleSearchCommand;
+    private ICommand? _escapeCommand;
+    private ICommand? _fontSizeIncreaseCommand;
+    private ICommand? _fontSizeDecreaseCommand;
+    private ICommand? _printCommand;
+    private ICommand? _openHelpCommand;
+    private ICommand? _debugScreenshotCommand;
+    private ICommand? _exitCommand;
+
+    public ICommand OpenFileCommand => _openFileCommand ??= new RelayCommand(async () => await OpenFile());
+    public ICommand OpenUrlCommand => _openUrlCommand ??= new RelayCommand(async () => await OpenUrl());
+    public ICommand OpenSettingsCommand => _openSettingsCommand ??= new RelayCommand(async () => await OpenSettings());
+    public ICommand ToggleFullScreenCommand => _toggleFullScreenCommand ??= new RelayCommand(ToggleFullScreen);
+    public ICommand ToggleSidePanelCommand => _toggleSidePanelCommand ??= new RelayCommand(ToggleSidePanel);
+    public ICommand ToggleSearchCommand => _toggleSearchCommand ??= new RelayCommand(ToggleSearch);
+    public ICommand EscapeCommand => _escapeCommand ??= new RelayCommand(OnEscape);
+    public ICommand FontSizeIncreaseCommand => _fontSizeIncreaseCommand ??= new RelayCommand(IncreaseFontSize);
+    public ICommand FontSizeDecreaseCommand => _fontSizeDecreaseCommand ??= new RelayCommand(DecreaseFontSize);
+    public ICommand PrintCommand => _printCommand ??= new RelayCommand(async () => await Print());
+    public ICommand OpenHelpCommand => _openHelpCommand ??= new RelayCommand(async () => await OpenHelp());
+    public ICommand DebugScreenshotCommand => _debugScreenshotCommand ??= new RelayCommand(async () => await DebugScreenshot());
+    public ICommand ExitCommand => _exitCommand ??= new RelayCommand(() => Close());
 
     #endregion
 
@@ -540,12 +559,7 @@ public partial class MainWindow : Window
 
         // Replace flowchart marker text with native FlowchartCanvas controls
         // Defer to allow the visual tree to build first
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            ReplaceDiagramMarkers();
-            // Auto-screenshot for debugging (remove after confirmed working)
-            _ = DebugScreenshot();
-        }, Avalonia.Threading.DispatcherPriority.Loaded);
+        Avalonia.Threading.Dispatcher.UIThread.Post(ReplaceDiagramMarkers, Avalonia.Threading.DispatcherPriority.Loaded);
 
         // Phase 2: Render uncached diagrams in background, then swap in results
         if (pendingDiagrams.Count > 0)
@@ -942,22 +956,6 @@ public partial class MainWindow : Window
             : WindowState.FullScreen;
     }
 
-    private void OnMinimizeWindow(object? sender, RoutedEventArgs e)
-    {
-        WindowState = WindowState.Minimized;
-    }
-
-    private void OnToggleMaximizeWindow(object? sender, RoutedEventArgs e)
-    {
-        WindowState = WindowState == WindowState.Maximized
-            ? WindowState.Normal
-            : WindowState.Maximized;
-    }
-
-    private void OnCloseWindow(object? sender, RoutedEventArgs e)
-    {
-        Close();
-    }
 
     #endregion
 
@@ -2160,40 +2158,6 @@ public partial class MainWindow : Window
             if (child is Visual v)
             {
                 DumpVisualTreeToString(v, depth + 1, maxDepth, sb);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Debug: dump the visual tree to Debug output to understand LiveMarkdown's structure.
-    /// </summary>
-    private static void DumpVisualTree(Visual parent, int depth, int maxDepth)
-    {
-        if (depth > maxDepth) return;
-        var indent = new string(' ', depth * 2);
-        foreach (var child in VisualExtensions.GetVisualChildren(parent))
-        {
-            var typeName = child.GetType().Name;
-            var extra = "";
-            if (child is TextBlock tb)
-            {
-                var text = tb.Text ?? "(null Text)";
-                if (tb.Text is null && tb.Inlines is { Count: > 0 } inl)
-                {
-                    text = "(Inlines: " + string.Concat(inl.OfType<Run>().Select(r => r.Text ?? "")) + ")";
-                }
-                extra = $" Text=\"{(text.Length > 80 ? text[..80] + "..." : text)}\"";
-            }
-            else if (child is Image img)
-            {
-                extra = $" Source={img.Source?.GetType().Name}";
-            }
-
-            Debug.WriteLine($"[VTree]{indent}{typeName}{extra}");
-
-            if (child is Visual v)
-            {
-                DumpVisualTree(v, depth + 1, maxDepth);
             }
         }
     }

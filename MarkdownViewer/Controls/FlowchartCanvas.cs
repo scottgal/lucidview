@@ -289,10 +289,29 @@ public class FlowchartCanvas : Control
                 // Use skin text color, which should contrast with the shape fill
                 textBrush = _textBrush;
             }
-            var text = CreateFormattedText(label, 14, textBrush);
-            context.DrawText(text, new Point(
-                node.Position.X - text.Width / 2,
-                node.Position.Y - text.Height / 2));
+
+            // Handle multi-line labels (from <br/> tags)
+            var lines = label.Split('\n');
+            if (lines.Length <= 1)
+            {
+                var text = CreateFormattedText(label, 14, textBrush);
+                context.DrawText(text, new Point(
+                    node.Position.X - text.Width / 2,
+                    node.Position.Y - text.Height / 2));
+            }
+            else
+            {
+                var lineHeight = 14 * 1.5;
+                var totalHeight = lines.Length * lineHeight;
+                var startY = node.Position.Y - totalHeight / 2;
+                for (var li = 0; li < lines.Length; li++)
+                {
+                    var lineText = CreateFormattedText(lines[li].Trim(), 14, textBrush);
+                    context.DrawText(lineText, new Point(
+                        node.Position.X - lineText.Width / 2,
+                        startY + li * lineHeight));
+                }
+            }
 
             // Draw tooltip cursor hint for nodes with links
             if (node.Link is not null && isHovered)
