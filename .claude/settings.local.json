@@ -99,7 +99,17 @@
       "Bash(powershell.exe -Command \"Get-Content ''C:\\\\Blog\\\\mostlylucidweb\\\\Mostlylucid\\\\Markdown\\\\docsummarizer-rag-pipeline.md'' -First 20\")",
       "Bash(git config:*)",
       "Bash(ls:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(grep:*)",
+      "Bash(gh run view:*)",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_run_code",
+      "mcp__claude_ai_Mermaid_Chart__validate_and_render_mermaid_diagram",
+      "Bash(python3:*)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:eclipse.dev)"
     ]
   }
 }
