@@ -110,7 +110,9 @@
       "Bash(python3:*)",
       "WebFetch(domain:deepwiki.com)",
       "WebFetch(domain:eclipse.dev)",
-      "Bash(gh run list:*)"
+      "Bash(gh run list:*)",
+      "Bash(git push:*)",
+      "Bash(gh run watch:*)"
     ]
   }
 }
