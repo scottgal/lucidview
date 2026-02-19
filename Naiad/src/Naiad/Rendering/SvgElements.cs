@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Rendering;
 
 public abstract class SvgElement
@@ -19,7 +21,6 @@ public abstract class SvgElement
         return sb.ToString();
     }
 
-    protected static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }
 
 public class SvgGroup : SvgElement
@@ -282,6 +283,36 @@ public class SvgText : SvgElement
             .Replace(">", "&gt;")
             .Replace("\"", "&quot;")
             .Replace("'", "&apos;");
+}
+
+public class SvgMultiLineText : SvgElement
+{
+    public double X { get; set; }
+    public double StartY { get; set; }
+    public double LineHeight { get; set; }
+    public required string[] Lines { get; set; }
+    public string? TextAnchor { get; set; }
+    public string? Fill { get; set; }
+
+    public override string ToXml()
+    {
+        var sb = new StringBuilder();
+        sb.Append($"<text x=\"{Fmt(X)}\" y=\"{Fmt(StartY)}\"");
+        if (TextAnchor is not null) sb.Append($" text-anchor=\"{TextAnchor}\"");
+        if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
+        sb.Append(CommonAttributes());
+        sb.Append('>');
+        for (var i = 0; i < Lines.Length; i++)
+        {
+            var dy = i == 0 ? "0" : Fmt(LineHeight);
+            sb.Append($"<tspan x=\"{Fmt(X)}\" dy=\"{dy}\">{EscapeXml(Lines[i])}</tspan>");
+        }
+        sb.Append("</text>");
+        return sb.ToString();
+    }
+
+    static string EscapeXml(string text) =>
+        text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 }
 
 public class SvgForeignObject : SvgElement

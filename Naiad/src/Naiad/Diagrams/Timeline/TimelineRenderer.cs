@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Timeline;
 
 public class TimelineRenderer : IDiagramRenderer<TimelineModel>
@@ -148,8 +150,6 @@ public class TimelineRenderer : IDiagramRenderer<TimelineModel>
         return builder.Build();
     }
 
-    static double MeasureText(string text, double fontSize) =>
-        text.Length * fontSize * 0.55;
+    static double MeasureText(string text, double fontSize) => MeasureTextWidth(text, fontSize);
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

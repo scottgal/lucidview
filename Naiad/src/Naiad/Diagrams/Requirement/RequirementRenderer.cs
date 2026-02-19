@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Requirement;
 
 public class RequirementRenderer : IDiagramRenderer<RequirementModel>
@@ -199,5 +201,4 @@ public class RequirementRenderer : IDiagramRenderer<RequirementModel>
             fill: theme.MutedText);
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

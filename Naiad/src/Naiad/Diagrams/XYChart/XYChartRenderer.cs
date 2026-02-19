@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.XYChart;
 
 public class XYChartRenderer : IDiagramRenderer<XYChartModel>
@@ -178,5 +180,4 @@ public class XYChartRenderer : IDiagramRenderer<XYChartModel>
         return builder.Build();
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

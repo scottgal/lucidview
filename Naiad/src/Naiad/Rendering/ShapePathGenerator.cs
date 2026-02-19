@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Rendering;
 
 public static class ShapePathGenerator
@@ -169,5 +171,4 @@ public static class ShapePathGenerator
         };
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

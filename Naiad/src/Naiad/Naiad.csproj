@@ -6,8 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Pidgin" />
-    <PackageReference Include="Msagl.Drawing" />
-    <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
+<PackageReference Include="ProjectDefaults" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>

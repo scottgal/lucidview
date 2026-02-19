@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Sankey;
 
 public class SankeyRenderer : IDiagramRenderer<SankeyModel>
@@ -219,5 +221,4 @@ public class SankeyRenderer : IDiagramRenderer<SankeyModel>
                $"Z";
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

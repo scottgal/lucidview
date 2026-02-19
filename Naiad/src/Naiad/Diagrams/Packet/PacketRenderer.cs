@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Packet;
 
 public class PacketRenderer : IDiagramRenderer<PacketModel>
@@ -125,5 +127,4 @@ public class PacketRenderer : IDiagramRenderer<PacketModel>
         return builder.Build();
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

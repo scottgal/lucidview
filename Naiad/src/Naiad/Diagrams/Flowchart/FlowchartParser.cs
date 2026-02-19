@@ -84,6 +84,35 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
             .Before(Char(')'))
             .Select(text => (text, NodeShape.RoundedRectangle));
 
+    // Trapezoid: [/"text"/]
+    static readonly Parser<char, (string Label, NodeShape Shape)> TrapezoidShape =
+        String("[/")
+            .Then(Try(QuotedContent).Or(Token(c => c != '"' && c != '/').ManyString()))
+            .Before(String("/]"))
+            .Select(text => (text, NodeShape.Trapezoid));
+
+    // Trapezoid alt: [\"text"\]
+    static readonly Parser<char, (string Label, NodeShape Shape)> TrapezoidAltShape =
+        String("[\\")
+            .Then(Try(QuotedContent).Or(Token(c => c != '"' && c != '\\').ManyString()))
+            .Before(String("\\]"))
+            .Select(text => (text, NodeShape.TrapezoidAlt));
+
+    // Parallelogram: [/text/] — same delimiters but without quotes inside
+    // Note: TrapezoidShape handles [/"text"/], this handles [/text/] without quotes
+    static readonly Parser<char, (string Label, NodeShape Shape)> ParallelogramShape =
+        String("[/")
+            .Then(Token(c => c != '/').ManyString())
+            .Before(String("/]"))
+            .Select(text => (text, NodeShape.Parallelogram));
+
+    // Parallelogram alt: [\text\]
+    static readonly Parser<char, (string Label, NodeShape Shape)> ParallelogramAltShape =
+        String("[\\")
+            .Then(Token(c => c != '\\').ManyString())
+            .Before(String("\\]"))
+            .Select(text => (text, NodeShape.ParallelogramAlt));
+
     static readonly Parser<char, (string Label, NodeShape Shape)> RectangleShape =
         Char('[')
             .Then(ShapeContent(']'))
@@ -106,6 +135,10 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
             Try(HexagonShape),
             Try(DiamondShape),
             Try(RoundedShape),
+            Try(TrapezoidShape),
+            Try(TrapezoidAltShape),
+            Try(ParallelogramShape),
+            Try(ParallelogramAltShape),
             Try(AsymmetricShape),
             RectangleShape
         );
@@ -549,10 +582,9 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
     }
 
     /// <summary>
-    /// Expand mermaid & (ampersand) fan-out syntax into multiple edge statements.
-    /// "A --> B & C & D" becomes ["A --> B", "A --> C", "A --> D"]
-    /// "A & B --> C" becomes ["A --> C", "B --> C"]
-    /// Lines without & are returned as-is.
+    /// Expand mermaid ampersand fan-out syntax into multiple edge statements.
+    /// For example, "A --&gt; B &amp; C" expands to ["A --&gt; B", "A --&gt; C"].
+    /// Lines without ampersand are returned as-is.
     /// </summary>
     static List<string> ExpandAmpersandSyntax(string line)
     {

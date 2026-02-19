@@ -19,7 +19,35 @@ public class Node
     public int Rank { get; set; }
     public int Order { get; set; }
 
-    public string DisplayLabel => Label ?? Id;
+    /// <summary>
+    /// Display label with HTML line breaks converted to newlines and formatting tags stripped.
+    /// Use this for plain-text rendering contexts (measurement, Avalonia FormattedText).
+    /// </summary>
+    public string DisplayLabel => StripHtmlTags(Label ?? Id);
+
+    /// <summary>
+    /// Convert HTML line breaks to newlines and strip all HTML tags, preserving text content.
+    /// </summary>
+    private static string StripHtmlTags(string label)
+    {
+        // Replace HTML line break variants with actual newlines
+        label = System.Text.RegularExpressions.Regex.Replace(
+            label, @"<br\s*/?>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // Strip ALL remaining HTML tags but keep their text content
+        label = System.Text.RegularExpressions.Regex.Replace(label, @"<[^>]+>", "");
+
+        // Decode HTML entities so they don't get double-encoded by SVG serialization
+        label = label
+            .Replace("&quot;", "\"")
+            .Replace("&amp;", "&")
+            .Replace("&lt;", "<")
+            .Replace("&gt;", ">")
+            .Replace("&apos;", "'")
+            .Replace("&#39;", "'");
+
+        return label.Trim();
+    }
 
     public Rect Bounds => new(
         Position.X - Width / 2,

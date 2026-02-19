@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Kanban;
 
 public class KanbanRenderer : IDiagramRenderer<KanbanModel>
@@ -92,5 +94,4 @@ public class KanbanRenderer : IDiagramRenderer<KanbanModel>
         return builder.Build();
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

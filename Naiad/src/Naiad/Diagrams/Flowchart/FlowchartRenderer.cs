@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using static MermaidSharp.Rendering.RenderUtils;
 using ModelRect = MermaidSharp.Models.Rect;
 
 namespace MermaidSharp.Diagrams.Flowchart;
@@ -6,7 +7,7 @@ namespace MermaidSharp.Diagrams.Flowchart;
 public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     IDiagramRenderer<FlowchartModel>
 {
-    readonly ILayoutEngine _layoutEngine = layoutEngine ?? new MsaglLayoutEngine();
+    readonly ILayoutEngine _layoutEngine = layoutEngine ?? new DagreLayoutEngine();
 
     // FontAwesome icon pattern: fa:fa-icon-name or fab:fa-icon-name
     static readonly Regex IconPattern = new("(fa[bsr]?):fa-([a-z0-9-]+)", RegexOptions.Compiled);
@@ -21,7 +22,8 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         // Calculate node sizes based on text
         foreach (var node in model.Nodes)
         {
-            var label = node.Label ?? node.Id;
+            // Use DisplayLabel which processes <br/> to \n and strips HTML tags
+            var label = node.DisplayLabel;
             // Strip icon syntax for measurement
             var textForMeasure = IconPattern.Replace(label, "").Trim();
             var textSize = MeasureText(textForMeasure, options.FontSize);
@@ -44,27 +46,49 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
             }
         }
 
-        // Run layout (MSAGL positions nodes in layers; we ignore its edge routing)
+        var hasSubgraphs = model.Subgraphs.Count > 0;
+        var subgraphCount = model.Subgraphs.Count;
+        // Use tighter spacing for dense multi-subgraph diagrams to avoid excessive stretching
+        var rankSep = subgraphCount >= 5 ? 60.0 : subgraphCount >= 3 ? 75.0 : 100.0;
+        var nodeSep = subgraphCount >= 5 ? 50.0 : subgraphCount >= 3 ? 60.0 : 80.0;
         var layoutOptions = new LayoutOptions
         {
             Direction = model.Direction,
-            NodeSeparation = 50,
-            RankSeparation = 70
+            NodeSeparation = nodeSep,
+            RankSeparation = rankSep
         };
         _layoutEngine.Layout(model, layoutOptions);
 
         // Center each rank around the diagram's cross-axis midpoint
-        // (MSAGL can leave fan-out sources pushed to one side)
-        CenterRanks(model);
+        if (!hasSubgraphs)
+        {
+            // Simple diagrams: center globally
+            CenterRanks(model);
+        }
+        else
+        {
+            // Subgraph diagrams: center nodes within each subgraph
+            CenterSubgraphRanks(model);
+        }
 
-        // Vertically center subgraph contents (MSAGL can leave gaps)
-        CenterSubgraphNodes(model);
+        // Compute subgraph bounds first, then resolve any overlaps
+        ComputeSubgraphBoundsAll(model);
+        ResolveSubgraphOverlaps(model);
 
-        // Replace MSAGL's spline edge routing with clean orthogonal routes
+        // Recompute subgraph bounds after overlap resolution (nodes may have moved)
+        ComputeSubgraphBoundsAll(model);
+
+        // Center the entire diagram horizontally (subgraph overlap resolution can skew it)
+        // MUST happen before edge routing so edges match final node positions
+        if (hasSubgraphs)
+            CenterRanks(model);
+
+        // Recompute bounds after centering, then route edges on final positions
+        ComputeSubgraphBoundsAll(model);
         var nodeById = model.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
         GenerateOrthogonalEdgeRoutes(model, nodeById);
 
-        // Compute subgraph bounds (needed for both SVG and native rendering)
+        // Final bounds computation for layout sizing
         ComputeSubgraphBoundsAll(model);
 
         // Recalculate layout bounds to include new edge routes
@@ -98,7 +122,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         // Render edges first (behind nodes)
         foreach (var edge in model.Edges)
         {
-            RenderEdge(builder, edge, layout.CurvedEdges);
+            RenderEdge(builder, edge, layout.CurvedEdges, options);
         }
 
         // Render nodes
@@ -197,53 +221,26 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
             };
         }
 
-        // General multi-output: use side ports for off-axis targets to keep routing clean.
-        // For LR/RL: targets significantly above → North, below → South, inline → East/West.
-        // For TB/BT: targets significantly left → West, right → East, inline → South/North.
-        var isHorizontalFlow = direction is Direction.LeftToRight or Direction.RightToLeft;
-        var crossDelta = isHorizontalFlow
-            ? target.Position.Y - source.Position.Y
-            : target.Position.X - source.Position.X;
-        var crossThreshold = isHorizontalFlow
-            ? source.Height * 0.6
-            : source.Width * 0.6;
-
-        if (Math.Abs(crossDelta) > crossThreshold)
-        {
-            // Target is significantly off-axis — route via side port
-            if (isHorizontalFlow)
-            {
-                // LR/RL: above → North, below → South
-                return crossDelta < 0 ? (Port.North, 0.0) : (Port.South, 0.0);
-            }
-            else
-            {
-                // TB/BT: left → West, right → East
-                return crossDelta < 0 ? (Port.West, 0.0) : (Port.East, 0.0);
-            }
-        }
-
-        // Target is roughly inline — distribute offsets along the default exit side
-        // Count only the inline siblings for offset distribution
-        var inlineSiblings = siblings.Where(e =>
+        // For regular nodes: ALL edges exit via the default port (East in LR, South in TB).
+        // Distribute offsets across ALL siblings sorted by cross-axis target position.
+        // This keeps edges flowing in the natural direction and avoids awkward side-port routes.
+        var orderedSiblings = siblings.OrderBy(e =>
         {
             var t = nodeById.GetValueOrDefault(e.TargetId);
-            if (t is null) return true;
-            var delta = isHorizontalFlow
-                ? t.Position.Y - source.Position.Y
-                : t.Position.X - source.Position.X;
-            return Math.Abs(delta) <= crossThreshold;
+            if (t is null) return 0.0;
+            return direction is Direction.LeftToRight or Direction.RightToLeft
+                ? t.Position.Y : t.Position.X;
         }).ToList();
 
-        var idx = inlineSiblings.IndexOf(edge);
+        var idx = orderedSiblings.IndexOf(edge);
         if (idx < 0) return (defaultExit, 0);
 
-        var count = inlineSiblings.Count;
+        var count = orderedSiblings.Count;
         if (count <= 1) return (defaultExit, 0);
 
         var crossAxisSize = defaultExit is Port.North or Port.South
             ? source.Width : source.Height;
-        var usableRange = crossAxisSize * 0.5; // Use middle 50% to avoid corners
+        var usableRange = crossAxisSize * 0.6;
         var spacing = usableRange / Math.Max(count - 1, 1);
         var offset = -usableRange / 2 + idx * spacing;
 
@@ -256,6 +253,10 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     static double AssignEntryOffset(Node target, Edge edge, List<Edge>? inSiblings, Port entryPort)
     {
         if (inSiblings is null || inSiblings.Count <= 1)
+            return 0;
+
+        // Diamond vertices are points, not flat edges — no room for offset distribution
+        if (target.Shape == NodeShape.Diamond)
             return 0;
 
         var idx = inSiblings.IndexOf(edge);
@@ -282,7 +283,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         if (idx < 0) return 0;
 
         var count = siblings.Count;
-        const double channelSpacing = 14.0;
+        const double channelSpacing = 20.0;
         return (idx - (count - 1) / 2.0) * channelSpacing;
     }
 
@@ -407,16 +408,11 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     static void AvoidNodeOverlaps(FlowchartModel model, IReadOnlyDictionary<string, Node> nodeById)
     {
         const double margin = 12;
+        var allNodes = model.Nodes;
 
         foreach (var edge in model.Edges)
         {
             if (edge.Points.Count < 2) continue;
-
-            var obstacles = model.Nodes
-                .Where(n => n.Id != edge.SourceId && n.Id != edge.TargetId)
-                .ToList();
-
-            if (obstacles.Count == 0) continue;
 
             // Check each segment for intersections with obstacle nodes
             var modified = false;
@@ -428,8 +424,9 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
                 var segEnd = edge.Points[i + 1];
 
                 Node? hitNode = null;
-                foreach (var node in obstacles)
+                foreach (var node in allNodes)
                 {
+                    if (node.Id == edge.SourceId || node.Id == edge.TargetId) continue;
                     if (SegmentIntersectsNodeBounds(segStart, segEnd, node, margin))
                     {
                         hitNode = node;
@@ -563,9 +560,9 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     static List<Position> ManhattanRoute(Position exit, Position entry,
         Port exitPort, Port entryPort, double channelOffset = 0)
     {
-        // How far from the source node the first bend should occur.
-        // A short stub keeps edges tidy near the node before turning.
-        const double stubLength = 20.0;
+        // Stub length for bends: 30% of gap, clamped
+        const double minStub = 15.0;
+        const double maxStub = 40.0;
 
         var exitVertical = exitPort is Port.South or Port.North;
         var entryVertical = entryPort is Port.South or Port.North;
@@ -575,50 +572,61 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         {
             if (exitVertical)
             {
-                // Both vertical — straight if X-aligned, else bend near source
+                // Both vertical — straight if perfectly X-aligned
                 if (Math.Abs(exit.X - entry.X) < 1 && Math.Abs(channelOffset) < 1)
                     return [exit, entry];
                 var gap = Math.Abs(entry.Y - exit.Y);
                 var sign = exitPort == Port.South ? 1.0 : -1.0;
-                // Use stub length, but don't exceed 40% of the gap (leave room for entry approach)
-                var bendDist = Math.Min(stubLength, gap * 0.4);
-                var midY = exit.Y + sign * bendDist + channelOffset;
+                var stub = Math.Clamp(gap * 0.3, minStub, maxStub);
+                var midY = exit.Y + sign * stub + channelOffset;
                 return [exit, new(exit.X, midY), new(entry.X, midY), entry];
             }
             else
             {
-                // Both horizontal — straight if Y-aligned, else bend near source
+                // Both horizontal — straight if perfectly Y-aligned
                 if (Math.Abs(exit.Y - entry.Y) < 1 && Math.Abs(channelOffset) < 1)
                     return [exit, entry];
                 var gap = Math.Abs(entry.X - exit.X);
                 var sign = exitPort == Port.East ? 1.0 : -1.0;
-                var bendDist = Math.Min(stubLength, gap * 0.4);
-                var midX = exit.X + sign * bendDist + channelOffset;
+                var stub = Math.Clamp(gap * 0.3, minStub, maxStub);
+                var midX = exit.X + sign * stub + channelOffset;
                 return [exit, new(midX, exit.Y), new(midX, entry.Y), entry];
             }
         }
 
-        // Cross-axis: exit horizontal, entry vertical (e.g. East exit → North entry)
-        // Route: stub out horizontally, then bend vertically to entry
+        // Cross-axis routes: ensure final segment matches entry port direction.
+        // L-bend (3 points) when no offset; 5-point route when offset forces it.
+        const double approachStub = 15.0;
+
         if (!exitVertical && entryVertical)
         {
-            var signX = exitPort == Port.East ? 1.0 : -1.0;
-            var hGap = Math.Abs(entry.X - exit.X);
-            var stubX = hGap > stubLength * 2
-                ? exit.X + signX * stubLength + channelOffset
-                : entry.X + channelOffset;
-            return [exit, new(stubX, exit.Y), new(stubX, entry.Y), entry];
+            // Horizontal exit → vertical entry: final approach must be vertical
+            if (Math.Abs(channelOffset) < 1)
+            {
+                // Simple L-bend: horizontal then vertical into entry
+                return [exit, new(entry.X, exit.Y), entry];
+            }
+            // 5-point: horizontal → vertical → horizontal → vertical into entry
+            var bendX = entry.X + channelOffset;
+            var approachSign = entryPort == Port.North ? -1.0 : 1.0;
+            var approachY = entry.Y + approachSign * approachStub;
+            return [exit, new(bendX, exit.Y), new(bendX, approachY),
+                    new(entry.X, approachY), entry];
         }
 
-        // Cross-axis: exit vertical, entry horizontal (e.g. South exit → West entry)
-        // Route: stub out vertically, then bend horizontally to entry
+        // Vertical exit → horizontal entry: final approach must be horizontal
         {
-            var signY = exitPort == Port.South ? 1.0 : -1.0;
-            var vGap = Math.Abs(entry.Y - exit.Y);
-            var stubY = vGap > stubLength * 2
-                ? exit.Y + signY * stubLength + channelOffset
-                : entry.Y + channelOffset;
-            return [exit, new(exit.X, stubY), new(entry.X, stubY), entry];
+            if (Math.Abs(channelOffset) < 1)
+            {
+                // Simple L-bend: vertical then horizontal into entry
+                return [exit, new(exit.X, entry.Y), entry];
+            }
+            // 5-point: vertical → horizontal → vertical → horizontal into entry
+            var bendY = entry.Y + channelOffset;
+            var approachSign = entryPort == Port.West ? -1.0 : 1.0;
+            var approachX = entry.X + approachSign * approachStub;
+            return [exit, new(exit.X, bendY), new(approachX, bendY),
+                    new(approachX, entry.Y), entry];
         }
     }
 
@@ -693,26 +701,48 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         edge.Points.Add(new(node.Position.X + loopOffset, top));
     }
 
+    static void CenterRanks(FlowchartModel model) =>
+        CenterNodesInRanks(model.Nodes, model.Direction);
+
+    static void CenterSubgraphRanks(FlowchartModel model)
+    {
+        var nodeById = model.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
+        foreach (var sg in model.Subgraphs)
+            CenterSubgraphRanksRecursive(sg, nodeById, model.Direction);
+    }
+
+    static void CenterSubgraphRanksRecursive(Subgraph sg,
+        IReadOnlyDictionary<string, Node> nodeById, Direction direction)
+    {
+        foreach (var nested in sg.NestedSubgraphs)
+            CenterSubgraphRanksRecursive(nested, nodeById, direction);
+
+        var nodes = new List<Node>();
+        foreach (var nodeId in sg.NodeIds)
+            if (nodeById.TryGetValue(nodeId, out var node))
+                nodes.Add(node);
+
+        CenterNodesInRanks(nodes, direction);
+    }
+
     /// <summary>
     /// Group nodes into ranks (same layer in the flow direction) and center each rank
-    /// around the global cross-axis midpoint. This fixes fan-out patterns where MSAGL
-    /// pushes source nodes to one side instead of centering them.
-    /// For LR flow: ranks share similar X positions; centering is along Y.
-    /// For TB flow: ranks share similar Y positions; centering is along X.
+    /// around the cross-axis midpoint. Fixes fan-out patterns where the layout engine
+    /// pushes source nodes to one side.
     /// </summary>
-    static void CenterRanks(FlowchartModel model)
+    static void CenterNodesInRanks(IReadOnlyList<Node> nodes, Direction direction)
     {
-        if (model.Nodes.Count <= 1) return;
+        if (nodes.Count <= 1) return;
 
-        var isHorizontal = model.Direction is Direction.LeftToRight or Direction.RightToLeft;
+        var isHorizontal = direction is Direction.LeftToRight or Direction.RightToLeft;
 
-        // Group nodes into ranks by their primary-axis position (with tolerance for minor variation)
+        // Group nodes into ranks by their primary-axis position
+        const double rankTolerance = 5.0;
         var ranks = new List<List<Node>>();
-        var sorted = model.Nodes
+        var sorted = nodes
             .OrderBy(n => isHorizontal ? n.Position.X : n.Position.Y)
             .ToList();
 
-        const double rankTolerance = 5.0;
         List<Node>? currentRank = null;
         var currentRankPos = double.MinValue;
 
@@ -731,21 +761,21 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
             }
         }
 
-        // Find global cross-axis center (median of all node extents)
-        double globalMin, globalMax;
+        // Find cross-axis center of all nodes
+        double allMin, allMax;
         if (isHorizontal)
         {
-            globalMin = model.Nodes.Min(n => n.Position.Y - n.Height / 2);
-            globalMax = model.Nodes.Max(n => n.Position.Y + n.Height / 2);
+            allMin = nodes.Min(n => n.Position.Y - n.Height / 2);
+            allMax = nodes.Max(n => n.Position.Y + n.Height / 2);
         }
         else
         {
-            globalMin = model.Nodes.Min(n => n.Position.X - n.Width / 2);
-            globalMax = model.Nodes.Max(n => n.Position.X + n.Width / 2);
+            allMin = nodes.Min(n => n.Position.X - n.Width / 2);
+            allMax = nodes.Max(n => n.Position.X + n.Width / 2);
         }
-        var globalCenter = (globalMin + globalMax) / 2;
+        var center = (allMin + allMax) / 2;
 
-        // Center each rank around the global midpoint
+        // Center each rank
         foreach (var rank in ranks)
         {
             double rankMin, rankMax;
@@ -760,9 +790,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
                 rankMax = rank.Max(n => n.Position.X + n.Width / 2);
             }
 
-            var rankCenter = (rankMin + rankMax) / 2;
-            var shift = globalCenter - rankCenter;
-
+            var shift = center - (rankMin + rankMax) / 2;
             if (Math.Abs(shift) < 2) continue;
 
             foreach (var node in rank)
@@ -774,109 +802,17 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         }
     }
 
-    /// <summary>
-    /// Vertically center nodes within each subgraph around the diagram's vertical midpoint.
-    /// MSAGL's Sugiyama layout can leave uneven gaps, especially in LR flowcharts.
-    /// </summary>
-    static void CenterSubgraphNodes(FlowchartModel model)
-    {
-        if (model.Subgraphs.Count == 0 || model.Nodes.Count == 0)
-        {
-            return;
-        }
-
-        var isHorizontal = model.Direction is Direction.LeftToRight or Direction.RightToLeft;
-
-        // Find global center of all nodes
-        var allMin = double.MaxValue;
-        var allMax = double.MinValue;
-        foreach (var node in model.Nodes)
-        {
-            if (isHorizontal)
-            {
-                allMin = Math.Min(allMin, node.Position.Y - node.Height / 2);
-                allMax = Math.Max(allMax, node.Position.Y + node.Height / 2);
-            }
-            else
-            {
-                allMin = Math.Min(allMin, node.Position.X - node.Width / 2);
-                allMax = Math.Max(allMax, node.Position.X + node.Width / 2);
-            }
-        }
-
-        var globalCenter = (allMin + allMax) / 2;
-        var nodeById = model.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
-
-        // Center each subgraph's nodes around the global center
-        foreach (var subgraph in model.Subgraphs)
-        {
-            CenterSubgraphRecursive(subgraph, nodeById, globalCenter, isHorizontal);
-        }
-    }
-
-    static void CenterSubgraphRecursive(Subgraph subgraph,
-        IReadOnlyDictionary<string, Node> nodeById,
-        double globalCenter, bool isHorizontal)
-    {
-        // Process nested subgraphs first
-        foreach (var nested in subgraph.NestedSubgraphs)
-        {
-            CenterSubgraphRecursive(nested, nodeById, globalCenter, isHorizontal);
-        }
-
-        // Get this subgraph's member nodes
-        var members = new List<Node>();
-        foreach (var nodeId in subgraph.NodeIds)
-        {
-            if (nodeById.TryGetValue(nodeId, out var node))
-            {
-                members.Add(node);
-            }
-        }
-
-        if (members.Count == 0)
-        {
-            return;
-        }
-
-        // Find current center of this subgraph's members
-        double sgMin, sgMax;
-        if (isHorizontal)
-        {
-            sgMin = members.Min(n => n.Position.Y - n.Height / 2);
-            sgMax = members.Max(n => n.Position.Y + n.Height / 2);
-        }
-        else
-        {
-            sgMin = members.Min(n => n.Position.X - n.Width / 2);
-            sgMax = members.Max(n => n.Position.X + n.Width / 2);
-        }
-
-        var sgCenter = (sgMin + sgMax) / 2;
-        var shift = globalCenter - sgCenter;
-
-        // Only shift if the difference is meaningful
-        if (Math.Abs(shift) < 2)
-        {
-            return;
-        }
-
-        // Shift all member nodes
-        foreach (var node in members)
-        {
-            node.Position = isHorizontal
-                ? new(node.Position.X, node.Position.Y + shift)
-                : new(node.Position.X + shift, node.Position.Y);
-        }
-    }
-
     static LayoutResult CalculateLayoutBounds(FlowchartModel model)
     {
-        var maxX = 0d;
-        var maxY = 0d;
+        var minX = double.MaxValue;
+        var minY = double.MaxValue;
+        var maxX = double.MinValue;
+        var maxY = double.MinValue;
 
         foreach (var node in model.Nodes)
         {
+            minX = Math.Min(minX, node.Position.X - node.Width / 2);
+            minY = Math.Min(minY, node.Position.Y - node.Height / 2);
             maxX = Math.Max(maxX, node.Position.X + node.Width / 2);
             maxY = Math.Max(maxY, node.Position.Y + node.Height / 2);
         }
@@ -885,12 +821,53 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         {
             foreach (var point in edge.Points)
             {
+                minX = Math.Min(minX, point.X);
+                minY = Math.Min(minY, point.Y);
                 maxX = Math.Max(maxX, point.X);
                 maxY = Math.Max(maxY, point.Y);
             }
         }
 
-        return new() { Width = maxX, Height = maxY };
+        // Include subgraph bounds
+        foreach (var sg in model.Subgraphs)
+        {
+            if (sg.Width <= 0) continue;
+            var b = sg.Bounds;
+            minX = Math.Min(minX, b.Left);
+            minY = Math.Min(minY, b.Top);
+            maxX = Math.Max(maxX, b.Right);
+            maxY = Math.Max(maxY, b.Bottom);
+        }
+
+        if (model.Nodes.Count == 0)
+            return new() { Width = 0, Height = 0 };
+
+        // Shift all coordinates to ensure nothing is at negative positions
+        if (minX < 0 || minY < 0)
+        {
+            var shiftX = minX < 0 ? -minX : 0;
+            var shiftY = minY < 0 ? -minY : 0;
+
+            foreach (var node in model.Nodes)
+                node.Position = new(node.Position.X + shiftX, node.Position.Y + shiftY);
+
+            foreach (var edge in model.Edges)
+            {
+                for (var i = 0; i < edge.Points.Count; i++)
+                    edge.Points[i] = new(edge.Points[i].X + shiftX, edge.Points[i].Y + shiftY);
+            }
+
+            foreach (var sg in model.Subgraphs)
+            {
+                if (sg.Width > 0)
+                    sg.Position = new(sg.Position.X + shiftX, sg.Position.Y + shiftY);
+            }
+
+            maxX += shiftX;
+            maxY += shiftY;
+        }
+
+        return new() { Width = Math.Max(0, maxX), Height = Math.Max(0, maxY) };
     }
 
     static void RenderNode(SvgBuilder builder, Node node)
@@ -910,21 +887,37 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
             cssClass: $"flow-node flow-node-shape {shapeClass}");
 
         // Render label as SVG text (centered in node)
-        var label = node.Label ?? node.Id;
+        var label = node.DisplayLabel;
         // Strip icon syntax for display (icons require foreignObject/HTML which Avalonia can't render)
         var displayLabel = IconPattern.Replace(label, "").Trim();
         var centerX = node.Position.X;
         var centerY = node.Position.Y;
 
-        builder.AddText(
-            centerX, centerY,
-            XmlEncodeText(displayLabel),
-            anchor: "middle",
-            baseline: "central",
-            cssClass: "flow-node-label");
+        var lines = displayLabel.Split('\n');
+        if (lines.Length <= 1)
+        {
+            builder.AddText(
+                centerX, centerY,
+                displayLabel,
+                anchor: "middle",
+                baseline: "central",
+                cssClass: "flow-node-label");
+        }
+        else
+        {
+            // Multi-line: use tspan elements, vertically centered
+            var lineHeight = 14.0 * 1.5;
+            var totalHeight = lines.Length * lineHeight;
+            var startY = centerY - totalHeight / 2 + lineHeight / 2;
+            builder.AddMultiLineText(
+                centerX, startY, lineHeight,
+                lines,
+                anchor: "middle",
+                cssClass: "flow-node-label");
+        }
     }
 
-    static void RenderEdge(SvgBuilder builder, Edge edge, bool curved)
+    static void RenderEdge(SvgBuilder builder, Edge edge, bool curved, RenderOptions options)
     {
         if (edge.Points.Count < 2)
         {
@@ -1024,8 +1017,9 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         {
             var labelX = edge.LabelPosition.X;
             var labelY = edge.LabelPosition.Y;
-            var labelWidth = edge.Label.Length * 8 + 16;
-            var labelHeight = 24;
+            var labelSize = MeasureText(edge.Label, options.FontSize * 0.9);
+            var labelWidth = labelSize.Width + 16;
+            var labelHeight = labelSize.Height + 8;
 
             builder.AddRect(
                 labelX - labelWidth / 2, labelY - labelHeight / 2,
@@ -1034,11 +1028,176 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
 
             builder.AddText(
                 labelX, labelY,
-                XmlEncodeText(edge.Label),
+                edge.Label,
                 anchor: "middle",
                 baseline: "central",
                 cssClass: "flow-edge-label");
         }
+    }
+
+    /// <summary>
+    /// Detect overlapping sibling subgraphs and push their member nodes apart.
+    /// Works adaptively — only adjusts when subgraphs actually overlap.
+    /// Iterates until convergence (max 10 passes) to handle cascade effects.
+    /// </summary>
+    static void ResolveSubgraphOverlaps(FlowchartModel model)
+    {
+        if (model.Subgraphs.Count < 2) return;
+
+        var nodeById = model.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
+        var minGap = model.Subgraphs.Count >= 5 ? 12.0 : 20.0;
+        const int maxPasses = 10;
+
+        var subgraphs = model.Subgraphs
+            .Where(sg => sg.Width > 0 && sg.Height > 0)
+            .ToList();
+
+        // For TB/BT flow, prefer pushing vertically to maintain top-to-bottom ordering.
+        // For LR/RL flow, prefer pushing horizontally.
+        var preferVertical = model.Direction is Direction.TopToBottom or Direction.BottomToTop;
+
+        // Iterate until no overlaps remain or max passes reached
+        for (var pass = 0; pass < maxPasses; pass++)
+        {
+            var anyFixed = false;
+
+            // Check all pairs (O(n^2) but n is small for subgraphs)
+            for (var i = 0; i < subgraphs.Count; i++)
+            {
+                for (var j = i + 1; j < subgraphs.Count; j++)
+                {
+                    var a = subgraphs[i];
+                    var b = subgraphs[j];
+
+                    if (!a.Bounds.Intersects(b.Bounds)) continue;
+
+                    // Compute overlap amounts in both axes
+                    var overlapX = Math.Min(a.Bounds.Right, b.Bounds.Right) - Math.Max(a.Bounds.Left, b.Bounds.Left);
+                    var overlapY = Math.Min(a.Bounds.Bottom, b.Bounds.Bottom) - Math.Max(a.Bounds.Top, b.Bounds.Top);
+
+                    if (overlapX <= 0 || overlapY <= 0) continue;
+
+                    // Push apart respecting flow direction, but allow horizontal push
+                    // when subgraphs are at similar Y positions (same logical rank).
+                    // Use the axis with less overlap — resolves with minimal displacement.
+                    bool pushVertically;
+                    if (preferVertical)
+                    {
+                        // For TB: push horizontally if the X overlap is smaller (cheaper fix),
+                        // or if subgraphs have large Y overlap (they're at the same rank level)
+                        pushVertically = overlapY < overlapX;
+                    }
+                    else
+                    {
+                        pushVertically = overlapX >= overlapY;
+                    }
+
+                    if (!pushVertically)
+                    {
+                        var pushX = overlapX + minGap;
+                        if (a.Bounds.Center.X <= b.Bounds.Center.X)
+                        {
+                            ShiftSubgraphNodes(b, nodeById, pushX, 0);
+                            RecomputeSingleSubgraphBounds(b, nodeById);
+                        }
+                        else
+                        {
+                            ShiftSubgraphNodes(a, nodeById, pushX, 0);
+                            RecomputeSingleSubgraphBounds(a, nodeById);
+                        }
+                    }
+                    else
+                    {
+                        var pushY = overlapY + minGap;
+                        if (a.Bounds.Center.Y <= b.Bounds.Center.Y)
+                        {
+                            ShiftSubgraphNodes(b, nodeById, 0, pushY);
+                            RecomputeSingleSubgraphBounds(b, nodeById);
+                        }
+                        else
+                        {
+                            ShiftSubgraphNodes(a, nodeById, 0, pushY);
+                            RecomputeSingleSubgraphBounds(a, nodeById);
+                        }
+                    }
+
+                    anyFixed = true;
+                }
+            }
+
+            if (!anyFixed) break;
+        }
+
+        // Also resolve overlaps between subgraph bounds and free (non-subgraph) nodes
+        var allSubgraphNodeIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var sg in model.Subgraphs)
+            CollectAllNodeIds(sg, allSubgraphNodeIds);
+
+        foreach (var sg in subgraphs)
+        {
+            foreach (var node in model.Nodes)
+            {
+                if (allSubgraphNodeIds.Contains(node.Id)) continue;
+
+                var sgBounds = sg.Bounds;
+                var nodeBounds = node.Bounds;
+                if (!sgBounds.Intersects(nodeBounds)) continue;
+
+                // Push node away from subgraph center
+                var dx = node.Position.X - sgBounds.Center.X;
+                var dy = node.Position.Y - sgBounds.Center.Y;
+
+                if (Math.Abs(dx) > Math.Abs(dy))
+                {
+                    // Push horizontally
+                    node.Position = dx >= 0
+                        ? new(sgBounds.Right + node.Width / 2 + minGap, node.Position.Y)
+                        : new(sgBounds.Left - node.Width / 2 - minGap, node.Position.Y);
+                }
+                else
+                {
+                    // Push vertically
+                    node.Position = dy >= 0
+                        ? new(node.Position.X, sgBounds.Bottom + node.Height / 2 + minGap)
+                        : new(node.Position.X, sgBounds.Top - node.Height / 2 - minGap);
+                }
+            }
+        }
+    }
+
+    static void CollectAllNodeIds(Subgraph sg, HashSet<string> ids)
+    {
+        foreach (var nodeId in sg.NodeIds) ids.Add(nodeId);
+        foreach (var nested in sg.NestedSubgraphs) CollectAllNodeIds(nested, ids);
+    }
+
+    static void ShiftSubgraphNodes(Subgraph sg, IReadOnlyDictionary<string, Node> nodeById, double dx, double dy)
+    {
+        foreach (var nodeId in sg.NodeIds)
+        {
+            if (nodeById.TryGetValue(nodeId, out var node))
+                node.Position = new(node.Position.X + dx, node.Position.Y + dy);
+        }
+        foreach (var nested in sg.NestedSubgraphs)
+            ShiftSubgraphNodes(nested, nodeById, dx, dy);
+    }
+
+    static void RecomputeSingleSubgraphBounds(Subgraph sg, IReadOnlyDictionary<string, Node> nodeById)
+    {
+        foreach (var nested in sg.NestedSubgraphs)
+            RecomputeSingleSubgraphBounds(nested, nodeById);
+
+        var nestedBounds = new Dictionary<string, ModelRect>(StringComparer.Ordinal);
+        foreach (var nested in sg.NestedSubgraphs)
+            if (nested.Width > 0 && nested.Height > 0)
+                nestedBounds[nested.Id] = nested.Bounds;
+
+        var bounds = ComputeSubgraphBounds(sg, nodeById, nestedBounds);
+        if (bounds is null) return;
+
+        sg.Position = bounds.Value.Center;
+        sg.Width = bounds.Value.Width;
+        sg.Height = bounds.Value.Height;
     }
 
     /// <summary>
@@ -1118,6 +1277,10 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         }
     }
 
+    const double SubgraphPadX = 24;
+    const double SubgraphPadTop = 32;
+    const double SubgraphPadBottom = 18;
+
     static ModelRect? ComputeSubgraphBounds(Subgraph subgraph,
         IReadOnlyDictionary<string, Node> nodeById,
         IReadOnlyDictionary<string, ModelRect> nestedBounds)
@@ -1125,30 +1288,19 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         var entries = new List<ModelRect>();
 
         foreach (var nodeId in subgraph.NodeIds)
-        {
             if (nodeById.TryGetValue(nodeId, out var node))
-            {
                 entries.Add(node.Bounds);
-            }
-        }
 
         foreach (var nestedSubgraph in subgraph.NestedSubgraphs)
-        {
             if (nestedBounds.TryGetValue(nestedSubgraph.Id, out var nested))
-            {
                 entries.Add(nested);
-            }
-        }
 
-        if (entries.Count == 0)
-        {
-            return null;
-        }
+        if (entries.Count == 0) return null;
 
-        var left = entries.Min(r => r.Left) - 24;
-        var right = entries.Max(r => r.Right) + 24;
-        var top = entries.Min(r => r.Top) - 32;
-        var bottom = entries.Max(r => r.Bottom) + 18;
+        var left = entries.Min(r => r.Left) - SubgraphPadX;
+        var right = entries.Max(r => r.Right) + SubgraphPadX;
+        var top = entries.Min(r => r.Top) - SubgraphPadTop;
+        var bottom = entries.Max(r => r.Bottom) + SubgraphPadBottom;
         return new ModelRect(left, top, right - left, bottom - top);
     }
 
@@ -1252,57 +1404,10 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         value.Replace("\\", "\\\\", StringComparison.Ordinal)
              .Replace("\"", "\\\"", StringComparison.Ordinal);
 
-    /// <summary>
-    /// Converts FontAwesome icon syntax (fa:fa-icon) to HTML elements.
-    /// </summary>
-    static string ConvertIconsToHtml(string text)
-    {
-        // If no icons, just encode and wrap in paragraph
-        if (!IconPattern.IsMatch(text))
-        {
-            return $"<p>{System.Net.WebUtility.HtmlEncode(text)}</p>";
-        }
-
-        // Build HTML by processing text segments and icons
-        var html = new StringBuilder();
-        var lastIndex = 0;
-
-        foreach (Match match in IconPattern.Matches(text))
-        {
-            // Add text before this icon (encoded)
-            if (match.Index > lastIndex)
-            {
-                var textBefore = text[lastIndex..match.Index];
-                html.Append(System.Net.WebUtility.HtmlEncode(textBefore));
-            }
-
-            // Add icon element with sanitized class names
-            var prefix = SecurityValidator.SanitizeIconClass(match.Groups[1].Value);
-            var iconName = SecurityValidator.SanitizeIconClass(match.Groups[2].Value);
-
-            if (!string.IsNullOrEmpty(prefix) && !string.IsNullOrEmpty(iconName))
-            {
-                html.Append($"<i class=\"{prefix} fa-{iconName}\"></i>");
-            }
-
-            lastIndex = match.Index + match.Length;
-        }
-
-        // Add remaining text after last icon
-        if (lastIndex < text.Length)
-        {
-            html.Append(System.Net.WebUtility.HtmlEncode(text[lastIndex..]));
-        }
-
-        return $"<p>{html.ToString().Trim()}</p>";
-    }
-
     static Size MeasureText(string text, double fontSize)
     {
-        var width = text.Length * fontSize * 0.55;
-        var height = fontSize * 1.5;
-        return new(width, height);
+        var (w, h) = RenderUtils.MeasureTextBlock(text, fontSize);
+        return new(w, h);
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

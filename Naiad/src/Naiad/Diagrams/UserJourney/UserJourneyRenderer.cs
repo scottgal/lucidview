@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.UserJourney;
 
 public class UserJourneyRenderer : IDiagramRenderer<UserJourneyModel>
@@ -177,5 +179,4 @@ public class UserJourneyRenderer : IDiagramRenderer<UserJourneyModel>
         return colors[index % colors.Length];
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

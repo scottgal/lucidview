@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Block;
 
 public class BlockRenderer : IDiagramRenderer<BlockModel>
@@ -164,5 +166,4 @@ public class BlockRenderer : IDiagramRenderer<BlockModel>
             fill: theme.TextColor);
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

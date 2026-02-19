@@ -61,7 +61,7 @@ public sealed record FlowchartSkin(
         NodeStroke: "#8c959f",
         EdgeStroke: "#57606a",
         EdgeLabelBackground: "rgba(244,245,247,0.9)",
-        SubgraphFill: "#f6f8fa",
+        SubgraphFill: "rgba(246,248,250,0.5)",
         SubgraphStroke: "#8c959f",
         SubgraphTitleColor: "#1f2328");
 
@@ -73,7 +73,7 @@ public sealed record FlowchartSkin(
         NodeStroke: "#2d6a4f",
         EdgeStroke: "#2d6a4f",
         EdgeLabelBackground: "rgba(233,245,236,0.9)",
-        SubgraphFill: "#d8f3dc",
+        SubgraphFill: "rgba(216,243,220,0.4)",
         SubgraphStroke: "#40916c",
         SubgraphTitleColor: "#1b4332");
 
@@ -85,7 +85,7 @@ public sealed record FlowchartSkin(
         NodeStroke: "#6e7681",
         EdgeStroke: "#9da7b3",
         EdgeLabelBackground: "rgba(31,41,55,0.9)",
-        SubgraphFill: "#111827",
+        SubgraphFill: "rgba(17,24,39,0.4)",
         SubgraphStroke: "#4b5563",
         SubgraphTitleColor: "#c9d1d9");
 }

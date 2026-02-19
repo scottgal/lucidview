@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Mindmap;
 
 public class MindmapRenderer : IDiagramRenderer<MindmapModel>
@@ -252,8 +254,6 @@ public class MindmapRenderer : IDiagramRenderer<MindmapModel>
         return $"#{r:X2}{g:X2}{b:X2}";
     }
 
-    static double MeasureText(string text, double fontSize) =>
-        text.Length * fontSize * 0.55;
+    static double MeasureText(string text, double fontSize) => MeasureTextWidth(text, fontSize);
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

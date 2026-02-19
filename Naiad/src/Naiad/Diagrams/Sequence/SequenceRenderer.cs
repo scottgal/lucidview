@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Sequence;
 
 public class SequenceRenderer : IDiagramRenderer<SequenceModel>
@@ -473,5 +475,4 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
         }
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

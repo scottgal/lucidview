@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Pie;
 
 public class PieRenderer : IDiagramRenderer<PieModel>
@@ -140,7 +142,6 @@ public class PieRenderer : IDiagramRenderer<PieModel>
     }
 
     static double ToRadians(double degrees) => degrees * Math.PI / 180;
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
     static string FmtPath(double value) => Math.Round(value, 3).ToString("0.###", CultureInfo.InvariantCulture);
     // Use R format to get full precision, then remove unnecessary trailing zeros
     static string FmtMermaid(double value)

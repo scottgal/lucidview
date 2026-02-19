@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Rendering;
 
 public class SvgBuilder
@@ -420,6 +422,23 @@ public class SvgBuilder
         return this;
     }
 
+    public SvgBuilder AddMultiLineText(double x, double startY, double lineHeight,
+        string[] lines, string? anchor = null, string? fill = null, string? cssClass = null)
+    {
+        var element = new SvgMultiLineText
+        {
+            X = x,
+            StartY = startY,
+            LineHeight = lineHeight,
+            Lines = lines,
+            TextAnchor = anchor,
+            Fill = fill,
+            Class = cssClass
+        };
+        AddElement(element);
+        return this;
+    }
+
     void AddElement(SvgElement element)
     {
         if (_groupStack.Count > 0)
@@ -449,5 +468,4 @@ public class SvgBuilder
         return _document;
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

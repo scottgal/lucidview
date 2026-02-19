@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Radar;
 
 public class RadarRenderer : IDiagramRenderer<RadarModel>
@@ -193,7 +195,6 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
         }
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 
     static string ColorToRgba(string hexColor, double alpha)
     {

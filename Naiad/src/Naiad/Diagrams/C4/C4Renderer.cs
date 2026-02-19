@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.C4;
 
 public class C4Renderer : IDiagramRenderer<C4Model>
@@ -293,5 +295,4 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         return string.Concat(text.AsSpan(0, maxLength - 3), "...");
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

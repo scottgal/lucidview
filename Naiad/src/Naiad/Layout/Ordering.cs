@@ -82,7 +82,7 @@ internal static class Ordering
             else
             {
                 var neighborOrders = neighbors.Select(n => (double)n.Order).OrderBy(x => x).ToList();
-                positions[node.Id] = Median(neighborOrders);
+                positions[node.Id] = LayoutUtils.Median(neighborOrders);
             }
         }
 
@@ -98,32 +98,6 @@ internal static class Ordering
         }
 
         graph.Ranks[rank] = sortedNodes;
-    }
-
-    static double Median(List<double> values)
-    {
-        if (values.Count == 0)
-        {
-            return 0;
-        }
-
-        if (values.Count == 1)
-        {
-            return values[0];
-        }
-
-        if (values.Count == 2)
-        {
-            return (values[0] + values[1]) / 2;
-        }
-
-        var mid = values.Count / 2;
-        if (values.Count % 2 == 0)
-        {
-            return (values[mid - 1] + values[mid]) / 2;
-        }
-
-        return values[mid];
     }
 
     static int CountCrossings(LayoutGraph graph)

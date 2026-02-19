@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Architecture;
 
 public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
@@ -350,5 +352,4 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
             fill: "#666", stroke: "none");
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Gantt;
 
 public class GanttRenderer : IDiagramRenderer<GanttModel>
@@ -295,5 +297,4 @@ public class GanttRenderer : IDiagramRenderer<GanttModel>
         return allTasks;
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

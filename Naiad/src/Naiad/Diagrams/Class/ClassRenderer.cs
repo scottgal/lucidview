@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Class;
 
 public class ClassRenderer(ILayoutEngine? layoutEngine = null) :
@@ -280,22 +282,10 @@ public class ClassRenderer(ILayoutEngine? layoutEngine = null) :
         }
     }
 
-    static (double x, double y) GetConnectionPoint(Node from, Node to)
-    {
-        var dx = to.Position.X - from.Position.X;
-        var dy = to.Position.Y - from.Position.Y;
-
-        if (Math.Abs(dx) > Math.Abs(dy))
-        {
-            return dx > 0
-                ? (from.Position.X + from.Width / 2, from.Position.Y)
-                : (from.Position.X - from.Width / 2, from.Position.Y);
-        }
-
-        return dy > 0
-            ? (from.Position.X, from.Position.Y + from.Height / 2)
-            : (from.Position.X, from.Position.Y - from.Height / 2);
-    }
+    static (double x, double y) GetConnectionPoint(Node from, Node to) =>
+        RenderUtils.GetConnectionPoint(
+            from.Position.X, from.Position.Y, from.Width, from.Height,
+            to.Position.X, to.Position.Y);
 
     static void DrawRelationshipMarker(SvgBuilder builder, RelationshipType type, double x, double y, double fromX, double fromY, DiagramTheme theme)
     {
@@ -419,13 +409,8 @@ public class ClassRenderer(ILayoutEngine? layoutEngine = null) :
             _ => ""
         };
 
-    static double MeasureText(string text, double fontSize, bool bold = false)
-    {
-        var factor = bold ? 0.65 : 0.55;
-        return text.Length * fontSize * factor;
-    }
+    static double MeasureText(string text, double fontSize, bool bold = false) => MeasureTextWidth(text, fontSize, bold);
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }
 
 // Temporary model for layout - reusing flowchart structure

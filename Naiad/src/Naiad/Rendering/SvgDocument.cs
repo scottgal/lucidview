@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Rendering;
 
 public class SvgDocument
@@ -76,7 +78,6 @@ public class SvgDocument
         return sb.ToString();
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
     static string FmtWidth(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
 }
 

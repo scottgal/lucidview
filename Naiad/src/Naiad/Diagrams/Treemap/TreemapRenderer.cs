@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.Treemap;
 
 public class TreemapRenderer : IDiagramRenderer<TreemapModel>
@@ -206,5 +208,4 @@ public class TreemapRenderer : IDiagramRenderer<TreemapModel>
         return $"#{r:X2}{g:X2}{b:X2}";
     }
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

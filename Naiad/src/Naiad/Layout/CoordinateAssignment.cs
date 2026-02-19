@@ -114,7 +114,7 @@ static class CoordinateAssignment
                 .OrderBy(x => x)
                 .ToList();
 
-            var targetPos = Median(positions);
+            var targetPos = LayoutUtils.Median(positions);
             var currentPos = isHorizontal ? node.Y : node.X;
 
             // Only move if it improves alignment and doesn't cause overlap
@@ -163,27 +163,6 @@ static class CoordinateAssignment
         }
 
         return true;
-    }
-
-    static double Median(List<double> values)
-    {
-        if (values.Count == 0)
-        {
-            return 0;
-        }
-
-        if (values.Count == 1)
-        {
-            return values[0];
-        }
-
-        var mid = values.Count / 2;
-        if (values.Count % 2 == 0)
-        {
-            return (values[mid - 1] + values[mid]) / 2;
-        }
-
-        return values[mid];
     }
 
     static void NormalizePositions(LayoutGraph graph)

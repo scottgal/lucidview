@@ -1,3 +1,5 @@
+using MermaidSharp.Models;
+
 namespace MermaidSharp.Layout;
 
 public class DagreLayoutEngine : ILayoutEngine
@@ -9,7 +11,7 @@ public class DagreLayoutEngine : ILayoutEngine
             return new() { Width = 0, Height = 0 };
         }
 
-        // Build internal graph
+        // Build internal graph with subgraph constraints
         var graph = BuildLayoutGraph(diagram);
 
         // Phase 1: Make acyclic
@@ -17,6 +19,12 @@ public class DagreLayoutEngine : ILayoutEngine
 
         // Phase 2: Assign ranks
         Ranker.Run(graph, options.Ranker);
+
+        // Phase 2b: Pull outlier subgraph members to their subgraph's rank range
+        CompactSubgraphRanks(graph, diagram.Subgraphs);
+
+        // Rebuild ranks array after adjustments
+        graph.BuildRanks();
 
         // Phase 3: Order nodes within ranks
         Ordering.Run(graph);
@@ -48,13 +56,26 @@ public class DagreLayoutEngine : ILayoutEngine
     {
         var graph = new LayoutGraph();
 
+        // Build subgraph membership lookup
+        var nodeToSubgraph = new Dictionary<string, string>(StringComparer.Ordinal);
+        void MapSubgraph(Subgraph sg)
+        {
+            foreach (var nid in sg.NodeIds)
+                nodeToSubgraph[nid] = sg.Id;
+            foreach (var nested in sg.NestedSubgraphs)
+                MapSubgraph(nested);
+        }
+        foreach (var sg in diagram.Subgraphs)
+            MapSubgraph(sg);
+
         foreach (var node in diagram.Nodes)
         {
             graph.AddNode(new()
             {
                 Id = node.Id,
                 Width = node.Width,
-                Height = node.Height
+                Height = node.Height,
+                SubgraphId = nodeToSubgraph.GetValueOrDefault(node.Id)
             });
         }
 
@@ -67,7 +88,125 @@ public class DagreLayoutEngine : ILayoutEngine
             });
         }
 
+        // Add lightweight constraint edges within subgraphs to keep members
+        // on contiguous ranks. For each subgraph, chain members that don't
+        // already have a path between them so the ranker keeps them together.
+        AddSubgraphConstraints(graph, diagram.Subgraphs);
+
         return graph;
+    }
+
+    /// <summary>
+    /// After rank assignment, pull outlier subgraph members to be within the
+    /// rank range of their siblings. This fixes cases where a back-edge reversal
+    /// pushes a node to rank 0 or the max rank, far from its subgraph.
+    /// </summary>
+    static void CompactSubgraphRanks(LayoutGraph graph, List<Subgraph> subgraphs)
+    {
+        foreach (var sg in subgraphs)
+        {
+            if (sg.NodeIds.Count < 2) continue;
+
+            var memberRanks = new List<(string Id, int Rank)>();
+            foreach (var nodeId in sg.NodeIds)
+            {
+                var node = graph.GetNode(nodeId);
+                if (node is not null)
+                    memberRanks.Add((nodeId, node.Rank));
+            }
+
+            if (memberRanks.Count < 2) continue;
+
+            // Find the rank range of the majority of members
+            var ranks = memberRanks.Select(m => m.Rank).OrderBy(r => r).ToList();
+            var medianRank = ranks[ranks.Count / 2];
+            var minRank = ranks.Min();
+            var maxRank = ranks.Max();
+
+            // If spread is small (2 ranks or fewer), nothing to fix
+            if (maxRank - minRank <= 2) continue;
+
+            // Pull outliers: any member whose rank is > 2 ranks from the median
+            foreach (var (id, rank) in memberRanks)
+            {
+                if (Math.Abs(rank - medianRank) > 2)
+                {
+                    // Place outlier at the median rank (will be ordered by Phase 3)
+                    graph.GetNode(id)?.SetRank(medianRank);
+                }
+            }
+
+            if (sg.NestedSubgraphs.Count > 0)
+                CompactSubgraphRanks(graph, sg.NestedSubgraphs);
+        }
+    }
+
+    /// <summary>
+    /// For each subgraph, find members with no edges at all (orphaned) and add
+    /// a single zero-weight constraint edge to an anchored sibling. This keeps
+    /// orphaned members near their subgraph without forcing same-rank members
+    /// into a sequential chain.
+    /// </summary>
+    static void AddSubgraphConstraints(LayoutGraph graph, List<Subgraph> subgraphs)
+    {
+        foreach (var sg in subgraphs)
+        {
+            if (sg.NodeIds.Count < 2) continue;
+
+            var members = new HashSet<string>(sg.NodeIds, StringComparer.Ordinal);
+
+            // A node is "anchored" if it has ANY real edge (in or out) to a non-constraint node
+            var anchored = new List<string>();
+            var orphaned = new List<string>();
+
+            foreach (var nodeId in sg.NodeIds)
+            {
+                var node = graph.GetNode(nodeId);
+                if (node is null) continue;
+
+                var hasRealEdge = node.InEdges.Any(e => !e.IsConstraint) ||
+                                  node.OutEdges.Any(e => !e.IsConstraint);
+                if (hasRealEdge)
+                    anchored.Add(nodeId);
+                else
+                    orphaned.Add(nodeId);
+            }
+
+            // Only add constraints for truly orphaned nodes
+            if (orphaned.Count > 0 && anchored.Count > 0)
+            {
+                var anchor = anchored[0];
+                foreach (var nodeId in orphaned)
+                {
+                    // Use a same-rank-ish constraint: bidirectional zero-weight
+                    // by making anchor → orphan with weight 0 and min rank length 0
+                    graph.AddEdge(new()
+                    {
+                        SourceId = anchor,
+                        TargetId = nodeId,
+                        Weight = 0,
+                        IsConstraint = true
+                    });
+                }
+            }
+            else if (orphaned.Count > 1)
+            {
+                // All orphaned — chain them with zero-weight edges
+                for (var i = 0; i < orphaned.Count - 1; i++)
+                {
+                    graph.AddEdge(new()
+                    {
+                        SourceId = orphaned[i],
+                        TargetId = orphaned[i + 1],
+                        Weight = 0,
+                        IsConstraint = true
+                    });
+                }
+            }
+
+            if (sg.NestedSubgraphs.Count > 0)
+                AddSubgraphConstraints(graph, sg.NestedSubgraphs);
+        }
     }
 
     static void ApplyLayout(LayoutGraph graph, GraphDiagramBase diagram, LayoutOptions options)

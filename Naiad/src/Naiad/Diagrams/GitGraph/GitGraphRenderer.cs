@@ -1,3 +1,5 @@
+using static MermaidSharp.Rendering.RenderUtils;
+
 namespace MermaidSharp.Diagrams.GitGraph;
 
 public class GitGraphRenderer : IDiagramRenderer<GitGraphModel>
@@ -353,8 +355,6 @@ public class GitGraphRenderer : IDiagramRenderer<GitGraphModel>
         return computed;
     }
 
-    static double MeasureText(string text, double fontSize) =>
-        text.Length * fontSize * 0.55;
+    static double MeasureText(string text, double fontSize) => MeasureTextWidth(text, fontSize);
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

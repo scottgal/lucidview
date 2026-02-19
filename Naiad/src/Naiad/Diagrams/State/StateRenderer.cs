@@ -1,4 +1,5 @@
 // ReSharper disable MemberCanBeMadeStatic.Local
+using static MermaidSharp.Rendering.RenderUtils;
 namespace MermaidSharp.Diagrams.State;
 
 [SuppressMessage("Performance", "CA1822:Mark members as static")]
@@ -1482,7 +1483,6 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
     static double MeasureText(string text, double fontSize) =>
         text.Length * fontSize * 0.6;
 
-    static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }
 
 // Internal graph model for layout

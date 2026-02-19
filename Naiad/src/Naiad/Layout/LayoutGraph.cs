@@ -82,10 +82,13 @@ internal class LayoutNode
     public double Width { get; set; }
     public double Height { get; set; }
     public int Rank { get; set; } = -1;
+    public void SetRank(int rank) => Rank = rank;
     public int Order { get; set; }
     public double X { get; set; }
     public double Y { get; set; }
     public bool IsDummy { get; set; }
+    public bool IsConstraint { get; set; }
+    public string? SubgraphId { get; set; }
     public string? OriginalEdgeSource { get; set; }
     public string? OriginalEdgeTarget { get; set; }
 
@@ -99,5 +102,6 @@ internal class LayoutEdge
     public required string TargetId { get; init; }
     public int Weight { get; set; } = 1;
     public bool IsReversed { get; set; }
+    public bool IsConstraint { get; set; }
     public List<Position> Points { get; } = [];
 }
