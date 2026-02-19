@@ -71,15 +71,15 @@ jobs:
         cp MarkdownViewer/default-settings.json publish/win-x64/ 2>/dev/null || true
 
     - name: Verify output
-      shell: bash
+      shell: pwsh
       run: |
-        if [ -f "publish/win-x64/lucidVIEW.exe" ]; then
-          size=$(stat -c%s "publish/win-x64/lucidVIEW.exe" 2>/dev/null || stat -f%z "publish/win-x64/lucidVIEW.exe")
-          size_mb=$(echo "scale=2; $size / 1048576" | bc)
-          echo "Build successful! Size: ${size_mb} MB"
-          echo "Content files:"
-          ls -la publish/win-x64/*.json publish/win-x64/*.md 2>/dev/null || echo "No content files found"
-        else
-          echo "Build failed - lucidVIEW.exe not found"
+        if (Test-Path "publish/win-x64/lucidVIEW.exe") {
+          $size = (Get-Item "publish/win-x64/lucidVIEW.exe").Length
+          $sizeMb = [math]::Round($size / 1MB, 2)
+          Write-Host "Build successful! Size: $sizeMb MB"
+          Write-Host "Content files:"
+          Get-ChildItem "publish/win-x64/*.json","publish/win-x64/*.md" -ErrorAction SilentlyContinue | Format-Table Name, Length
+        } else {
+          Write-Host "Build failed - lucidVIEW.exe not found"
           exit 1
-        fi
+        }
