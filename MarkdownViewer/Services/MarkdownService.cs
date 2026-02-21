@@ -72,6 +72,13 @@ public partial class MarkdownService
     public IReadOnlyDictionary<string, SvgDocument> DiagramDocuments => _diagramDocuments;
 
     /// <summary>
+    /// Maps C4 element IDs to target diagram keys for zoom/drill-down navigation.
+    /// Built by analyzing cross-diagram element↔boundary ID matches.
+    /// </summary>
+    private readonly Dictionary<string, string> _c4ZoomTargets = new(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, string> C4ZoomTargets => _c4ZoomTargets;
+
+    /// <summary>
     /// Look up a native flowchart layout by its placeholder key.
     /// </summary>
     public FlowchartLayoutResult? GetFlowchartLayout(string key)
@@ -113,6 +120,20 @@ public partial class MarkdownService
         _themeTextColor = textColor;
         _themeBackgroundColor = backgroundColor;
     }
+
+    RenderOptions CreateRenderOptions() => new()
+    {
+        Theme = _isDarkMode ? "dark" : "default",
+        ThemeColors = new ThemeColorOverrides
+        {
+            TextColor = _themeTextColor,
+            BackgroundColor = _themeBackgroundColor
+        },
+        // Desktop host allows skin packs from local folders/archives. Mermaid input
+        // can keep paths relative to the current markdown file directory.
+        AllowFileSystemSkinPacks = true,
+        SkinPackBaseDirectory = _basePath
+    };
 
     public void SetBasePath(string? path)
     {
@@ -497,6 +518,7 @@ public partial class MarkdownService
         _mermaidSourceMap.Clear();
         _flowchartLayouts.Clear();
         _diagramDocuments.Clear();
+        _c4ZoomTargets.Clear();
         var mermaidRegex = MermaidBlockRegex();
         var matches = mermaidRegex.Matches(content);
         var pending = new List<MermaidWorkItem>();
@@ -552,7 +574,67 @@ public partial class MarkdownService
             }
         }
 
+        BuildC4ZoomIndex();
+
         return (content, pending);
+    }
+
+    /// <summary>
+    /// Build cross-diagram zoom targets by matching C4 element IDs to boundary IDs.
+    /// Convention: if a C4Context has element "myapp" and a C4Container has boundary "myapp",
+    /// clicking "myapp" in Context should scroll to the Container diagram.
+    /// Explicit $link values override convention-based matches.
+    /// </summary>
+    private void BuildC4ZoomIndex()
+    {
+        _c4ZoomTargets.Clear();
+
+        // Collect C4 diagrams with their metadata
+        var c4Diagrams = new List<(string Key, SvgDocument Doc)>();
+        foreach (var (key, doc) in _diagramDocuments)
+        {
+            if (doc.Metadata.ContainsKey("c4Type"))
+                c4Diagrams.Add((key, doc));
+        }
+
+        if (c4Diagrams.Count < 2) return;
+
+        // Build boundary→diagram key lookup: which diagram contains boundary "X"?
+        var boundaryToDiagram = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, doc) in c4Diagrams)
+        {
+            foreach (var (metaKey, _) in doc.Metadata)
+            {
+                if (metaKey.StartsWith("boundary:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var boundaryId = metaKey["boundary:".Length..];
+                    boundaryToDiagram[boundaryId] = key;
+                }
+            }
+        }
+
+        // Match element IDs in one diagram to boundary IDs in another
+        foreach (var (key, doc) in c4Diagrams)
+        {
+            foreach (var elementId in doc.HitRegions.Keys)
+            {
+                // Convention-based: element ID matches a boundary ID in another diagram
+                if (boundaryToDiagram.TryGetValue(elementId, out var targetKey) && targetKey != key)
+                {
+                    _c4ZoomTargets[elementId] = targetKey;
+                }
+            }
+
+            // Explicit $link overrides
+            foreach (var (metaKey, metaValue) in doc.Metadata)
+            {
+                if (metaKey.StartsWith("link:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var elementId = metaKey["link:".Length..];
+                    _c4ZoomTargets[elementId] = metaValue;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -566,15 +648,7 @@ public partial class MarkdownService
             var diagramType = Mermaid.DetectDiagramType(mermaidCode);
             if (diagramType != DiagramType.Flowchart) return null;
 
-            var renderOptions = new RenderOptions
-            {
-                Theme = _isDarkMode ? "dark" : "default",
-                ThemeColors = new ThemeColorOverrides
-                {
-                    TextColor = _themeTextColor,
-                    BackgroundColor = _themeBackgroundColor
-                }
-            };
+            var renderOptions = CreateRenderOptions();
 
             return Mermaid.ParseAndLayoutFlowchart(mermaidCode, renderOptions);
         }
@@ -592,15 +666,7 @@ public partial class MarkdownService
     {
         try
         {
-            var renderOptions = new RenderOptions
-            {
-                Theme = _isDarkMode ? "dark" : "default",
-                ThemeColors = new ThemeColorOverrides
-                {
-                    TextColor = _themeTextColor,
-                    BackgroundColor = _themeBackgroundColor
-                }
-            };
+            var renderOptions = CreateRenderOptions();
 
             return Mermaid.RenderToDocument(mermaidCode, renderOptions);
         }
@@ -768,15 +834,7 @@ public partial class MarkdownService
                 string? svg = null;
                 try
                 {
-                    var renderOptions = new RenderOptions
-                    {
-                        Theme = _isDarkMode ? "dark" : "default",
-                        ThemeColors = new ThemeColorOverrides
-                        {
-                            TextColor = _themeTextColor,
-                            BackgroundColor = _themeBackgroundColor
-                        }
-                    };
+                    var renderOptions = CreateRenderOptions();
                     svg = Mermaid.Render(processedCode, renderOptions);
                 }
                 catch (NullReferenceException)

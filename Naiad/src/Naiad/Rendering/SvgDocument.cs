@@ -12,6 +12,16 @@ public class SvgDocument
     public SvgDefs Defs { get; } = new();
     public string? CssStyles { get; set; }
 
+    /// <summary>
+    /// Element hit regions for interactive diagrams (ID → bounding rect). Not serialized to SVG XML.
+    /// </summary>
+    public Dictionary<string, (double X, double Y, double Width, double Height)> HitRegions { get; } = [];
+
+    /// <summary>
+    /// Diagram-type-specific metadata (e.g. "c4Type"="Context", "boundary:myapp"="true"). Not serialized.
+    /// </summary>
+    public Dictionary<string, string> Metadata { get; } = [];
+
     // Mermaid.ink compatibility properties
     public string Id { get; set; } = "mermaid-svg";
     public string? DiagramClass { get; set; }

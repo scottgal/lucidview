@@ -87,6 +87,18 @@ public class C4Renderer : IDiagramRenderer<C4Model>
             }
         }
 
+        // Export hit regions and metadata to the document for interactive use
+        foreach (var (id, (cx, cy, w, h)) in elementPositions)
+            builder.Document.HitRegions[id] = (cx - w / 2, cy - h / 2, w, h);
+
+        builder.Document.Metadata["c4Type"] = model.Type.ToString();
+
+        foreach (var boundary in model.Boundaries)
+            builder.Document.Metadata[$"boundary:{boundary.Id}"] = boundary.Label;
+
+        foreach (var element in model.Elements.Where(e => e.Link is not null))
+            builder.Document.Metadata[$"link:{element.Id}"] = element.Link!;
+
         return builder.Build();
     }
 
@@ -115,7 +127,9 @@ public class C4Renderer : IDiagramRenderer<C4Model>
 
             positions[element.Id] = (x + ElementWidth / 2, startY + h / 2, ElementWidth, h);
 
+            builder.BeginGroup(id: $"c4-{element.Id}", cssClass: "c4-element");
             DrawElement(builder, element, x, startY, options, theme);
+            builder.EndGroup();
         }
 
         var maxHeight = elements.Max(e => e.Type == C4ElementType.Person ? PersonHeight : ElementHeight);

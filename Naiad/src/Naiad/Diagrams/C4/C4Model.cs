@@ -25,6 +25,7 @@ public class C4Element
     public C4ElementType Type { get; set; } = C4ElementType.System;
     public bool IsExternal { get; set; }
     public string? BoundaryId { get; set; }
+    public string? Link { get; set; }
 }
 
 public enum C4ElementType

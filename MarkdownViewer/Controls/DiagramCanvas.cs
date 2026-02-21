@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using MermaidSharp.Rendering;
@@ -21,6 +22,9 @@ public class DiagramCanvas : Control
     public static readonly StyledProperty<IBrush?> DefaultTextBrushProperty =
         AvaloniaProperty.Register<DiagramCanvas, IBrush?>(nameof(DefaultTextBrush));
 
+    public static readonly StyledProperty<IReadOnlyDictionary<string, string>?> ZoomTargetsProperty =
+        AvaloniaProperty.Register<DiagramCanvas, IReadOnlyDictionary<string, string>?>(nameof(ZoomTargets));
+
     public SvgDocument? Document
     {
         get => GetValue(DocumentProperty);
@@ -36,6 +40,20 @@ public class DiagramCanvas : Control
         get => GetValue(DefaultTextBrushProperty);
         set => SetValue(DefaultTextBrushProperty, value);
     }
+
+    /// <summary>
+    /// Maps element IDs to zoom target keys. When set, elements with matching IDs become clickable.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? ZoomTargets
+    {
+        get => GetValue(ZoomTargetsProperty);
+        set => SetValue(ZoomTargetsProperty, value);
+    }
+
+    /// <summary>
+    /// Fired when a zoomable element is clicked. Argument is the zoom target (diagram key or URL).
+    /// </summary>
+    public event EventHandler<string>? LinkClicked;
 
     // Caches
     readonly Dictionary<string, Geometry> _geometryCache = new(StringComparer.Ordinal);
@@ -56,6 +74,9 @@ public class DiagramCanvas : Control
     IBrush? _cssDefaultFillBrush;
 
     double _scale = 1.0;
+
+    // C4 zoom interaction state
+    string? _hoveredElementId;
 
     static DiagramCanvas()
     {
@@ -221,6 +242,106 @@ public class DiagramCanvas : Control
         {
             foreach (var element in doc.Elements)
                 RenderElement(context, element);
+
+            // Draw C4 zoom overlays
+            RenderZoomOverlays(context, doc);
+        }
+    }
+
+    void RenderZoomOverlays(DrawingContext context, SvgDocument doc)
+    {
+        var targets = ZoomTargets;
+        if (targets is null || targets.Count == 0 || doc.HitRegions.Count == 0) return;
+
+        foreach (var (elementId, region) in doc.HitRegions)
+        {
+            if (!targets.ContainsKey(elementId)) continue;
+
+            var rect = new Rect(region.X, region.Y, region.Width, region.Height);
+
+            // Draw zoom indicator: small magnifying glass icon at bottom-right
+            var iconSize = 14.0;
+            var iconX = rect.Right - iconSize - 4;
+            var iconY = rect.Bottom - iconSize - 4;
+            var circleR = iconSize / 3;
+            var circleCx = iconX + circleR + 2;
+            var circleCy = iconY + circleR + 2;
+
+            var indicatorBrush = new ImmutableSolidColorBrush(Color.FromArgb(180, 255, 255, 255));
+            var indicatorPen = new Pen(indicatorBrush, 1.5);
+
+            // Circle part of magnifying glass
+            context.DrawEllipse(null, indicatorPen, new Point(circleCx, circleCy), circleR, circleR);
+
+            // Handle part
+            var handleStart = new Point(circleCx + circleR * 0.7, circleCy + circleR * 0.7);
+            var handleEnd = new Point(iconX + iconSize - 1, iconY + iconSize - 1);
+            context.DrawLine(indicatorPen, handleStart, handleEnd);
+
+            // Hover highlight
+            if (_hoveredElementId == elementId)
+            {
+                var highlightBrush = new ImmutableSolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+                var highlightPen = new Pen(new ImmutableSolidColorBrush(Color.FromArgb(120, 255, 255, 255)), 2);
+                context.DrawRectangle(highlightBrush, highlightPen, rect, 5, 5);
+            }
+        }
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+
+        var doc = Document;
+        var targets = ZoomTargets;
+        if (doc is null || targets is null || targets.Count == 0) return;
+
+        var pos = e.GetPosition(this);
+        // Convert to document coordinates (reverse the scale + translation)
+        var docX = pos.X / _scale - 10;
+        var docY = pos.Y / _scale - 10;
+
+        string? hitId = null;
+        foreach (var (elementId, region) in doc.HitRegions)
+        {
+            if (!targets.ContainsKey(elementId)) continue;
+
+            if (docX >= region.X && docX <= region.X + region.Width &&
+                docY >= region.Y && docY <= region.Y + region.Height)
+            {
+                hitId = elementId;
+                break;
+            }
+        }
+
+        if (hitId != _hoveredElementId)
+        {
+            _hoveredElementId = hitId;
+            Cursor = hitId is not null ? new Cursor(StandardCursorType.Hand) : Cursor.Default;
+            InvalidateVisual();
+        }
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        if (_hoveredElementId is not null)
+        {
+            _hoveredElementId = null;
+            Cursor = Cursor.Default;
+            InvalidateVisual();
+        }
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+
+        if (_hoveredElementId is not null && ZoomTargets is not null &&
+            ZoomTargets.TryGetValue(_hoveredElementId, out var target))
+        {
+            LinkClicked?.Invoke(this, target);
+            e.Handled = true;
         }
     }
 

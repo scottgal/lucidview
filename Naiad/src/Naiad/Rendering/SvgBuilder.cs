@@ -5,6 +5,7 @@ namespace MermaidSharp.Rendering;
 public class SvgBuilder
 {
     readonly SvgDocument _document = new();
+    public SvgDocument Document => _document;
     readonly Stack<SvgGroup> _groupStack = new();
     double _padding;
     double _contentWidth;
@@ -351,7 +352,7 @@ public class SvgBuilder
     public SvgBuilder AddPath(string d, string? fill = null, string? stroke = null,
         double? strokeWidth = null, string? strokeDasharray = null,
         string? markerStart = null, string? markerEnd = null, double? opacity = null,
-        string? cssClass = null)
+        string? cssClass = null, string? inlineStyle = null, string? transform = null)
     {
         var path = new SvgPath
         {
@@ -363,7 +364,9 @@ public class SvgBuilder
             MarkerStart = markerStart,
             MarkerEnd = markerEnd,
             Opacity = opacity,
-            Class = cssClass
+            Class = cssClass,
+            Style = inlineStyle,
+            Transform = transform
         };
         AddElement(path);
         return this;

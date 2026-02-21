@@ -28,7 +28,7 @@ public class C4Parser : IDiagramParser<C4Model>
         from ____ in CommonParsers.LineEnd
         select title.Trim();
 
-    // Person(id, "label", "description")
+    // Person(id, "label", "description", $link="url")
     static readonly Parser<char, C4Element> PersonParser =
         from _ in CommonParsers.InlineWhitespace
         from type in OneOf(Try(CIString("Person_Ext")), CIString("Person"))
@@ -40,6 +40,7 @@ public class C4Parser : IDiagramParser<C4Model>
             CommonParsers.InlineWhitespace.Then(Char(',')).Then(CommonParsers.InlineWhitespace)
             .Then(QuotedString)
         ).Optional()
+        from link in Try(LinkArg!).Optional()
         from ____ in Char(')')
         from _____ in CommonParsers.InlineWhitespace
         from ______ in CommonParsers.LineEnd
@@ -49,10 +50,11 @@ public class C4Parser : IDiagramParser<C4Model>
             Label = label,
             Description = desc.GetValueOrDefault(),
             Type = C4ElementType.Person,
-            IsExternal = type.Contains("Ext", StringComparison.OrdinalIgnoreCase)
+            IsExternal = type.Contains("Ext", StringComparison.OrdinalIgnoreCase),
+            Link = link.GetValueOrDefault()
         };
 
-    // System(id, "label", "description") or System_Ext
+    // System(id, "label", "description", $link="url") or System_Ext
     static readonly Parser<char, C4Element> SystemParser =
         from _ in CommonParsers.InlineWhitespace
         from type in OneOf(Try(CIString("System_Ext")), CIString("System"))
@@ -64,6 +66,7 @@ public class C4Parser : IDiagramParser<C4Model>
             CommonParsers.InlineWhitespace.Then(Char(',')).Then(CommonParsers.InlineWhitespace)
             .Then(QuotedString)
         ).Optional()
+        from link in Try(LinkArg!).Optional()
         from ____ in Char(')')
         from _____ in CommonParsers.InlineWhitespace
         from ______ in CommonParsers.LineEnd
@@ -73,13 +76,24 @@ public class C4Parser : IDiagramParser<C4Model>
             Label = label,
             Description = desc.GetValueOrDefault(),
             Type = C4ElementType.System,
-            IsExternal = type.Contains("Ext", StringComparison.OrdinalIgnoreCase)
+            IsExternal = type.Contains("Ext", StringComparison.OrdinalIgnoreCase),
+            Link = link.GetValueOrDefault()
         };
 
     // Optional quoted string with comma prefix
     static readonly Parser<char, string> OptionalQuotedArg =
         CommonParsers.InlineWhitespace.Then(Char(',')).Then(CommonParsers.InlineWhitespace)
             .Then(QuotedString);
+
+    // Referenced by parser combinator field initializers (PersonParser/SystemParser).
+#pragma warning disable CA1823
+    static readonly Parser<char, string> LinkArg =
+        from _ in CommonParsers.InlineWhitespace.Then(Char(',')).Then(CommonParsers.InlineWhitespace)
+        from __ in CIString("$link")
+        from ___ in CommonParsers.InlineWhitespace.Then(Char('=')).Then(CommonParsers.InlineWhitespace)
+        from url in QuotedString
+        select url;
+#pragma warning restore CA1823
 
     // Container(id, "label", "tech", "description") or Container_Ext
     static readonly Parser<char, C4Element> ContainerParser =
@@ -97,6 +111,7 @@ public class C4Parser : IDiagramParser<C4Model>
         from label in QuotedString
         from tech in Try(OptionalQuotedArg).Optional()
         from desc in Try(OptionalQuotedArg).Optional()
+        from link in Try(LinkArg).Optional()
         from ____ in Char(')')
         from _____ in CommonParsers.InlineWhitespace
         from ______ in CommonParsers.LineEnd
@@ -109,10 +124,11 @@ public class C4Parser : IDiagramParser<C4Model>
             Type = type.Contains("Db", StringComparison.OrdinalIgnoreCase) ? C4ElementType.ContainerDb :
                    type.Contains("Queue", StringComparison.OrdinalIgnoreCase) ? C4ElementType.ContainerQueue :
                    C4ElementType.Container,
-            IsExternal = type.Contains("Ext", StringComparison.OrdinalIgnoreCase)
+            IsExternal = type.Contains("Ext", StringComparison.OrdinalIgnoreCase),
+            Link = link.GetValueOrDefault()
         };
 
-    // Component(id, "label", "tech", "description") or ComponentDb
+    // Component(id, "label", "tech", "description", $link="url") or ComponentDb
     static readonly Parser<char, C4Element> ComponentParser =
         from _ in CommonParsers.InlineWhitespace
         from type in OneOf(
@@ -126,6 +142,7 @@ public class C4Parser : IDiagramParser<C4Model>
         from label in QuotedString
         from tech in Try(OptionalQuotedArg).Optional()
         from desc in Try(OptionalQuotedArg).Optional()
+        from link in Try(LinkArg).Optional()
         from ____ in Char(')')
         from _____ in CommonParsers.InlineWhitespace
         from ______ in CommonParsers.LineEnd
@@ -137,7 +154,8 @@ public class C4Parser : IDiagramParser<C4Model>
             Description = desc.GetValueOrDefault(),
             Type = type.Contains("Db", StringComparison.OrdinalIgnoreCase) ? C4ElementType.ContainerDb :
                    C4ElementType.Component,
-            IsExternal = type.Contains("Ext", StringComparison.OrdinalIgnoreCase)
+            IsExternal = type.Contains("Ext", StringComparison.OrdinalIgnoreCase),
+            Link = link.GetValueOrDefault()
         };
 
     // Rel(from, to, "label", "tech")

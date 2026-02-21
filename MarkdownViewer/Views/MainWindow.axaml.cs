@@ -13,8 +13,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using LiveMarkdown.Avalonia;
-using MarkdownViewer.Controls;
 using MarkdownViewer.Models;
+using MarkdownViewer.Plugins;
 using MarkdownViewer.Services;
 using MermaidSharp.Rendering;
 using Microsoft.Playwright;
@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private readonly SearchService _searchService;
     private readonly AppSettings _settings;
     private readonly ThemeService _themeService;
+    private readonly DiagramRendererPluginHost _diagramPluginHost;
     private string? _currentFilePath;
     private int _currentSearchIndex = -1;
     private int _fontSize = 16;
@@ -85,6 +86,15 @@ public partial class MainWindow : Window
         _themeService = new ThemeService(Application.Current!);
         _searchService = new SearchService();
         _paginationService = new PaginationService();
+        _diagramPluginHost = new DiagramRendererPluginHost(
+        [
+            new AvaloniaNativeDiagramRendererPlugin(
+                _markdownService,
+                ResolveDiagramTextBrush,
+                SaveDiagramAs,
+                OpenBrowserUrl,
+                ScrollToDiagram)
+        ]);
 
         // Restore saved size, clamped to sensible defaults
         Width = _settings.WindowWidth is > 0 and < 10000 ? _settings.WindowWidth : 1100;
@@ -1887,196 +1897,53 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Walk the visual tree to find flowchart marker text blocks and replace them
-    /// with native FlowchartCanvas controls. The markers are text like
-    /// "\u200B\u200BFLOWCHART:flowchart-0" inserted by MarkdownService.
-    /// </summary>
     private void ReplaceDiagramMarkers()
     {
-        var flowchartLayouts = _markdownService.FlowchartLayouts;
-        var diagramDocs = _markdownService.DiagramDocuments;
-        if (flowchartLayouts.Count == 0 && diagramDocs.Count == 0) return;
-
-        var markers = new List<(TextBlock TextBlock, string Prefix, string Key)>();
-        FindDiagramMarkers(MdViewer, markers);
-
-        Debug.WriteLine($"[DiagramCanvas] Found {markers.Count} markers, {flowchartLayouts.Count} flowcharts, {diagramDocs.Count} diagrams");
-
-        foreach (var (textBlock, prefix, key) in markers)
-        {
-            Control? replacement = null;
-
-            if (prefix == MarkdownService.FlowchartMarkerPrefix)
-            {
-                var layout = _markdownService.GetFlowchartLayout(key);
-                if (layout is null)
-                {
-                    Debug.WriteLine($"[DiagramCanvas] No flowchart layout for key '{key}'");
-                    continue;
-                }
-
-                Debug.WriteLine($"[DiagramCanvas] Replacing flowchart '{key}' — {layout.Width:F0}x{layout.Height:F0}");
-
-                var canvas = new FlowchartCanvas
-                {
-                    Layout = layout,
-                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
-                };
-
-                canvas.LinkClicked += (_, link) =>
-                {
-                    try
-                    {
-                        Process.Start(new ProcessStartInfo(link) { UseShellExecute = true });
-                    }
-                    catch
-                    {
-                        // Ignore failed link navigation
-                    }
-                };
-
-                replacement = canvas;
-            }
-            else if (prefix == MarkdownService.DiagramMarkerPrefix)
-            {
-                if (!diagramDocs.TryGetValue(key, out var doc))
-                {
-                    Debug.WriteLine($"[DiagramCanvas] No document for key '{key}'");
-                    continue;
-                }
-
-                Debug.WriteLine($"[DiagramCanvas] Replacing diagram '{key}' — {doc.Width:F0}x{doc.Height:F0}");
-
-                var themeTextColor = ThemeColors.GetTheme(_settings.Theme).Text;
-                IBrush? textBrush = null;
-                if (Color.TryParse(themeTextColor, out var parsedColor))
-                    textBrush = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(parsedColor);
-
-                replacement = new DiagramCanvas
-                {
-                    Document = doc,
-                    DefaultTextBrush = textBrush,
-                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
-                };
-            }
-
-            if (replacement is null) continue;
-
-            // Add right-click context menu with Save PNG/SVG options
-            var mermaidCode = _markdownService.MermaidDiagrams.GetValueOrDefault(key);
-            if (mermaidCode is not null)
-            {
-                var contextMenu = new ContextMenu();
-                var savePng = new MenuItem { Header = "Save Diagram as PNG..." };
-                savePng.Click += (_, _) => _ = SaveDiagramAs(mermaidCode, "png");
-                var saveSvg = new MenuItem { Header = "Save Diagram as SVG..." };
-                saveSvg.Click += (_, _) => _ = SaveDiagramAs(mermaidCode, "svg");
-                contextMenu.Items.Add(savePng);
-                contextMenu.Items.Add(saveSvg);
-                replacement.ContextMenu = contextMenu;
-            }
-
-            ReplaceControlInVisualTree(textBlock, replacement);
-        }
+        _diagramPluginHost.ReplaceDiagramMarkers(MdViewer);
     }
 
     /// <summary>
-    /// Walk the visual tree to find TextBlock/SelectableTextBlock controls that contain
-    /// diagram marker text (FLOWCHART: or DIAGRAM:). LiveMarkdown renders paragraph text
-    /// as Run elements inside MarkdownTextBlock (a SelectableTextBlock subclass), so we check Inlines.
+    /// Scroll to a diagram by its key (e.g. "diagram-1") for C4 zoom navigation.
     /// </summary>
-    private static void FindDiagramMarkers(Visual parent, List<(TextBlock, string Prefix, string Key)> results)
+    private void ScrollToDiagram(string diagramKey)
     {
-        foreach (var child in VisualExtensions.GetVisualChildren(parent))
+        if (!_markdownService.DiagramDocuments.TryGetValue(diagramKey, out var targetDoc))
+            return;
+
+        var targetCanvas = FindVisualDescendant<MarkdownViewer.Controls.DiagramCanvas>(
+            MdViewer, dc => dc.Document == targetDoc);
+        if (targetCanvas is null) return;
+
+        var transform = targetCanvas.TransformToVisual(RenderedScroller);
+        if (transform is null) return;
+
+        var point = transform.Value.Transform(new Point(0, 0));
+        RenderedScroller.Offset = new Vector(0, Math.Max(0, RenderedScroller.Offset.Y + point.Y - 20));
+    }
+
+    private static T? FindVisualDescendant<T>(Visual root, Func<T, bool> predicate) where T : Visual
+    {
+        foreach (var child in VisualExtensions.GetVisualChildren(root))
         {
-            if (child is TextBlock textBlock)
-            {
-                var match = ExtractDiagramMarkerKey(textBlock);
-                if (match is not null)
-                {
-                    results.Add((textBlock, match.Value.Prefix, match.Value.Key));
-                    continue; // Don't recurse into matched element
-                }
-            }
+            if (child is T match && predicate(match))
+                return match;
 
             if (child is Visual visual)
             {
-                FindDiagramMarkers(visual, results);
+                var result = FindVisualDescendant(visual, predicate);
+                if (result is not null)
+                    return result;
             }
         }
-    }
-
-    /// <summary>
-    /// Extract a diagram marker key from a TextBlock by checking both
-    /// the Text property (simple TextBlock) and Inlines (LiveMarkdown's
-    /// MarkdownTextBlock uses Run elements in Inlines).
-    /// Returns the matching prefix and key, or null if not a marker.
-    /// </summary>
-    private static (string Prefix, string Key)? ExtractDiagramMarkerKey(TextBlock textBlock)
-    {
-        var text = textBlock.Text;
-
-        if (string.IsNullOrEmpty(text) && textBlock.Inlines is { Count: > 0 } inlines)
-        {
-            text = string.Concat(inlines.OfType<Run>().Select(r => r.Text ?? ""));
-        }
-
-        if (string.IsNullOrEmpty(text)) return null;
-
-        // Try flowchart prefix first
-        var idx = text.IndexOf(MarkdownService.FlowchartMarkerPrefix, StringComparison.Ordinal);
-        if (idx >= 0)
-        {
-            var key = text[(idx + MarkdownService.FlowchartMarkerPrefix.Length)..].Trim();
-            return string.IsNullOrEmpty(key) ? null : (MarkdownService.FlowchartMarkerPrefix, key);
-        }
-
-        // Try diagram prefix
-        idx = text.IndexOf(MarkdownService.DiagramMarkerPrefix, StringComparison.Ordinal);
-        if (idx >= 0)
-        {
-            var key = text[(idx + MarkdownService.DiagramMarkerPrefix.Length)..].Trim();
-            return string.IsNullOrEmpty(key) ? null : (MarkdownService.DiagramMarkerPrefix, key);
-        }
-
         return null;
     }
 
-    private static void ReplaceControlInVisualTree(Control target, Control replacement)
+    private IBrush? ResolveDiagramTextBrush()
     {
-        // Walk up the tree to find a Panel parent where we can do the swap
-        Visual? current = target;
-        while (current is not null)
-        {
-            var parent = VisualExtensions.GetVisualParent(current);
-            if (parent is null) break;
-
-            if (parent is Panel panel && current is Control ctrl)
-            {
-                var index = panel.Children.IndexOf(ctrl);
-                if (index >= 0)
-                {
-                    panel.Children[index] = replacement;
-                    // Force parent to re-measure since the new child has different size
-                    panel.InvalidateMeasure();
-                    panel.InvalidateArrange();
-                    return;
-                }
-            }
-            else if (parent is ContentControl contentControl && contentControl.Content == current)
-            {
-                contentControl.Content = replacement;
-                return;
-            }
-            else if (parent is Decorator decorator && decorator.Child == current as Control)
-            {
-                decorator.Child = replacement;
-                return;
-            }
-
-            current = parent;
-        }
+        var themeTextColor = ThemeColors.GetTheme(_settings.Theme).Text;
+        if (Color.TryParse(themeTextColor, out var parsedColor))
+            return new Avalonia.Media.Immutable.ImmutableSolidColorBrush(parsedColor);
+        return null;
     }
 
     /// <summary>
