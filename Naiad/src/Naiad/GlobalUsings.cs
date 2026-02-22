@@ -7,6 +7,7 @@ global using System.Text;
 global using MermaidSharp;
 global using MermaidSharp.Diagrams.Architecture;
 global using MermaidSharp.Diagrams.Block;
+global using MermaidSharp.Diagrams.Bpmn;
 global using MermaidSharp.Diagrams.C4;
 global using MermaidSharp.Diagrams.Class;
 global using MermaidSharp.Diagrams.EntityRelationship;

@@ -67,4 +67,13 @@ public class FlowchartTests : TestBase
 
         return VerifySvg(input);
     }
+
+    [Test]
+    public void SemicolonSeparatedStatements()
+    {
+        const string input = "flowchart LR; A[Start] --> B[Process]; B --> C[End]";
+        var svg = Mermaid.Render(input);
+        Assert.That(svg, Does.Contain("Start"));
+        Assert.That(svg, Does.Contain("End"));
+    }
 }

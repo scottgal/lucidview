@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Globalization;
 using MermaidSharp.Rendering;
+using MermaidSharp.Rendering.Skins;
 
 namespace MermaidSharp;
 
@@ -9,13 +11,38 @@ public static class Mermaid
     // Matches %%{init: { ... }}%% directives (single or multi-line)
     static readonly Regex InitDirectivePattern = new(
         @"%%\s*\{\s*init\s*:\s*(\{[\s\S]*?\})\s*\}%%",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        RegexCompat.Compiled | RegexOptions.IgnoreCase);
+    // Naiad extension directives in Mermaid comments, ignored by mermaid.js.
+    // Example:
+    //   %% naiad: skinPack=daisyui, theme=dark
+    //   %% naiad: {"skinPack":"material","theme":"forest"}
+    static readonly Regex NaiadDirectivePattern = new(
+        @"^\s*%%\s*naiad\s*:\s*(?<value>.+?)\s*$",
+        RegexCompat.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
     public static string Render(string input, RenderOptions? options = null)
     {
         var doc = RenderToDocument(input, options);
         return doc?.ToXml() ?? throw new MermaidException("Rendering returned no document");
     }
+
+    /// <summary>
+    /// Returns named built-in shape skin packs that are available from embedded archives.
+    /// </summary>
+    public static IReadOnlyList<string> GetBuiltInSkinPacks() =>
+        ShapeSkinCatalog.GetBuiltInPackNames();
+
+    /// <summary>
+    /// Returns names of skin packs registered via <see cref="MermaidSkinPacks"/>.
+    /// </summary>
+    public static IReadOnlyList<string> GetRegisteredSkinPacks() =>
+        ShapeSkinCatalog.GetRegisteredPackNames();
+
+    /// <summary>
+    /// Returns all available skin packs (built-in + registered plugins).
+    /// </summary>
+    public static IReadOnlyList<string> GetAvailableSkinPacks() =>
+        ShapeSkinCatalog.GetAvailablePackNames();
 
     /// <summary>
     /// Render mermaid input to a structured SvgDocument without serializing to XML.
@@ -27,8 +54,8 @@ public static class Mermaid
 
         SecurityValidator.ValidateInput(input, options);
 
-        // Parse and apply %%{init}%% directives before rendering
-        options = ApplyInitDirectives(input, options);
+        // Parse and apply directives before rendering.
+        options = ApplyNaiadDirectives(input, ApplyInitDirectives(input, options));
 
         var diagramType = DetectDiagramType(input);
 
@@ -59,6 +86,7 @@ public static class Mermaid
             DiagramType.Architecture => RenderArchitectureDoc(input, options),
             DiagramType.Radar => RenderRadarDoc(input, options),
             DiagramType.Treemap => RenderTreemapDoc(input, options),
+            DiagramType.Bpmn => RenderBpmnDoc(input, options),
             _ => throw new MermaidException($"Unsupported diagram type: {diagramType}")
         }, options.RenderTimeout, "Diagram rendering");
     }
@@ -71,7 +99,7 @@ public static class Mermaid
     {
         options ??= RenderOptions.Default;
         SecurityValidator.ValidateInput(input, options);
-        options = ApplyInitDirectives(input, options);
+        options = ApplyNaiadDirectives(input, ApplyInitDirectives(input, options));
 
         var parser = new FlowchartParser();
         var result = parser.Parse(input);
@@ -147,6 +175,12 @@ public static class Mermaid
             firstLine.StartsWith("treemap", StringComparison.OrdinalIgnoreCase))
             return DiagramType.Treemap;
 
+        // BPMN XML detection: <?xml or <definitions or <bpmn:definitions
+        if (firstLine.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("<definitions", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("<bpmn:definitions", StringComparison.OrdinalIgnoreCase))
+            return DiagramType.Bpmn;
+
         throw new MermaidException($"Unknown diagram type in: {firstLine.Split('\n')[0]}");
     }
 
@@ -167,22 +201,7 @@ public static class Mermaid
             var root = doc.RootElement;
 
             // Clone options to avoid mutating shared instances
-            var result = new RenderOptions
-            {
-                Padding = options.Padding,
-                Theme = options.Theme,
-                ThemeColors = options.ThemeColors,
-                FontSize = options.FontSize,
-                FontFamily = options.FontFamily,
-                ShowBoundingBox = options.ShowBoundingBox,
-                MaxNodes = options.MaxNodes,
-                MaxEdges = options.MaxEdges,
-                MaxComplexity = options.MaxComplexity,
-                MaxInputSize = options.MaxInputSize,
-                RenderTimeout = options.RenderTimeout,
-                CurvedEdges = options.CurvedEdges,
-                IncludeExternalResources = options.IncludeExternalResources
-            };
+            var result = options.Clone();
 
             // Apply theme name
             if (root.TryGetProperty("theme", out var themeProp) &&
@@ -243,6 +262,230 @@ public static class Mermaid
         {
             // If JSON is malformed, just ignore the directive
             return options;
+        }
+    }
+
+    /// <summary>
+    /// Parse Naiad directives from Mermaid comments:
+    ///   %% naiad: skinPack=daisyui, theme=dark
+    ///   %% naiad: {"skinPack":"material","theme":"forest"}
+    /// Mermaid.js ignores these lines because they are standard %% comments.
+    /// </summary>
+    static RenderOptions ApplyNaiadDirectives(string input, RenderOptions options)
+    {
+        var matches = NaiadDirectivePattern.Matches(input);
+        if (matches.Count == 0)
+            return options;
+
+        var result = options.Clone();
+
+        foreach (Match match in matches)
+        {
+            var rawPayload = match.Groups["value"].Value.Trim();
+            if (string.IsNullOrEmpty(rawPayload))
+                continue;
+
+            if (rawPayload.EndsWith("%%", StringComparison.Ordinal))
+                rawPayload = rawPayload[..^2].Trim();
+
+            ApplyNaiadDirectivePayload(rawPayload, result);
+        }
+
+        return result;
+    }
+
+    static void ApplyNaiadDirectivePayload(string payload, RenderOptions options)
+    {
+        if (payload.StartsWith('{'))
+        {
+            TryApplyJsonDirective(payload, options);
+            return;
+        }
+
+        foreach (var token in payload.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var eqIndex = token.IndexOf('=');
+            if (eqIndex < 0)
+                eqIndex = token.IndexOf(':');
+
+            if (eqIndex < 0)
+            {
+                // Single token shorthand: %% naiad: daisyui
+                ApplyNaiadOption("skinPack", token, options);
+                continue;
+            }
+
+            var key = token[..eqIndex].Trim();
+            var value = token[(eqIndex + 1)..].Trim().Trim('"');
+            ApplyNaiadOption(key, value, options);
+        }
+    }
+
+    static void TryApplyJsonDirective(string payload, RenderOptions options)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return;
+
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                if (prop.Value.ValueKind == JsonValueKind.String)
+                {
+                    ApplyNaiadOption(prop.Name, prop.Value.GetString() ?? "", options);
+                }
+                else if (prop.Value.ValueKind == JsonValueKind.True || prop.Value.ValueKind == JsonValueKind.False)
+                {
+                    ApplyNaiadOption(prop.Name, prop.Value.GetBoolean() ? "true" : "false", options);
+                }
+                else if (prop.Value.ValueKind == JsonValueKind.Number)
+                {
+                    ApplyNaiadOption(prop.Name, prop.Value.GetRawText(), options);
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Ignore malformed Naiad extension directives.
+        }
+    }
+
+    static void ApplyNaiadOption(string key, string value, RenderOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+            return;
+
+        var normalizedKey = key.Trim().ToLowerInvariant()
+            .Replace("-", "", StringComparison.Ordinal)
+            .Replace("_", "", StringComparison.Ordinal);
+
+        switch (normalizedKey)
+        {
+            case "theme":
+                options.Theme = value;
+                break;
+            case "skin":
+            case "skinpack":
+            case "shapepack":
+            case "shapeskin":
+                options.SkinPack = value;
+                break;
+            case "fontfamily":
+                options.FontFamily = SecurityValidator.SanitizeCss(value);
+                break;
+            case "fontsize":
+                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var fontSize) && fontSize > 0)
+                    options.FontSize = fontSize;
+                break;
+            case "padding":
+                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var padding) && padding >= 0)
+                    options.Padding = padding;
+                break;
+            case "curvededges":
+                if (bool.TryParse(value, out var curvedEdges))
+                    options.CurvedEdges = curvedEdges;
+                break;
+            case "includeexternalresources":
+                if (bool.TryParse(value, out var includeExternal))
+                    options.IncludeExternalResources = includeExternal;
+                break;
+            case "shapes":
+                ParseShapeDirective(value, options);
+                break;
+
+            // B1: Per-node size control
+            case "minnodewidth":
+                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var minW) && minW > 0)
+                    options.MinNodeWidth = minW;
+                break;
+            case "minnodeheight":
+                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var minH) && minH > 0)
+                    options.MinNodeHeight = minH;
+                break;
+            case "nodesize":
+                ParseNodeSizeDirective(value, options);
+                break;
+
+            // B2: Layout spacing control
+            case "ranksep":
+            case "rankseparation":
+                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var rankSep) && rankSep > 0)
+                    options.RankSeparation = rankSep;
+                break;
+            case "nodesep":
+            case "nodeseparation":
+                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var nodeSep) && nodeSep > 0)
+                    options.NodeSeparation = nodeSep;
+                break;
+            case "edgesep":
+            case "edgeseparation":
+                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var edgeSep) && edgeSep > 0)
+                    options.EdgeSeparation = edgeSep;
+                break;
+
+            // B3: Edge curve style
+            case "curve":
+            case "curvestyle":
+                options.CurveStyle = value.ToLowerInvariant() switch
+                {
+                    "linear" or "polyline" => CurveStyle.Linear,
+                    "step" or "orthogonal" => CurveStyle.Step,
+                    _ => CurveStyle.Basis
+                };
+                break;
+
+            // B4: Equalize node sizes
+            case "equalizenodes":
+            case "equalizenodesizes":
+                if (bool.TryParse(value, out var equalize))
+                    options.EqualizeNodeSizes = equalize;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Parse shape mapping directive: "nav=navbar, btn=button, search=searchbar"
+    /// Maps node IDs to skin shape names without modifying the mermaid syntax.
+    /// </summary>
+    static void ParseShapeDirective(string value, RenderOptions options)
+    {
+        options.SkinShapeMap ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in value.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var eqIdx = pair.IndexOf('=');
+            if (eqIdx <= 0) continue;
+
+            var nodeId = pair[..eqIdx].Trim();
+            var shapeName = pair[(eqIdx + 1)..].Trim().Trim('"');
+            if (!string.IsNullOrEmpty(nodeId) && !string.IsNullOrEmpty(shapeName))
+                options.SkinShapeMap[nodeId] = shapeName;
+        }
+    }
+
+    /// <summary>
+    /// Parse per-node size directive: "A:200x60,B:150x40"
+    /// Maps node IDs to explicit (Width, Height) dimensions.
+    /// </summary>
+    static void ParseNodeSizeDirective(string value, RenderOptions options)
+    {
+        options.NodeSizeMap ??= new Dictionary<string, (double, double)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in value.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var colonIdx = pair.IndexOf(':');
+            if (colonIdx <= 0) continue;
+
+            var nodeId = pair[..colonIdx].Trim();
+            var sizeStr = pair[(colonIdx + 1)..].Trim();
+            var xIdx = sizeStr.IndexOf('x', StringComparison.OrdinalIgnoreCase);
+            if (xIdx <= 0) continue;
+
+            if (double.TryParse(sizeStr[..xIdx], NumberStyles.Float, CultureInfo.InvariantCulture, out var w) &&
+                double.TryParse(sizeStr[(xIdx + 1)..], NumberStyles.Float, CultureInfo.InvariantCulture, out var h) &&
+                w > 0 && h > 0)
+            {
+                options.NodeSizeMap[nodeId] = (w, h);
+            }
         }
     }
 
@@ -474,6 +717,12 @@ public static class Mermaid
         if (!result.Success)
             throw new MermaidParseException($"Failed to parse treemap diagram: {result.Error}");
         return new TreemapRenderer().Render(result.Value, options);
+    }
+
+    static SvgDocument RenderBpmnDoc(string input, RenderOptions options)
+    {
+        var model = BpmnParser.Parse(input);
+        return new FlowchartRenderer().Render(model, options);
     }
 }
 

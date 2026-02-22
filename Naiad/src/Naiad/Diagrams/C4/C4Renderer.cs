@@ -10,6 +10,8 @@ public class C4Renderer : IDiagramRenderer<C4Model>
     const double ElementSpacing = 40;
     const double TitleHeight = 50;
     const double RowSpacing = 60;
+    const double BoundaryPadding = 20;
+    const double BoundaryTitleHeight = 24;
 
     public SvgDocument Render(C4Model model, RenderOptions options)
     {
@@ -22,28 +24,58 @@ public class C4Renderer : IDiagramRenderer<C4Model>
             return emptyBuilder.Build();
         }
 
-        // Group elements by type for layout
-        var persons = model.Elements.Where(e => e.Type == C4ElementType.Person).ToList();
-        var systems = model.Elements.Where(e => e.Type == C4ElementType.System).ToList();
-        var containers = model.Elements.Where(e =>
+        // Separate elements by boundary membership vs free-standing
+        var boundaryElementIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var b in model.Boundaries)
+            foreach (var id in b.ElementIds)
+                boundaryElementIds.Add(id);
+
+        var freeElements = model.Elements.Where(e => !boundaryElementIds.Contains(e.Id)).ToList();
+
+        // Group free elements by type for layout
+        var persons = freeElements.Where(e => e.Type == C4ElementType.Person).ToList();
+        var systems = freeElements.Where(e => e.Type == C4ElementType.System).ToList();
+        var containers = freeElements.Where(e =>
             e.Type is C4ElementType.Container or C4ElementType.ContainerDb or C4ElementType.ContainerQueue).ToList();
-        var components = model.Elements.Where(e => e.Type == C4ElementType.Component).ToList();
+        var components = freeElements.Where(e => e.Type == C4ElementType.Component).ToList();
 
         var titleOffset = string.IsNullOrEmpty(model.Title) ? 0 : TitleHeight;
 
-        // Calculate layout
+        // Calculate layout — account for multi-row categories correctly
         var maxPerRow = 4;
-        var personRows = (int) Math.Ceiling((double) persons.Count / maxPerRow);
-        var systemRows = (int) Math.Ceiling((double) systems.Count / maxPerRow);
-        var containerRows = (int) Math.Ceiling((double) containers.Count / maxPerRow);
-        var componentRows = (int) Math.Ceiling((double) components.Count / maxPerRow);
+        var personRows = persons.Count > 0 ? (int) Math.Ceiling((double) persons.Count / maxPerRow) : 0;
+        var systemRows = systems.Count > 0 ? (int) Math.Ceiling((double) systems.Count / maxPerRow) : 0;
+        var containerRows = containers.Count > 0 ? (int) Math.Ceiling((double) containers.Count / maxPerRow) : 0;
+        var componentRows = components.Count > 0 ? (int) Math.Ceiling((double) components.Count / maxPerRow) : 0;
 
-        var totalRows = personRows + systemRows + containerRows + componentRows;
-        var maxCols = Math.Max(1, new[] {persons.Count, systems.Count, containers.Count, components.Count}.Max());
-        maxCols = Math.Min(maxCols, maxPerRow);
+        // Count boundary rows: each boundary gets its own row(s) for its elements
+        var boundaryRows = 0;
+        var boundaryCount = model.Boundaries.Count;
+        foreach (var boundary in model.Boundaries)
+        {
+            var memberCount = boundary.ElementIds.Count;
+            boundaryRows += memberCount > 0 ? (int) Math.Ceiling((double) memberCount / maxPerRow) : 0;
+        }
+
+        var totalRows = personRows + systemRows + containerRows + componentRows + boundaryRows;
+
+        // Width based on actual max elements in any single row
+        var allRowCounts = new List<int>();
+        if (persons.Count > 0) allRowCounts.Add(Math.Min(persons.Count, maxPerRow));
+        if (systems.Count > 0) allRowCounts.Add(Math.Min(systems.Count, maxPerRow));
+        if (containers.Count > 0) allRowCounts.Add(Math.Min(containers.Count, maxPerRow));
+        if (components.Count > 0) allRowCounts.Add(Math.Min(components.Count, maxPerRow));
+        foreach (var boundary in model.Boundaries)
+            if (boundary.ElementIds.Count > 0)
+                allRowCounts.Add(Math.Min(boundary.ElementIds.Count, maxPerRow));
+
+        var maxCols = allRowCounts.Count > 0 ? allRowCounts.Max() : 1;
 
         var width = maxCols * (ElementWidth + ElementSpacing) + options.Padding * 2;
-        var height = titleOffset + totalRows * (ElementHeight + RowSpacing) + options.Padding * 2 + 50;
+        // Extra height for boundary labels and padding
+        var boundaryExtraHeight = boundaryCount * (BoundaryPadding * 2 + BoundaryTitleHeight);
+        var height = titleOffset + totalRows * (ElementHeight + RowSpacing)
+                     + boundaryExtraHeight + options.Padding * 2 + 50;
 
         var builder = new SvgBuilder().Size(width, height);
 
@@ -66,16 +98,30 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         var currentY = options.Padding + titleOffset;
 
         // Draw persons
-        currentY = DrawElementRow(builder, persons, currentY, width, options, elementPositions, theme);
+        currentY = DrawElementRows(builder, persons, currentY, width, maxPerRow, options, elementPositions, theme);
 
         // Draw systems
-        currentY = DrawElementRow(builder, systems, currentY, width, options, elementPositions, theme);
+        currentY = DrawElementRows(builder, systems, currentY, width, maxPerRow, options, elementPositions, theme);
 
         // Draw containers
-        currentY = DrawElementRow(builder, containers, currentY, width, options, elementPositions, theme);
+        currentY = DrawElementRows(builder, containers, currentY, width, maxPerRow, options, elementPositions, theme);
 
         // Draw components
-        DrawElementRow(builder, components, currentY, width, options, elementPositions, theme);
+        currentY = DrawElementRows(builder, components, currentY, width, maxPerRow, options, elementPositions, theme);
+
+        // Draw boundaries with their contained elements
+        var elementById = model.Elements.ToDictionary(e => e.Id, StringComparer.OrdinalIgnoreCase);
+        foreach (var boundary in model.Boundaries)
+        {
+            var memberElements = boundary.ElementIds
+                .Where(id => elementById.ContainsKey(id))
+                .Select(id => elementById[id])
+                .ToList();
+            if (memberElements.Count == 0) continue;
+
+            currentY = DrawBoundary(builder, boundary, memberElements, currentY, width, maxPerRow,
+                options, elementPositions, theme);
+        }
 
         // Draw relationships
         foreach (var rel in model.Relationships)
@@ -102,6 +148,31 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         return builder.Build();
     }
 
+    /// <summary>
+    /// Draw elements in rows of up to maxPerRow, handling overflow to multiple rows.
+    /// </summary>
+    static double DrawElementRows(
+        SvgBuilder builder,
+        List<C4Element> elements,
+        double startY,
+        double totalWidth,
+        int maxPerRow,
+        RenderOptions options,
+        Dictionary<string, (double x, double y, double w, double h)> positions,
+        DiagramTheme theme)
+    {
+        if (elements.Count == 0) return startY;
+
+        var currentY = startY;
+        for (var rowStart = 0; rowStart < elements.Count; rowStart += maxPerRow)
+        {
+            var rowElements = elements.Skip(rowStart).Take(maxPerRow).ToList();
+            currentY = DrawElementRow(builder, rowElements, currentY, totalWidth, options, positions, theme);
+        }
+
+        return currentY;
+    }
+
     static double DrawElementRow(
         SvgBuilder builder,
         List<C4Element> elements,
@@ -111,10 +182,7 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         Dictionary<string, (double x, double y, double w, double h)> positions,
         DiagramTheme theme)
     {
-        if (elements.Count == 0)
-        {
-            return startY;
-        }
+        if (elements.Count == 0) return startY;
 
         var rowWidth = elements.Count * (ElementWidth + ElementSpacing) - ElementSpacing;
         var startX = (totalWidth - rowWidth) / 2;
@@ -134,6 +202,72 @@ public class C4Renderer : IDiagramRenderer<C4Model>
 
         var maxHeight = elements.Max(e => e.Type == C4ElementType.Person ? PersonHeight : ElementHeight);
         return startY + maxHeight + RowSpacing;
+    }
+
+    static double DrawBoundary(
+        SvgBuilder builder,
+        C4Boundary boundary,
+        List<C4Element> members,
+        double startY,
+        double totalWidth,
+        int maxPerRow,
+        RenderOptions options,
+        Dictionary<string, (double x, double y, double w, double h)> positions,
+        DiagramTheme theme)
+    {
+        var boundaryStartY = startY;
+
+        // Reserve space for boundary title
+        var contentStartY = startY + BoundaryPadding + BoundaryTitleHeight;
+
+        // Draw elements inside boundary
+        var contentEndY = DrawElementRows(builder, members, contentStartY, totalWidth, maxPerRow,
+            options, positions, theme);
+
+        var boundaryEndY = contentEndY - RowSpacing + BoundaryPadding;
+
+        // Calculate the horizontal extent of contained elements
+        var minX = double.MaxValue;
+        var maxX = double.MinValue;
+        foreach (var member in members)
+        {
+            if (positions.TryGetValue(member.Id, out var pos))
+            {
+                minX = Math.Min(minX, pos.x - pos.w / 2);
+                maxX = Math.Max(maxX, pos.x + pos.w / 2);
+            }
+        }
+
+        // Fallback if no positions found
+        if (minX == double.MaxValue)
+        {
+            minX = options.Padding;
+            maxX = totalWidth - options.Padding;
+        }
+
+        var boundaryX = minX - BoundaryPadding;
+        var boundaryWidth = maxX - minX + BoundaryPadding * 2;
+        var boundaryHeight = boundaryEndY - boundaryStartY;
+
+        // Draw boundary box (dashed border)
+        builder.AddRect(boundaryX, boundaryStartY, boundaryWidth, boundaryHeight,
+            rx: 8,
+            fill: "none",
+            stroke: theme.MutedText,
+            strokeWidth: 1.5,
+            style: "stroke-dasharray:8,4");
+
+        // Draw boundary label
+        builder.AddText(boundaryX + BoundaryPadding, boundaryStartY + BoundaryPadding + 8,
+            boundary.Label,
+            anchor: "start",
+            baseline: "middle",
+            fontSize: $"{options.FontSize - 1}px",
+            fontFamily: options.FontFamily,
+            fill: theme.MutedText,
+            fontWeight: "bold");
+
+        return boundaryEndY + RowSpacing;
     }
 
     static void DrawElement(SvgBuilder builder, C4Element element, double x, double y, RenderOptions options, DiagramTheme theme)

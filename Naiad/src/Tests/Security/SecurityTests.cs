@@ -18,7 +18,7 @@ public class SecurityTests : TestBase
         var ex = Assert.Throws<MermaidSecurityException>(() =>
             Mermaid.Render(input));
 
-        Assert.That(ex.Message, Does.Contain("Input size"));
+        Assert.That(ex?.Message, Does.Contain("Input size"));
     }
 
     [Test]
@@ -46,7 +46,7 @@ public class SecurityTests : TestBase
         var ex = Assert.Throws<MermaidSecurityException>(() =>
             Mermaid.Render(input));
 
-        Assert.That(ex.Message, Does.Contain("too many nodes"));
+        Assert.That(ex?.Message, Does.Contain("too many nodes"));
     }
 
     [Test]
@@ -78,7 +78,7 @@ public class SecurityTests : TestBase
         var ex = Assert.Throws<MermaidSecurityException>(() =>
             Mermaid.Render(input));
 
-        Assert.That(ex.Message, Does.Contain("too many edges"));
+        Assert.That(ex?.Message, Does.Contain("too many edges"));
     }
 
     [Test]
@@ -91,7 +91,7 @@ public class SecurityTests : TestBase
         var ex = Assert.Throws<MermaidSecurityException>(() =>
             Mermaid.Render(input));
 
-        Assert.That(ex.Message, Does.Contain("complexity"));
+        Assert.That(ex?.Message, Does.Contain("complexity"));
     }
 
     [Test]
@@ -452,7 +452,7 @@ public class SecurityTests : TestBase
         var ex = Assert.Throws<MermaidParseException>(() =>
             Mermaid.Render(input));
 
-        Assert.That(ex.Message, Is.Not.Empty);
+        Assert.That(ex?.Message, Is.Not.Empty);
     }
 
     [Test]

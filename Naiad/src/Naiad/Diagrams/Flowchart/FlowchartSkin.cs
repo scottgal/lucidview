@@ -40,18 +40,18 @@ public sealed record FlowchartSkin(
         };
     }
 
-    // React Flow-inspired: clean white nodes, dark blue-gray borders, muted gray edges
+    // Mermaid.js default skin: light purple nodes, purple borders
     static readonly FlowchartSkin Default = new(
         Name: "default",
         Background: "#ffffff",
-        TextColor: "#1a192b",
-        NodeFill: "#ffffff",
-        NodeStroke: "#1a192b",
-        EdgeStroke: "#b1b1b7",
-        EdgeLabelBackground: "rgba(255,255,255,0.9)",
-        SubgraphFill: "rgba(240,240,240,0.25)",
-        SubgraphStroke: "#b1b1b7",
-        SubgraphTitleColor: "#1a192b");
+        TextColor: "#333",
+        NodeFill: "#ECECFF",
+        NodeStroke: "#9370DB",
+        EdgeStroke: "#333333",
+        EdgeLabelBackground: "rgba(232,232,232,0.8)",
+        SubgraphFill: "#ffffde",
+        SubgraphStroke: "#aaaa33",
+        SubgraphTitleColor: "#333");
 
     static readonly FlowchartSkin Neutral = new(
         Name: "neutral",

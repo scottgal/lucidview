@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Naiad Plain Web Component</title>
+</head>
+<body>
+<h1>Plain HTML + Naiad Web Component</h1>
+
+<naiad-diagram id="diagram" show-menu fit-width rerender-on-resize download-filename="naiad-diagram" theme="auto">
+%% naiad: skinPack=glass
+flowchart LR
+    Browser --> NaiadWasm
+    NaiadWasm --> Svg
+</naiad-diagram>
+
+<script type="module" src="naiad-web-component.js"></script>
+</body>
+</html>

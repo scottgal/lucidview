@@ -12,12 +12,19 @@ public class Node
     public string? CssClass { get; set; }
     public string? Link { get; set; }
     public string? Tooltip { get; set; }
+    public string? SkinShapeName { get; set; }
     public string? ParentId { get; set; }
     public bool IsGroup { get; set; }
 
     // Layout properties (set by layout engine)
     public int Rank { get; set; }
     public int Order { get; set; }
+
+    /// <summary>
+    /// When text is wrapped during measurement, this stores the wrapped version
+    /// with newlines inserted. Used for rendering multi-line text in nodes.
+    /// </summary>
+    public string? WrappedLabel { get; set; }
 
     /// <summary>
     /// Display label with HTML line breaks converted to newlines and formatting tags stripped.

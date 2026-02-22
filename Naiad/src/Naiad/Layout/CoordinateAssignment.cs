@@ -12,7 +12,7 @@ static class CoordinateAssignment
         // Assign Y coordinates based on ranks
         AssignRankCoordinates(graph, rankSep, isHorizontal);
 
-        // Assign X coordinates using simplified Brandes-Köpf
+        // Assign X coordinates using Brandes-Köpf (4-pass with median balancing)
         AssignPositionCoordinates(graph, nodeSep, isHorizontal);
 
         // Handle direction reversal
@@ -46,123 +46,421 @@ static class CoordinateAssignment
         }
     }
 
+    /// <summary>
+    /// Brandes-Köpf coordinate assignment: run 4 directional passes
+    /// (up-left, up-right, down-left, down-right), then balance by taking
+    /// the median of the 4 results for each node.
+    /// </summary>
     static void AssignPositionCoordinates(LayoutGraph graph, double nodeSep, bool isHorizontal)
     {
-        // Use block positioning with median alignment
-        // This is a simplified version of Brandes-Köpf
-
-        // Pass 1: Position nodes left-aligned within ranks
+        // Build layering matrix (ranks ordered by node.Order)
+        var layering = new List<LayoutNode>[graph.Ranks.Length];
         for (var r = 0; r < graph.Ranks.Length; r++)
         {
-            var nodesInRank = graph.Ranks[r].OrderBy(n => n.Order).ToList();
-            double currentX = 0;
-
-            foreach (var node in nodesInRank)
-            {
-                var nodeWidth = isHorizontal ? node.Height : node.Width;
-                if (isHorizontal)
-                {
-                    node.Y = currentX + nodeWidth / 2;
-                }
-                else
-                {
-                    node.X = currentX + nodeWidth / 2;
-                }
-                currentX += nodeWidth + nodeSep;
-            }
+            layering[r] = graph.Ranks[r].OrderBy(n => n.Order).ToList();
         }
 
-        // Pass 2: Center alignment based on connected nodes
-        for (var iteration = 0; iteration < 4; iteration++)
+        // Build position lookup (order within rank)
+        var pos = new Dictionary<string, int>();
+        foreach (var layer in layering)
         {
-            // Down pass
-            for (var r = 1; r < graph.Ranks.Length; r++)
-            {
-                AlignToNeighbors(graph, r, true, nodeSep, isHorizontal);
-            }
-
-            // Up pass
-            for (var r = graph.Ranks.Length - 2; r >= 0; r--)
-            {
-                AlignToNeighbors(graph, r, false, nodeSep, isHorizontal);
-            }
+            for (var i = 0; i < layer.Count; i++)
+                pos[layer[i].Id] = i;
         }
 
-        // Normalize positions to start at 0
+        // Find type-1 conflicts (non-inner segment crossing inner segment)
+        var conflicts = FindType1Conflicts(graph, layering, pos);
+
+        // Run 4 directional passes
+        var results = new Dictionary<string, double>[4];
+        var dirs = new[] { (true, true), (true, false), (false, true), (false, false) };
+        // (upward, leftward) combinations: UL, UR, DL, DR
+
+        for (var d = 0; d < 4; d++)
+        {
+            var (upward, leftward) = dirs[d];
+
+            // Adjust layering for direction
+            var adjustedLayering = new List<LayoutNode>[layering.Length];
+            if (upward)
+            {
+                for (var r = 0; r < layering.Length; r++)
+                    adjustedLayering[r] = new List<LayoutNode>(layering[r]);
+            }
+            else
+            {
+                for (var r = 0; r < layering.Length; r++)
+                    adjustedLayering[r] = new List<LayoutNode>(layering[layering.Length - 1 - r]);
+            }
+
+            if (!leftward)
+            {
+                for (var r = 0; r < adjustedLayering.Length; r++)
+                    adjustedLayering[r].Reverse();
+            }
+
+            // Step 1: Vertical alignment - build blocks
+            var (root, align) = VerticalAlignment(graph, adjustedLayering, pos, conflicts, upward);
+
+            // Step 2: Horizontal compaction - assign positions to blocks
+            var xs = HorizontalCompaction(graph, adjustedLayering, root, align, nodeSep, isHorizontal, !leftward);
+
+            // Negate positions for right-to-left passes
+            if (!leftward)
+            {
+                foreach (var key in xs.Keys.ToList())
+                    xs[key] = -xs[key];
+            }
+
+            results[d] = xs;
+        }
+
+        // Find smallest width alignment and align all to it
+        AlignCoordinates(results);
+
+        // Balance: take median of 4 results for each node
+        foreach (var node in graph.Nodes.Values)
+        {
+            var values = new double[4];
+            for (var d = 0; d < 4; d++)
+                values[d] = results[d].GetValueOrDefault(node.Id);
+            Array.Sort(values);
+            var balanced = (values[1] + values[2]) / 2; // median of 4
+
+            if (isHorizontal)
+                node.Y = balanced;
+            else
+                node.X = balanced;
+        }
+
         NormalizePositions(graph);
     }
 
-    static void AlignToNeighbors(LayoutGraph graph, int rank, bool useInEdges,
-        double nodeSep, bool isHorizontal)
+    /// <summary>
+    /// Find type-1 conflicts: a non-inner segment that crosses an inner segment.
+    /// Inner segments are edges between two dummy nodes (part of a long edge).
+    /// </summary>
+    static HashSet<(string, string)> FindType1Conflicts(LayoutGraph graph,
+        List<LayoutNode>[] layering, Dictionary<string, int> pos)
     {
-        var nodesInRank = graph.Ranks[rank].OrderBy(n => n.Order).ToList();
+        var conflicts = new HashSet<(string, string)>();
 
-        foreach (var node in nodesInRank)
+        for (var r = 1; r < layering.Length; r++)
         {
-            var neighbors = useInEdges
-                ? graph.GetPredecessors(node.Id).ToList()
-                : graph.GetSuccessors(node.Id).ToList();
+            var prevLayer = layering[r - 1];
+            var layer = layering[r];
+            var k0 = 0;
+            var scanPos = 0;
+            var prevLayerLength = prevLayer.Count;
 
-            if (neighbors.Count == 0)
+            for (var i = 0; i < layer.Count; i++)
             {
-                continue;
-            }
+                var v = layer[i];
+                // Find if v connects to a dummy in previous layer (inner segment)
+                var w = FindOtherInnerSegmentNode(graph, v, true);
+                var k1 = w is not null ? pos[w.Id] : prevLayerLength;
 
-            // Calculate median position of neighbors
-            var positions = neighbors
-                .Select(n => isHorizontal ? n.Y : n.X)
-                .OrderBy(x => x)
-                .ToList();
-
-            var targetPos = LayoutUtils.Median(positions);
-            var currentPos = isHorizontal ? node.Y : node.X;
-
-            // Only move if it improves alignment and doesn't cause overlap
-            var delta = targetPos - currentPos;
-            if (Math.Abs(delta) > 0.1)
-            {
-                var canMove = CanMoveNode(graph, node, delta, nodeSep, isHorizontal);
-                if (canMove)
+                if (w is not null || i == layer.Count - 1)
                 {
-                    if (isHorizontal)
+                    for (var scanIdx = scanPos; scanIdx <= i; scanIdx++)
                     {
-                        node.Y = targetPos;
+                        var scanNode = layer[scanIdx];
+                        foreach (var pred in graph.GetPredecessors(scanNode.Id))
+                        {
+                            var uPos = pos.GetValueOrDefault(pred.Id, -1);
+                            if ((uPos < k0 || k1 < uPos) &&
+                                !(pred.IsDummy && scanNode.IsDummy))
+                            {
+                                AddConflict(conflicts, pred.Id, scanNode.Id);
+                            }
+                        }
                     }
-                    else
+                    scanPos = i + 1;
+                    k0 = k1;
+                }
+            }
+        }
+
+        return conflicts;
+    }
+
+    /// <summary>
+    /// Find the predecessor that forms an inner segment (both nodes are dummy).
+    /// </summary>
+    static LayoutNode? FindOtherInnerSegmentNode(LayoutGraph graph, LayoutNode node, bool usePredecessors)
+    {
+        if (!node.IsDummy) return null;
+
+        var neighbors = usePredecessors
+            ? graph.GetPredecessors(node.Id)
+            : graph.GetSuccessors(node.Id);
+
+        foreach (var n in neighbors)
+        {
+            if (n.IsDummy) return n;
+        }
+        return null;
+    }
+
+    static void AddConflict(HashSet<(string, string)> conflicts, string v, string w)
+    {
+        var key = string.CompareOrdinal(v, w) < 0 ? (v, w) : (w, v);
+        conflicts.Add(key);
+    }
+
+    static bool HasConflict(HashSet<(string, string)> conflicts, string v, string w)
+    {
+        var key = string.CompareOrdinal(v, w) < 0 ? (v, w) : (w, v);
+        return conflicts.Contains(key);
+    }
+
+    /// <summary>
+    /// Build vertical alignment: group nodes into "blocks" that share the same X position.
+    /// Each node aligns with its median neighbor in the previous layer, avoiding type-1 conflicts.
+    /// Returns root[v] = the root node of v's block, align[v] = next node in v's block chain.
+    /// </summary>
+    static (Dictionary<string, string> Root, Dictionary<string, string> Align) VerticalAlignment(
+        LayoutGraph graph,
+        List<LayoutNode>[] layering,
+        Dictionary<string, int> pos,
+        HashSet<(string, string)> conflicts,
+        bool usePredecessors)
+    {
+        var root = new Dictionary<string, string>();
+        var align = new Dictionary<string, string>();
+
+        // Initialize: each node is its own root and aligned to itself
+        foreach (var layer in layering)
+        {
+            foreach (var node in layer)
+            {
+                root[node.Id] = node.Id;
+                align[node.Id] = node.Id;
+            }
+        }
+
+        // Process each layer
+        foreach (var layer in layering)
+        {
+            var prevIdx = -1;
+            foreach (var v in layer)
+            {
+                var neighbors = usePredecessors
+                    ? graph.GetPredecessors(v.Id).ToList()
+                    : graph.GetSuccessors(v.Id).ToList();
+
+                if (neighbors.Count == 0) continue;
+
+                // Sort neighbors by their position in their layer
+                neighbors.Sort((a, b) => pos.GetValueOrDefault(a.Id).CompareTo(pos.GetValueOrDefault(b.Id)));
+
+                // Find median neighbor(s)
+                var mp = (neighbors.Count - 1) / 2.0;
+                for (var i = (int)Math.Floor(mp); i <= (int)Math.Ceiling(mp); i++)
+                {
+                    var w = neighbors[i];
+                    if (align[v.Id] == v.Id && // v not already aligned
+                        prevIdx < pos.GetValueOrDefault(w.Id) && // maintains left-to-right order
+                        !HasConflict(conflicts, v.Id, w.Id)) // no type-1 conflict
                     {
-                        node.X = targetPos;
+                        align[w.Id] = v.Id;
+                        align[v.Id] = root[v.Id] = root[w.Id];
+                        prevIdx = pos.GetValueOrDefault(w.Id);
                     }
                 }
             }
         }
+
+        return (root, align);
     }
 
-    static bool CanMoveNode(LayoutGraph graph, LayoutNode node, double delta,
-        double nodeSep, bool isHorizontal)
+    /// <summary>
+    /// Horizontal compaction: assign X coordinates to blocks.
+    /// Builds a "block graph" where edges represent minimum separation constraints
+    /// between adjacent blocks, then does two-pass positioning.
+    /// </summary>
+    static Dictionary<string, double> HorizontalCompaction(
+        LayoutGraph graph,
+        List<LayoutNode>[] layering,
+        Dictionary<string, string> root,
+        Dictionary<string, string> align,
+        double nodeSep,
+        bool isHorizontal,
+        bool reverseSep)
     {
-        var nodesInRank = graph.Ranks[node.Rank];
-        var nodePos = isHorizontal ? node.Y : node.X;
-        var newPos = nodePos + delta;
-        var nodeSize = isHorizontal ? node.Height : node.Width;
+        var xs = new Dictionary<string, double>();
 
-        foreach (var other in nodesInRank)
+        // Build block graph: for each pair of adjacent nodes in a layer,
+        // create an edge between their block roots with minimum separation weight
+        var blockEdges = new Dictionary<string, Dictionary<string, double>>(); // source -> target -> weight
+
+        foreach (var layer in layering)
         {
-            if (other.Id == node.Id)
+            LayoutNode? prev = null;
+            foreach (var v in layer)
             {
-                continue;
-            }
+                var vRoot = root[v.Id];
+                if (!blockEdges.ContainsKey(vRoot))
+                    blockEdges[vRoot] = new Dictionary<string, double>();
 
-            var otherPos = isHorizontal ? other.Y : other.X;
-            var otherSize = isHorizontal ? other.Height : other.Width;
-            var minDist = (nodeSize + otherSize) / 2 + nodeSep;
+                if (prev is not null)
+                {
+                    var uRoot = root[prev.Id];
+                    if (uRoot != vRoot) // different blocks
+                    {
+                        var sep = GetSeparation(prev, v, nodeSep, isHorizontal);
+                        if (reverseSep) sep = -sep;
+                        var absSep = Math.Abs(sep);
 
-            if (Math.Abs(newPos - otherPos) < minDist)
-            {
-                return false;
+                        if (!blockEdges.ContainsKey(uRoot))
+                            blockEdges[uRoot] = new Dictionary<string, double>();
+
+                        if (!blockEdges[uRoot].TryGetValue(vRoot, out var existing) || absSep > existing)
+                            blockEdges[uRoot][vRoot] = absSep;
+                    }
+                }
+                prev = v;
             }
         }
 
-        return true;
+        // Collect all block roots
+        var allRoots = new HashSet<string>();
+        foreach (var layer in layering)
+            foreach (var v in layer)
+                allRoots.Add(root[v.Id]);
+
+        // Pass 1: Left-to-right - assign minimum X based on predecessors
+        // Topological order: process blocks whose predecessors are all done
+        var inDegree = new Dictionary<string, int>();
+        foreach (var r in allRoots) inDegree[r] = 0;
+        foreach (var (src, targets) in blockEdges)
+        {
+            foreach (var tgt in targets.Keys)
+            {
+                if (allRoots.Contains(tgt))
+                    inDegree[tgt] = inDegree.GetValueOrDefault(tgt) + 1;
+            }
+        }
+
+        var queue = new Queue<string>();
+        foreach (var r in allRoots)
+            if (inDegree.GetValueOrDefault(r) == 0)
+                queue.Enqueue(r);
+
+        while (queue.Count > 0)
+        {
+            var block = queue.Dequeue();
+            var maxPredX = 0.0;
+            // Find max(predecessor position + separation)
+            foreach (var (src, targets) in blockEdges)
+            {
+                if (targets.TryGetValue(block, out var weight))
+                {
+                    maxPredX = Math.Max(maxPredX, xs.GetValueOrDefault(src) + weight);
+                }
+            }
+            xs[block] = maxPredX;
+
+            if (blockEdges.TryGetValue(block, out var successors))
+            {
+                foreach (var succ in successors.Keys)
+                {
+                    if (!allRoots.Contains(succ)) continue;
+                    inDegree[succ]--;
+                    if (inDegree[succ] == 0)
+                        queue.Enqueue(succ);
+                }
+            }
+        }
+
+        // Handle any blocks not reached (shouldn't happen in DAG but safety)
+        foreach (var r in allRoots)
+            if (!xs.ContainsKey(r))
+                xs[r] = 0;
+
+        // Pass 2: Right-to-left - tighten by pulling nodes right toward successors
+        // Process in reverse topological order
+        var reverseOrder = xs.OrderByDescending(kv => kv.Value).Select(kv => kv.Key).ToList();
+        foreach (var block in reverseOrder)
+        {
+            if (!blockEdges.TryGetValue(block, out var successors)) continue;
+            var minSuccX = double.PositiveInfinity;
+            foreach (var (succ, weight) in successors)
+            {
+                if (xs.TryGetValue(succ, out var succX))
+                    minSuccX = Math.Min(minSuccX, succX - weight);
+            }
+            if (minSuccX != double.PositiveInfinity)
+                xs[block] = Math.Max(xs[block], minSuccX);
+        }
+
+        // Map each node to its block root's position
+        var result = new Dictionary<string, double>();
+        foreach (var node in graph.Nodes.Values)
+        {
+            result[node.Id] = xs.GetValueOrDefault(root[node.Id]);
+        }
+
+        return result;
+    }
+
+    static double GetSeparation(LayoutNode u, LayoutNode v, double nodeSep, bool isHorizontal)
+    {
+        var uSize = isHorizontal ? u.Height : u.Width;
+        var vSize = isHorizontal ? v.Height : v.Width;
+        return (uSize + vSize) / 2 + nodeSep;
+    }
+
+    /// <summary>
+    /// Align all 4 results to the smallest-width alignment's reference point.
+    /// </summary>
+    static void AlignCoordinates(Dictionary<string, double>[] results)
+    {
+        // Find the alignment with the smallest width
+        var minWidth = double.PositiveInfinity;
+        var bestIdx = 0;
+        for (var d = 0; d < results.Length; d++)
+        {
+            if (results[d].Count == 0) continue;
+            var min = results[d].Values.Min();
+            var max = results[d].Values.Max();
+            var width = max - min;
+            if (width < minWidth)
+            {
+                minWidth = width;
+                bestIdx = d;
+            }
+        }
+
+        if (results[bestIdx].Count == 0) return;
+
+        var bestMin = results[bestIdx].Values.Min();
+        var bestMax = results[bestIdx].Values.Max();
+
+        // Align each result so its center matches the best alignment's center
+        for (var d = 0; d < results.Length; d++)
+        {
+            if (d == bestIdx || results[d].Count == 0) continue;
+
+            var dMin = results[d].Values.Min();
+            var dMax = results[d].Values.Max();
+
+            // Shift to align left edges, then center
+            var shiftLeft = bestMin - dMin;
+            var shiftRight = bestMax - dMax;
+
+            var shift = (dMin + shiftLeft < dMin + shiftRight)
+                ? shiftLeft : shiftRight;
+
+            // Actually: dagre shifts by min or max alignment
+            // Use the shift that brings closest to best alignment center
+            var bestCenter = (bestMin + bestMax) / 2;
+            var dCenter = (dMin + dMax) / 2;
+            shift = bestCenter - dCenter;
+
+            foreach (var key in results[d].Keys.ToList())
+                results[d][key] += shift;
+        }
     }
 
     static void NormalizePositions(LayoutGraph graph)
@@ -243,13 +541,18 @@ static class CoordinateAssignment
                 var sourceEdgeY = isHorizontal ? source.Y : source.Y + source.Height / 2;
                 edge.Points.Add(new(sourceEdgeX, sourceEdgeY));
 
-                // Find dummy nodes for this edge
+                // Find dummy nodes for this edge - check both directions for reversed edges
                 var dummies = graph.Nodes.Values
                     .Where(n => n.IsDummy &&
-                                n.OriginalEdgeSource == edge.SourceId &&
-                                n.OriginalEdgeTarget == edge.TargetId)
-                    .OrderBy(n => n.Rank)
+                                ((n.OriginalEdgeSource == edge.SourceId && n.OriginalEdgeTarget == edge.TargetId) ||
+                                 (n.OriginalEdgeSource == edge.TargetId && n.OriginalEdgeTarget == edge.SourceId)))
                     .ToList();
+
+                // Order by rank in edge direction
+                if (source.Rank > target.Rank)
+                    dummies = dummies.OrderByDescending(n => n.Rank).ToList();
+                else
+                    dummies = dummies.OrderBy(n => n.Rank).ToList();
 
                 foreach (var dummy in dummies)
                 {

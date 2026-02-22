@@ -1,0 +1,67 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Segoe UI, Arial, sans-serif;
+    background: #f6f8fb;
+    color: #111827;
+}
+
+main {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+}
+
+h1 {
+    margin: 0 0 8px;
+}
+
+p {
+    margin: 0 0 16px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+textarea {
+    width: 100%;
+    min-height: 180px;
+    padding: 12px;
+    font-family: Consolas, "Courier New", monospace;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+}
+
+button {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: #1f2937;
+    color: #fff;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #111827;
+}
+
+pre {
+    margin: 12px 0;
+    padding: 10px;
+    border-radius: 6px;
+    background: #eef2ff;
+    white-space: pre-wrap;
+}
+
+naiad-diagram {
+    display: block;
+    margin-top: 12px;
+}

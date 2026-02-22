@@ -880,3 +880,15 @@ fabric.properties
 # Test snapshot PNGs (verified SVGs are sufficient)
 *.verified.png
 
+# Generated comparison/test output
+compare-output/
+**/compare-output/
+**/compare-output-all/
+**/--output/
+**/--flowcharts-only/
+**/test-output/
+.codex-temp/
+**/EdgeTest/
+test-*.svg
+output-test.svg
+

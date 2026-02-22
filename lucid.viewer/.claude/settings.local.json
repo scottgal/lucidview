@@ -37,7 +37,27 @@
       "Bash(pwsh -c \"bin/Debug/net10.0/playwright.ps1 install chromium\":*)",
       "Bash(cmd /c \"dir /b \"\"E:\\\\source\\\\markdown.viewer\\\\Naiad\\\\src\\\\Naiad\\\\Diagrams\"\"\")",
       "Bash(powershell -Command:*)",
-      "Bash(powershell -NoProfile:*)"
+      "Bash(powershell -NoProfile:*)",
+      "WebFetch(domain:docs.structurizr.com)",
+      "WebFetch(domain:icepanel.medium.com)",
+      "WebFetch(domain:structurizr.com)",
+      "Bash(cmd:*)",
+      "Bash(cd \"E:/source/markdown.viewer\" && git add \\\\\n  Naiad/src/Naiad/Diagrams/C4/C4Model.cs \\\\\n  Naiad/src/Naiad/Diagrams/C4/C4Parser.cs \\\\\n  Naiad/src/Naiad/Diagrams/C4/C4Renderer.cs \\\\\n  Naiad/src/Naiad/Rendering/SvgDocument.cs \\\\\n  Naiad/src/Naiad/Rendering/SvgBuilder.cs \\\\\n  MarkdownViewer/Controls/DiagramCanvas.cs \\\\\n  MarkdownViewer/Services/MarkdownService.cs \\\\\n  MarkdownViewer/Plugins/AvaloniaNativeDiagramRendererPlugin.cs \\\\\n  MarkdownViewer/Views/MainWindow.axaml.cs \\\\\n  2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && git reset HEAD .gitmodules Naiad/lib/Dagre.NET 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && git commit -m \"$\\(cat <<'EOF'\nAdd C4 diagram zoom/drill-down for cross-diagram navigation\n\nEnable clicking elements in C4 diagrams to scroll to related diagrams\nat deeper zoom levels \\(Context→Container→Component\\). Matches element IDs\nto boundary IDs across diagrams automatically, with explicit $link support.\n\n- Parse $link parameter on C4 Person/System/Container/Component elements\n- Add HitRegions and Metadata to SvgDocument for interactive diagrams\n- Emit element groups and hit regions from C4Renderer\n- Build cross-diagram zoom index in MarkdownService\n- Add click/hover/highlight interaction to DiagramCanvas\n- Wire zoom targets and scroll navigation through plugin to MainWindow\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" 2>&1)",
+      "Bash(tail:*)",
+      "Bash(cd \"E:/source/markdown.viewer\" && git add .gitignore && git diff --staged --stat 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && git commit -m \"$\\(cat <<'EOF'\nRemove verified PNG test snapshots from repo\n\nSVG snapshots are sufficient for test verification. Removes 152 PNG files\nand adds *.verified.png to .gitignore to prevent re-adding.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" 2>&1)",
+      "Bash(head:*)",
+      "Bash(unzip:*)",
+      "WebFetch(domain:www.microsoft.com)",
+      "WebFetch(domain:raphlinus.github.io)",
+      "WebFetch(domain:docs.yworks.com)",
+      "WebFetch(domain:pomax.github.io)",
+      "WebFetch(domain:cprimozic.net)",
+      "WebFetch(domain:people.eng.unimelb.edu.au)",
+      "WebFetch(domain:www.particleincell.com)",
+      "WebFetch(domain:www.truetex.com)"
     ]
   }
 }

@@ -87,6 +87,8 @@ internal class LayoutNode
     public double X { get; set; }
     public double Y { get; set; }
     public bool IsDummy { get; set; }
+    public NodeShape Shape { get; set; }
+    public string? SkinShapeName { get; set; }
     public bool IsConstraint { get; set; }
     public string? SubgraphId { get; set; }
     public string? OriginalEdgeSource { get; set; }
@@ -98,8 +100,8 @@ internal class LayoutNode
 
 internal class LayoutEdge
 {
-    public required string SourceId { get; init; }
-    public required string TargetId { get; init; }
+    public required string SourceId { get; set; }
+    public required string TargetId { get; set; }
     public int Weight { get; set; } = 1;
     public bool IsReversed { get; set; }
     public bool IsConstraint { get; set; }

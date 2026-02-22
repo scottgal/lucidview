@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Naiad Cat Skins Demo</title>
+  <style>
+    :root { color-scheme: dark light; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+      color: #0f172a;
+    }
+    .card {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+    }
+    h1 { margin: 0 0 8px 0; font-size: 1.2rem; }
+    p { margin: 0 0 12px 0; opacity: 0.85; }
+    code { background: rgba(15, 23, 42, 0.08); padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Cat Mermaid Skin Demo</h1>
+    <p>
+      Driven by extended directives:
+      <code>%% naiad: skinPack=...</code> and <code>%% naiad: theme=...</code>
+    </p>
+    <naiad-diagram id="cat-diagram" show-menu fit-width theme="auto"></naiad-diagram>
+  </div>
+
+  <script type="module" src="./naiad-web-component.js"></script>
+  <script type="module">
+    const params = new URLSearchParams(window.location.search);
+    const skin = (params.get("skin") ?? "cats").trim() || "cats";
+    const theme = (params.get("theme") ?? "dark").trim() || "dark";
+
+    const component = document.getElementById("cat-diagram");
+    const mermaid = [
+      `%% naiad: {"skinPack":"${skin}","theme":"${theme}","shapes":"CatCafe=cat-head,CatPlay=cat-head,CatNap=cat-paw,Treats=cat-fish,Purr=cat-head"}`,
+      "flowchart LR",
+      "  CatCafe[Cat Cafe] --> CatPlay[Play Tunnel]",
+      "  CatPlay --> CatNap[Nap Cloud]",
+      "  CatNap --> Treats[Treat Counter]",
+      "  Treats --> Purr[Happy Purrs]"
+    ].join("\n");
+
+    component.mermaid = mermaid;
+  </script>
+</body>
+</html>

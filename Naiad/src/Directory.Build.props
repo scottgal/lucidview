@@ -9,5 +9,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
 </Project>

@@ -21,6 +21,10 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="Microsoft.Playwright" />
     <ProjectReference Include="..\Naiad\Naiad.csproj" />
+    <ProjectReference Include="..\Naiad.Skins.Cats\Naiad.Skins.Cats.csproj" />
+    <ProjectReference Include="..\Naiad.Skins.Showcase\Naiad.Skins.Showcase.csproj" />
+    <ProjectReference Include="..\Naiad.Surfaces.ImageSharp\Naiad.Surfaces.ImageSharp.csproj" />
+    <ProjectReference Include="..\Naiad.Surfaces.Skia\Naiad.Surfaces.Skia.csproj" />
     <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
   </ItemGroup>
 

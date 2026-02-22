@@ -5,5 +5,15 @@
     <File Path="global.json" />
   </Folder>
   <Project Path="Naiad/Naiad.csproj" />
+  <Project Path="Naiad.Benchmarks/Naiad.Benchmarks.csproj" />
+  <Project Path="Naiad.Benchmarks.Original/Naiad.Benchmarks.Original.csproj" />
+  <Project Path="Naiad.ConsoleDemo/Naiad.ConsoleDemo.csproj" />
+  <Project Path="Naiad.RenderCli/Naiad.RenderCli.csproj" />
+  <Project Path="Naiad.Skins.Cats/Naiad.Skins.Cats.csproj" />
+  <Project Path="Naiad.Skins.Showcase/Naiad.Skins.Showcase.csproj" />
+  <Project Path="Naiad.Surfaces.ImageSharp/Naiad.Surfaces.ImageSharp.csproj" />
+  <Project Path="Naiad.Surfaces.Skia/Naiad.Surfaces.Skia.csproj" />
+  <Project Path="Naiad.Wasm/Naiad.Wasm.csproj" />
+  <Project Path="Naiad.Wasm.Host/Naiad.Wasm.Host.csproj" />
   <Project Path="Tests/Tests.csproj" />
 </Solution>

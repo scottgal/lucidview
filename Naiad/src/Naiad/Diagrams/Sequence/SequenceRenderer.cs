@@ -105,7 +105,29 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
     static double CalculateWidth(SequenceModel model, RenderOptions options)
     {
         var participantCount = Math.Max(1, model.Participants.Count);
-        return options.Padding * 2 + ParticipantWidth + (participantCount - 1) * ParticipantSpacing;
+        var baseWidth = options.Padding * 2 + ParticipantWidth + (participantCount - 1) * ParticipantSpacing;
+
+        // Account for notes that extend beyond the rightmost participant
+        var rightmostX = options.Padding + ParticipantWidth / 2 + (participantCount - 1) * ParticipantSpacing;
+        var maxRightExtent = baseWidth;
+
+        foreach (var element in model.Elements)
+        {
+            if (element is Note { Position: NotePosition.RightOf } note)
+            {
+                // Note extends NoteWidth + 10px gap to the right of the participant
+                var noteRight = rightmostX + ParticipantWidth / 2 + 10 + NoteWidth + options.Padding;
+                maxRightExtent = Math.Max(maxRightExtent, noteRight);
+            }
+            else if (element is Message msg && msg.FromId == msg.ToId)
+            {
+                // Self-message loop extends 40px right + text
+                var selfRight = rightmostX + 40 + 80 + options.Padding;
+                maxRightExtent = Math.Max(maxRightExtent, selfRight);
+            }
+        }
+
+        return Math.Max(baseWidth, maxRightExtent);
     }
 
     static void DrawParticipants(SvgBuilder builder, SequenceModel model,

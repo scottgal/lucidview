@@ -14,7 +14,7 @@ public class FlowchartStylingTests
         var svg = Mermaid.Render(input, new RenderOptions { Theme = "dark" });
 
         Assert.That(svg, Does.Contain("Mermaid skin: dark"));
-        Assert.That(svg, Does.Contain("--flow-node-fill"));
+        Assert.That(svg, Does.Contain("fill:#1f2937;"));
         Assert.That(svg, Does.Contain(".flow-edge-dotted"));
         Assert.That(svg, Does.Contain(".flow-node-shape"));
     }

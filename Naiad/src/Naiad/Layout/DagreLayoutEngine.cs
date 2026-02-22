@@ -41,6 +41,9 @@ public class DagreLayoutEngine : ILayoutEngine
         // Apply positions back to diagram
         ApplyLayout(graph, diagram, options);
 
+        // Clip edge endpoints to actual shape boundaries
+        ClipEdgeEndpoints(diagram);
+
         // Calculate bounds (don't add margin again - positions already include it)
         var width = diagram.Nodes.Max(n => n.Position.X + n.Width / 2);
         var height = diagram.Nodes.Max(n => n.Position.Y + n.Height / 2);
@@ -75,6 +78,8 @@ public class DagreLayoutEngine : ILayoutEngine
                 Id = node.Id,
                 Width = node.Width,
                 Height = node.Height,
+                Shape = node.Shape,
+                SkinShapeName = node.SkinShapeName,
                 SubgraphId = nodeToSubgraph.GetValueOrDefault(node.Id)
             });
         }
@@ -100,45 +105,66 @@ public class DagreLayoutEngine : ILayoutEngine
     /// After rank assignment, pull outlier subgraph members to be within the
     /// rank range of their siblings. This fixes cases where a back-edge reversal
     /// pushes a node to rank 0 or the max rank, far from its subgraph.
+    /// Only moves nodes that have NO real edges anchoring them at their rank
+    /// (i.e., no predecessor at rank-1 or successor at rank+1).
     /// </summary>
     static void CompactSubgraphRanks(LayoutGraph graph, List<Subgraph> subgraphs)
     {
         foreach (var sg in subgraphs)
         {
+            // Process nested subgraphs first (leaf-to-root)
+            if (sg.NestedSubgraphs.Count > 0)
+                CompactSubgraphRanks(graph, sg.NestedSubgraphs);
+
             if (sg.NodeIds.Count < 2) continue;
 
-            var memberRanks = new List<(string Id, int Rank)>();
+            // Collect ranks of ALL descendants (including nested subgraph nodes)
+            var allDescendantRanks = new List<int>();
+            CollectAllDescendantRanks(graph, sg, allDescendantRanks);
+
+            if (allDescendantRanks.Count < 2) continue;
+
+            allDescendantRanks.Sort();
+            var fullMin = allDescendantRanks[0];
+            var fullMax = allDescendantRanks[^1];
+            var fullMedian = allDescendantRanks[allDescendantRanks.Count / 2];
+
+            if (fullMax - fullMin <= 2) continue;
+
             foreach (var nodeId in sg.NodeIds)
             {
                 var node = graph.GetNode(nodeId);
-                if (node is not null)
-                    memberRanks.Add((nodeId, node.Rank));
-            }
+                if (node is null) continue;
 
-            if (memberRanks.Count < 2) continue;
-
-            // Find the rank range of the majority of members
-            var ranks = memberRanks.Select(m => m.Rank).OrderBy(r => r).ToList();
-            var medianRank = ranks[ranks.Count / 2];
-            var minRank = ranks.Min();
-            var maxRank = ranks.Max();
-
-            // If spread is small (2 ranks or fewer), nothing to fix
-            if (maxRank - minRank <= 2) continue;
-
-            // Pull outliers: any member whose rank is > 2 ranks from the median
-            foreach (var (id, rank) in memberRanks)
-            {
-                if (Math.Abs(rank - medianRank) > 2)
+                if (Math.Abs(node.Rank - fullMedian) > 2)
                 {
-                    // Place outlier at the median rank (will be ordered by Phase 3)
-                    graph.GetNode(id)?.SetRank(medianRank);
+                    // Don't move if the node has real edges anchoring it
+                    // (predecessor at rank-1 or successor at rank+1)
+                    var hasAnchoringEdge =
+                        node.InEdges.Any(e => !e.IsConstraint &&
+                            graph.GetNode(e.SourceId) is { } src && src.Rank == node.Rank - 1) ||
+                        node.OutEdges.Any(e => !e.IsConstraint &&
+                            graph.GetNode(e.TargetId) is { } tgt && tgt.Rank == node.Rank + 1);
+
+                    if (!hasAnchoringEdge)
+                    {
+                        node.SetRank(fullMedian);
+                    }
                 }
             }
-
-            if (sg.NestedSubgraphs.Count > 0)
-                CompactSubgraphRanks(graph, sg.NestedSubgraphs);
         }
+    }
+
+    static void CollectAllDescendantRanks(LayoutGraph graph, Subgraph sg, List<int> ranks)
+    {
+        foreach (var nodeId in sg.NodeIds)
+        {
+            var node = graph.GetNode(nodeId);
+            if (node is not null)
+                ranks.Add(node.Rank);
+        }
+        foreach (var nested in sg.NestedSubgraphs)
+            CollectAllDescendantRanks(graph, nested, ranks);
     }
 
     /// <summary>
@@ -265,13 +291,21 @@ public class DagreLayoutEngine : ILayoutEngine
         var sourceEdgeY = isHorizontal ? source.Y : source.Y + source.Height / 2;
         edge.Points.Add(new(sourceEdgeX, sourceEdgeY));
 
-        // Find dummy nodes
+        // Find dummy nodes - check both directions since back-edges were reversed
+        // during layout (dummies store the reversed source/target)
         var dummies = graph.Nodes.Values
             .Where(n => n.IsDummy &&
-                        n.OriginalEdgeSource == edge.SourceId &&
-                        n.OriginalEdgeTarget == edge.TargetId)
-            .OrderBy(n => n.Rank)
+                        ((n.OriginalEdgeSource == edge.SourceId && n.OriginalEdgeTarget == edge.TargetId) ||
+                         (n.OriginalEdgeSource == edge.TargetId && n.OriginalEdgeTarget == edge.SourceId)))
             .ToList();
+
+        // Order dummies by rank in the direction of the edge
+        var source2 = graph.GetNode(edge.SourceId);
+        var target2 = graph.GetNode(edge.TargetId);
+        if (source2 is not null && target2 is not null && source2.Rank > target2.Rank)
+            dummies = dummies.OrderByDescending(n => n.Rank).ToList();
+        else
+            dummies = dummies.OrderBy(n => n.Rank).ToList();
 
         foreach (var dummy in dummies)
         {
@@ -281,5 +315,43 @@ public class DagreLayoutEngine : ILayoutEngine
         var targetEdgeX = isHorizontal ? target.X - target.Width / 2 : target.X;
         var targetEdgeY = isHorizontal ? target.Y : target.Y - target.Height / 2;
         edge.Points.Add(new(targetEdgeX, targetEdgeY));
+    }
+
+    /// <summary>
+    /// Clip edge endpoints to actual node shape boundaries using universal geometry.
+    /// For edges with ≥2 points, replaces first/last points with shape intersection.
+    /// </summary>
+    static void ClipEdgeEndpoints(GraphDiagramBase diagram)
+    {
+        foreach (var edge in diagram.Edges)
+        {
+            if (edge.Points.Count < 2 || edge.SourceId == edge.TargetId) continue;
+
+            var srcNode = diagram.GetNode(edge.SourceId);
+            var tgtNode = diagram.GetNode(edge.TargetId);
+
+            if (srcNode is not null)
+            {
+                var hit = IntersectNodeUniversal(srcNode, edge.Points[1]);
+                if (hit is not null) edge.Points[0] = hit.Value;
+            }
+
+            if (tgtNode is not null)
+            {
+                var hit = IntersectNodeUniversal(tgtNode, edge.Points[^2]);
+                if (hit is not null) edge.Points[^1] = hit.Value;
+            }
+        }
+    }
+
+    static Position? IntersectNodeUniversal(Node node, Position target)
+    {
+        var segments = DagreNetLayoutEngine.GetNodeSegments(node);
+        if (segments.Count == 0) return null;
+
+        var centroid = ShapeGeometry.Centroid(segments);
+        var dir = new PointD(target.X - centroid.X, target.Y - centroid.Y);
+        var hit = ShapeGeometry.IntersectRay(segments, centroid, dir);
+        return hit is not null ? new Position(hit.Value.X, hit.Value.Y) : null;
     }
 }

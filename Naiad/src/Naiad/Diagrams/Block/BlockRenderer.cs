@@ -1,4 +1,5 @@
 using static MermaidSharp.Rendering.RenderUtils;
+using MermaidSharp.Models;
 
 namespace MermaidSharp.Diagrams.Block;
 
@@ -116,47 +117,89 @@ public class BlockRenderer : IDiagramRenderer<BlockModel>
         var centerX = x + width / 2;
         var centerY = y + height / 2;
 
-        switch (shape)
+        var nodeShape = shape switch
         {
-            case BlockShape.Rectangle:
-                builder.AddRect(x, y, width, height, rx: 4,
-                    fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
-                break;
+            BlockShape.Rectangle => NodeShape.RoundedRectangle,
+            BlockShape.Rounded => NodeShape.Stadium,
+            BlockShape.Stadium => NodeShape.Stadium,
+            BlockShape.Circle => NodeShape.Circle,
+            BlockShape.Diamond => NodeShape.Diamond,
+            BlockShape.Hexagon => NodeShape.Hexagon,
+            _ => NodeShape.Rectangle
+        };
 
-            case BlockShape.Rounded:
-                builder.AddRect(x, y, width, height, rx: height / 2,
-                    fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
-                break;
+        var skinnedPath =
+            ShapePathGenerator.GetPathWithSkin(nodeShape, x, y, width, height, options, "block");
 
-            case BlockShape.Stadium:
-                builder.AddRect(x, y, width, height, rx: height / 2,
-                    fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
-                break;
+        if (skinnedPath.Transform is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(skinnedPath.DefsContent))
+                builder.AddRawDefs(skinnedPath.DefsContent!);
 
-            case BlockShape.Circle:
-                var radius = Math.Min(width, height) / 2;
-                builder.AddCircle(centerX, centerY, radius,
-                    fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
-                break;
+            if (skinnedPath.Layers is { Count: > 0 })
+            {
+                for (var i = 0; i < skinnedPath.Layers.Count; i++)
+                {
+                    var layer = skinnedPath.Layers[i];
+                    builder.AddPath(layer.PathData,
+                        fill: i == 0 ? color : null,
+                        stroke: i == 0 ? theme.PrimaryStroke : null,
+                        strokeWidth: i == 0 ? 1 : null,
+                        transform: skinnedPath.Transform,
+                        inlineStyle: layer.InlineStyle);
+                }
+            }
+            else
+            {
+                builder.AddPath(skinnedPath.PathData,
+                    fill: color,
+                    stroke: theme.PrimaryStroke,
+                    strokeWidth: 1,
+                    transform: skinnedPath.Transform,
+                    inlineStyle: skinnedPath.InlineStyle);
+            }
+        }
+        else
+        {
+            // Preserve original output format when no custom skin is active.
+            switch (shape)
+            {
+                case BlockShape.Rectangle:
+                    builder.AddRect(x, y, width, height, rx: 4,
+                        fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
+                    break;
 
-            case BlockShape.Diamond:
-                var diamondPath = $"M {Fmt(centerX)} {Fmt(y)} " +
-                    $"L {Fmt(x + width)} {Fmt(centerY)} " +
-                    $"L {Fmt(centerX)} {Fmt(y + height)} " +
-                    $"L {Fmt(x)} {Fmt(centerY)} Z";
-                builder.AddPath(diamondPath, fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
-                break;
+                case BlockShape.Rounded:
+                case BlockShape.Stadium:
+                    builder.AddRect(x, y, width, height, rx: height / 2,
+                        fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
+                    break;
 
-            case BlockShape.Hexagon:
-                var hOffset = width * 0.15;
-                var hexPath = $"M {Fmt(x + hOffset)} {Fmt(y)} " +
-                    $"L {Fmt(x + width - hOffset)} {Fmt(y)} " +
-                    $"L {Fmt(x + width)} {Fmt(centerY)} " +
-                    $"L {Fmt(x + width - hOffset)} {Fmt(y + height)} " +
-                    $"L {Fmt(x + hOffset)} {Fmt(y + height)} " +
-                    $"L {Fmt(x)} {Fmt(centerY)} Z";
-                builder.AddPath(hexPath, fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
-                break;
+                case BlockShape.Circle:
+                    var radius = Math.Min(width, height) / 2;
+                    builder.AddCircle(centerX, centerY, radius,
+                        fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
+                    break;
+
+                case BlockShape.Diamond:
+                    var diamondPath = $"M {Fmt(centerX)} {Fmt(y)} " +
+                                      $"L {Fmt(x + width)} {Fmt(centerY)} " +
+                                      $"L {Fmt(centerX)} {Fmt(y + height)} " +
+                                      $"L {Fmt(x)} {Fmt(centerY)} Z";
+                    builder.AddPath(diamondPath, fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
+                    break;
+
+                case BlockShape.Hexagon:
+                    var hOffset = width * 0.15;
+                    var hexPath = $"M {Fmt(x + hOffset)} {Fmt(y)} " +
+                                  $"L {Fmt(x + width - hOffset)} {Fmt(y)} " +
+                                  $"L {Fmt(x + width)} {Fmt(centerY)} " +
+                                  $"L {Fmt(x + width - hOffset)} {Fmt(y + height)} " +
+                                  $"L {Fmt(x + hOffset)} {Fmt(y + height)} " +
+                                  $"L {Fmt(x)} {Fmt(centerY)} Z";
+                    builder.AddPath(hexPath, fill: color, stroke: theme.PrimaryStroke, strokeWidth: 1);
+                    break;
+            }
         }
 
         // Label

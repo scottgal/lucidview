@@ -1,4 +1,5 @@
 // ReSharper disable MemberCanBeMadeStatic.Local
+using MermaidSharp.Models;
 using static MermaidSharp.Rendering.RenderUtils;
 namespace MermaidSharp.Diagrams.State;
 
@@ -24,6 +25,7 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
     const double StateHeight = 40;
     const double StatePadding = 30;
     const double StateRadius = 5;
+
     const double SpecialStateSize = 20;
     const double NoteMinWidth = 60;
     const double NoteHeight = 40;
@@ -249,12 +251,13 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
             }
         }
 
-        // Check lines
+        // Check lines (allow small tolerance for rounding)
+        const double tolerance = 10;
         foreach (var line in _lineBounds)
         {
-            if (line.X1 < 0 || line.Y1 < 0 || line.X2 < 0 || line.Y2 < 0 ||
-                line.X1 > _svgWidth || line.Y1 > _svgHeight ||
-                line.X2 > _svgWidth || line.Y2 > _svgHeight)
+            if (line.X1 < -tolerance || line.Y1 < -tolerance || line.X2 < -tolerance || line.Y2 < -tolerance ||
+                line.X1 > _svgWidth + tolerance || line.Y1 > _svgHeight + tolerance ||
+                line.X2 > _svgWidth + tolerance || line.Y2 > _svgHeight + tolerance)
             {
                 throw new InvalidOperationException(
                     $"Line outside bounds: \"{line.Label}\" from ({line.X1:F1},{line.Y1:F1}) to ({line.X2:F1},{line.Y2:F1}) " +
@@ -738,11 +741,33 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                 // Diamond
                 var halfW = state.Width / 2;
                 var halfH = state.Height / 2;
-                var diamondPath = $"M{Fmt(x)},{Fmt(y - halfH)} " +
-                                  $"L{Fmt(x + halfW)},{Fmt(y)} " +
-                                  $"L{Fmt(x)},{Fmt(y + halfH)} " +
-                                  $"L{Fmt(x - halfW)},{Fmt(y)} Z";
-                builder.AddPath(diamondPath, fill: theme.Background, stroke: theme.TextColor, strokeWidth: 1);
+                var topLeftX = x - halfW;
+                var topLeftY = y - halfH;
+                var choicePath = ShapePathGenerator.GetPathWithSkin(
+                    NodeShape.Diamond,
+                    topLeftX,
+                    topLeftY,
+                    state.Width,
+                    state.Height,
+                    options,
+                    "state");
+                if (choicePath.Transform is not null)
+                {
+                    RenderSkinnedPath(
+                        builder,
+                        choicePath,
+                        fill: theme.Background,
+                        stroke: theme.TextColor,
+                        strokeWidth: 1);
+                }
+                else
+                {
+                    var diamondPath = $"M{Fmt(x)},{Fmt(y - halfH)} " +
+                                      $"L{Fmt(x + halfW)},{Fmt(y)} " +
+                                      $"L{Fmt(x)},{Fmt(y + halfH)} " +
+                                      $"L{Fmt(x - halfW)},{Fmt(y)} Z";
+                    builder.AddPath(diamondPath, fill: theme.Background, stroke: theme.TextColor, strokeWidth: 1);
+                }
 #if DEBUG
                 TrackNode(x, y, state.Width, state.Height, state.Id);
 #endif
@@ -768,11 +793,31 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
         var x = state.Position.X - state.Width / 2;
         var y = state.Position.Y - state.Height / 2;
 
-        builder.AddRect(x, y, state.Width, state.Height,
-            rx: StateRadius,
-            fill: theme.PrimaryFill,
-            stroke: theme.PrimaryStroke,
-            strokeWidth: 1);
+        var skinnedPath = ShapePathGenerator.GetPathWithSkin(
+            NodeShape.RoundedRectangle,
+            x,
+            y,
+            state.Width,
+            state.Height,
+            options,
+            "state");
+        if (skinnedPath.Transform is not null)
+        {
+            RenderSkinnedPath(
+                builder,
+                skinnedPath,
+                fill: theme.PrimaryFill,
+                stroke: theme.PrimaryStroke,
+                strokeWidth: 1);
+        }
+        else
+        {
+            builder.AddRect(x, y, state.Width, state.Height,
+                rx: StateRadius,
+                fill: theme.PrimaryFill,
+                stroke: theme.PrimaryStroke,
+                strokeWidth: 1);
+        }
 
 #if DEBUG
         TrackNode(state.Position.X, state.Position.Y, state.Width, state.Height, state.Id);
@@ -800,11 +845,31 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
         var x = state.Position.X - state.Width / 2;
         var y = state.Position.Y - state.Height / 2;
 
-        builder.AddRect(x, y, state.Width, state.Height,
-            rx: StateRadius,
-            fill: theme.TertiaryFill,
-            stroke: theme.MutedText,
-            strokeWidth: 2);
+        var skinnedPath = ShapePathGenerator.GetPathWithSkin(
+            NodeShape.RoundedRectangle,
+            x,
+            y,
+            state.Width,
+            state.Height,
+            options,
+            "state");
+        if (skinnedPath.Transform is not null)
+        {
+            RenderSkinnedPath(
+                builder,
+                skinnedPath,
+                fill: theme.TertiaryFill,
+                stroke: theme.MutedText,
+                strokeWidth: 2);
+        }
+        else
+        {
+            builder.AddRect(x, y, state.Width, state.Height,
+                rx: StateRadius,
+                fill: theme.TertiaryFill,
+                stroke: theme.MutedText,
+                strokeWidth: 2);
+        }
 
         // Title
         builder.AddText(state.Position.X, y + 15, state.Id,
@@ -897,6 +962,40 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                 }
             }
         }
+    }
+
+    static void RenderSkinnedPath(
+        SvgBuilder builder,
+        ShapePathGenerator.SkinnedPath skinnedPath,
+        string? fill,
+        string? stroke,
+        double? strokeWidth)
+    {
+        if (!string.IsNullOrWhiteSpace(skinnedPath.DefsContent))
+            builder.AddRawDefs(skinnedPath.DefsContent!);
+
+        if (skinnedPath.Layers is { Count: > 0 })
+        {
+            for (var i = 0; i < skinnedPath.Layers.Count; i++)
+            {
+                var layer = skinnedPath.Layers[i];
+                builder.AddPath(layer.PathData,
+                    fill: i == 0 ? fill : null,
+                    stroke: i == 0 ? stroke : null,
+                    strokeWidth: i == 0 ? strokeWidth : null,
+                    transform: skinnedPath.Transform,
+                    inlineStyle: layer.InlineStyle);
+            }
+
+            return;
+        }
+
+        builder.AddPath(skinnedPath.PathData,
+            fill: fill,
+            stroke: stroke,
+            strokeWidth: strokeWidth,
+            transform: skinnedPath.Transform,
+            inlineStyle: skinnedPath.InlineStyle);
     }
 
     static HashSet<string> FindBidirectionalPairs(List<StateTransition> transitions)

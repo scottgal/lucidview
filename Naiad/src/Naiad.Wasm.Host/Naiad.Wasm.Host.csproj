@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-browser</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naiad.Wasm\Naiad.Wasm.csproj" />
+    <ProjectReference Include="..\Naiad.Skins.Cats\Naiad.Skins.Cats.csproj" />
+    <ProjectReference Include="..\Naiad.Skins.Showcase\Naiad.Skins.Showcase.csproj" />
+  </ItemGroup>
+
+</Project>

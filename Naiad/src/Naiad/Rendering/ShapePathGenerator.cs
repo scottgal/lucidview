@@ -4,6 +4,15 @@ namespace MermaidSharp.Rendering;
 
 public static class ShapePathGenerator
 {
+    public readonly record struct SkinnedPathLayer(string PathData, string? InlineStyle = null);
+
+    public readonly record struct SkinnedPath(
+        string PathData,
+        string? Transform,
+        string? InlineStyle = null,
+        IReadOnlyList<SkinnedPathLayer>? Layers = null,
+        string? DefsContent = null);
+
     public static string Rectangle(double x, double y, double width, double height, double rx = 0)
     {
         if (rx > 0)
@@ -128,7 +137,7 @@ public static class ShapePathGenerator
     public static string DoubleCircle(double cx, double cy, double r)
     {
         var innerR = r * 0.85;
-        return Circle(cx, cy, r) + " " + Circle(cx, cy, innerR);
+        return $"{Circle(cx, cy, r)} {Circle(cx, cy, innerR)}";
     }
 
     public static string Document(double x, double y, double width, double height)
@@ -170,5 +179,47 @@ public static class ShapePathGenerator
             _ => Rectangle(x, y, width, height)
         };
     }
+
+    public static SkinnedPath GetPathWithSkin(
+        NodeShape shape,
+        double x,
+        double y,
+        double width,
+        double height,
+        RenderOptions options,
+        string diagramKey,
+        string? skinShapeName = null)
+    {
+        var shapeKey = skinShapeName ?? ToShapeKey(shape);
+        if (ShapeSkinCatalog.TryResolveShapeTemplate(options, diagramKey, shapeKey, out var template))
+        {
+            IReadOnlyList<SkinnedPathLayer>? layers = null;
+            if (template.Layers is { Count: > 0 })
+            {
+                layers = template.Layers
+                    .Select(x => new SkinnedPathLayer(x.PathData, x.InlineStyle))
+                    .ToArray();
+            }
+
+            return new SkinnedPath(
+                template.PathData,
+                template.BuildTransform(x, y, width, height),
+                template.InlineStyle,
+                layers,
+                template.DefsContent);
+        }
+
+        return new SkinnedPath(GetPath(shape, x, y, width, height), null, null);
+    }
+
+    static string ToShapeKey(NodeShape shape) =>
+        shape switch
+        {
+            NodeShape.RoundedRectangle => "rounded-rectangle",
+            NodeShape.DoubleCircle => "double-circle",
+            NodeShape.ParallelogramAlt => "parallelogram-alt",
+            NodeShape.TrapezoidAlt => "trapezoid-alt",
+            _ => shape.ToString().ToLowerInvariant()
+        };
 
 }

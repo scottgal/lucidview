@@ -574,6 +574,28 @@ public partial class MarkdownService
             }
         }
 
+        // Process BPMN blocks (```bpmn ... ```) — route through BPMN parser → flowchart renderer
+        var bpmnRegex = BpmnBlockRegex();
+        foreach (Match match in bpmnRegex.Matches(content))
+        {
+            var bpmnCode = match.Groups[1].Value.Trim();
+            try
+            {
+                var nativeDoc = Mermaid.RenderToDocument(bpmnCode, CreateRenderOptions());
+                if (nativeDoc is not null)
+                {
+                    var diagramKey = $"diagram-{_diagramCounter++}";
+                    _diagramDocuments[diagramKey] = nativeDoc;
+                    _mermaidSourceMap[diagramKey] = bpmnCode;
+                    content = content.Replace(match.Value, $"\n\n{DiagramMarkerPrefix}{diagramKey}\n\n");
+                }
+            }
+            catch
+            {
+                // BPMN parse failure — show raw code block
+            }
+        }
+
         BuildC4ZoomIndex();
 
         return (content, pending);
@@ -1076,6 +1098,9 @@ public partial class MarkdownService
 
     [GeneratedRegex(@"```mermaid\s*\n([\s\S]*?)```", RegexOptions.Multiline | RegexOptions.Compiled)]
     private static partial Regex MermaidBlockRegex();
+
+    [GeneratedRegex(@"```bpmn\s*\n([\s\S]*?)```", RegexOptions.Multiline | RegexOptions.Compiled)]
+    private static partial Regex BpmnBlockRegex();
 
     // Fix bold links: **[text](url)** -> [**text**](url)
     [GeneratedRegex(@"\*\*\[([^\]]+)\]\(([^)]+)\)\*\*", RegexOptions.Compiled)]

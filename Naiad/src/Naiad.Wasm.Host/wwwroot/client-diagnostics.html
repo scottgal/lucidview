@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Naiad Client Diagnostics</title>
+</head>
+<body>
+  <script type="module">
+    import { NaiadClient } from "./naiad-client.js";
+
+    window.__naiadInit = (async () => {
+      const client = await new NaiadClient().init();
+      window.__naiadClient = client;
+      return true;
+    })();
+  </script>
+</body>
+</html>

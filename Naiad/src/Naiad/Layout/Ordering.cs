@@ -36,15 +36,57 @@ internal static class Ordering
         graph.UpdateOrderInRanks();
     }
 
+    /// <summary>
+    /// Initialize node ordering using BFS from roots, following edge declaration
+    /// order. BFS ensures siblings at the same rank get consecutive orders
+    /// matching their edge declaration order (first edge target = leftmost).
+    /// This matches dagre's behavior better than DFS, which would visit deep
+    /// chains first and reverse sibling order.
+    /// </summary>
     static void InitializeOrder(LayoutGraph graph)
     {
+        var visited = new HashSet<string>();
+        var rankCounters = new int[graph.Ranks.Length];
+        var queue = new Queue<LayoutNode>();
+
+        // Seed BFS with root nodes (no predecessors) in original order
+        foreach (var node in graph.Nodes.Values)
+        {
+            if (!graph.GetPredecessors(node.Id).Any() && visited.Add(node.Id))
+            {
+                node.Order = rankCounters[node.Rank]++;
+                queue.Enqueue(node);
+            }
+        }
+
+        // BFS: visit all children before going deeper
+        while (queue.Count > 0)
+        {
+            var node = queue.Dequeue();
+            foreach (var edge in node.OutEdges)
+            {
+                var target = graph.GetNode(edge.TargetId);
+                if (target is not null && visited.Add(target.Id))
+                {
+                    target.Order = rankCounters[target.Rank]++;
+                    queue.Enqueue(target);
+                }
+            }
+        }
+
+        // Handle any unvisited nodes (cycles, disconnected components)
+        foreach (var node in graph.Nodes.Values)
+        {
+            if (visited.Add(node.Id))
+            {
+                node.Order = rankCounters[node.Rank]++;
+            }
+        }
+
+        // Rebuild rank lists in new order
         for (var r = 0; r < graph.Ranks.Length; r++)
         {
-            var nodesInRank = graph.Ranks[r];
-            for (var i = 0; i < nodesInRank.Count; i++)
-            {
-                nodesInRank[i].Order = i;
-            }
+            graph.Ranks[r] = graph.Ranks[r].OrderBy(n => n.Order).ToList();
         }
     }
 

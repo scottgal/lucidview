@@ -13,12 +13,23 @@ public abstract class SvgElement
 
     protected string CommonAttributes()
     {
+        if (Id is null && Class is null && Style is null && Transform is null)
+            return "";
+
         var sb = new StringBuilder();
         if (Id is not null) sb.Append($" id=\"{Id}\"");
         if (Class is not null) sb.Append($" class=\"{Class}\"");
         if (Style is not null) sb.Append($" style=\"{Style}\"");
         if (Transform is not null) sb.Append($" transform=\"{Transform}\"");
         return sb.ToString();
+    }
+
+    protected void AppendCommonAttributes(StringBuilder sb)
+    {
+        if (Id is not null) sb.Append($" id=\"{Id}\"");
+        if (Class is not null) sb.Append($" class=\"{Class}\"");
+        if (Style is not null) sb.Append($" style=\"{Style}\"");
+        if (Transform is not null) sb.Append($" transform=\"{Transform}\"");
     }
 
 }
@@ -30,7 +41,8 @@ public class SvgGroup : SvgElement
     public override string ToXml()
     {
         var sb = new StringBuilder();
-        sb.Append($"<g{CommonAttributes()}");
+        sb.Append("<g");
+        AppendCommonAttributes(sb);
         if (Children.Count == 0)
         {
             sb.Append("/>");
@@ -69,7 +81,7 @@ public class SvgRect : SvgElement
         if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
         if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
         if (StrokeWidth.HasValue) sb.Append($" stroke-width=\"{Fmt(StrokeWidth.Value)}\"");
-        sb.Append(CommonAttributes());
+        AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
     }
@@ -84,7 +96,7 @@ public class SvgRectNoXY : SvgElement
     {
         var sb = new StringBuilder();
         sb.Append($"<rect width=\"{Fmt(Width)}\" height=\"{Fmt(Height)}\"");
-        sb.Append(CommonAttributes());
+        AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
     }
@@ -106,7 +118,7 @@ public class SvgCircle : SvgElement
         if (Fill is not null) builder.Append($" fill=\"{Fill}\"");
         if (Stroke is not null) builder.Append($" stroke=\"{Stroke}\"");
         if (StrokeWidth.HasValue) builder.Append($" stroke-width=\"{Fmt(StrokeWidth.Value)}\"");
-        builder.Append(CommonAttributes());
+        AppendCommonAttributes(builder);
         builder.Append("/>");
         return builder.ToString();
     }
@@ -127,7 +139,7 @@ public class SvgEllipse : SvgElement
         sb.Append($"<ellipse cx=\"{Fmt(Cx)}\" cy=\"{Fmt(Cy)}\" rx=\"{Fmt(Rx)}\" ry=\"{Fmt(Ry)}\"");
         if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
         if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
-        sb.Append(CommonAttributes());
+        AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
     }
@@ -150,7 +162,7 @@ public class SvgLine : SvgElement
         if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
         if (StrokeWidth.HasValue) sb.Append($" stroke-width=\"{Fmt(StrokeWidth.Value)}\"");
         if (StrokeDasharray is not null) sb.Append($" stroke-dasharray=\"{StrokeDasharray}\"");
-        sb.Append(CommonAttributes());
+        AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
     }
@@ -178,7 +190,7 @@ public class SvgPath : SvgElement
         if (MarkerStart is not null) sb.Append($" marker-start=\"{MarkerStart}\"");
         if (MarkerEnd is not null) sb.Append($" marker-end=\"{MarkerEnd}\"");
         if (Opacity.HasValue) sb.Append($" opacity=\"{Fmt(Opacity.Value)}\"");
-        sb.Append(CommonAttributes());
+        AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
     }
@@ -192,12 +204,13 @@ public class SvgPolygon : SvgElement
 
     public override string ToXml()
     {
-        var pointsStr = string.Join(" ", Points.Select(p => $"{Fmt(p.X)},{Fmt(p.Y)}"));
         var sb = new StringBuilder();
-        sb.Append($"<polygon points=\"{pointsStr}\"");
+        sb.Append("<polygon points=\"");
+        SvgHelpers.AppendPoints(sb, Points);
+        sb.Append('"');
         if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
         if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
-        sb.Append(CommonAttributes());
+        AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
     }
@@ -214,17 +227,30 @@ public class SvgPolyline : SvgElement
 
     public override string ToXml()
     {
-        var pointsStr = string.Join(" ", Points.Select(p => $"{Fmt(p.X)},{Fmt(p.Y)}"));
         var sb = new StringBuilder();
-        sb.Append($"<polyline points=\"{pointsStr}\"");
+        sb.Append("<polyline points=\"");
+        SvgHelpers.AppendPoints(sb, Points);
+        sb.Append('"');
         if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
         if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
         if (StrokeWidth.HasValue) sb.Append($" stroke-width=\"{Fmt(StrokeWidth.Value)}\"");
         if (StrokeDasharray is not null) sb.Append($" stroke-dasharray=\"{StrokeDasharray}\"");
         if (MarkerEnd is not null) sb.Append($" marker-end=\"{MarkerEnd}\"");
-        sb.Append(CommonAttributes());
+        AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
+    }
+}
+
+internal static class SvgHelpers
+{
+    internal static void AppendPoints(StringBuilder sb, List<Position> points)
+    {
+        for (var i = 0; i < points.Count; i++)
+        {
+            if (i > 0) sb.Append(' ');
+            sb.Append($"{Fmt(points[i].X)},{Fmt(points[i].Y)}");
+        }
     }
 }
 
@@ -259,10 +285,10 @@ public class SvgText : SvgElement
             if (TextAnchor is not null) sb.Append($" text-anchor=\"{TextAnchor}\"");
             if (DominantBaseline is not null) sb.Append($" dominant-baseline=\"{DominantBaseline}\"");
             if (FontSize is not null) sb.Append($" font-size=\"{FontSize}\"");
-            if (FontFamily is not null) sb.Append($" font-family=\"{FontFamily}\"");
+            if (FontFamily is not null) sb.Append($" font-family=\"{FontFamily.Replace('"', '\'')}\"");
             if (FontWeight is not null) sb.Append($" font-weight=\"{FontWeight}\"");
             if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
-            sb.Append(CommonAttributes());
+            AppendCommonAttributes(sb);
         }
 
         if (string.IsNullOrEmpty(Content))
@@ -276,13 +302,27 @@ public class SvgText : SvgElement
         return sb.ToString();
     }
 
-    static string EscapeXml(string text) =>
-        text
-            .Replace("&", "&amp;")
-            .Replace("<", "&lt;")
-            .Replace(">", "&gt;")
-            .Replace("\"", "&quot;")
-            .Replace("'", "&apos;");
+    static string EscapeXml(string text)
+    {
+        // Fast path: most text has no special characters
+        if (!text.AsSpan().ContainsAny("&<>\"'"))
+            return text;
+
+        var sb = new StringBuilder(text.Length + 8);
+        foreach (var c in text)
+        {
+            switch (c)
+            {
+                case '&': sb.Append("&amp;"); break;
+                case '<': sb.Append("&lt;"); break;
+                case '>': sb.Append("&gt;"); break;
+                case '"': sb.Append("&quot;"); break;
+                case '\'': sb.Append("&apos;"); break;
+                default: sb.Append(c); break;
+            }
+        }
+        return sb.ToString();
+    }
 }
 
 public class SvgMultiLineText : SvgElement
@@ -300,7 +340,7 @@ public class SvgMultiLineText : SvgElement
         sb.Append($"<text x=\"{Fmt(X)}\" y=\"{Fmt(StartY)}\"");
         if (TextAnchor is not null) sb.Append($" text-anchor=\"{TextAnchor}\"");
         if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
-        sb.Append(CommonAttributes());
+        AppendCommonAttributes(sb);
         sb.Append('>');
         for (var i = 0; i < Lines.Length; i++)
         {
@@ -311,8 +351,24 @@ public class SvgMultiLineText : SvgElement
         return sb.ToString();
     }
 
-    static string EscapeXml(string text) =>
-        text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+    static string EscapeXml(string text)
+    {
+        if (!text.AsSpan().ContainsAny("&<>"))
+            return text;
+
+        var sb = new StringBuilder(text.Length + 8);
+        foreach (var c in text)
+        {
+            switch (c)
+            {
+                case '&': sb.Append("&amp;"); break;
+                case '<': sb.Append("&lt;"); break;
+                case '>': sb.Append("&gt;"); break;
+                default: sb.Append(c); break;
+            }
+        }
+        return sb.ToString();
+    }
 }
 
 public class SvgForeignObject : SvgElement
@@ -327,7 +383,7 @@ public class SvgForeignObject : SvgElement
     {
         var sb = new StringBuilder();
         sb.Append($"<foreignObject x=\"{Fmt(X)}\" y=\"{Fmt(Y)}\" width=\"{Fmt(Width)}\" height=\"{Fmt(Height)}\"");
-        sb.Append(CommonAttributes());
+        AppendCommonAttributes(sb);
         sb.Append('>');
         sb.Append($"<div xmlns=\"http://www.w3.org/1999/xhtml\" style=\"display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center; vertical-align: middle; width: {Fmt(Width)}px; height: {Fmt(Height)}px;\">");
         sb.Append($"<span class=\"nodeLabel\">{HtmlContent}</span>");

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Naiad Showcase Skins Demo</title>
+  <style>
+    :root { color-scheme: dark light; }
+    body {
+      margin: 0;
+      padding: 18px;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at 20% 10%, #e0f2fe 0%, transparent 36%),
+        radial-gradient(circle at 85% 0%, #fce7f3 0%, transparent 34%),
+        linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+      color: #0f172a;
+    }
+    .card {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.09);
+    }
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    label {
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+    select {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 6px 10px;
+      background: #fff;
+      color: #0f172a;
+    }
+    p { margin: 0 0 10px 0; opacity: 0.86; }
+    code { background: rgba(15, 23, 42, 0.08); padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Showcase Mermaid Skin Demo</h1>
+    <p>
+      Plugin-powered skin packs with layered SVG color:
+      <code>prism3d</code>, <code>neon</code>, <code>sunset</code>.
+    </p>
+    <div class="toolbar">
+      <label for="skin-select">Skin</label>
+      <select id="skin-select"></select>
+      <label for="theme-select">Theme</label>
+      <select id="theme-select">
+        <option value="light">light</option>
+        <option value="dark">dark</option>
+        <option value="forest">forest</option>
+        <option value="neutral">neutral</option>
+      </select>
+    </div>
+    <naiad-diagram id="skin-diagram" show-menu fit-width theme="auto"></naiad-diagram>
+  </div>
+
+  <script type="module" src="./naiad-web-component.js"></script>
+  <script type="module">
+    const skinOptions = [
+      "prism3d",
+      "neon",
+      "sunset",
+      "glass",
+      "material3",
+      "fluent2",
+      "cats"
+    ];
+
+    const params = new URLSearchParams(window.location.search);
+    const initialSkin = (params.get("skin") ?? "prism3d").trim().toLowerCase();
+    const initialTheme = (params.get("theme") ?? "dark").trim().toLowerCase();
+
+    const skinSelect = document.getElementById("skin-select");
+    const themeSelect = document.getElementById("theme-select");
+    const component = document.getElementById("skin-diagram");
+
+    for (const skin of skinOptions) {
+      const option = document.createElement("option");
+      option.value = skin;
+      option.textContent = skin;
+      skinSelect.appendChild(option);
+    }
+
+    skinSelect.value = skinOptions.includes(initialSkin) ? initialSkin : "prism3d";
+    if ([...themeSelect.options].some(o => o.value === initialTheme)) {
+      themeSelect.value = initialTheme;
+    } else {
+      themeSelect.value = "dark";
+    }
+
+    function buildMermaid(skin, theme) {
+      const isCats = skin === "cats";
+      const catShapes = "A=cat-head,B=cat-head,C=cat-paw,D=cat-fish,E=cat-head";
+      const directive = isCats
+        ? `%% naiad: {"skinPack":"${skin}","theme":"${theme}","shapes":"${catShapes}"}`
+        : `%% naiad: {"skinPack":"${skin}","theme":"${theme}"}`;
+
+      return [
+        directive,
+        "flowchart LR",
+        "  A[Discover] --> B[Design]",
+        "  B --> C[Build]",
+        "  C --> D[Test]",
+        "  D --> E[Ship]"
+      ].join("\n");
+    }
+
+    function rerender() {
+      const skin = skinSelect.value;
+      const theme = themeSelect.value;
+      component.mermaid = buildMermaid(skin, theme);
+
+      const next = new URL(window.location.href);
+      next.searchParams.set("skin", skin);
+      next.searchParams.set("theme", theme);
+      window.history.replaceState({}, "", next);
+    }
+
+    skinSelect.addEventListener("change", rerender);
+    themeSelect.addEventListener("change", rerender);
+    rerender();
+  </script>
+</body>
+</html>

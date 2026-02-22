@@ -7,16 +7,16 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
     public DiagramType DiagramType => DiagramType.Flowchart;
 
     static readonly Regex HeaderPattern =
-        new(@"^(flowchart|graph)(?:\s+(TB|TD|BT|LR|RL))?\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new(@"^(flowchart|graph)(?:\s+(TB|TD|BT|LR|RL))?\s*$", RegexOptions.IgnoreCase | RegexCompat.Compiled);
 
     static readonly Regex SubgraphPattern =
-        new(@"^subgraph\s+(.+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new(@"^subgraph\s+(.+)$", RegexOptions.IgnoreCase | RegexCompat.Compiled);
 
     static readonly Regex DirectionPattern =
-        new(@"^direction\s+(TB|TD|BT|LR|RL)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new(@"^direction\s+(TB|TD|BT|LR|RL)$", RegexOptions.IgnoreCase | RegexCompat.Compiled);
 
     static readonly Regex SupportedDirectivePattern =
-        new(@"^(classDef|class|style|linkStyle|click)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new(@"^(classDef|class|style|linkStyle|click)\b", RegexOptions.IgnoreCase | RegexCompat.Compiled);
 
     // Quoted content parser: "content with special chars" → content with special chars
     // Used inside shape brackets to allow characters that would otherwise terminate the shape parser
@@ -319,6 +319,8 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
         var normalizedLines = new List<string> { header };
         var subgraphs = new List<ParsedSubgraph>();
         var styles = new List<(string NodeId, Style Style)>();
+        var classDefs = new Dictionary<string, Style>(StringComparer.OrdinalIgnoreCase);
+        var classAssignments = new List<(string NodeIds, string ClassName)>();
         var subgraphStack = new Stack<ParsedSubgraph>();
         var usedSubgraphIds = new HashSet<string>(StringComparer.Ordinal);
         var subgraphCounter = 1;
@@ -366,6 +368,14 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
                 {
                     styles.Add((styleNodeId, parsedStyle));
                 }
+                else if (TryParseClassDefDirective(trimmed, out var className, out var classStyle))
+                {
+                    classDefs[className] = classStyle;
+                }
+                else if (TryParseClassAssignment(trimmed, out var nodeIds, out var assignedClass))
+                {
+                    classAssignments.Add((nodeIds, assignedClass));
+                }
                 continue;
             }
 
@@ -390,6 +400,16 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
                 {
                     currentSubgraph.NodeIds.Add(node.Id);
                 }
+            }
+        }
+
+        // Resolve class assignments: expand "class A,B,C frontend" into individual node styles
+        foreach (var (nodeIds, assignedClassName) in classAssignments)
+        {
+            if (!classDefs.TryGetValue(assignedClassName, out var classStyle)) continue;
+            foreach (var nodeId in nodeIds.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                styles.Add((nodeId, classStyle));
             }
         }
 
@@ -683,7 +703,76 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
     static List<string> SplitLines(string input)
     {
         var normalized = input.Replace("\r\n", "\n", StringComparison.Ordinal);
-        return normalized.Split('\n').ToList();
+        var semicolonExpanded = ExpandSemicolonStatements(normalized);
+        return semicolonExpanded.Split('\n').ToList();
+    }
+
+    static string ExpandSemicolonStatements(string input)
+    {
+        if (!input.Contains(';', StringComparison.Ordinal))
+        {
+            return input;
+        }
+
+        var lines = input.Split('\n');
+        var output = new List<string>(lines.Length * 2);
+
+        foreach (var line in lines)
+        {
+            if (!line.Contains(';', StringComparison.Ordinal))
+            {
+                output.Add(line);
+                continue;
+            }
+
+            var segments = SplitBySemicolonOutsideQuotes(line);
+            var added = false;
+            foreach (var segment in segments)
+            {
+                var trimmed = segment.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed))
+                {
+                    continue;
+                }
+
+                output.Add(trimmed);
+                added = true;
+            }
+
+            if (!added)
+            {
+                output.Add(string.Empty);
+            }
+        }
+
+        return string.Join('\n', output);
+    }
+
+    static IEnumerable<string> SplitBySemicolonOutsideQuotes(string input)
+    {
+        var current = new StringBuilder();
+        var inDoubleQuote = false;
+
+        foreach (var ch in input)
+        {
+            if (ch == '"')
+            {
+                inDoubleQuote = !inDoubleQuote;
+                current.Append(ch);
+                continue;
+            }
+
+            if (ch == ';' && !inDoubleQuote)
+            {
+                yield return current.ToString();
+                current.Clear();
+                continue;
+            }
+
+            current.Append(ch);
+        }
+
+        yield return current.ToString();
     }
 
     static string SanitizeIdentifier(string value)
@@ -705,7 +794,7 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
     }
 
     static readonly Regex StyleDirectivePattern =
-        new(@"^style\s+(\S+)\s+(.+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new(@"^style\s+(\S+)\s+(.+)$", RegexOptions.IgnoreCase | RegexCompat.Compiled);
 
     static bool TryParseStyleDirective(string line, out string nodeId, out Style style)
     {
@@ -718,9 +807,49 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
         }
 
         nodeId = match.Groups[1].Value;
-        style = new Style();
+        style = ParseStyleProperties(match.Groups[2].Value);
+        return true;
+    }
 
-        var properties = match.Groups[2].Value;
+    static readonly Regex ClassDefPattern =
+        new(@"^classDef\s+(\S+)\s+(.+)$", RegexOptions.IgnoreCase | RegexCompat.Compiled);
+
+    static bool TryParseClassDefDirective(string line, out string className, out Style style)
+    {
+        var match = ClassDefPattern.Match(line);
+        if (!match.Success)
+        {
+            className = string.Empty;
+            style = default!;
+            return false;
+        }
+
+        className = match.Groups[1].Value;
+        style = ParseStyleProperties(match.Groups[2].Value);
+        return true;
+    }
+
+    static readonly Regex ClassAssignmentPattern =
+        new(@"^class\s+(\S+)\s+(\S+)$", RegexOptions.IgnoreCase | RegexCompat.Compiled);
+
+    static bool TryParseClassAssignment(string line, out string nodeIds, out string className)
+    {
+        var match = ClassAssignmentPattern.Match(line);
+        if (!match.Success)
+        {
+            nodeIds = string.Empty;
+            className = string.Empty;
+            return false;
+        }
+
+        nodeIds = match.Groups[1].Value;
+        className = match.Groups[2].Value;
+        return true;
+    }
+
+    static Style ParseStyleProperties(string properties)
+    {
+        var style = new Style();
         foreach (var prop in properties.Split(',', StringSplitOptions.TrimEntries))
         {
             var colonIdx = prop.IndexOf(':');
@@ -744,7 +873,7 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
             }
         }
 
-        return true;
+        return style;
     }
 
     static void ApplyStyles(FlowchartModel model, List<(string NodeId, Style Style)> styles)

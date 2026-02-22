@@ -20,15 +20,18 @@ static class Acyclic
         foreach (var edge in edgesToReverse)
         {
             edge.IsReversed = true;
-            // Swap source and target in the graph
             var source = graph.GetNode(edge.SourceId);
             var target = graph.GetNode(edge.TargetId);
             if (source is not null && target is not null)
             {
+                // Remove from old adjacency lists
                 source.OutEdges.Remove(edge);
                 target.InEdges.Remove(edge);
-                target.OutEdges.Add(edge);
-                source.InEdges.Add(edge);
+                // Swap source/target IDs so GetSuccessors/GetPredecessors work correctly
+                (edge.SourceId, edge.TargetId) = (edge.TargetId, edge.SourceId);
+                // Add to new adjacency lists (source and target are still the original nodes)
+                target.OutEdges.Add(edge);  // old target is new source
+                source.InEdges.Add(edge);   // old source is new target
             }
         }
     }
@@ -65,17 +68,22 @@ static class Acyclic
     {
         foreach (var edge in graph.Edges.Where(e => e.IsReversed))
         {
-            edge.IsReversed = false;
-            // Swap back
             var source = graph.GetNode(edge.SourceId);
             var target = graph.GetNode(edge.TargetId);
             if (source is not null && target is not null)
             {
-                target.OutEdges.Remove(edge);
-                source.InEdges.Remove(edge);
-                source.OutEdges.Add(edge);
-                target.InEdges.Add(edge);
+                // Remove from current adjacency lists
+                source.OutEdges.Remove(edge);
+                target.InEdges.Remove(edge);
+                // Swap IDs back to original direction
+                (edge.SourceId, edge.TargetId) = (edge.TargetId, edge.SourceId);
+                // Add to original adjacency lists
+                var newSource = graph.GetNode(edge.SourceId);
+                var newTarget = graph.GetNode(edge.TargetId);
+                newSource?.OutEdges.Add(edge);
+                newTarget?.InEdges.Add(edge);
             }
+            edge.IsReversed = false;
         }
     }
 }

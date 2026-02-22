@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "defaultPack": "default",
+  "packs": [
+    {
+      "name": "default",
+      "label": "Naiad Default",
+      "aliases": [
+        "none"
+      ],
+      "embeddedInWasm": true,
+      "archive": null,
+      "directory": null,
+      "styleSource": "internal",
+      "description": "Naiad built-in geometry and theme styling."
+    },
+    {
+      "name": "daisyui",
+      "label": "DaisyUI",
+      "aliases": [
+        "daisy",
+        "daisy-ui"
+      ],
+      "embeddedInWasm": true,
+      "archive": "daisyui.naiadskin",
+      "directory": "daisyui",
+      "styleSource": "geometry-only",
+      "description": "Soft rounded utility-first inspired geometry."
+    },
+    {
+      "name": "material",
+      "label": "Material 2",
+      "aliases": [
+        "material2",
+        "material-2"
+      ],
+      "embeddedInWasm": true,
+      "archive": "material.naiadskin",
+      "directory": "material",
+      "styleSource": "geometry-only",
+      "description": "Compact Material 2 inspired geometry."
+    },
+    {
+      "name": "material3",
+      "label": "Material 3",
+      "aliases": [
+        "material-3",
+        "m3"
+      ],
+      "embeddedInWasm": true,
+      "archive": "material3.naiadskin",
+      "directory": "material3",
+      "styleSource": "svg-path-style",
+      "description": "Material 3 style pack with full-color SVG path styling."
+    },
+    {
+      "name": "fluent2",
+      "label": "Fluent 2",
+      "aliases": [
+        "fluent",
+        "fluent-2"
+      ],
+      "embeddedInWasm": true,
+      "archive": "fluent2.naiadskin",
+      "directory": "fluent2",
+      "styleSource": "svg-path-style",
+      "description": "Fluent 2 inspired rounded geometry with full-color styling."
+    },
+    {
+      "name": "glass",
+      "label": "Glass",
+      "aliases": [],
+      "embeddedInWasm": true,
+      "archive": "glass.naiadskin",
+      "directory": "glass",
+      "styleSource": "svg-path-style",
+      "description": "Translucent glassmorphism style pack."
+    }
+  ]
+}

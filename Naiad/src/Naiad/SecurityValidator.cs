@@ -8,7 +8,7 @@ namespace MermaidSharp;
 /// </summary>
 public static class SecurityValidator
 {
-    private static readonly Regex SafeIconName = new(@"^[a-z-]+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex SafeIconName = new(@"^[a-z-]+$", RegexCompat.Compiled | RegexOptions.IgnoreCase);
     
     /// <summary>
     /// Validates input against security limits and throws if exceeded.
@@ -107,6 +107,13 @@ public static class SecurityValidator
     public static T WithTimeout<T>(Func<T> action, int timeoutMs, string operationName)
     {
         if (timeoutMs <= 0)
+        {
+            return action();
+        }
+
+        // Browser WASM runs without reliable preemptive cancellation for sync work.
+        // Execute directly and rely on input/complexity limits.
+        if (OperatingSystem.IsBrowser())
         {
             return action();
         }

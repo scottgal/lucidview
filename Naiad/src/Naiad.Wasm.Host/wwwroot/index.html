@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Naiad Web Component Demo</title>
+    <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<main>
+    <h1>Naiad Web Component Demo</h1>
+    <p>Plain HTML page using a standard custom element: <code>&lt;naiad-diagram&gt;</code>.</p>
+
+    <label for="mermaid-input">Mermaid</label>
+    <textarea id="mermaid-input" spellcheck="false">flowchart LR
+    A[User] --> B{Decision}
+    B -->|Yes| C[Ship]
+    B -->|No| D[Revise]</textarea>
+
+    <button id="apply" type="button">Apply To Component</button>
+    <pre id="status">Waiting for component...</pre>
+
+    <naiad-diagram id="diagram-component"></naiad-diagram>
+</main>
+
+<script type="module" src="naiad-web-component.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+</html>

@@ -96,8 +96,23 @@ public class SvgDefs
     public List<SvgMarker> Markers { get; } = [];
     public List<SvgGradient> Gradients { get; } = [];
     public List<SvgFilter> Filters { get; } = [];
+    public List<string> RawFragments { get; } = [];
 
-    public bool HasContent => Markers.Count > 0 || Gradients.Count > 0 || Filters.Count > 0;
+    public bool HasContent => Markers.Count > 0 || Gradients.Count > 0 || Filters.Count > 0 || RawFragments.Count > 0;
+
+    public void AddRawFragment(string fragment)
+    {
+        if (string.IsNullOrWhiteSpace(fragment))
+            return;
+
+        foreach (var existing in RawFragments)
+        {
+            if (existing.Equals(fragment, StringComparison.Ordinal))
+                return;
+        }
+
+        RawFragments.Add(fragment);
+    }
 
     public string ToXml()
     {
@@ -117,6 +132,11 @@ public class SvgDefs
         foreach (var filter in Filters)
         {
             sb.Append(filter.ToXml());
+        }
+
+        foreach (var fragment in RawFragments)
+        {
+            sb.Append(fragment);
         }
 
         sb.Append("</defs>");

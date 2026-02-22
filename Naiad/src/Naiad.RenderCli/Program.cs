@@ -1,4 +1,6 @@
 using MermaidSharp;
+using MermaidSharp.Rendering.Skins.Cats;
+using MermaidSharp.Rendering.Skins.Showcase;
 using Microsoft.Playwright;
 using SkiaSharp;
 using Svg.Skia;
@@ -23,17 +25,27 @@ if (args.Length == 0 || args[0] is "-h" or "--help")
           render <output.png> [--dark] [--scale N]   Render stdin mermaid to PNG
           samples <output-dir>                        Render built-in test samples
           svg <output.svg>                            Render stdin mermaid to SVG
-          compare <output-dir>                        Side-by-side Naiad vs mermaid.js
+          compare <output-dir> [options]              Side-by-side Naiad vs mermaid.js
+
+        Compare options:
+          --flowcharts-only    Only render flowchart diagrams
+          --only <name>        Only render samples matching <name>
+          --no-open            Don't auto-open report in browser
 
         Examples:
           echo "flowchart LR; A-->B" | dotnet run -- render test.png
           dotnet run -- samples ./test-output
           dotnet run -- compare ./compare-output
+          dotnet run -- compare ./out --flowcharts-only
+          dotnet run -- compare ./out --only fan-in
         """);
     return;
 }
 
 var command = args[0].ToLowerInvariant();
+
+MermaidSkinPacksCatsExtensions.RegisterCatsSkinPack();
+MermaidSkinPacksShowcaseExtensions.RegisterShowcaseSkinPacks();
 
 if (command == "render")
 {
@@ -103,20 +115,47 @@ else if (command == "compare")
     var outputDir = args.Length > 1 ? args[1] : "./compare-output";
     Directory.CreateDirectory(outputDir);
 
+    var flowchartsOnly = args.Contains("--flowcharts-only");
+    var onlyName = "";
+    var onlyIdx = Array.IndexOf(args, "--only");
+    if (onlyIdx >= 0 && onlyIdx + 1 < args.Length)
+        onlyName = args[onlyIdx + 1];
+    var noOpen = args.Contains("--no-open");
+
     Console.WriteLine("Naiad vs mermaid.js parity comparison");
     Console.WriteLine("=====================================\n");
 
     var samples = GetSampleDiagrams();
 
-    // Render all Naiad outputs first (fast)
-    Console.WriteLine("Phase 1: Rendering with Naiad...");
+    // Apply filters
+    if (!string.IsNullOrEmpty(onlyName))
+    {
+        samples = samples.Where(s => s.Name.Contains(onlyName, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (samples.Count == 0)
+        {
+            Console.Error.WriteLine($"No samples matching '{onlyName}'. Available:");
+            foreach (var (n, _) in GetSampleDiagrams())
+                Console.Error.WriteLine($"  {n}");
+            return;
+        }
+        Console.WriteLine($"Filtered to {samples.Count} sample(s) matching '{onlyName}'");
+    }
+    else if (flowchartsOnly)
+    {
+        samples = samples.Where(s => s.Name.StartsWith("flowchart", StringComparison.OrdinalIgnoreCase)).ToList();
+        Console.WriteLine($"Filtered to {samples.Count} flowchart sample(s)");
+    }
+
+    // Render all Naiad outputs first (fast) — save SVG directly
+    Console.WriteLine("\nPhase 1: Rendering with Naiad...");
     foreach (var (name, code) in samples)
     {
         Console.Write($"  {name}... ");
         try
         {
             var opts = CreateOptions(false);
-            RenderToPng(code, Path.Combine(outputDir, $"{name}-naiad.png"), opts, 2f);
+            var svg = Mermaid.Render(code, opts);
+            File.WriteAllText(Path.Combine(outputDir, $"{name}-naiad.svg"), svg);
             Console.WriteLine("OK");
         }
         catch (Exception ex)
@@ -133,8 +172,23 @@ else if (command == "compare")
     Console.WriteLine("\nPhase 3: Generating comparison report...");
     GenerateComparisonReport(samples, outputDir);
 
+    var reportPath = Path.Combine(Path.GetFullPath(outputDir), "index.html");
     Console.WriteLine($"\nComparison saved to {Path.GetFullPath(outputDir)}");
-    Console.WriteLine($"Open {Path.Combine(Path.GetFullPath(outputDir), "index.html")} to review.");
+    Console.WriteLine($"Open {reportPath} to review.");
+
+    // Auto-open in default browser
+    if (!noOpen)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = reportPath,
+                UseShellExecute = true
+            });
+        }
+        catch { /* ignore if browser launch fails */ }
+    }
 }
 else
 {
@@ -146,8 +200,7 @@ static RenderOptions CreateOptions(bool isDark)
     var options = new RenderOptions
     {
         CurvedEdges = true,
-        Padding = 40,
-        // Use built-in skin defaults — "default" = React Flow-inspired, "dark" = dark mode
+        // Use built-in skin defaults — "default" = mermaid.js matching, "dark" = dark mode
         Theme = isDark ? "dark" : "default"
     };
     return options;
@@ -184,34 +237,21 @@ static async Task RenderWithMermaidJs(List<(string Name, string Code)> samples, 
     await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
     var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1920, Height = 1080 } });
 
-    // Build an HTML page with mermaid.js that renders one diagram at a time
+    // Build an HTML page with mermaid.js that returns raw SVG strings
     var htmlTemplate = """
         <!DOCTYPE html>
         <html>
         <head>
           <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-          <style>
-            body { margin: 0; padding: 20px; background: white; }
-            #container { display: inline-block; }
-          </style>
         </head>
         <body>
-          <div id="container">
-            <pre class="mermaid" id="diagram"></pre>
-          </div>
           <script>
             mermaid.initialize({ startOnLoad: false, theme: 'default' });
             async function renderDiagram(code) {
-              const el = document.getElementById('diagram');
-              el.innerHTML = '';
               try {
                 const { svg } = await mermaid.render('diag', code);
-                el.innerHTML = svg;
-                // Wait for any async rendering
-                await new Promise(r => setTimeout(r, 200));
-                return { success: true };
+                return { success: true, svg: svg };
               } catch (e) {
-                el.innerHTML = '<p style="color:red">Error: ' + e.message + '</p>';
                 return { success: false, error: e.message };
               }
             }
@@ -220,7 +260,7 @@ static async Task RenderWithMermaidJs(List<(string Name, string Code)> samples, 
         </html>
         """;
 
-    var htmlPath = Path.Combine(outputDir, "_mermaid_renderer.html");
+    var htmlPath = Path.GetFullPath(Path.Combine(outputDir, "_mermaid_renderer.html"));
     File.WriteAllText(htmlPath, htmlTemplate);
     await page.GotoAsync($"file:///{htmlPath.Replace('\\', '/')}");
 
@@ -236,19 +276,14 @@ static async Task RenderWithMermaidJs(List<(string Name, string Code)> samples, 
             var trimmedCode = string.Join('\n',
                 code.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0));
 
-            // Render the diagram via mermaid.js
+            // Render the diagram via mermaid.js — get raw SVG string
             var result = await page.EvaluateAsync(
                 "code => renderDiagram(code)", trimmedCode);
 
             if (result?.GetProperty("success").GetBoolean() == true)
             {
-                // Screenshot the rendered diagram element
-                var container = page.Locator("#container");
-                await container.ScreenshotAsync(new()
-                {
-                    Path = Path.Combine(outputDir, $"{name}-mermaidjs.png"),
-                    Type = ScreenshotType.Png
-                });
+                var svg = result.Value.GetProperty("svg").GetString() ?? "";
+                File.WriteAllText(Path.Combine(outputDir, $"{name}-mermaidjs.svg"), svg);
                 Console.WriteLine("OK");
             }
             else
@@ -270,19 +305,38 @@ static async Task RenderWithMermaidJs(List<(string Name, string Code)> samples, 
 static void GenerateComparisonReport(List<(string Name, string Code)> samples, string outputDir)
 {
     var rows = new System.Text.StringBuilder();
-    foreach (var (name, _) in samples)
+    foreach (var (name, code) in samples)
     {
-        var naiadFile = $"{name}-naiad.png";
-        var mermaidFile = $"{name}-mermaidjs.png";
+        var naiadSvgFile = Path.Combine(outputDir, $"{name}-naiad.svg");
+        var mermaidSvgFile = Path.Combine(outputDir, $"{name}-mermaidjs.svg");
 
-        var naiadExists = File.Exists(Path.Combine(outputDir, naiadFile));
-        var mermaidExists = File.Exists(Path.Combine(outputDir, mermaidFile));
+        var naiadSvg = File.Exists(naiadSvgFile) ? File.ReadAllText(naiadSvgFile) : null;
+        var mermaidSvg = File.Exists(mermaidSvgFile) ? File.ReadAllText(mermaidSvgFile) : null;
+
+        // Trim indentation from source code for display
+        var trimmedCode = string.Join('\n',
+            code.Split('\n').Select(l => l.TrimStart()).Where(l => l.Length > 0));
+        var escapedCode = trimmedCode
+            .Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
+
+        var naiadCell = naiadSvg != null
+            ? $"<div class=\"svg-container\">{naiadSvg}</div>"
+            : "<span class=\"missing\">FAILED</span>";
+        var mermaidCell = mermaidSvg != null
+            ? $"<div class=\"svg-container\">{mermaidSvg}</div>"
+            : "<span class=\"missing\">FAILED</span>";
 
         rows.AppendLine($"""
             <tr>
-              <td class="name">{name}</td>
-              <td class="img">{(naiadExists ? $"<img src=\"{naiadFile}\" />" : "<span class=\"missing\">FAILED</span>")}</td>
-              <td class="img">{(mermaidExists ? $"<img src=\"{mermaidFile}\" />" : "<span class=\"missing\">FAILED</span>")}</td>
+              <td class="name">
+                <strong>{name}</strong>
+                <details class="code-details">
+                  <summary>source</summary>
+                  <pre class="code">{escapedCode}</pre>
+                </details>
+              </td>
+              <td class="img">{naiadCell}</td>
+              <td class="img">{mermaidCell}</td>
             </tr>
             """);
     }
@@ -299,11 +353,22 @@ static void GenerateComparisonReport(List<(string Name, string Code)> samples, s
             table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
             th { background: #2196F3; color: white; padding: 12px 16px; text-align: center; font-size: 14px; }
             td { padding: 12px; vertical-align: top; border-bottom: 1px solid #eee; }
-            td.name { font-weight: 600; font-size: 13px; color: #555; width: 160px; vertical-align: middle; }
-            td.img { text-align: center; width: 45%; }
+            td.name { font-weight: 600; font-size: 13px; color: #555; width: 200px; vertical-align: top; }
+            td.img { text-align: center; width: 40%; vertical-align: top; }
             td.img img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; }
+            .svg-container { border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: white; overflow: auto; }
+            .svg-container svg { max-width: 100%; height: auto; display: block; }
             .missing { color: #e53935; font-weight: bold; }
             tr:hover { background: #f9f9f9; }
+            .code-details { margin-top: 8px; }
+            .code-details summary { cursor: pointer; color: #1976D2; font-size: 12px; }
+            .code { background: #263238; color: #EEFFFF; padding: 10px; border-radius: 4px;
+                     font-size: 11px; overflow-x: auto; white-space: pre; margin-top: 4px;
+                     max-height: 300px; overflow-y: auto; }
+            .wc-status { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; color: #1f2937; }
+            .wc-status.error { border-color: #dc2626; background: #fef2f2; color: #991b1b; }
+            td.img.naiad-live-cell { min-width: 420px; }
+            td.img.naiad-live-cell naiad-diagram { display: block; width: 100%; --naiad-min-height: 220px; --naiad-padding: 8px; }
           </style>
         </head>
         <body>
@@ -320,6 +385,73 @@ static void GenerateComparisonReport(List<(string Name, string Code)> samples, s
               {{rows}}
             </tbody>
           </table>
+          <script type="module">
+            const status = document.createElement('p');
+            status.className = 'wc-status';
+            status.textContent = 'Loading Naiad web component...';
+            document.body.insertBefore(status, document.querySelector('table'));
+
+            const loadCandidates = [
+              '../Naiad/src/Naiad.Wasm.Npm/dist/naiad-web-component.js',
+              '/Naiad/src/Naiad.Wasm.Npm/dist/naiad-web-component.js',
+              './naiad-web-component.js'
+            ];
+
+            async function loadComponent() {
+              for (const candidate of loadCandidates) {
+                try {
+                  await import(candidate);
+                  return candidate;
+                } catch {
+                  // try next
+                }
+              }
+              throw new Error('Could not load naiad-web-component.js from known paths.');
+            }
+
+            function upgradeRows() {
+              const header = Array.from(document.querySelectorAll('th')).find((th) => th.textContent.includes('Naiad'));
+              if (header) {
+                header.textContent = 'Naiad Web Component (Live)';
+              }
+
+              const rows = document.querySelectorAll('tbody tr');
+              let upgraded = 0;
+              for (const row of rows) {
+                const code = row.querySelector('pre.code')?.textContent?.trim() ?? '';
+                if (!code) {
+                  continue;
+                }
+
+                const name = row.querySelector('td.name strong')?.textContent?.trim() ?? `diagram-${upgraded + 1}`;
+                const imageCells = row.querySelectorAll('td.img');
+                const naiadCell = imageCells[0];
+                if (!naiadCell) {
+                  continue;
+                }
+
+                naiadCell.classList.add('naiad-live-cell');
+                naiadCell.innerHTML = '';
+
+                const diagram = document.createElement('naiad-diagram');
+                diagram.setAttribute('fit-width', '');
+                diagram.setAttribute('show-menu', '');
+                diagram.setAttribute('theme', 'light');
+                diagram.setAttribute('download-filename', `${name}-naiad`);
+                diagram.textContent = code;
+
+                naiadCell.appendChild(diagram);
+                upgraded++;
+              }
+
+              status.textContent = `Live Naiad web components loaded: ${upgraded}`;
+            }
+
+            loadComponent().then(upgradeRows).catch((error) => {
+              status.textContent = `Web component load failed: ${error?.message ?? String(error)}`;
+              status.classList.add('error');
+            });
+          </script>
         </body>
         </html>
         """;
@@ -409,6 +541,218 @@ static List<(string Name, string Code)> GetSampleDiagrams() =>
             class A,E primary
             class C success
             class D danger
+        """),
+
+    // ── Complex flowchart stress tests ────────────────────────────
+    ("flowchart-fan-in-5", """
+        flowchart TD
+            A[Source 1] --> F[Collector]
+            B[Source 2] --> F
+            C[Source 3] --> F
+            D[Source 4] --> F
+            E[Source 5] --> F
+            F --> G[Result]
+        """),
+
+    ("flowchart-fan-out-5", """
+        flowchart TD
+            A[Router] --> B[Target 1]
+            A --> C[Target 2]
+            A --> D[Target 3]
+            A --> E[Target 4]
+            A --> F[Target 5]
+        """),
+
+    ("flowchart-diamond-cascade", """
+        flowchart TD
+            A[Start] --> B{Check 1}
+            B -->|Yes| C{Check 2}
+            B -->|No| D[Fail 1]
+            C -->|Yes| E{Check 3}
+            C -->|No| F[Fail 2]
+            E -->|Yes| G[Success]
+            E -->|No| H[Fail 3]
+            D --> I[Log Error]
+            F --> I
+            H --> I
+            I --> J[End]
+            G --> J
+        """),
+
+    ("flowchart-nested-subgraphs-3", """
+        flowchart LR
+            subgraph Outer["System"]
+                subgraph Middle["Service Layer"]
+                    subgraph Inner["Core"]
+                        A[Engine] --> B[Cache]
+                    end
+                    C[API] --> A
+                    B --> D[Store]
+                end
+                E[Gateway] --> C
+                D --> F[Monitor]
+            end
+            G[Client] --> E
+            F --> H[Alert]
+        """),
+
+    ("flowchart-all-edge-types", """
+        flowchart LR
+            A[Solid] --> B[Arrow]
+            B -.-> C[Dotted]
+            C ==> D[Thick]
+            D <--> E[Bidirectional]
+            E --o F[Circle End]
+            F --x G[Cross End]
+            G -->|labeled| H[With Label]
+            H -.->|dotted label| I[End]
+        """),
+
+    ("flowchart-all-shapes", """
+        flowchart TD
+            A[Rectangle] --> B(Rounded)
+            B --> C([Stadium])
+            C --> D[[Subroutine]]
+            D --> E[(Database)]
+            E --> F((Circle))
+            F --> G{Diamond}
+            G --> H{{Hexagon}}
+            H --> I>Asymmetric]
+            I --> J(((Double Circle)))
+        """),
+
+    ("flowchart-self-loop-back-edge", """
+        flowchart TD
+            A[Init] --> B[Process]
+            B --> B
+            B --> C{Valid?}
+            C -->|No| B
+            C -->|Yes| D[Save]
+            D --> E{More?}
+            E -->|Yes| A
+            E -->|No| F[Done]
+        """),
+
+    ("flowchart-long-labels-mixed", """
+        flowchart TD
+            A[Short] --> B[This is a very long label that should wrap or expand the node significantly]
+            B --> C[OK]
+            A --> D[X]
+            D --> E[Another moderately long label for testing]
+            E --> C
+        """),
+
+    ("flowchart-classdef-subgraph", """
+        flowchart TD
+            subgraph Frontend["Frontend Layer"]
+                A[React App] --> B[State Manager]
+                B --> C[API Client]
+            end
+            subgraph Backend["Backend Layer"]
+                D[REST API] --> E[Service]
+                E --> F[(PostgreSQL)]
+            end
+            C --> D
+            classDef frontend fill:#61DAFB,stroke:#21A0C9,color:#000
+            classDef backend fill:#68D391,stroke:#38A169,color:#000
+            classDef database fill:#F6AD55,stroke:#DD6B20,color:#000
+            class A,B,C frontend
+            class D,E backend
+            class F database
+        """),
+
+    ("flowchart-wide-fan-reconverge", """
+        flowchart TD
+            Start[Start] --> A[Branch A]
+            Start --> B[Branch B]
+            Start --> C[Branch C]
+            Start --> D[Branch D]
+            A --> Process[Merge Point]
+            B --> Process
+            C --> Process
+            D --> Process
+            Process --> End[End]
+        """),
+
+    ("flowchart-parallel-chains", """
+        flowchart TD
+            subgraph Chain1["Pipeline 1"]
+                A1[Input] --> B1[Transform] --> C1[Output]
+            end
+            subgraph Chain2["Pipeline 2"]
+                A2[Input] --> B2[Transform] --> C2[Output]
+            end
+            subgraph Chain3["Pipeline 3"]
+                A3[Input] --> B3[Transform] --> C3[Output]
+            end
+            C1 --> D[Aggregator]
+            C2 --> D
+            C3 --> D
+        """),
+
+    ("flowchart-cross-rank-edges", """
+        flowchart TD
+            A[Start] --> B[Step 1]
+            B --> C[Step 2]
+            C --> D[Step 3]
+            D --> E[Step 4]
+            A --> D
+            B --> E
+            A --> E
+        """),
+
+    ("flowchart-bidirectional-cycle", """
+        flowchart LR
+            A[Service A] <-->|sync| B[Service B]
+            B <-->|sync| C[Service C]
+            C <-->|sync| A
+            A --> D[Monitor]
+            B --> D
+            C --> D
+        """),
+
+    ("flowchart-heavy-text-nodes", """
+        flowchart TD
+            A[User Authentication<br/>and Authorization<br/>Service Module] --> B[Request Validation<br/>Input Sanitization<br/>Rate Limiting Layer]
+            B --> C{Content Type<br/>Router and<br/>Dispatcher}
+            C -->|JSON| D[JSON Processing<br/>Engine with Schema<br/>Validation Support]
+            C -->|XML| E[XML Parser with<br/>DTD Validation and<br/>Namespace Resolution]
+            C -->|Binary| F[Binary Stream<br/>Handler with<br/>Chunk Processing]
+            D --> G[Response Builder<br/>with Compression<br/>and Cache Headers]
+            E --> G
+            F --> G
+            G --> H[Load Balancer<br/>Health Check and<br/>Circuit Breaker]
+        """),
+
+    ("flowchart-complex-pipeline", """
+        flowchart TD
+            subgraph Ingest["Data Ingestion"]
+                S1[Kafka] --> S2{Validate}
+                S2 -->|Valid| S3[Parse]
+                S2 -->|Invalid| S4[Dead Letter]
+            end
+            subgraph Process["Processing"]
+                P1[Enrich] --> P2[Transform]
+                P2 --> P3{Route}
+                P3 -->|Type A| P4[Handler A]
+                P3 -->|Type B| P5[Handler B]
+                P3 -->|Type C| P6[Handler C]
+            end
+            subgraph Store["Storage"]
+                D1[(Primary DB)]
+                D2[(Archive)]
+                D3[Search Index]
+            end
+            S3 --> P1
+            P4 --> D1
+            P5 --> D1
+            P6 --> D1
+            D1 --> D2
+            D1 --> D3
+            S4 --> D2
+            style S4 fill:#FFCDD2,stroke:#B71C1C
+            classDef db fill:#E3F2FD,stroke:#1565C0
+            class D1,D2,D3 db
         """),
 
     // ── Sequence ────────────────────────────────────────────────────

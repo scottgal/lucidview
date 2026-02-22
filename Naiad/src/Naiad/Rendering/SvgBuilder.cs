@@ -118,6 +118,12 @@ public class SvgBuilder
     public SvgBuilder AddDropShadowFilter(string id = "drop-shadow") =>
         AddFilter(id, "<feDropShadow dx=\"0\" dy=\"1\" stdDeviation=\"2\" flood-opacity=\"0.08\" />");
 
+    public SvgBuilder AddRawDefs(string defsFragment)
+    {
+        _document.Defs.AddRawFragment(defsFragment);
+        return this;
+    }
+
     public SvgBuilder AddMermaidArrowMarker()
     {
         _document.Defs.Markers.Add(

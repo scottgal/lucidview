@@ -26,13 +26,29 @@ This one doesn't. Single exe. Cross-platform. Fast.
 
 ---
 
+## Diagram Examples
+
+All diagrams rendered natively by Naiad -- no browser, no JavaScript, no external services.
+
+<p align="center">
+  <img src="docs/images/example-flowchart.svg" alt="Flowchart" width="500">
+</p>
+
+<p align="center">
+  <img src="docs/images/example-sequence.svg" alt="Sequence Diagram" width="400">
+  <img src="docs/images/example-pie.svg" alt="Pie Chart" width="250">
+</p>
+
+---
+
 ## Features
 
 **Rendering**
 
 - Real-time markdown with [LiveMarkdown.Avalonia](https://github.com/DearVa/LiveMarkdown.Avalonia) - syntax highlighting
   built-in
-- Mermaid diagrams via [Naiad](https://github.com/SimonCropp/Naiad)
+- Mermaid diagrams via [Naiad](https://github.com/SimonCropp/Naiad) -- 20+ diagram types rendered natively in .NET
+- Mermaid-compatible Naiad directives via comments (`%% naiad: ...`) for per-file theme/skin configuration
 - Local & remote images that actually work
 
 **UI**
@@ -48,6 +64,11 @@ This one doesn't. Single exe. Cross-platform. Fast.
 - Single file executable
 - No dependencies
 - ~50MB
+
+**Extensibility**
+
+- Pluginized native diagram replacement pipeline (`MarkdownViewer/Plugins`)
+- Shape skin packs from folder or archive (`Naiad/skins`)
 
 ---
 
@@ -73,6 +94,19 @@ lucidVIEW document.md
 ```
 
 Or drag & drop. Or Ctrl+O. Or paste a URL (Ctrl+Shift+O).
+
+### Naiad Per-File Options (Mermaid-Compatible)
+
+```mermaid
+%% naiad: skinPack=daisyui, theme=dark
+flowchart LR
+  A[Start] --> B[Done]
+```
+
+See:
+
+- `Naiad/skins/README.md`
+- `MarkdownViewer/Plugins/README.md`
 
 ### Shortcuts
 

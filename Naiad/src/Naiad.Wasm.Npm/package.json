@@ -1,0 +1,37 @@
+{
+  "name": "@naiad/web-component",
+  "version": "0.1.0",
+  "description": "Naiad WebAssembly Mermaid renderer as a standard web component.",
+  "type": "module",
+  "main": "./dist/naiad-web-component.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": "./dist/naiad-web-component.js",
+    "./client": "./dist/naiad-client.js",
+    "./plain-web-component.html": "./dist/plain-web-component.html",
+    "./all-diagrams-web-component.html": "./dist/all-diagrams-web-component.html",
+    "./all-diagrams-test.md": "./dist/all-diagrams-test.md",
+    "./styles.css": "./dist/app.css",
+    "./skins/config": "./dist/skins/skin-packs.json",
+    "./skins/*": "./dist/skins/*"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "prepack": "npm run build",
+    "pack:preview": "npm pack --dry-run"
+  },
+  "keywords": [
+    "mermaid",
+    "wasm",
+    "web-component",
+    "naiad"
+  ],
+  "author": "mostlylucid",
+  "license": "Unlicense",
+  "sideEffects": true
+}

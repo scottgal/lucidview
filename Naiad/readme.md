@@ -66,7 +66,7 @@ var svg = Mermaid.Render(
  * [Treemap](https://mermaid.js.org/syntax/treemap.html) (beta)
 
 
-## Test Renders<!-- include: renders. path: /src/test-renders/renders.include.md -->
+## Test Renders<!-- include: renders. path: /Naiad/src/test-renders/renders.include.md -->
 
 Auto-generated documentation from the test suite.
 
