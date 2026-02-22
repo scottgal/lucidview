@@ -541,15 +541,14 @@ public partial class MarkdownService
                 continue;
             }
 
-            // Try native SvgDocument rendering for all other diagram types
-            var nativeDoc = TryRenderToDocument(mermaidCode);
-            if (nativeDoc is not null)
+            // Render non-flowchart diagrams as SVG image files.
+            // Flowcharts keep native rendering for interaction/perf.
+            var svgPath = TryRenderMermaidToSvgFile(mermaidCode);
+            if (svgPath is not null)
             {
-                var diagramKey = $"diagram-{_diagramCounter++}";
-                _diagramDocuments[diagramKey] = nativeDoc;
-                _mermaidSourceMap[diagramKey] = mermaidCode;
-
-                content = content.Replace(match.Value, $"\n\n{DiagramMarkerPrefix}{diagramKey}\n\n");
+                _mermaidSourceMap[svgPath] = mermaidCode;
+                var markdownPath = svgPath.Replace("\\", "/");
+                content = content.Replace(match.Value, $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
                 continue;
             }
 
@@ -574,20 +573,21 @@ public partial class MarkdownService
             }
         }
 
-        // Process BPMN blocks (```bpmn ... ```) — route through BPMN parser → flowchart renderer
+        // Process BPMN blocks (```bpmn ... ```) as SVG images.
         var bpmnRegex = BpmnBlockRegex();
         foreach (Match match in bpmnRegex.Matches(content))
         {
             var bpmnCode = match.Groups[1].Value.Trim();
             try
             {
-                var nativeDoc = Mermaid.RenderToDocument(bpmnCode, CreateRenderOptions());
-                if (nativeDoc is not null)
+                var svg = Mermaid.Render(bpmnCode, CreateRenderOptions());
+                svg = PostProcessSvg(svg);
+                if (!string.IsNullOrWhiteSpace(svg))
                 {
-                    var diagramKey = $"diagram-{_diagramCounter++}";
-                    _diagramDocuments[diagramKey] = nativeDoc;
-                    _mermaidSourceMap[diagramKey] = bpmnCode;
-                    content = content.Replace(match.Value, $"\n\n{DiagramMarkerPrefix}{diagramKey}\n\n");
+                    var svgPath = WriteTempSvg(svg);
+                    _mermaidSourceMap[svgPath] = bpmnCode;
+                    var markdownPath = svgPath.Replace("\\", "/");
+                    content = content.Replace(match.Value, $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
                 }
             }
             catch
@@ -699,6 +699,24 @@ public partial class MarkdownService
     }
 
     /// <summary>
+    /// Try to render a Mermaid diagram to SVG and persist it as a temp file.
+    /// Returns the SVG file path on success, otherwise null.
+    /// </summary>
+    private string? TryRenderMermaidToSvgFile(string mermaidCode)
+    {
+        try
+        {
+            var svgContent = TryRenderMermaid(mermaidCode);
+            svgContent = PostProcessSvg(svgContent);
+            return WriteTempSvg(svgContent);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Render mermaid code to a PNG file. Returns the file path.
     /// Thread-safe — can be called from multiple threads concurrently.
     /// </summary>
@@ -783,6 +801,13 @@ public partial class MarkdownService
     {
         var path = Path.Combine(TempDirectory, $"diagram_{Guid.NewGuid():N}.png");
         File.WriteAllBytes(path, pngData);
+        return path;
+    }
+
+    private string WriteTempSvg(string svgContent)
+    {
+        var path = Path.Combine(TempDirectory, $"diagram_{Guid.NewGuid():N}.svg");
+        File.WriteAllText(path, svgContent);
         return path;
     }
 

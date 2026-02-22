@@ -57,7 +57,14 @@
       "WebFetch(domain:cprimozic.net)",
       "WebFetch(domain:people.eng.unimelb.edu.au)",
       "WebFetch(domain:www.particleincell.com)",
-      "WebFetch(domain:www.truetex.com)"
+      "WebFetch(domain:www.truetex.com)",
+      "Bash(gh repo:*)",
+      "Bash(cd:*)",
+      "Bash(cd \"E:/source/markdown.viewer/Naiad/lib/Dagre.NET\" && git push origin main 2>&1)",
+      "Bash(gh secret:*)",
+      "Bash(cd \"E:/source/markdown.viewer/Naiad/lib/Dagre.NET\" && git commit -m \"$\\(cat <<'EOF'\nFix package casing to Mostlylucid.Dagre, use OIDC trusted publishing\n\n- Change PackageId from MostlyLucid.Dagre to Mostlylucid.Dagre\n- Replace NUGET_API_KEY secret with NuGet/login OIDC trusted publisher\n- Add id-token permission for OIDC authentication\n- Update README references to match Mostlylucid casing\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git push origin main 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer/Naiad/lib/Dagre.NET\" && git commit -m \"$\\(cat <<'EOF'\nReduce allocations in hot paths: zero-alloc iteration + in-place updates\n\n- Add PredecessorKeys/SuccessorKeys for zero-allocation iteration in BK\n  conflict detection and type-1/type-2 conflict scanning\n- Add HasChildren\\(\\) to avoid array allocation for existence checks\n- Replace LINQ Enumerable.Range\\(\\).ToArray\\(\\) with direct loop in util.range\\(\\)\n- Update alignCoordinates\\(\\) to modify dictionaries in-place instead of\n  creating new ones\n- Reuse CrossEntry list buffer in twoLayerCrossCount instead of allocating\n  per north-layer node\n\nBenchmark: ~3% memory reduction across all graph sizes \\(311MB→311MB stress\\).\nThese target the iteration overhead; the bulk allocations are structural\n\\(4 dicts per node in DagreGraph.SetNode, layer graph creation in Order phase\\).\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git push origin main 2>&1)",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot"
     ]
   }
 }

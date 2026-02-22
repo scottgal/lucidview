@@ -10,6 +10,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{71ADAD97-F
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarkdownViewer", "..\MarkdownViewer\MarkdownViewer.csproj", "{71425109-E745-4C91-B495-477691F60B53}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Dagre", "Dagre", "{17FBEA54-6765-45E6-9978-7B58302441C6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dagre.NET", "..\Naiad\lib\Dagre.NET\Dagre.NET\Dagre.NET.csproj", "{3D193421-AEB3-416D-9AB0-B5018764B78A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,5 +24,12 @@ Global
 		{71425109-E745-4C91-B495-477691F60B53}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{71425109-E745-4C91-B495-477691F60B53}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{71425109-E745-4C91-B495-477691F60B53}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D193421-AEB3-416D-9AB0-B5018764B78A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D193421-AEB3-416D-9AB0-B5018764B78A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D193421-AEB3-416D-9AB0-B5018764B78A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D193421-AEB3-416D-9AB0-B5018764B78A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{3D193421-AEB3-416D-9AB0-B5018764B78A} = {17FBEA54-6765-45E6-9978-7B58302441C6}
 	EndGlobalSection
 EndGlobal

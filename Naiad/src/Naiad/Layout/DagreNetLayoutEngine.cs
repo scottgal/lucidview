@@ -184,11 +184,15 @@ public class DagreNetLayoutEngine : ILayoutEngine
 
         }
 
-        // Clip edge endpoints to node shape boundaries using universal geometry
-        ClipEdgeEndpoints(diagram);
-
-        // Distribute multiple edges on the same node side evenly along the border
+        // Distribute multiple edges on the same node side evenly along the border.
+        // Must run BEFORE ClipEdgeEndpoints so that distributed points on rectangular
+        // bounds can be projected onto actual shape boundaries (diamond, circle, etc.)
         DistributeEdgePorts(diagram);
+
+        // Clip edge endpoints to node shape boundaries using universal geometry.
+        // For non-rectangular shapes, casts ray from node center through each
+        // distributed point to find the actual boundary intersection.
+        ClipEdgeEndpoints(diagram);
 
         // Merge near-collinear edge segments to eliminate micro-bends from dagre waypoints
         SmoothEdgePaths(diagram);
@@ -303,8 +307,12 @@ public class DagreNetLayoutEngine : ILayoutEngine
         var center = new PointD(node.Position.X, node.Position.Y);
         var dir = new PointD(point.X - center.X, point.Y - center.Y);
 
-        // Avoid zero-length direction
-        if (Math.Abs(dir.X) < 0.01 && Math.Abs(dir.Y) < 0.01) return null;
+        // Avoid zero-length direction — point is at node center
+        if (Math.Abs(dir.X) < 0.01 && Math.Abs(dir.Y) < 0.01)
+        {
+            // Default to bottom for vertical layouts
+            dir = new PointD(0, 1);
+        }
 
         return ShapeGeometry.IntersectRay(segments, center, dir);
     }
@@ -554,6 +562,7 @@ public class DagreNetLayoutEngine : ILayoutEngine
             };
         });
 
+        var isNonRect = !IsRectangularShape(node.Shape);
         var count = group.Count;
         for (var i = 0; i < count; i++)
         {
@@ -568,6 +577,16 @@ public class DagreNetLayoutEngine : ILayoutEngine
                 Side.Right => new Position(cx + hw, cy - hh + t * node.Height),
                 _ => isSource ? edge.Points[0] : edge.Points[^1]
             };
+
+            // For non-rectangular shapes (diamond, circle, etc.), project the
+            // rectangular distribution point onto the actual shape boundary.
+            // This prevents edges from terminating outside the visible shape.
+            if (isNonRect)
+            {
+                var clipped = ClipPointToShape(node, newPt);
+                if (clipped is not null)
+                    newPt = new(clipped.Value.X, clipped.Value.Y);
+            }
 
             if (isSource)
                 edge.Points[0] = newPt;
@@ -646,56 +665,57 @@ public class DagreNetLayoutEngine : ILayoutEngine
     /// <summary>
     /// Pull back edge endpoints by the arrowhead marker size so the arrow tip
     /// isn't hidden behind the node shape (nodes are rendered on top of edges).
-    /// Only applies to rectangular shapes where dagre clips to the rect boundary
-    /// and the node is drawn on top of the arrowhead. Non-rectangular shapes
-    /// (diamond, circle, etc.) are already clipped to the shape boundary by
-    /// ClipEdgeEndpoints, so no pullback is needed.
+    /// Applies to ALL shapes since nodes are drawn on top of edge paths.
     /// </summary>
     static void PullBackArrowEndpoints(GraphDiagramBase diagram)
     {
-        const double pullback = 5.0; // Slightly more than marker tip extension
+        // SVG marker has refX=5 in a 10-unit viewBox mapped to 8px markerWidth,
+        // so the arrow tip extends ~4px past the endpoint. Rectangles need a larger
+        // pullback because the node fill fully covers the edge path at the boundary.
+        // Non-rectangular shapes (diamond, circle) have thinner boundaries so the
+        // tip needs to end closer to the shape outline.
+        const double rectPullback = 5.0;
+        const double shapePullback = 2.0; // Just enough to prevent tip clipping
 
         foreach (var edge in diagram.Edges)
         {
             if (edge.Points.Count < 2 || edge.SourceId == edge.TargetId) continue;
 
-            // Pull back last point (target end) if arrow head AND target is rectangular
+            // Pull back last point (target end) if arrow head
             if (edge.HasArrowHead)
             {
                 var tgtNode = diagram.GetNode(edge.TargetId);
-                if (tgtNode is not null && IsRectangularShape(tgtNode.Shape))
+                var pb = tgtNode is not null && !IsRectangularShape(tgtNode.Shape)
+                    ? shapePullback : rectPullback;
+                var last = edge.Points[^1];
+                var prev = edge.Points[^2];
+                var dx = last.X - prev.X;
+                var dy = last.Y - prev.Y;
+                var len = Math.Sqrt(dx * dx + dy * dy);
+                if (len > pb * 2)
                 {
-                    var last = edge.Points[^1];
-                    var prev = edge.Points[^2];
-                    var dx = last.X - prev.X;
-                    var dy = last.Y - prev.Y;
-                    var len = Math.Sqrt(dx * dx + dy * dy);
-                    if (len > pullback * 2)
-                    {
-                        edge.Points[^1] = new(
-                            last.X - dx / len * pullback,
-                            last.Y - dy / len * pullback);
-                    }
+                    edge.Points[^1] = new(
+                        last.X - dx / len * pb,
+                        last.Y - dy / len * pb);
                 }
             }
 
-            // Pull back first point (source end) if arrow tail AND source is rectangular
+            // Pull back first point (source end) if arrow tail
             if (edge.HasArrowTail)
             {
                 var srcNode = diagram.GetNode(edge.SourceId);
-                if (srcNode is not null && IsRectangularShape(srcNode.Shape))
+                var pb = srcNode is not null && !IsRectangularShape(srcNode.Shape)
+                    ? shapePullback : rectPullback;
+                var first = edge.Points[0];
+                var next = edge.Points[1];
+                var dx = first.X - next.X;
+                var dy = first.Y - next.Y;
+                var len = Math.Sqrt(dx * dx + dy * dy);
+                if (len > pb * 2)
                 {
-                    var first = edge.Points[0];
-                    var next = edge.Points[1];
-                    var dx = first.X - next.X;
-                    var dy = first.Y - next.Y;
-                    var len = Math.Sqrt(dx * dx + dy * dy);
-                    if (len > pullback * 2)
-                    {
-                        edge.Points[0] = new(
-                            first.X - dx / len * pullback,
-                            first.Y - dy / len * pullback);
-                    }
+                    edge.Points[0] = new(
+                        first.X - dx / len * pb,
+                        first.Y - dy / len * pb);
                 }
             }
         }
