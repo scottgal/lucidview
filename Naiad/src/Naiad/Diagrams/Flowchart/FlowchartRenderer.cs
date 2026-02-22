@@ -146,7 +146,9 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         };
         // Pass font size to layout engine so it can measure edge labels
         if (_layoutEngine is DagreNetLayoutEngine dagreNet)
+        {
             dagreNet.FontSize = options.FontSize;
+        }
         _layoutEngine.Layout(model, layoutOptions);
 
         // Subgraph bounds are computed by the layout engine (dagre compound graph).
@@ -164,6 +166,9 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     public SvgDocument Render(FlowchartModel model, RenderOptions options)
     {
         var layout = LayoutModel(model, options);
+
+        // Apply skin corner radius to options so ShapePathGenerator uses it
+        options.NodeCornerRadius = layout.Skin.NodeCornerRadius;
 
         // Build SVG
         var builder = new SvgBuilder()
@@ -291,7 +296,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
             if (node.Style.Stroke is not null) { if (sb.Length > 0) sb.Append(';'); sb.Append($"stroke:{node.Style.Stroke}"); }
             if (node.Style.StrokeWidth is not null) { if (sb.Length > 0) sb.Append(';'); sb.Append($"stroke-width:{node.Style.StrokeWidth}"); }
             if (node.Style.StrokeDasharray is not null) { if (sb.Length > 0) sb.Append(';'); sb.Append($"stroke-dasharray:{node.Style.StrokeDasharray}"); }
-            customStyle = sb.ToString();
+            customStyle = SecurityValidator.SanitizeCss(sb.ToString());
         }
 
         RenderSkinnedNodePaths(builder, skinnedPath, shapeClass, customStyle);
@@ -318,6 +323,8 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
                 (null, not null) => $"font-weight:{node.Style.FontWeight}",
                 _ => null
             };
+            if (!string.IsNullOrEmpty(textStyle))
+                textStyle = SecurityValidator.SanitizeCss(textStyle);
         }
 
         var lines = displayLabel.Split('\n');

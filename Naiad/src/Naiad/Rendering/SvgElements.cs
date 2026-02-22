@@ -1,4 +1,5 @@
 using static MermaidSharp.Rendering.RenderUtils;
+using System.Net;
 
 namespace MermaidSharp.Rendering;
 
@@ -17,21 +18,58 @@ public abstract class SvgElement
             return "";
 
         var sb = new StringBuilder();
-        if (Id is not null) sb.Append($" id=\"{Id}\"");
-        if (Class is not null) sb.Append($" class=\"{Class}\"");
-        if (Style is not null) sb.Append($" style=\"{Style}\"");
-        if (Transform is not null) sb.Append($" transform=\"{Transform}\"");
+        if (Id is not null) sb.Append($" id=\"{EscapeAttribute(Id)}\"");
+        if (Class is not null) sb.Append($" class=\"{EscapeAttribute(Class)}\"");
+        var safeStyle = SanitizeStyleAttribute(Style);
+        if (safeStyle is not null) sb.Append($" style=\"{EscapeAttribute(safeStyle)}\"");
+        var safeTransform = SanitizeTransformAttribute(Transform);
+        if (safeTransform is not null) sb.Append($" transform=\"{EscapeAttribute(safeTransform)}\"");
         return sb.ToString();
     }
 
     protected void AppendCommonAttributes(StringBuilder sb)
     {
-        if (Id is not null) sb.Append($" id=\"{Id}\"");
-        if (Class is not null) sb.Append($" class=\"{Class}\"");
-        if (Style is not null) sb.Append($" style=\"{Style}\"");
-        if (Transform is not null) sb.Append($" transform=\"{Transform}\"");
+        if (Id is not null) sb.Append($" id=\"{EscapeAttribute(Id)}\"");
+        if (Class is not null) sb.Append($" class=\"{EscapeAttribute(Class)}\"");
+        var safeStyle = SanitizeStyleAttribute(Style);
+        if (safeStyle is not null) sb.Append($" style=\"{EscapeAttribute(safeStyle)}\"");
+        var safeTransform = SanitizeTransformAttribute(Transform);
+        if (safeTransform is not null) sb.Append($" transform=\"{EscapeAttribute(safeTransform)}\"");
     }
 
+    // Only escape &, <, >, " for double-quoted XML attributes.
+    // WebUtility.HtmlEncode also encodes ' → &#39; which is unnecessary
+    // inside double-quoted attributes and breaks SVG font-family values.
+    protected static string EscapeAttribute(string value) =>
+        value
+            .Replace("&", "&amp;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;")
+            .Replace("\"", "&quot;");
+
+    protected static string? SanitizeStyleAttribute(string? style)
+    {
+        if (string.IsNullOrWhiteSpace(style))
+            return null;
+
+        var sanitized = SecurityValidator.SanitizeCss(style);
+        return string.IsNullOrWhiteSpace(sanitized) ? null : sanitized;
+    }
+
+    protected static string? SanitizeTransformAttribute(string? transform)
+    {
+        if (string.IsNullOrWhiteSpace(transform))
+            return null;
+
+        var trimmed = transform.Trim();
+        if (trimmed.IndexOfAny(['<', '>', '"', '\'']) >= 0)
+            return null;
+        if (trimmed.Contains("javascript:", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Contains("expression", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return trimmed;
+    }
 }
 
 public class SvgGroup : SvgElement
@@ -78,8 +116,8 @@ public class SvgRect : SvgElement
         sb.Append($"<rect x=\"{Fmt(X)}\" y=\"{Fmt(Y)}\" width=\"{Fmt(Width)}\" height=\"{Fmt(Height)}\"");
         if (Rx > 0) sb.Append($" rx=\"{Fmt(Rx)}\"");
         if (Ry > 0) sb.Append($" ry=\"{Fmt(Ry)}\"");
-        if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
-        if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
+        if (Fill is not null) sb.Append($" fill=\"{EscapeAttribute(Fill)}\"");
+        if (Stroke is not null) sb.Append($" stroke=\"{EscapeAttribute(Stroke)}\"");
         if (StrokeWidth.HasValue) sb.Append($" stroke-width=\"{Fmt(StrokeWidth.Value)}\"");
         AppendCommonAttributes(sb);
         sb.Append("/>");
@@ -115,8 +153,8 @@ public class SvgCircle : SvgElement
     {
         var builder = new StringBuilder();
         builder.Append($"<circle cx=\"{Fmt(Cx)}\" cy=\"{Fmt(Cy)}\" r=\"{Fmt(R)}\"");
-        if (Fill is not null) builder.Append($" fill=\"{Fill}\"");
-        if (Stroke is not null) builder.Append($" stroke=\"{Stroke}\"");
+        if (Fill is not null) builder.Append($" fill=\"{EscapeAttribute(Fill)}\"");
+        if (Stroke is not null) builder.Append($" stroke=\"{EscapeAttribute(Stroke)}\"");
         if (StrokeWidth.HasValue) builder.Append($" stroke-width=\"{Fmt(StrokeWidth.Value)}\"");
         AppendCommonAttributes(builder);
         builder.Append("/>");
@@ -137,8 +175,8 @@ public class SvgEllipse : SvgElement
     {
         var sb = new StringBuilder();
         sb.Append($"<ellipse cx=\"{Fmt(Cx)}\" cy=\"{Fmt(Cy)}\" rx=\"{Fmt(Rx)}\" ry=\"{Fmt(Ry)}\"");
-        if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
-        if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
+        if (Fill is not null) sb.Append($" fill=\"{EscapeAttribute(Fill)}\"");
+        if (Stroke is not null) sb.Append($" stroke=\"{EscapeAttribute(Stroke)}\"");
         AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
@@ -159,9 +197,9 @@ public class SvgLine : SvgElement
     {
         var sb = new StringBuilder();
         sb.Append($"<line x1=\"{Fmt(X1)}\" y1=\"{Fmt(Y1)}\" x2=\"{Fmt(X2)}\" y2=\"{Fmt(Y2)}\"");
-        if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
+        if (Stroke is not null) sb.Append($" stroke=\"{EscapeAttribute(Stroke)}\"");
         if (StrokeWidth.HasValue) sb.Append($" stroke-width=\"{Fmt(StrokeWidth.Value)}\"");
-        if (StrokeDasharray is not null) sb.Append($" stroke-dasharray=\"{StrokeDasharray}\"");
+        if (StrokeDasharray is not null) sb.Append($" stroke-dasharray=\"{EscapeAttribute(StrokeDasharray)}\"");
         AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
@@ -182,13 +220,13 @@ public class SvgPath : SvgElement
     public override string ToXml()
     {
         var sb = new StringBuilder();
-        sb.Append($"<path d=\"{D}\"");
-        if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
-        if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
+        sb.Append($"<path d=\"{EscapeAttribute(D)}\"");
+        if (Fill is not null) sb.Append($" fill=\"{EscapeAttribute(Fill)}\"");
+        if (Stroke is not null) sb.Append($" stroke=\"{EscapeAttribute(Stroke)}\"");
         if (StrokeWidth.HasValue) sb.Append($" stroke-width=\"{Fmt(StrokeWidth.Value)}\"");
-        if (StrokeDasharray is not null) sb.Append($" stroke-dasharray=\"{StrokeDasharray}\"");
-        if (MarkerStart is not null) sb.Append($" marker-start=\"{MarkerStart}\"");
-        if (MarkerEnd is not null) sb.Append($" marker-end=\"{MarkerEnd}\"");
+        if (StrokeDasharray is not null) sb.Append($" stroke-dasharray=\"{EscapeAttribute(StrokeDasharray)}\"");
+        if (MarkerStart is not null) sb.Append($" marker-start=\"{EscapeAttribute(MarkerStart)}\"");
+        if (MarkerEnd is not null) sb.Append($" marker-end=\"{EscapeAttribute(MarkerEnd)}\"");
         if (Opacity.HasValue) sb.Append($" opacity=\"{Fmt(Opacity.Value)}\"");
         AppendCommonAttributes(sb);
         sb.Append("/>");
@@ -208,8 +246,8 @@ public class SvgPolygon : SvgElement
         sb.Append("<polygon points=\"");
         SvgHelpers.AppendPoints(sb, Points);
         sb.Append('"');
-        if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
-        if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
+        if (Fill is not null) sb.Append($" fill=\"{EscapeAttribute(Fill)}\"");
+        if (Stroke is not null) sb.Append($" stroke=\"{EscapeAttribute(Stroke)}\"");
         AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
@@ -231,11 +269,11 @@ public class SvgPolyline : SvgElement
         sb.Append("<polyline points=\"");
         SvgHelpers.AppendPoints(sb, Points);
         sb.Append('"');
-        if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
-        if (Stroke is not null) sb.Append($" stroke=\"{Stroke}\"");
+        if (Fill is not null) sb.Append($" fill=\"{EscapeAttribute(Fill)}\"");
+        if (Stroke is not null) sb.Append($" stroke=\"{EscapeAttribute(Stroke)}\"");
         if (StrokeWidth.HasValue) sb.Append($" stroke-width=\"{Fmt(StrokeWidth.Value)}\"");
-        if (StrokeDasharray is not null) sb.Append($" stroke-dasharray=\"{StrokeDasharray}\"");
-        if (MarkerEnd is not null) sb.Append($" marker-end=\"{MarkerEnd}\"");
+        if (StrokeDasharray is not null) sb.Append($" stroke-dasharray=\"{EscapeAttribute(StrokeDasharray)}\"");
+        if (MarkerEnd is not null) sb.Append($" marker-end=\"{EscapeAttribute(MarkerEnd)}\"");
         AppendCommonAttributes(sb);
         sb.Append("/>");
         return sb.ToString();
@@ -275,19 +313,21 @@ public class SvgText : SvgElement
         // For transformed text (OmitXY=true), mermaid.ink uses: transform, class, style order
         if (OmitXY)
         {
-            if (Transform is not null) sb.Append($" transform=\"{Transform}\"");
-            if (Class is not null) sb.Append($" class=\"{Class}\"");
-            if (Style is not null) sb.Append($" style=\"{Style}\"");
+            var safeTransform = SanitizeTransformAttribute(Transform);
+            if (safeTransform is not null) sb.Append($" transform=\"{EscapeAttribute(safeTransform)}\"");
+            if (Class is not null) sb.Append($" class=\"{EscapeAttribute(Class)}\"");
+            var safeStyle = SanitizeStyleAttribute(Style);
+            if (safeStyle is not null) sb.Append($" style=\"{EscapeAttribute(safeStyle)}\"");
         }
         else
         {
             sb.Append($" x=\"{Fmt(X)}\" y=\"{Fmt(Y)}\"");
-            if (TextAnchor is not null) sb.Append($" text-anchor=\"{TextAnchor}\"");
-            if (DominantBaseline is not null) sb.Append($" dominant-baseline=\"{DominantBaseline}\"");
-            if (FontSize is not null) sb.Append($" font-size=\"{FontSize}\"");
-            if (FontFamily is not null) sb.Append($" font-family=\"{FontFamily.Replace('"', '\'')}\"");
-            if (FontWeight is not null) sb.Append($" font-weight=\"{FontWeight}\"");
-            if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
+            if (TextAnchor is not null) sb.Append($" text-anchor=\"{EscapeAttribute(TextAnchor)}\"");
+            if (DominantBaseline is not null) sb.Append($" dominant-baseline=\"{EscapeAttribute(DominantBaseline)}\"");
+            if (FontSize is not null) sb.Append($" font-size=\"{EscapeAttribute(FontSize)}\"");
+            if (FontFamily is not null) sb.Append($" font-family=\"{EscapeAttribute(FontFamily.Replace('"', '\''))}\"");
+            if (FontWeight is not null) sb.Append($" font-weight=\"{EscapeAttribute(FontWeight)}\"");
+            if (Fill is not null) sb.Append($" fill=\"{EscapeAttribute(Fill)}\"");
             AppendCommonAttributes(sb);
         }
 
@@ -338,8 +378,8 @@ public class SvgMultiLineText : SvgElement
     {
         var sb = new StringBuilder();
         sb.Append($"<text x=\"{Fmt(X)}\" y=\"{Fmt(StartY)}\"");
-        if (TextAnchor is not null) sb.Append($" text-anchor=\"{TextAnchor}\"");
-        if (Fill is not null) sb.Append($" fill=\"{Fill}\"");
+        if (TextAnchor is not null) sb.Append($" text-anchor=\"{EscapeAttribute(TextAnchor)}\"");
+        if (Fill is not null) sb.Append($" fill=\"{EscapeAttribute(Fill)}\"");
         AppendCommonAttributes(sb);
         sb.Append('>');
         for (var i = 0; i < Lines.Length; i++)
@@ -386,7 +426,7 @@ public class SvgForeignObject : SvgElement
         AppendCommonAttributes(sb);
         sb.Append('>');
         sb.Append($"<div xmlns=\"http://www.w3.org/1999/xhtml\" style=\"display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center; vertical-align: middle; width: {Fmt(Width)}px; height: {Fmt(Height)}px;\">");
-        sb.Append($"<span class=\"nodeLabel\">{HtmlContent}</span>");
+        sb.Append($"<span class=\"nodeLabel\">{WebUtility.HtmlEncode(HtmlContent)}</span>");
         sb.Append("</div>");
         sb.Append("</foreignObject>");
         return sb.ToString();

@@ -8,6 +8,38 @@ const systemDarkQuery =
     ? window.matchMedia("(prefers-color-scheme: dark)")
     : null;
 
+const MAX_MERMAID_SOURCE_CHARS = 100_000;
+const MAX_OPTIONS_JSON_CHARS = 16_384;
+const MAX_RENDERED_SVG_CHARS = 2_000_000;
+const MAX_RENDER_CACHE_ENTRIES = 64;
+
+const DISALLOWED_SVG_TAGS = new Set([
+  "script",
+  "iframe",
+  "object",
+  "embed",
+  "link",
+  "meta"
+]);
+
+const ALLOWED_FOREIGN_OBJECT_TAGS = new Set([
+  "div",
+  "span",
+  "p",
+  "b",
+  "strong",
+  "i",
+  "em",
+  "u",
+  "small",
+  "br",
+  "code",
+  "pre",
+  "ul",
+  "ol",
+  "li"
+]);
+
 async function getSharedClient() {
   if (sharedClient) {
     return sharedClient;
@@ -561,6 +593,13 @@ class NaiadDiagramElement extends HTMLElement {
       return;
     }
 
+    if (source.length > MAX_MERMAID_SOURCE_CHARS) {
+      this.#diagramEl.innerHTML = "";
+      this.#showError(`Mermaid source exceeds ${MAX_MERMAID_SOURCE_CHARS} characters.`);
+      this.#setStatus("Render failed");
+      return;
+    }
+
     this.#setStatus("Rendering...");
     this.#hideError();
 
@@ -582,7 +621,8 @@ class NaiadDiagramElement extends HTMLElement {
       }
 
       const start = performance.now();
-      const svg = client.renderSvg(source, options);
+      const rawSvg = client.renderSvg(source, options);
+      const svg = this.#sanitizeSvgMarkup(rawSvg);
       const renderMs = performance.now() - start;
 
       if (token !== this.#renderToken) {
@@ -673,6 +713,10 @@ class NaiadDiagramElement extends HTMLElement {
       return null;
     }
 
+    if (raw.length > MAX_OPTIONS_JSON_CHARS) {
+      throw new Error(`The \`options\` attribute exceeds ${MAX_OPTIONS_JSON_CHARS} characters.`);
+    }
+
     try {
       const parsed = JSON.parse(raw);
       if (parsed == null || typeof parsed !== "object") {
@@ -696,7 +740,7 @@ class NaiadDiagramElement extends HTMLElement {
       return 24;
     }
 
-    return parsed;
+    return Math.min(parsed, MAX_RENDER_CACHE_ENTRIES);
   }
 
   #cacheKey(mermaid, options) {
@@ -908,6 +952,135 @@ class NaiadDiagramElement extends HTMLElement {
     svg.style.width = "100%";
     svg.style.height = "auto";
     svg.style.display = "block";
+  }
+
+  #sanitizeSvgMarkup(svgMarkup) {
+    if (typeof svgMarkup !== "string" || svgMarkup.trim() === "") {
+      throw new Error("Renderer returned an empty SVG payload.");
+    }
+
+    if (svgMarkup.length > MAX_RENDERED_SVG_CHARS) {
+      throw new Error(`Rendered SVG exceeds ${MAX_RENDERED_SVG_CHARS} characters.`);
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgMarkup, "image/svg+xml");
+    if (doc.querySelector("parsererror")) {
+      throw new Error("Renderer returned invalid SVG markup.");
+    }
+
+    const root = doc.documentElement;
+    if (!root || root.tagName.toLowerCase() !== "svg") {
+      throw new Error("Renderer output is not an SVG document.");
+    }
+
+    const nodes = [root, ...Array.from(root.querySelectorAll("*"))];
+    for (const element of nodes) {
+      const tagName = element.tagName.toLowerCase();
+      if (DISALLOWED_SVG_TAGS.has(tagName)) {
+        element.remove();
+        continue;
+      }
+
+      const insideForeignObject =
+        tagName !== "foreignobject" && !!element.closest("foreignObject");
+      if (insideForeignObject && !ALLOWED_FOREIGN_OBJECT_TAGS.has(tagName)) {
+        element.remove();
+        continue;
+      }
+
+      if (tagName === "style") {
+        element.textContent = this.#sanitizeCssText(element.textContent ?? "");
+      }
+
+      for (const attribute of Array.from(element.attributes)) {
+        const name = attribute.name;
+        const lowerName = name.toLowerCase();
+        const value = attribute.value ?? "";
+
+        if (lowerName.startsWith("on")) {
+          element.removeAttribute(name);
+          continue;
+        }
+
+        if (lowerName === "style") {
+          const sanitizedStyle = this.#sanitizeCssText(value);
+          if (sanitizedStyle === "") {
+            element.removeAttribute(name);
+          } else {
+            element.setAttribute(name, sanitizedStyle);
+          }
+          continue;
+        }
+
+        if (lowerName === "href" || lowerName === "xlink:href" || lowerName === "src") {
+          if (!this.#isSafeUrl(value)) {
+            element.removeAttribute(name);
+          }
+          continue;
+        }
+
+        if (this.#containsUnsafeToken(value)) {
+          element.removeAttribute(name);
+        }
+      }
+    }
+
+    return new XMLSerializer().serializeToString(root);
+  }
+
+  #sanitizeCssText(cssText) {
+    if (!cssText) {
+      return "";
+    }
+
+    let sanitized = cssText;
+    sanitized = sanitized.replace(/expression\s*\(/gi, "blocked(");
+    sanitized = sanitized.replace(/javascript\s*:/gi, "blocked:");
+    sanitized = sanitized.replace(/vbscript\s*:/gi, "blocked:");
+    sanitized = sanitized.replace(/@import[^;]*;?/gi, "");
+    sanitized = sanitized.replace(/@charset[^;]*;?/gi, "");
+    sanitized = sanitized.replace(/@namespace[^;]*;?/gi, "");
+    sanitized = sanitized.replace(
+      /url\s*\(\s*(['"]?)\s*(?:javascript:|vbscript:|data:text\/html|data:application\/xhtml\+xml)/gi,
+      "url($1blocked:"
+    );
+    return sanitized.trim();
+  }
+
+  #containsUnsafeToken(value) {
+    if (!value) {
+      return false;
+    }
+
+    const normalized = value.replace(/\s+/g, "").toLowerCase();
+    return normalized.includes("javascript:") ||
+      normalized.includes("vbscript:") ||
+      normalized.includes("data:text/html") ||
+      normalized.includes("data:application/xhtml+xml") ||
+      normalized.includes("<script") ||
+      normalized.includes("expression(");
+  }
+
+  #isSafeUrl(urlValue) {
+    if (!urlValue) {
+      return false;
+    }
+
+    const value = urlValue.trim();
+    if (value === "") {
+      return false;
+    }
+
+    if (value.startsWith("#")) {
+      return true;
+    }
+
+    if (/^(https?:|mailto:|tel:|\/)/i.test(value)) {
+      return !this.#containsUnsafeToken(value);
+    }
+
+    return !this.#containsUnsafeToken(value) && !/^(?:data|javascript|vbscript):/i.test(value);
   }
 
   #clearDebounceTimer() {

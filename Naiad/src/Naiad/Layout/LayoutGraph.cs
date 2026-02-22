@@ -84,6 +84,7 @@ internal class LayoutNode
     public int Rank { get; set; } = -1;
     public void SetRank(int rank) => Rank = rank;
     public int Order { get; set; }
+    public void SetOrder(int order) => Order = order;
     public double X { get; set; }
     public double Y { get; set; }
     public bool IsDummy { get; set; }

@@ -1,4 +1,4 @@
-# `@naiad/web-component`
+# `@naiad/web-component-complete`
 
 Naiad Mermaid rendering as a standard Web Component for plain HTML pages.
 
@@ -17,7 +17,7 @@ The package includes:
 ## Install
 
 ```bash
-npm install @naiad/web-component
+npm install @naiad/web-component-complete
 ```
 
 ## Plain HTML Usage
@@ -32,7 +32,7 @@ flowchart LR
   B --> C
   </naiad-diagram>
 
-  <script type="module" src="/node_modules/@naiad/web-component/dist/naiad-web-component.js"></script>
+  <script type="module" src="/node_modules/@naiad/web-component-complete/dist/naiad-web-component.js"></script>
 </body>
 </html>
 ```
@@ -74,19 +74,7 @@ flowchart LR
 - `element.downloadPng(fileName?, { scale?, background? }): Promise<Blob | null>`
 - `element.getBuiltInSkinPacks(): Promise<string[]>`
 
-### Skin Pack Config In npm
-
-The npm package ships skin packs and a manifest:
-
-- `@naiad/web-component/skins/config` -> `dist/skins/skin-packs.json`
-- `@naiad/web-component/skins/*` -> `dist/skins/*` (directories + `.naiadskin` archives)
-
-`skin-packs.json` includes:
-
-- canonical pack names
-- aliases
-- whether each pack is embedded in WASM
-- archive and directory filenames
+This package includes embedded skin packs in the WASM runtime profile and does not require external `skins/*` assets.
 
 ### Events
 
@@ -268,7 +256,20 @@ npm run pack:preview
 Use the packaged all-diagrams harness to validate web-component rendering across diagram families:
 
 ```html
-<iframe src="/node_modules/@naiad/web-component/dist/all-diagrams-web-component.html"></iframe>
+<iframe src="/node_modules/@naiad/web-component-complete/dist/all-diagrams-web-component.html"></iframe>
+```
+
+## Blazor Integration
+
+Use the `Naiad.Blazor` wrapper and point it at this package profile:
+
+```csharp
+using Naiad.Blazor;
+
+builder.Services.AddNaiadBlazor(options =>
+{
+    options.ScriptUrl = NaiadBlazorProfiles.Complete;
+});
 ```
 
 Query params:

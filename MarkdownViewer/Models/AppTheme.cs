@@ -2,6 +2,7 @@ namespace MarkdownViewer.Models;
 
 public enum AppTheme
 {
+    Auto,
     Light,
     Dark,
     VSCode,
@@ -214,6 +215,7 @@ public static class ThemeColors
     {
         return theme switch
         {
+            AppTheme.Auto => Dark,
             AppTheme.Light => Light,
             AppTheme.Dark => Dark,
             AppTheme.VSCode => VSCode,

@@ -63,7 +63,7 @@ public class ShapeSkinPackTests
     }
 
     [Test]
-    public void BuiltInGlassSkin_IncludesGradientAndFilterStyling()
+    public void BuiltInGlassSkin_AppliesGlassStyleAttributes()
     {
         var input =
             """
@@ -74,9 +74,10 @@ public class ShapeSkinPackTests
 
         var svg = Mermaid.Render(input);
 
-        Assert.That(svg, Does.Contain("<linearGradient id=\"skin-rectangle-glass-grad\""));
-        Assert.That(svg, Does.Contain("<filter id=\"skin-rectangle-glass-shadow\""));
-        Assert.That(svg, Does.Contain("filter:url(#skin-rectangle-glass-shadow)"));
+        Assert.That(svg, Does.Contain("M8 0H92Q100 0 100 8V52Q100 60 92 60H8Q0 60 0 52V8Q0 0 8 0Z"));
+        Assert.That(svg, Does.Contain("fill:rgba(125,211,252,0.35)"));
+        Assert.That(svg, Does.Contain("stroke:#0284C7"));
+        Assert.That(svg, Does.Contain("fill-opacity:0.75"));
     }
 
     [Test]

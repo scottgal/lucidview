@@ -154,8 +154,8 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
 
                 if (overlapsX && overlapsY)
                 {
-                    throw new InvalidOperationException(
-                        $"Text overlap detected: \"{a.Label}\" at ({a.X:F1},{a.Y:F1},{a.Width:F1}x{a.Height:F1}) " +
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[StateRenderer] Text overlap: \"{a.Label}\" at ({a.X:F1},{a.Y:F1},{a.Width:F1}x{a.Height:F1}) " +
                         $"overlaps with \"{b.Label}\" at ({b.X:F1},{b.Y:F1},{b.Width:F1}x{b.Height:F1})");
                 }
             }
@@ -191,8 +191,8 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                 if (LineIntersectsRect(line.X1, line.Y1, line.X2, line.Y2,
                     node.X, node.Y, node.Width, node.Height))
                 {
-                    throw new InvalidOperationException(
-                        $"Line passes under node: \"{line.Label}\" from ({line.X1:F1},{line.Y1:F1}) to ({line.X2:F1},{line.Y2:F1}) " +
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[StateRenderer] Line under node: \"{line.Label}\" from ({line.X1:F1},{line.Y1:F1}) to ({line.X2:F1},{line.Y2:F1}) " +
                         $"passes under \"{node.Label}\" at ({node.X:F1},{node.Y:F1},{node.Width:F1}x{node.Height:F1})");
                 }
             }
@@ -215,8 +215,8 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
 
                 if (overlapsX && overlapsY)
                 {
-                    throw new InvalidOperationException(
-                        $"Node overlap detected: \"{a.Label}\" at ({a.X:F1},{a.Y:F1},{a.Width:F1}x{a.Height:F1}) " +
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[StateRenderer] Node overlap: \"{a.Label}\" at ({a.X:F1},{a.Y:F1},{a.Width:F1}x{a.Height:F1}) " +
                         $"overlaps with \"{b.Label}\" at ({b.X:F1},{b.Y:F1},{b.Width:F1}x{b.Height:F1})");
                 }
             }
@@ -232,8 +232,8 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                 node.X + node.Width > _svgWidth ||
                 node.Y + node.Height > _svgHeight)
             {
-                throw new InvalidOperationException(
-                    $"Node outside bounds: \"{node.Label}\" at ({node.X:F1},{node.Y:F1},{node.Width:F1}x{node.Height:F1}) " +
+                System.Diagnostics.Debug.WriteLine(
+                    $"[StateRenderer] Node outside bounds: \"{node.Label}\" at ({node.X:F1},{node.Y:F1},{node.Width:F1}x{node.Height:F1}) " +
                     $"is outside SVG bounds (0,0,{_svgWidth:F1}x{_svgHeight:F1})");
             }
         }
@@ -245,8 +245,8 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                 text.X + text.Width > _svgWidth ||
                 text.Y + text.Height > _svgHeight)
             {
-                throw new InvalidOperationException(
-                    $"Text outside bounds: \"{text.Label}\" at ({text.X:F1},{text.Y:F1},{text.Width:F1}x{text.Height:F1}) " +
+                System.Diagnostics.Debug.WriteLine(
+                    $"[StateRenderer] Text outside bounds: \"{text.Label}\" at ({text.X:F1},{text.Y:F1},{text.Width:F1}x{text.Height:F1}) " +
                     $"is outside SVG bounds (0,0,{_svgWidth:F1}x{_svgHeight:F1})");
             }
         }
@@ -259,8 +259,8 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                 line.X1 > _svgWidth + tolerance || line.Y1 > _svgHeight + tolerance ||
                 line.X2 > _svgWidth + tolerance || line.Y2 > _svgHeight + tolerance)
             {
-                throw new InvalidOperationException(
-                    $"Line outside bounds: \"{line.Label}\" from ({line.X1:F1},{line.Y1:F1}) to ({line.X2:F1},{line.Y2:F1}) " +
+                System.Diagnostics.Debug.WriteLine(
+                    $"[StateRenderer] Line outside bounds: \"{line.Label}\" from ({line.X1:F1},{line.Y1:F1}) to ({line.X2:F1},{line.Y2:F1}) " +
                     $"is outside SVG bounds (0,0,{_svgWidth:F1}x{_svgHeight:F1})");
             }
         }

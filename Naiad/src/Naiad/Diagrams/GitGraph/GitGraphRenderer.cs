@@ -25,6 +25,8 @@ public class GitGraphRenderer : IDiagramRenderer<GitGraphModel>
 
     public SvgDocument Render(GitGraphModel model, RenderOptions options)
     {
+        var theme = DiagramTheme.Resolve(options);
+
         // Compute the actual git graph from operations
         var computed = ComputeGraph(model);
 
@@ -95,7 +97,7 @@ public class GitGraphRenderer : IDiagramRenderer<GitGraphModel>
         // Draw commits
         foreach (var commit in computed.Commits)
         {
-            DrawCommit(builder, commit, computed, offsetX, offsetY, options);
+            DrawCommit(builder, commit, computed, offsetX, offsetY, options, theme);
         }
 
         return builder.Build();
@@ -141,7 +143,7 @@ public class GitGraphRenderer : IDiagramRenderer<GitGraphModel>
     }
 
     static void DrawCommit(SvgBuilder builder, GitCommit commit, ComputedGitGraph graph,
-        double offsetX, double offsetY, RenderOptions options)
+        double offsetX, double offsetY, RenderOptions options, DiagramTheme theme)
     {
         var branch = graph.Branches.Find(b => b.Name == commit.Branch);
         if (branch == null)
@@ -156,7 +158,7 @@ public class GitGraphRenderer : IDiagramRenderer<GitGraphModel>
         // Commit circle
         var fill = commit.Type switch
         {
-            CommitType.Reverse => "#fff",
+            CommitType.Reverse => theme.Background,
             CommitType.Highlight => "#FFD700",
             _ => color
         };
@@ -175,7 +177,7 @@ public class GitGraphRenderer : IDiagramRenderer<GitGraphModel>
             baseline: "middle",
             fontSize: $"{options.FontSize - 4}px",
             fontFamily: options.FontFamily,
-            fill: "#666");
+            fill: theme.MutedText);
 
         // Tag
         if (!string.IsNullOrEmpty(commit.Tag))
@@ -195,7 +197,7 @@ public class GitGraphRenderer : IDiagramRenderer<GitGraphModel>
                 baseline: "middle",
                 fontSize: $"{options.FontSize - 2}px",
                 fontFamily: options.FontFamily,
-                fill: "#333");
+                fill: theme.TextColor);
         }
     }
 

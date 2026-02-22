@@ -5,13 +5,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\lib\Dagre.NET\Dagre.NET\Dagre.NET.csproj" />
+    <ProjectReference Include="..\..\lib\Mostlylucid.Dagre\Mostlylucid.Dagre\Mostlylucid.Dagre.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Pidgin" />
     <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\skins\*.naiadskin" />
+    <EmbeddedResource Include="..\Naiad.Wasm.Npm\dist\skins\*.naiadskin"
+                      LogicalName="Naiad.%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

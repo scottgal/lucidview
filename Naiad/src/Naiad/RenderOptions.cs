@@ -67,6 +67,12 @@ public class RenderOptions
     public bool CurvedEdges { get; set; } = true;
 
     /// <summary>
+    /// Default corner radius for rectangle nodes. Set automatically from the resolved skin.
+    /// The naiad skin uses 5, mermaid skin uses 0 for pixel-identical mermaid.js output.
+    /// </summary>
+    public double NodeCornerRadius { get; set; } = 5;
+
+    /// <summary>
     /// Whether to include external resources like FontAwesome.
     /// Security: Set to false to prevent loading external CDNs.
     /// </summary>
@@ -80,6 +86,24 @@ public class RenderOptions
     /// - File system path (directory or .zip/.naiadskin archive), when file-system packs are enabled.
     /// </summary>
     public string? SkinPack { get; set; }
+
+    /// <summary>
+    /// Optional layout engine name (for example "dagre" or "dagre-net").
+    /// Resolved via <see cref="MermaidSharp.Layout.MermaidLayoutEngines"/>.
+    /// </summary>
+    public string? LayoutEngine { get; set; }
+
+    /// <summary>
+    /// Optional resolver callback for custom layout engine selection.
+    /// When set, this takes precedence over <see cref="LayoutEngine"/>.
+    /// </summary>
+    public Func<DiagramType, ILayoutEngine>? LayoutEngineResolver { get; set; }
+
+    /// <summary>
+    /// Optional per-diagram layout engine names.
+    /// When provided, these entries override <see cref="LayoutEngine"/> for matching diagram types.
+    /// </summary>
+    public Dictionary<DiagramType, string>? LayoutEngines { get; set; }
 
     /// <summary>
     /// Enable loading shape skin packs from the local file system.
@@ -154,7 +178,19 @@ public class RenderOptions
     {
         Padding = Padding,
         Theme = Theme,
-        ThemeColors = ThemeColors,
+        ThemeColors = ThemeColors is null
+            ? null
+            : new ThemeColorOverrides
+            {
+                TextColor = ThemeColors.TextColor,
+                BackgroundColor = ThemeColors.BackgroundColor,
+                NodeFill = ThemeColors.NodeFill,
+                NodeStroke = ThemeColors.NodeStroke,
+                EdgeStroke = ThemeColors.EdgeStroke,
+                SubgraphFill = ThemeColors.SubgraphFill,
+                SubgraphStroke = ThemeColors.SubgraphStroke,
+                EdgeLabelBackground = ThemeColors.EdgeLabelBackground
+            },
         FontSize = FontSize,
         FontFamily = FontFamily,
         ShowBoundingBox = ShowBoundingBox,
@@ -164,8 +200,12 @@ public class RenderOptions
         MaxInputSize = MaxInputSize,
         RenderTimeout = RenderTimeout,
         CurvedEdges = CurvedEdges,
+        NodeCornerRadius = NodeCornerRadius,
         IncludeExternalResources = IncludeExternalResources,
         SkinPack = SkinPack,
+        LayoutEngine = LayoutEngine,
+        LayoutEngineResolver = LayoutEngineResolver,
+        LayoutEngines = LayoutEngines != null ? new Dictionary<DiagramType, string>(LayoutEngines) : null,
         AllowFileSystemSkinPacks = AllowFileSystemSkinPacks,
         SkinPackBaseDirectory = SkinPackBaseDirectory,
         SkinShapeMap = SkinShapeMap != null ? new Dictionary<string, string>(SkinShapeMap) : null,

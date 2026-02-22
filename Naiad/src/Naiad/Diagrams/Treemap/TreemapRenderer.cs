@@ -17,11 +17,13 @@ public class TreemapRenderer : IDiagramRenderer<TreemapModel>
 
     public SvgDocument Render(TreemapModel model, RenderOptions options)
     {
+        var theme = DiagramTheme.Resolve(options);
+
         if (model.RootNodes.Count == 0)
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty diagram", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -37,7 +39,7 @@ public class TreemapRenderer : IDiagramRenderer<TreemapModel>
             builder.AddText(DefaultWidth / 2, options.Padding + TitleHeight / 2, model.Title,
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px", fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold", fill: theme.TextColor);
         }
 
         // Draw treemap using squarified layout
@@ -45,13 +47,13 @@ public class TreemapRenderer : IDiagramRenderer<TreemapModel>
         var y = options.Padding + titleOffset;
         var colorIndex = 0;
 
-        DrawNodes(builder, model.RootNodes, x, y, chartWidth, chartHeight, 0, ref colorIndex, options);
+        DrawNodes(builder, model.RootNodes, x, y, chartWidth, chartHeight, 0, ref colorIndex, options, theme);
 
         return builder.Build();
     }
 
     void DrawNodes(SvgBuilder builder, List<TreemapNode> nodes, double x, double y,
-        double width, double height, int depth, ref int colorIndex, RenderOptions options)
+        double width, double height, int depth, ref int colorIndex, RenderOptions options, DiagramTheme theme)
     {
         if (nodes.Count == 0 || width <= 0 || height <= 0)
         {
@@ -103,21 +105,21 @@ public class TreemapRenderer : IDiagramRenderer<TreemapModel>
             if (node.IsLeaf)
             {
                 // Draw leaf rectangle
-                DrawLeafNode(builder, node, nodeX, nodeY, nodeWidth, nodeHeight, color, options);
+                DrawLeafNode(builder, node, nodeX, nodeY, nodeWidth, nodeHeight, color, options, theme);
             }
             else
             {
                 // Draw parent outline and recurse
-                DrawParentNode(builder, node, nodeX, nodeY, nodeWidth, nodeHeight, color, depth, ref colorIndex, options);
+                DrawParentNode(builder, node, nodeX, nodeY, nodeWidth, nodeHeight, color, depth, ref colorIndex, options, theme);
             }
         }
     }
 
     static void DrawLeafNode(SvgBuilder builder, TreemapNode node, double x, double y,
-        double width, double height, string color, RenderOptions options)
+        double width, double height, string color, RenderOptions options, DiagramTheme theme)
     {
         builder.AddRect(x, y, width, height,
-            fill: color, stroke: "#333", strokeWidth: 1);
+            fill: color, stroke: theme.AxisLine, strokeWidth: 1);
 
         // Draw label if there's enough space
         if (width > 40 && height > 20)
@@ -132,26 +134,26 @@ public class TreemapRenderer : IDiagramRenderer<TreemapModel>
             builder.AddText(x + width / 2, y + height / 2 - spacing / 2, label,
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{labelFontSize:0}px", fontFamily: options.FontFamily,
-                fill: "#333");
+                fill: theme.TextColor);
 
             if (node.Value.HasValue && height > labelFontSize + valueFontSize + 10)
             {
                 builder.AddText(x + width / 2, y + height / 2 + spacing, node.Value.Value.ToString("0.#"),
                     anchor: "middle", baseline: "middle",
                     fontSize: $"{valueFontSize:0}px", fontFamily: options.FontFamily,
-                    fill: "#666");
+                    fill: theme.MutedText);
             }
         }
     }
 
     void DrawParentNode(SvgBuilder builder, TreemapNode node, double x, double y,
-        double width, double height, string color, int depth, ref int colorIndex, RenderOptions options)
+        double width, double height, string color, int depth, ref int colorIndex, RenderOptions options, DiagramTheme theme)
     {
         // Draw section header
         var headerHeight = Math.Min(20, height * 0.2);
 
         builder.AddRect(x, y, width, headerHeight,
-            fill: DarkenColor(color, 0.2), stroke: "#333", strokeWidth: 1);
+            fill: DarkenColor(color, 0.2), stroke: theme.AxisLine, strokeWidth: 1);
 
         if (width > 40)
         {
@@ -160,13 +162,13 @@ public class TreemapRenderer : IDiagramRenderer<TreemapModel>
             builder.AddText(x + 5, y + headerHeight / 2, label,
                 anchor: "start", baseline: "middle",
                 fontSize: $"{Math.Min(options.FontSize - 2, 10)}px", fontFamily: options.FontFamily,
-                fill: "#333", fontWeight: "bold");
+                fill: theme.TextColor, fontWeight: "bold");
 
             // Section total (right-aligned)
             builder.AddText(x + width - 5, y + headerHeight / 2, node.TotalValue.ToString("0.#"),
                 anchor: "end", baseline: "middle",
                 fontSize: $"{Math.Min(options.FontSize - 2, 10)}px", fontFamily: options.FontFamily,
-                fill: "#333", fontWeight: "bold");
+                fill: theme.TextColor, fontWeight: "bold");
         }
 
         // Draw children in remaining space
@@ -175,7 +177,7 @@ public class TreemapRenderer : IDiagramRenderer<TreemapModel>
 
         if (childHeight > 0)
         {
-            DrawNodes(builder, node.Children, x, childY, width, childHeight, depth + 1, ref colorIndex, options);
+            DrawNodes(builder, node.Children, x, childY, width, childHeight, depth + 1, ref colorIndex, options, theme);
         }
     }
 

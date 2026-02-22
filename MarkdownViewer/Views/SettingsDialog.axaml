@@ -18,6 +18,7 @@
                     <ComboBox x:Name="ThemeComboBox"
                               Width="200"
                               HorizontalAlignment="Left">
+                        <ComboBoxItem Content="Auto (System)" Tag="Auto" />
                         <ComboBoxItem Content="Light" Tag="Light" />
                         <ComboBoxItem Content="Dark" Tag="Dark" />
                         <ComboBoxItem Content="VS Code" Tag="VSCode" />

@@ -1,4 +1,5 @@
 using System.Security;
+using System.Text;
 using System.Text.RegularExpressions;
 using MarkdownViewer.Models;
 using MermaidSharp;
@@ -116,24 +117,51 @@ public partial class MarkdownService
     /// </summary>
     public void SetThemeColors(bool isDark, string textColor, string backgroundColor)
     {
-        _isDarkMode = isDark;
+        _isDarkMode = IsDarkColor(backgroundColor, isDark);
         _themeTextColor = textColor;
         _themeBackgroundColor = backgroundColor;
     }
 
-    RenderOptions CreateRenderOptions() => new()
+    RenderOptions CreateRenderOptions()
     {
-        Theme = _isDarkMode ? "dark" : "default",
-        ThemeColors = new ThemeColorOverrides
+        var isDarkTheme = IsDarkColor(_themeBackgroundColor, _isDarkMode);
+        var diagramTheme = isDarkTheme ? DiagramTheme.Dark : DiagramTheme.Light;
+
+        return new RenderOptions
         {
-            TextColor = _themeTextColor,
-            BackgroundColor = _themeBackgroundColor
-        },
-        // Desktop host allows skin packs from local folders/archives. Mermaid input
-        // can keep paths relative to the current markdown file directory.
-        AllowFileSystemSkinPacks = true,
-        SkinPackBaseDirectory = _basePath
-    };
+            Theme = isDarkTheme ? "dark" : "default",
+            ThemeColors = new ThemeColorOverrides
+            {
+                TextColor = _themeTextColor,
+                BackgroundColor = _themeBackgroundColor,
+                NodeFill = diagramTheme.PrimaryFill,
+                NodeStroke = diagramTheme.PrimaryStroke,
+                EdgeStroke = diagramTheme.AxisLine,
+                EdgeLabelBackground = diagramTheme.LabelBackground
+            },
+            // Desktop host allows skin packs from local folders/archives. Mermaid input
+            // can keep paths relative to the current markdown file directory.
+            AllowFileSystemSkinPacks = true,
+            SkinPackBaseDirectory = _basePath
+        };
+    }
+
+    static bool IsDarkColor(string? color, bool fallback)
+    {
+        if (string.IsNullOrWhiteSpace(color))
+            return fallback;
+
+        try
+        {
+            var parsed = SKColor.Parse(color);
+            var luminance = 0.299 * parsed.Red + 0.587 * parsed.Green + 0.114 * parsed.Blue;
+            return luminance < 128;
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
 
     public void SetBasePath(string? path)
     {
@@ -522,9 +550,12 @@ public partial class MarkdownService
         var mermaidRegex = MermaidBlockRegex();
         var matches = mermaidRegex.Matches(content);
         var pending = new List<MermaidWorkItem>();
+        var rewritten = new StringBuilder(content.Length + 256);
+        var cursor = 0;
 
         foreach (Match match in matches)
         {
+            rewritten.Append(content, cursor, match.Index - cursor);
             var mermaidCode = match.Groups[1].Value.Trim();
 
             // Try native flowchart rendering first (no PNG needed)
@@ -537,18 +568,32 @@ public partial class MarkdownService
 
                 // Insert a text marker. LiveMarkdown renders it as a Run inside a
                 // MarkdownTextBlock. We find it in the visual tree and replace with FlowchartCanvas.
-                content = content.Replace(match.Value, $"\n\n{FlowchartMarkerPrefix}{flowchartKey}\n\n");
+                rewritten.Append($"\n\n{FlowchartMarkerPrefix}{flowchartKey}\n\n");
+                cursor = match.Index + match.Length;
                 continue;
             }
 
-            // Render non-flowchart diagrams as SVG image files.
-            // Flowcharts keep native rendering for interaction/perf.
+            // Non-flowcharts: render to in-memory SvgDocument and replace with a native
+            // DiagramCanvas marker (no temp SVG file write needed).
+            var nativeDoc = TryRenderToDocument(mermaidCode);
+            if (nativeDoc is not null)
+            {
+                var diagramKey = $"diagram-{_diagramCounter++}";
+                _diagramDocuments[diagramKey] = nativeDoc;
+                _mermaidSourceMap[diagramKey] = mermaidCode;
+                rewritten.Append($"\n\n{DiagramMarkerPrefix}{diagramKey}\n\n");
+                cursor = match.Index + match.Length;
+                continue;
+            }
+
+            // Fallback path for diagrams that cannot be represented natively yet.
             var svgPath = TryRenderMermaidToSvgFile(mermaidCode);
             if (svgPath is not null)
             {
                 _mermaidSourceMap[svgPath] = mermaidCode;
                 var markdownPath = svgPath.Replace("\\", "/");
-                content = content.Replace(match.Value, $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
+                rewritten.Append($"\n\n![Mermaid Diagram]({markdownPath})\n\n");
+                cursor = match.Index + match.Length;
                 continue;
             }
 
@@ -562,38 +607,59 @@ public partial class MarkdownService
                 // Cache hit — inline immediately and track source
                 var markdownPath = cachedPath.Replace("\\", "/");
                 _mermaidSourceMap[cachedPath] = mermaidCode;
-                content = content.Replace(match.Value, $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
+                rewritten.Append($"\n\n![Mermaid Diagram]({markdownPath})\n\n");
             }
             else
             {
                 // Cache miss — insert placeholder, queue for async rendering
                 var placeholder = $"<!--mermaid-pending-{_mermaidCounter++}-->";
-                content = content.Replace(match.Value, placeholder);
+                rewritten.Append(placeholder);
                 pending.Add(new MermaidWorkItem(placeholder, mermaidCode, cacheKey));
             }
+
+            cursor = match.Index + match.Length;
         }
+
+        rewritten.Append(content, cursor, content.Length - cursor);
+        content = rewritten.ToString();
 
         // Process BPMN blocks (```bpmn ... ```) as SVG images.
         var bpmnRegex = BpmnBlockRegex();
-        foreach (Match match in bpmnRegex.Matches(content))
+        var bpmnMatches = bpmnRegex.Matches(content);
+        if (bpmnMatches.Count > 0)
         {
-            var bpmnCode = match.Groups[1].Value.Trim();
-            try
+            var bpmnOutput = new StringBuilder(content.Length + 256);
+            cursor = 0;
+
+            foreach (Match match in bpmnMatches)
             {
-                var svg = Mermaid.Render(bpmnCode, CreateRenderOptions());
-                svg = PostProcessSvg(svg);
-                if (!string.IsNullOrWhiteSpace(svg))
+                bpmnOutput.Append(content, cursor, match.Index - cursor);
+                var bpmnCode = match.Groups[1].Value.Trim();
+                var replacement = match.Value;
+
+                try
                 {
-                    var svgPath = WriteTempSvg(svg);
-                    _mermaidSourceMap[svgPath] = bpmnCode;
-                    var markdownPath = svgPath.Replace("\\", "/");
-                    content = content.Replace(match.Value, $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
+                    var svg = Mermaid.Render(bpmnCode, CreateRenderOptions());
+                    svg = PostProcessSvg(svg);
+                    if (!string.IsNullOrWhiteSpace(svg))
+                    {
+                        var svgPath = WriteTempSvg(svg);
+                        _mermaidSourceMap[svgPath] = bpmnCode;
+                        var markdownPath = svgPath.Replace("\\", "/");
+                        replacement = $"\n\n![Mermaid Diagram]({markdownPath})\n\n";
+                    }
                 }
+                catch
+                {
+                    // BPMN parse failure — keep original code block
+                }
+
+                bpmnOutput.Append(replacement);
+                cursor = match.Index + match.Length;
             }
-            catch
-            {
-                // BPMN parse failure — show raw code block
-            }
+
+            bpmnOutput.Append(content, cursor, content.Length - cursor);
+            content = bpmnOutput.ToString();
         }
 
         BuildC4ZoomIndex();
@@ -671,8 +737,25 @@ public partial class MarkdownService
             if (diagramType != DiagramType.Flowchart) return null;
 
             var renderOptions = CreateRenderOptions();
+            // Try progressively more tolerant preprocessing before giving up.
+            var attempts = new[]
+            {
+                mermaidCode.Trim(),
+                StripIndentation(mermaidCode),
+                PreprocessMermaidCode(mermaidCode)
+            };
 
-            return Mermaid.ParseAndLayoutFlowchart(mermaidCode, renderOptions);
+            foreach (var attempt in attempts)
+            {
+                if (string.IsNullOrWhiteSpace(attempt))
+                    continue;
+
+                var layout = Mermaid.ParseAndLayoutFlowchart(attempt, renderOptions);
+                if (layout is not null)
+                    return layout;
+            }
+
+            return null;
         }
         catch
         {
@@ -932,8 +1015,8 @@ public partial class MarkdownService
         // Normalize line endings
         code = code.Replace("\r\n", "\n").Replace("\r", "\n");
 
-        // Remove all HTML
-        code = Regex.Replace(code, @"<[^>]+>", "", RegexOptions.IgnoreCase);
+        // Remove simple HTML tags while preserving plain comparison operators like "< 80%".
+        code = Regex.Replace(code, @"</?[A-Za-z][^>\r\n]*>", "", RegexOptions.IgnoreCase);
 
         // Remove HTML entities
         code = code
@@ -977,8 +1060,9 @@ public partial class MarkdownService
         // Mermaid.js supports <br/> in labels but Naiad may not
         code = Regex.Replace(code, @"<br\s*/?>", " ", RegexOptions.IgnoreCase);
 
-        // 3. Remove any HTML tags that might be in labels (common in copied content)
-        code = Regex.Replace(code, @"<[^>]+>", " ");
+        // 3. Remove simple HTML tags that Mermaid doesn't support natively.
+        // Keep plain text comparisons like "< 80%" intact.
+        code = Regex.Replace(code, @"</?[A-Za-z][^>\r\n]*>", " ", RegexOptions.IgnoreCase);
 
         // 4. Handle Windows line endings
         code = code.Replace("\r\n", "\n").Replace("\r", "\n");

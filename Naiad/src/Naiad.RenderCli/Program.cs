@@ -1,7 +1,9 @@
 using MermaidSharp;
+using MermaidSharp.Formats;
 using MermaidSharp.Rendering.Skins.Cats;
 using MermaidSharp.Rendering.Skins.Showcase;
 using Microsoft.Playwright;
+using Naiad.RenderCli;
 using SkiaSharp;
 using Svg.Skia;
 
@@ -25,6 +27,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help")
           render <output.png> [--dark] [--scale N]   Render stdin mermaid to PNG
           samples <output-dir>                        Render built-in test samples
           svg <output.svg>                            Render stdin mermaid to SVG
+          tlp <input.tlp> <output.svg>                Convert TLP file to SVG
           compare <output-dir> [options]              Side-by-side Naiad vs mermaid.js
 
         Compare options:
@@ -38,6 +41,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help")
           dotnet run -- compare ./compare-output
           dotnet run -- compare ./out --flowcharts-only
           dotnet run -- compare ./out --only fan-in
+          dotnet run -- tlp graph.tlp graph.svg
         """);
     return;
 }
@@ -49,13 +53,14 @@ MermaidSkinPacksShowcaseExtensions.RegisterShowcaseSkinPacks();
 
 if (command == "render")
 {
-    var outputPath = args.Length > 1 ? args[1] : "output.png";
+    var outputPath = args.Length > 1 ? args[1] : "./test-renders/output.png";
     var isDark = args.Contains("--dark");
     var scale = 2f;
     var scaleIdx = Array.IndexOf(args, "--scale");
     if (scaleIdx >= 0 && scaleIdx + 1 < args.Length)
         float.TryParse(args[scaleIdx + 1], out scale);
 
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)) ?? ".");
     var mermaidCode = Console.In.ReadToEnd().Trim();
     if (string.IsNullOrEmpty(mermaidCode))
     {
@@ -69,9 +74,10 @@ if (command == "render")
 }
 else if (command == "svg")
 {
-    var outputPath = args.Length > 1 ? args[1] : "output.svg";
+    var outputPath = args.Length > 1 ? args[1] : "./test-renders/output.svg";
     var isDark = args.Contains("--dark");
 
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)) ?? ".");
     var mermaidCode = Console.In.ReadToEnd().Trim();
     if (string.IsNullOrEmpty(mermaidCode))
     {
@@ -84,9 +90,38 @@ else if (command == "svg")
     File.WriteAllText(outputPath, svg);
     Console.WriteLine($"SVG saved to {Path.GetFullPath(outputPath)}");
 }
+else if (command == "tlp")
+{
+    if (args.Length < 3)
+    {
+        Console.Error.WriteLine("Usage: tlp <input.tlp> <output.svg>");
+        return;
+    }
+
+    var inputPath = args[1];
+    var outputPath = args[2];
+
+    if (!File.Exists(inputPath))
+    {
+        Console.Error.WriteLine($"Error: File not found: {inputPath}");
+        return;
+    }
+
+    var tlpContent = File.ReadAllText(inputPath);
+    var graph = TlpParser.Parse(tlpContent);
+    var mermaidCode = TlpRenderer.ConvertToMermaid(graph);
+    var options = CreateOptions(false);
+    options.MaxInputSize = mermaidCode.Length + 10000;
+    options.MaxNodes = 50000;
+    options.MaxEdges = 250000;
+    options.MaxComplexity = 500000;
+    var svg = Mermaid.Render(mermaidCode, options);
+    File.WriteAllText(outputPath, svg);
+    Console.WriteLine($"TLP converted to {Path.GetFullPath(outputPath)}");
+}
 else if (command == "samples")
 {
-    var outputDir = args.Length > 1 ? args[1] : "./test-output";
+    var outputDir = args.Length > 1 ? args[1] : "./test-renders";
     Directory.CreateDirectory(outputDir);
 
     var samples = GetSampleDiagrams();
@@ -112,7 +147,7 @@ else if (command == "samples")
 }
 else if (command == "compare")
 {
-    var outputDir = args.Length > 1 ? args[1] : "./compare-output";
+    var outputDir = args.Length > 1 ? args[1] : "./test-renders/compare";
     Directory.CreateDirectory(outputDir);
 
     var flowchartsOnly = args.Contains("--flowcharts-only");
@@ -336,7 +371,9 @@ static void GenerateComparisonReport(List<(string Name, string Code)> samples, s
                 </details>
               </td>
               <td class="img">{naiadCell}</td>
+              <td class="bench" data-engine="naiad">-</td>
               <td class="img">{mermaidCell}</td>
+              <td class="bench" data-engine="mermaid">-</td>
             </tr>
             """);
     }
@@ -345,18 +382,22 @@ static void GenerateComparisonReport(List<(string Name, string Code)> samples, s
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Naiad vs mermaid.js Comparison</title>
+          <title>Naiad vs mermaid.js Comparison &amp; Benchmark</title>
+          <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f5; padding: 20px; }
-            h1 { text-align: center; margin-bottom: 20px; color: #333; }
-            table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+            h1 { text-align: center; margin-bottom: 8px; color: #333; }
+            h2 { text-align: center; margin-bottom: 16px; color: #555; font-size: 16px; font-weight: 400; }
+            table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 8px rgba(0,0,0,.1); margin-bottom: 24px; }
             th { background: #2196F3; color: white; padding: 12px 16px; text-align: center; font-size: 14px; }
+            th.naiad-col { background: #1565C0; }
+            th.mermaid-col { background: #4CAF50; }
             td { padding: 12px; vertical-align: top; border-bottom: 1px solid #eee; }
-            td.name { font-weight: 600; font-size: 13px; color: #555; width: 200px; vertical-align: top; }
-            td.img { text-align: center; width: 40%; vertical-align: top; }
-            td.img img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; }
-            .svg-container { border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: white; overflow: auto; }
+            td.name { font-weight: 600; font-size: 13px; color: #555; width: 160px; vertical-align: top; }
+            td.img { text-align: center; width: 30%; vertical-align: top; }
+            td.bench { text-align: center; width: 10%; vertical-align: middle; font-size: 12px; }
+            .svg-container { border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: white; overflow: auto; max-height: 400px; }
             .svg-container svg { max-width: 100%; height: auto; display: block; }
             .missing { color: #e53935; font-weight: bold; }
             tr:hover { background: #f9f9f9; }
@@ -367,90 +408,270 @@ static void GenerateComparisonReport(List<(string Name, string Code)> samples, s
                      max-height: 300px; overflow-y: auto; }
             .wc-status { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; color: #1f2937; }
             .wc-status.error { border-color: #dc2626; background: #fef2f2; color: #991b1b; }
-            td.img.naiad-live-cell { min-width: 420px; }
-            td.img.naiad-live-cell naiad-diagram { display: block; width: 100%; --naiad-min-height: 220px; --naiad-padding: 8px; }
+            td.img.naiad-live-cell { min-width: 320px; }
+            td.img.naiad-live-cell naiad-diagram { display: block; width: 100%; --naiad-min-height: 180px; --naiad-padding: 8px; }
+            td.img.mermaid-live-cell { min-width: 320px; }
+            td.img.mermaid-live-cell .mermaid-live { border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: white; overflow: auto; max-height: 400px; }
+            td.img.mermaid-live-cell .mermaid-live svg { max-width: 100%; height: auto; display: block; }
+            .bench-time { font-weight: 700; font-size: 14px; }
+            .bench-ops { color: #777; font-size: 11px; }
+            .bench-winner { color: #2E7D32; }
+            .bench-loser { color: #C62828; }
+            .bench-controls { text-align: center; margin: 16px 0; }
+            .bench-controls button { padding: 10px 24px; font-size: 14px; border: none; border-radius: 6px;
+              background: #1565C0; color: white; cursor: pointer; margin: 0 8px; }
+            .bench-controls button:hover { background: #0D47A1; }
+            .bench-controls button:disabled { background: #90CAF9; cursor: not-allowed; }
+            .bench-controls select { padding: 8px 12px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; }
+            .bench-summary { text-align: center; margin: 16px 0; padding: 16px; background: white;
+              border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+            .bench-summary h3 { margin-bottom: 8px; }
+            .bench-bar { display: inline-block; height: 20px; border-radius: 4px; min-width: 4px; vertical-align: middle; }
+            .bench-bar.naiad { background: #1565C0; }
+            .bench-bar.mermaid { background: #4CAF50; }
+            #benchmark-progress { margin: 8px 0; }
           </style>
         </head>
         <body>
-          <h1>Naiad vs mermaid.js Parity Comparison</h1>
+          <h1>Naiad vs mermaid.js</h1>
+          <h2>Visual Comparison &amp; Performance Benchmark</h2>
+
+          <div id="status-container"></div>
+
+          <div class="bench-controls">
+            <label>Iterations: <select id="bench-iterations">
+              <option value="10">10 (quick)</option>
+              <option value="100" selected>100</option>
+              <option value="500">500</option>
+              <option value="1000">1000</option>
+            </select></label>
+            <button id="bench-btn" disabled>Run Benchmark</button>
+            <span id="bench-progress-text"></span>
+          </div>
+          <div id="benchmark-summary" class="bench-summary" style="display:none"></div>
+
           <table>
             <thead>
               <tr>
                 <th>Diagram</th>
-                <th>Naiad (C#)</th>
-                <th>mermaid.js (Reference)</th>
+                <th class="naiad-col">Naiad WASM</th>
+                <th>Naiad (ms)</th>
+                <th class="mermaid-col">mermaid.js</th>
+                <th>mermaid.js (ms)</th>
               </tr>
             </thead>
             <tbody>
               {{rows}}
             </tbody>
           </table>
-          <script type="module">
-            const status = document.createElement('p');
-            status.className = 'wc-status';
-            status.textContent = 'Loading Naiad web component...';
-            document.body.insertBefore(status, document.querySelector('table'));
 
+          <script type="module">
+            // ── Status ─────────────────────────────────────────────────
+            const statusContainer = document.getElementById('status-container');
+            function addStatus(text, isError = false) {
+              const p = document.createElement('p');
+              p.className = 'wc-status' + (isError ? ' error' : '');
+              p.textContent = text;
+              statusContainer.appendChild(p);
+              return p;
+            }
+
+            // ── Naiad Web Component ────────────────────────────────────
             const loadCandidates = [
               '../Naiad/src/Naiad.Wasm.Npm/dist/naiad-web-component.js',
               '/Naiad/src/Naiad.Wasm.Npm/dist/naiad-web-component.js',
               './naiad-web-component.js'
             ];
 
-            async function loadComponent() {
+            let naiadClient = null;
+
+            async function loadNaiadComponent() {
               for (const candidate of loadCandidates) {
                 try {
-                  await import(candidate);
+                  const mod = await import(candidate);
+                  // Try to get the client for benchmarking
+                  if (mod.NaiadClient) {
+                    naiadClient = new mod.NaiadClient();
+                    await naiadClient.init();
+                  }
                   return candidate;
-                } catch {
-                  // try next
-                }
+                } catch { /* try next */ }
               }
-              throw new Error('Could not load naiad-web-component.js from known paths.');
+              throw new Error('Could not load naiad-web-component.js');
             }
 
-            function upgradeRows() {
-              const header = Array.from(document.querySelectorAll('th')).find((th) => th.textContent.includes('Naiad'));
-              if (header) {
-                header.textContent = 'Naiad Web Component (Live)';
-              }
+            // ── mermaid.js init ────────────────────────────────────────
+            mermaid.initialize({ startOnLoad: false, theme: 'default' });
+            let mermaidIdCounter = 0;
 
+            async function mermaidRender(code) {
+              const id = `mdiag${mermaidIdCounter++}`;
+              const { svg } = await mermaid.render(id, code);
+              return svg;
+            }
+
+            // ── Upgrade rows to live renderers ─────────────────────────
+            async function upgradeRows() {
               const rows = document.querySelectorAll('tbody tr');
-              let upgraded = 0;
+              let naiadOk = 0, mermaidOk = 0;
+
               for (const row of rows) {
                 const code = row.querySelector('pre.code')?.textContent?.trim() ?? '';
-                if (!code) {
-                  continue;
+                if (!code) continue;
+
+                const name = row.querySelector('td.name strong')?.textContent?.trim() ?? '';
+                const cells = row.querySelectorAll('td.img');
+                const naiadCell = cells[0];
+                const mermaidCell = cells[1];
+
+                // Upgrade Naiad cell to live web component
+                if (naiadCell) {
+                  naiadCell.classList.add('naiad-live-cell');
+                  naiadCell.innerHTML = '';
+                  const diagram = document.createElement('naiad-diagram');
+                  diagram.setAttribute('fit-width', '');
+                  diagram.setAttribute('show-menu', '');
+                  diagram.setAttribute('theme', 'light');
+                  diagram.setAttribute('download-filename', `${name}-naiad`);
+                  diagram.textContent = code;
+                  naiadCell.appendChild(diagram);
+                  naiadOk++;
                 }
 
-                const name = row.querySelector('td.name strong')?.textContent?.trim() ?? `diagram-${upgraded + 1}`;
-                const imageCells = row.querySelectorAll('td.img');
-                const naiadCell = imageCells[0];
-                if (!naiadCell) {
-                  continue;
+                // Upgrade mermaid.js cell to live render
+                if (mermaidCell) {
+                  mermaidCell.classList.add('mermaid-live-cell');
+                  try {
+                    const svg = await mermaidRender(code);
+                    mermaidCell.innerHTML = `<div class="mermaid-live">${svg}</div>`;
+                    mermaidOk++;
+                  } catch (e) {
+                    mermaidCell.innerHTML = `<span class="missing">mermaid.js error: ${e.message}</span>`;
+                  }
                 }
-
-                naiadCell.classList.add('naiad-live-cell');
-                naiadCell.innerHTML = '';
-
-                const diagram = document.createElement('naiad-diagram');
-                diagram.setAttribute('fit-width', '');
-                diagram.setAttribute('show-menu', '');
-                diagram.setAttribute('theme', 'light');
-                diagram.setAttribute('download-filename', `${name}-naiad`);
-                diagram.textContent = code;
-
-                naiadCell.appendChild(diagram);
-                upgraded++;
               }
 
-              status.textContent = `Live Naiad web components loaded: ${upgraded}`;
+              addStatus(`Live rendering: ${naiadOk} Naiad WASM + ${mermaidOk} mermaid.js diagrams`);
             }
 
-            loadComponent().then(upgradeRows).catch((error) => {
-              status.textContent = `Web component load failed: ${error?.message ?? String(error)}`;
-              status.classList.add('error');
-            });
+            // ── Benchmark ──────────────────────────────────────────────
+            const benchBtn = document.getElementById('bench-btn');
+            const benchIterSelect = document.getElementById('bench-iterations');
+            const benchProgressText = document.getElementById('bench-progress-text');
+            const benchSummary = document.getElementById('benchmark-summary');
+
+            benchBtn.addEventListener('click', runBenchmark);
+
+            async function runBenchmark() {
+              const iterations = parseInt(benchIterSelect.value);
+              benchBtn.disabled = true;
+              benchProgressText.textContent = 'Warming up...';
+
+              const rows = document.querySelectorAll('tbody tr');
+              const results = [];
+              let completed = 0;
+              const total = rows.length;
+
+              for (const row of rows) {
+                const code = row.querySelector('pre.code')?.textContent?.trim() ?? '';
+                const name = row.querySelector('td.name strong')?.textContent?.trim() ?? '';
+                if (!code) continue;
+
+                const benchCells = row.querySelectorAll('td.bench');
+                const naiadBenchCell = benchCells[0];
+                const mermaidBenchCell = benchCells[1];
+
+                completed++;
+                benchProgressText.textContent = `Benchmarking ${completed}/${total}: ${name}...`;
+
+                // Allow UI to update
+                await new Promise(r => setTimeout(r, 10));
+
+                // Benchmark Naiad WASM
+                let naiadMs = null;
+                if (naiadClient) {
+                  try {
+                    // Warmup
+                    naiadClient.renderSvg(code);
+                    const start = performance.now();
+                    for (let i = 0; i < iterations; i++) {
+                      naiadClient.renderSvg(code);
+                    }
+                    naiadMs = (performance.now() - start) / iterations;
+                  } catch { naiadMs = null; }
+                }
+
+                // Benchmark mermaid.js
+                let mermaidMs = null;
+                try {
+                  // Warmup
+                  await mermaidRender(code);
+                  const start = performance.now();
+                  for (let i = 0; i < iterations; i++) {
+                    await mermaidRender(code);
+                  }
+                  mermaidMs = (performance.now() - start) / iterations;
+                } catch { mermaidMs = null; }
+
+                // Update cells
+                if (naiadBenchCell) {
+                  if (naiadMs !== null) {
+                    const winner = mermaidMs !== null && naiadMs <= mermaidMs;
+                    naiadBenchCell.innerHTML = `<span class="bench-time ${winner ? 'bench-winner' : ''}">${naiadMs.toFixed(2)}ms</span><br><span class="bench-ops">${(1000/naiadMs).toFixed(0)} ops/s</span>`;
+                  } else {
+                    naiadBenchCell.innerHTML = '<span class="missing">N/A</span>';
+                  }
+                }
+                if (mermaidBenchCell) {
+                  if (mermaidMs !== null) {
+                    const winner = naiadMs !== null && mermaidMs <= naiadMs;
+                    mermaidBenchCell.innerHTML = `<span class="bench-time ${winner ? 'bench-winner' : ''}">${mermaidMs.toFixed(2)}ms</span><br><span class="bench-ops">${(1000/mermaidMs).toFixed(0)} ops/s</span>`;
+                  } else {
+                    mermaidBenchCell.innerHTML = '<span class="missing">N/A</span>';
+                  }
+                }
+
+                results.push({ name, naiadMs, mermaidMs });
+              }
+
+              // Summary
+              const validResults = results.filter(r => r.naiadMs !== null && r.mermaidMs !== null);
+              if (validResults.length > 0) {
+                const avgNaiad = validResults.reduce((s, r) => s + r.naiadMs, 0) / validResults.length;
+                const avgMermaid = validResults.reduce((s, r) => s + r.mermaidMs, 0) / validResults.length;
+                const naiadWins = validResults.filter(r => r.naiadMs <= r.mermaidMs).length;
+                const ratio = avgMermaid / avgNaiad;
+
+                benchSummary.style.display = '';
+                benchSummary.innerHTML = `
+                  <h3>Benchmark Results (${iterations} iterations each)</h3>
+                  <p style="margin:8px 0">
+                    <span class="bench-bar naiad" style="width:${Math.min(200, 200/ratio)}px"></span>
+                    <strong>Naiad WASM:</strong> ${avgNaiad.toFixed(2)}ms avg
+                    &nbsp;&nbsp;vs&nbsp;&nbsp;
+                    <span class="bench-bar mermaid" style="width:${Math.min(200, 200*ratio/ratio)}px"></span>
+                    <strong>mermaid.js:</strong> ${avgMermaid.toFixed(2)}ms avg
+                  </p>
+                  <p>Naiad wins ${naiadWins}/${validResults.length} diagrams.
+                  ${ratio > 1 ? `Naiad is <strong>${ratio.toFixed(1)}x faster</strong> on average.` :
+                    `mermaid.js is <strong>${(1/ratio).toFixed(1)}x faster</strong> on average.`}</p>
+                `;
+              }
+
+              benchProgressText.textContent = 'Done!';
+              benchBtn.disabled = false;
+            }
+
+            // ── Initialize ─────────────────────────────────────────────
+            try {
+              await loadNaiadComponent();
+              addStatus('Naiad WASM loaded successfully');
+              benchBtn.disabled = false;
+            } catch (e) {
+              addStatus(`Naiad WASM failed to load: ${e.message}`, true);
+            }
+
+            await upgradeRows();
           </script>
         </body>
         </html>
@@ -1014,5 +1235,61 @@ static List<(string Name, string Code)> GetSampleDiagrams() =>
                 "Clothing": 80
                     "Shirts": 50
                     "Pants": 30
+        """),
+
+    // ── Parallel Coordinates (Tulip-style) ─────────────────────────
+    ("parallelcoords", """
+        parallelcoords
+            title "Car Comparison"
+            axis Price, MPG, Horsepower, Weight, Safety
+            dataset "Sedan"{22000, 32, 180, 3200, 5}
+            dataset "SUV"{35000, 22, 260, 4500, 4}
+            dataset "Sports"{55000, 18, 400, 3800, 3}
+            dataset "Compact"{18000, 38, 140, 2800, 5}
+        """),
+
+    // ── Dendrogram (Clustering) ───────────────────────────────────
+    ("dendrogram", """
+        dendrogram
+            title "Species Clustering"
+            leaf "Dog", "Cat", "Whale", "Shark", "Eagle"
+            merge "Dog"-"Cat":0.3
+            merge "Whale"-"Shark":0.5
+            merge "DogCat"-"WhaleShark":0.8
+            merge "DogCatWhaleShark"-"Eagle":1.2
+        """),
+
+    // ── Bubble Pack ───────────────────────────────────────────────
+    ("bubblepack", """
+        bubblepack
+            "Market"
+                "Tech": 1000
+                    "Software": 600
+                    "Hardware": 400
+                "Finance": 800
+                    "Banking": 500
+                    "Insurance": 300
+                "Healthcare": 600
+        """),
+
+    // ── Voronoi ────────────────────────────────────────────────────
+    ("voronoi", """
+        voronoi
+            title "Service Territories"
+            site "North" at 150, 100
+            site "South" at 150, 300
+            site "East" at 300, 200
+            site "West" at 50, 200
+            site "Central" at 150, 200
+        """),
+
+    // ── Geo ────────────────────────────────────────────────────────
+    ("geo", """
+        geo
+            title "UK Town Markers"
+            country uk
+            town "London" color=#ef4444 size=6
+            town "Manchester" color=#3b82f6
+            town "Edinburgh" color=#22c55e
         """),
 ];

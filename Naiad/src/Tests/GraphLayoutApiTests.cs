@@ -1,4 +1,4 @@
-using Dagre;
+using Mostlylucid.Dagre;
 using NUnit.Framework;
 
 namespace Tests;

@@ -344,7 +344,11 @@ static class ShapeSkinCatalog
     static ShapeSkinPack? LoadBuiltInPack(string packKey)
     {
         if (EmbeddedArchiveResources.TryGetValue(packKey, out var resourceName))
-            return LoadPackFromEmbeddedResource(resourceName, packKey);
+        {
+            var embeddedPack = LoadPackFromEmbeddedResource(resourceName, packKey);
+            if (embeddedPack is not null)
+                return embeddedPack;
+        }
 
         // Graceful fallback in case embedded resources are unavailable for legacy pack names.
         return packKey switch

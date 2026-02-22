@@ -39,29 +39,52 @@ static class Acyclic
     static void Dfs(LayoutGraph graph, string nodeId, HashSet<string> visited,
         HashSet<string> stack, List<LayoutEdge> edgesToReverse)
     {
+        var dfsStack = new Stack<(string nodeId, int edgeIndex, List<LayoutEdge> edges)>();
         visited.Add(nodeId);
         stack.Add(nodeId);
-
+        
         var node = graph.GetNode(nodeId);
         if (node is null)
         {
+            stack.Remove(nodeId);
             return;
         }
-
-        foreach (var edge in node.OutEdges.ToList())
+        
+        var edges = node.OutEdges.ToList();
+        dfsStack.Push((nodeId, 0, edges));
+        
+        while (dfsStack.Count > 0)
         {
+            var current = dfsStack.Peek();
+            
+            if (current.edgeIndex >= current.edges.Count)
+            {
+                dfsStack.Pop();
+                stack.Remove(current.nodeId);
+                continue;
+            }
+            
+            var edge = current.edges[current.edgeIndex];
+            dfsStack.Pop();
+            dfsStack.Push((current.nodeId, current.edgeIndex + 1, current.edges));
+            
             if (stack.Contains(edge.TargetId))
             {
-                // Back edge found - this creates a cycle
                 edgesToReverse.Add(edge);
             }
             else if (!visited.Contains(edge.TargetId))
             {
-                Dfs(graph, edge.TargetId, visited, stack, edgesToReverse);
+                visited.Add(edge.TargetId);
+                stack.Add(edge.TargetId);
+                
+                var nextNode = graph.GetNode(edge.TargetId);
+                if (nextNode is not null)
+                {
+                    var nextEdges = nextNode.OutEdges.ToList();
+                    dfsStack.Push((edge.TargetId, 0, nextEdges));
+                }
             }
         }
-
-        stack.Remove(nodeId);
     }
 
     public static void Undo(LayoutGraph graph)

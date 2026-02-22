@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace MermaidSharp.Fluent;
 
 public enum DiagnosticSeverity
@@ -46,8 +49,12 @@ public sealed class DiagnosticBag
     public IEnumerable<MermaidDiagnostic> WhereCodePrefix(string codePrefix) =>
         _items.Where(x => x.Code.StartsWith(codePrefix, StringComparison.OrdinalIgnoreCase));
 
-    static readonly System.Text.Json.JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
-
     public string ToJson() =>
-        System.Text.Json.JsonSerializer.Serialize(_items, s_jsonOptions);
+        JsonSerializer.Serialize(_items, FluentDiagnosticsJsonContext.Default.ListMermaidDiagnostic);
+}
+
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(List<MermaidDiagnostic>))]
+internal partial class FluentDiagnosticsJsonContext : JsonSerializerContext
+{
 }

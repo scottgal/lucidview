@@ -34,11 +34,13 @@ public class TimelineRenderer : IDiagramRenderer<TimelineModel>
 
     public SvgDocument Render(TimelineModel model, RenderOptions options)
     {
+        var theme = DiagramTheme.Resolve(options);
+
         if (model.Sections.Count == 0 || model.Sections.All(s => s.Periods.Count == 0))
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty timeline", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -63,7 +65,8 @@ public class TimelineRenderer : IDiagramRenderer<TimelineModel>
                 baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px",
                 fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold",
+                fill: theme.TextColor);
         }
 
         // Draw sections and periods
@@ -89,7 +92,7 @@ public class TimelineRenderer : IDiagramRenderer<TimelineModel>
                     fontSize: $"{options.FontSize}px",
                     fontFamily: options.FontFamily,
                     fontWeight: "bold",
-                    fill: "#333");
+                    fill: theme.TextColor);
             }
 
             // Draw periods in this section
@@ -100,7 +103,7 @@ public class TimelineRenderer : IDiagramRenderer<TimelineModel>
 
                 // Period marker
                 builder.AddCircle(periodX, timelineYPos, PeriodMarkerRadius,
-                    fill: periodColor, stroke: "#333", strokeWidth: 2);
+                    fill: periodColor, stroke: theme.AxisLine, strokeWidth: 2);
 
                 // Period label
                 builder.AddText(periodX, timelineYPos - 25, period.Label,
@@ -121,7 +124,7 @@ public class TimelineRenderer : IDiagramRenderer<TimelineModel>
 
                     builder.AddRect(eventX, eventY, eventWidth, EventHeight - 5,
                         rx: 4,
-                        fill: "#fff",
+                        fill: theme.PrimaryFill,
                         stroke: periodColor,
                         strokeWidth: 1);
 
@@ -129,7 +132,8 @@ public class TimelineRenderer : IDiagramRenderer<TimelineModel>
                         anchor: "middle",
                         baseline: "middle",
                         fontSize: $"{options.FontSize - 2}px",
-                        fontFamily: options.FontFamily);
+                        fontFamily: options.FontFamily,
+                        fill: theme.TextColor);
 
                     eventY += EventHeight;
                 }
@@ -145,7 +149,7 @@ public class TimelineRenderer : IDiagramRenderer<TimelineModel>
         var lineStartX = options.Padding + PeriodWidth / 2;
         var lineEndX = currentX - SectionPadding - PeriodWidth / 2;
         builder.AddLine(lineStartX, timelineYPos, lineEndX, timelineYPos,
-            stroke: "#333", strokeWidth: 3);
+            stroke: theme.AxisLine, strokeWidth: 3);
 
         return builder.Build();
     }

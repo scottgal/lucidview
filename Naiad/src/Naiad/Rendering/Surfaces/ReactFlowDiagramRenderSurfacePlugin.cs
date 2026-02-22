@@ -3,19 +3,12 @@ using System.Text.Json.Serialization;
 
 namespace MermaidSharp.Rendering.Surfaces;
 
-public sealed class ReactFlowDiagramRenderSurfacePlugin : IDiagramRenderSurfacePlugin
+public sealed partial class ReactFlowDiagramRenderSurfacePlugin : IDiagramRenderSurfacePlugin
 {
     static readonly IReadOnlyCollection<RenderSurfaceFormat> Formats =
         [RenderSurfaceFormat.ReactFlow];
     static readonly IReadOnlyCollection<DiagramType> DiagramTypes =
         [DiagramType.Flowchart];
-
-    static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
 
     public string Name => "reactflow";
     public IReadOnlyCollection<RenderSurfaceFormat> SupportedFormats => Formats;
@@ -40,7 +33,7 @@ public sealed class ReactFlowDiagramRenderSurfacePlugin : IDiagramRenderSurfaceP
         var nodes = layout.Model.Nodes.Select(ToReactFlowNode).ToList();
         var edges = layout.Model.Edges.Select((edge, index) => ToReactFlowEdge(edge, index)).ToList();
         var doc = new ReactFlowDocument(nodes, edges);
-        var json = JsonSerializer.Serialize(doc, JsonOptions);
+        var json = JsonSerializer.Serialize(doc, ReactFlowSurfaceJsonContext.Default.ReactFlowDocument);
         return RenderSurfaceOutput.FromText(json, "application/json");
     }
 
@@ -120,11 +113,11 @@ public sealed class ReactFlowDiagramRenderSurfacePlugin : IDiagramRenderSurfaceP
             style.Count == 0 ? null : style);
     }
 
-    sealed record ReactFlowDocument(
+    internal sealed record ReactFlowDocument(
         IReadOnlyList<ReactFlowNode> Nodes,
         IReadOnlyList<ReactFlowEdge> Edges);
 
-    sealed record ReactFlowNode(
+    internal sealed record ReactFlowNode(
         string Id,
         ReactFlowPosition Position,
         ReactFlowNodeData Data,
@@ -135,11 +128,11 @@ public sealed class ReactFlowDiagramRenderSurfacePlugin : IDiagramRenderSurfaceP
         string? Extent,
         IReadOnlyDictionary<string, object?>? Style);
 
-    sealed record ReactFlowNodeData(string Label);
+    internal sealed record ReactFlowNodeData(string Label);
 
-    sealed record ReactFlowPosition(double X, double Y);
+    internal sealed record ReactFlowPosition(double X, double Y);
 
-    sealed record ReactFlowEdge(
+    internal sealed record ReactFlowEdge(
         string Id,
         string Source,
         string Target,
@@ -147,4 +140,13 @@ public sealed class ReactFlowDiagramRenderSurfacePlugin : IDiagramRenderSurfaceP
         string? Label,
         bool Animated,
         IReadOnlyDictionary<string, object?>? Style);
+
+    [JsonSourceGenerationOptions(
+        PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonSerializable(typeof(ReactFlowDocument))]
+    internal partial class ReactFlowSurfaceJsonContext : JsonSerializerContext
+    {
+    }
 }

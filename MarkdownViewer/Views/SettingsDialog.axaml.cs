@@ -63,16 +63,17 @@ public partial class SettingsDialog : Window
 
     private void LoadSettings()
     {
-        // Theme - map to index including new mostlylucid themes
+        // Theme
         ThemeComboBox.SelectedIndex = _settings.Theme switch
         {
-            AppTheme.Light => 0,
-            AppTheme.Dark => 1,
-            AppTheme.VSCode => 2,
-            AppTheme.GitHub => 3,
-            AppTheme.MostlyLucidDark => 4,
-            AppTheme.MostlyLucidLight => 5,
-            _ => 1
+            AppTheme.Auto => 0,
+            AppTheme.Light => 1,
+            AppTheme.Dark => 2,
+            AppTheme.VSCode => 3,
+            AppTheme.GitHub => 4,
+            AppTheme.MostlyLucidDark => 5,
+            AppTheme.MostlyLucidLight => 6,
+            _ => 0
         };
 
         // Typography
@@ -129,7 +130,7 @@ public partial class SettingsDialog : Window
         _isLoading = true;
         var defaults = new AppSettings();
 
-        ThemeComboBox.SelectedIndex = 1; // Dark
+        ThemeComboBox.SelectedIndex = 0; // Auto (system)
         SelectFontFamily(FontFamilyComboBox, defaults.FontFamily);
         FontSizeBox.Value = (decimal)defaults.FontSize;
         SelectFontFamily(CodeFontComboBox, defaults.CodeFontFamily);

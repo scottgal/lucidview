@@ -18,32 +18,34 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
 {
     public string Name => "avalonia-native";
 
+    readonly record struct MarkerTarget(Visual Visual, string Prefix, string Key);
+
     public void ReplaceDiagramMarkers(Visual root)
     {
         var flowchartLayouts = markdownService.FlowchartLayouts;
         var diagramDocs = markdownService.DiagramDocuments;
         if (flowchartLayouts.Count == 0 && diagramDocs.Count == 0) return;
 
-        var markers = new List<(TextBlock TextBlock, string Prefix, string Key)>();
+        var markers = new List<MarkerTarget>();
         FindDiagramMarkers(root, markers);
 
         Debug.WriteLine(
             $"[DiagramCanvas:{Name}] Found {markers.Count} markers, {flowchartLayouts.Count} flowcharts, {diagramDocs.Count} diagrams");
 
-        foreach (var (textBlock, prefix, key) in markers)
+        foreach (var marker in markers)
         {
             Control? replacement = null;
 
-            if (prefix == MarkdownService.FlowchartMarkerPrefix)
+            if (marker.Prefix == MarkdownService.FlowchartMarkerPrefix)
             {
-                var layout = markdownService.GetFlowchartLayout(key);
+                var layout = markdownService.GetFlowchartLayout(marker.Key);
                 if (layout is null)
                 {
-                    Debug.WriteLine($"[DiagramCanvas:{Name}] No flowchart layout for key '{key}'");
+                    Debug.WriteLine($"[DiagramCanvas:{Name}] No flowchart layout for key '{marker.Key}'");
                     continue;
                 }
 
-                Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing flowchart '{key}' — {layout.Width:F0}x{layout.Height:F0}");
+                Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing flowchart '{marker.Key}' — {layout.Width:F0}x{layout.Height:F0}");
 
                 var canvas = new FlowchartCanvas
                 {
@@ -54,15 +56,15 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
                 canvas.LinkClicked += (_, link) => OpenLink(link);
                 replacement = canvas;
             }
-            else if (prefix == MarkdownService.DiagramMarkerPrefix)
+            else if (marker.Prefix == MarkdownService.DiagramMarkerPrefix)
             {
-                if (!diagramDocs.TryGetValue(key, out var doc))
+                if (!diagramDocs.TryGetValue(marker.Key, out var doc))
                 {
-                    Debug.WriteLine($"[DiagramCanvas:{Name}] No document for key '{key}'");
+                    Debug.WriteLine($"[DiagramCanvas:{Name}] No document for key '{marker.Key}'");
                     continue;
                 }
 
-                Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing diagram '{key}' — {doc.Width:F0}x{doc.Height:F0}");
+                Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing diagram '{marker.Key}' — {doc.Width:F0}x{doc.Height:F0}");
 
                 var canvas = new DiagramCanvas
                 {
@@ -84,7 +86,7 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
 
             if (replacement is null) continue;
 
-            var mermaidCode = markdownService.MermaidDiagrams.GetValueOrDefault(key);
+            var mermaidCode = markdownService.MermaidDiagrams.GetValueOrDefault(marker.Key);
             if (mermaidCode is not null)
             {
                 var contextMenu = new ContextMenu();
@@ -97,7 +99,10 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
                 replacement.ContextMenu = contextMenu;
             }
 
-            ReplaceControlInVisualTree(textBlock, replacement);
+            if (!ReplaceControlInVisualTree(marker.Visual, replacement))
+            {
+                Debug.WriteLine($"[DiagramCanvas:{Name}] Failed to replace marker for key '{marker.Key}' ({marker.Visual.GetType().Name})");
+            }
         }
     }
 
@@ -127,86 +132,136 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
         }
     }
 
-    static void FindDiagramMarkers(Visual parent, List<(TextBlock, string Prefix, string Key)> results)
+    static void FindDiagramMarkers(Visual parent, ICollection<MarkerTarget> results)
     {
+        FindDiagramMarkers(parent, results, new HashSet<Visual>());
+    }
+
+    static void FindDiagramMarkers(Visual parent, ICollection<MarkerTarget> results, HashSet<Visual> visited)
+    {
+        if (!visited.Add(parent))
+            return;
+
+        var selfMatch = ExtractDiagramMarker(parent);
+        if (selfMatch is not null)
+            results.Add(new MarkerTarget(parent, selfMatch.Value.Prefix, selfMatch.Value.Key));
+
         foreach (var child in VisualExtensions.GetVisualChildren(parent))
         {
-            if (child is TextBlock textBlock)
+            var match = ExtractDiagramMarker(child);
+            if (match is not null)
             {
-                var match = ExtractDiagramMarkerKey(textBlock);
-                if (match is not null)
-                {
-                    results.Add((textBlock, match.Value.Prefix, match.Value.Key));
-                    continue;
-                }
+                results.Add(new MarkerTarget(child, match.Value.Prefix, match.Value.Key));
             }
 
             if (child is Visual visual)
             {
-                FindDiagramMarkers(visual, results);
+                FindDiagramMarkers(visual, results, visited);
             }
+        }
+
+        if (parent is ContentControl contentControl && contentControl.Content is Visual contentVisual)
+        {
+            FindDiagramMarkers(contentVisual, results, visited);
         }
     }
 
-    static (string Prefix, string Key)? ExtractDiagramMarkerKey(TextBlock textBlock)
+    static (string Prefix, string Key)? ExtractDiagramMarker(Visual visual)
     {
-        var text = textBlock.Text;
-
-        if (string.IsNullOrEmpty(text) && textBlock.Inlines is { Count: > 0 } inlines)
-        {
-            text = string.Concat(inlines.OfType<Run>().Select(r => r.Text ?? ""));
-        }
-
+        var text = TryGetVisualText(visual);
         if (string.IsNullOrEmpty(text)) return null;
 
-        var idx = text.IndexOf(MarkdownService.FlowchartMarkerPrefix, StringComparison.Ordinal);
+        var idx = text.IndexOf(MarkdownService.FlowchartMarkerPrefix, StringComparison.OrdinalIgnoreCase);
         if (idx >= 0)
         {
-            var key = text[(idx + MarkdownService.FlowchartMarkerPrefix.Length)..].Trim();
+            var key = ExtractMarkerKey(text, idx + MarkdownService.FlowchartMarkerPrefix.Length);
             return string.IsNullOrEmpty(key) ? null : (MarkdownService.FlowchartMarkerPrefix, key);
         }
 
-        idx = text.IndexOf(MarkdownService.DiagramMarkerPrefix, StringComparison.Ordinal);
+        idx = text.IndexOf(MarkdownService.DiagramMarkerPrefix, StringComparison.OrdinalIgnoreCase);
         if (idx >= 0)
         {
-            var key = text[(idx + MarkdownService.DiagramMarkerPrefix.Length)..].Trim();
+            var key = ExtractMarkerKey(text, idx + MarkdownService.DiagramMarkerPrefix.Length);
             return string.IsNullOrEmpty(key) ? null : (MarkdownService.DiagramMarkerPrefix, key);
         }
 
         return null;
     }
 
-    static void ReplaceControlInVisualTree(Control target, Control replacement)
+    static string? TryGetVisualText(Visual visual)
+    {
+        if (visual is TextBlock textBlock)
+        {
+            if (!string.IsNullOrEmpty(textBlock.Text))
+                return textBlock.Text;
+            if (textBlock.Inlines is { Count: > 0 } inlines)
+                return string.Concat(inlines.OfType<Run>().Select(r => r.Text ?? ""));
+        }
+
+        return null;
+    }
+
+    static string ExtractMarkerKey(string text, int startIndex)
+    {
+        var i = startIndex;
+        while (i < text.Length && char.IsWhiteSpace(text[i]))
+            i++;
+
+        var keyStart = i;
+        while (i < text.Length)
+        {
+            var ch = text[i];
+            if (char.IsLetterOrDigit(ch) || ch is '-' or '_')
+            {
+                i++;
+                continue;
+            }
+
+            break;
+        }
+
+        return i > keyStart ? text[keyStart..i] : string.Empty;
+    }
+
+    static bool ReplaceControlInVisualTree(Visual target, Control replacement)
     {
         Visual? current = target;
         while (current is not null)
         {
-            var parent = VisualExtensions.GetVisualParent(current);
-            if (parent is null) break;
-
-            if (parent is Panel panel && current is Control ctrl)
+            var parent = GetParentVisual(current);
+            if (current is Control ctrl && parent is not null)
             {
-                var index = panel.Children.IndexOf(ctrl);
-                if (index >= 0)
+                if (parent is Panel panel)
                 {
-                    panel.Children[index] = replacement;
-                    panel.InvalidateMeasure();
-                    panel.InvalidateArrange();
-                    return;
+                    var index = panel.Children.IndexOf(ctrl);
+                    if (index >= 0)
+                    {
+                        panel.Children[index] = replacement;
+                        panel.InvalidateMeasure();
+                        panel.InvalidateArrange();
+                        return true;
+                    }
                 }
-            }
-            else if (parent is ContentControl contentControl && contentControl.Content == current)
-            {
-                contentControl.Content = replacement;
-                return;
-            }
-            else if (parent is Decorator decorator && decorator.Child == current as Control)
-            {
-                decorator.Child = replacement;
-                return;
+                else if (parent is ContentControl contentControl && contentControl.Content == ctrl)
+                {
+                    contentControl.Content = replacement;
+                    return true;
+                }
+                else if (parent is Decorator decorator && decorator.Child == ctrl)
+                {
+                    decorator.Child = replacement;
+                    return true;
+                }
             }
 
             current = parent;
         }
+
+        return false;
     }
+
+    static Visual? GetParentVisual(Visual visual) =>
+        VisualExtensions.GetVisualParent(visual) ??
+        (visual as StyledElement)?.Parent as Visual;
+
 }

@@ -124,6 +124,30 @@ public class SvgBuilder
         return this;
     }
 
+    /// <summary>
+    /// Add a linear gradient to the SVG defs. Use <c>fill="url(#id)"</c> to reference it.
+    /// </summary>
+    public SvgBuilder AddLinearGradient(string id, params (double offset, string color)[] stops)
+    {
+        var gradient = new SvgGradient { Id = id };
+        foreach (var (offset, color) in stops)
+            gradient.Stops.Add(new SvgGradientStop { Offset = offset, Color = color });
+        _document.Defs.Gradients.Add(gradient);
+        return this;
+    }
+
+    /// <summary>
+    /// Add a radial gradient to the SVG defs. Use <c>fill="url(#id)"</c> to reference it.
+    /// </summary>
+    public SvgBuilder AddRadialGradient(string id, params (double offset, string color)[] stops)
+    {
+        var gradient = new SvgGradient { Id = id, IsRadial = true };
+        foreach (var (offset, color) in stops)
+            gradient.Stops.Add(new SvgGradientStop { Offset = offset, Color = color });
+        _document.Defs.Gradients.Add(gradient);
+        return this;
+    }
+
     public SvgBuilder AddMermaidArrowMarker()
     {
         _document.Defs.Markers.Add(

@@ -200,6 +200,63 @@ sequenceDiagram
     }
 
     [Fact]
+    public void ProcessMarkdown_NonFlowchartMermaid_RendersAsNativeDiagramMarker()
+    {
+        // Arrange
+        var content = @"# Sequence
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Server
+    User->>Server: Ping
+```";
+
+        // Act
+        var processed = _service.ProcessMarkdown(content);
+
+        // Assert
+        Assert.DoesNotContain("```mermaid", processed);
+        Assert.Contains("DIAGRAM:diagram-0", processed);
+        Assert.DoesNotContain("![Mermaid Diagram](", processed);
+        Assert.Single(_service.DiagramDocuments);
+    }
+
+    [Fact]
+    public void ProcessMarkdown_ComplexFlowchartWithLessThanLabel_RendersWithoutParseError()
+    {
+        // Arrange
+        var content = """
+                      ```mermaid
+                      flowchart TB
+                          TOK[Token similarity]
+                          TYPE[Type compatibility]
+                          PAT[Pattern matching]
+                          FEAT[Feature group scoring]
+                          FIT[Data fit scoring]
+                          LEARN_BOOST[Learned alias boost]
+                          MOV{Margin of<br/>victory < 7%?}
+                          GATE{Confidence<br/>< 80%?}
+                          OLLAMA[qwen3:0.6b<br/>via Ollama or LLamaSharp]
+
+                          TOK & TYPE & PAT & FEAT & FIT & LEARN_BOOST --> MOV
+                          MOV -->|Yes: cap to 79%| GATE
+                          GATE -->|Yes: < 80%| OLLAMA
+                      ```
+                      """;
+
+        // Act
+        var processed = _service.ProcessMarkdown(content);
+
+        // Assert
+        Assert.DoesNotContain("Mermaid parse error", processed, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Cannot render", processed, StringComparison.OrdinalIgnoreCase);
+        Assert.True(
+            processed.Contains("FLOWCHART:") || processed.Contains("![Mermaid Diagram]("),
+            "Flowchart should render natively or fall back to SVG image.");
+    }
+
+    [Fact]
     public void ProcessMarkdown_PreservesHeadings()
     {
         // Arrange

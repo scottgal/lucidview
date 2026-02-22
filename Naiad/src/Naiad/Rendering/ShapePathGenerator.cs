@@ -153,7 +153,7 @@ public static class ShapePathGenerator
                $"{Fmt(x)},{Fmt(y + bodyHeight)} Z";
     }
 
-    public static string GetPath(NodeShape shape, double x, double y, double width, double height)
+    public static string GetPath(NodeShape shape, double x, double y, double width, double height, double defaultRx = 0)
     {
         var cx = x + width / 2;
         var cy = y + height / 2;
@@ -161,8 +161,8 @@ public static class ShapePathGenerator
 
         return shape switch
         {
-            NodeShape.Rectangle => Rectangle(x, y, width, height),
-            NodeShape.RoundedRectangle => Rectangle(x, y, width, height, 5),
+            NodeShape.Rectangle => Rectangle(x, y, width, height, defaultRx),
+            NodeShape.RoundedRectangle => Rectangle(x, y, width, height, Math.Max(5, defaultRx)),
             NodeShape.Circle => Circle(cx, cy, r),
             NodeShape.DoubleCircle => DoubleCircle(cx, cy, r),
             NodeShape.Diamond => Diamond(cx, cy, width, height),
@@ -209,7 +209,7 @@ public static class ShapePathGenerator
                 template.DefsContent);
         }
 
-        return new SkinnedPath(GetPath(shape, x, y, width, height), null, null);
+        return new SkinnedPath(GetPath(shape, x, y, width, height, options.NodeCornerRadius), null, null);
     }
 
     static string ToShapeKey(NodeShape shape) =>

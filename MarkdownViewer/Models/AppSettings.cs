@@ -12,7 +12,7 @@ public class AppSettings
     );
 
     // Theme
-    public AppTheme Theme { get; set; } = AppTheme.Dark;
+    public AppTheme Theme { get; set; } = AppTheme.Auto;
     public CodeTheme CodeTheme { get; set; } = CodeTheme.Auto;
 
     // Typography

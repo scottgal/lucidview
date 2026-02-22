@@ -38,11 +38,13 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
 
     public SvgDocument Render(ArchitectureModel model, RenderOptions options)
     {
+        var theme = DiagramTheme.Resolve(options);
+
         if (model.Services.Count == 0 && model.Groups.Count == 0)
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty diagram", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -67,7 +69,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
             .Padding(options.Padding);
 
         // Add arrow marker
-        builder.AddArrowMarker("arch-arrow", "#666");
+        builder.AddArrowMarker("arch-arrow", theme.AxisLine);
 
         // Position services (calculate positions first, draw later)
         var servicePositions = new Dictionary<string, (double x, double y, double width, double height)>();
@@ -106,7 +108,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
             if (bounds.HasValue)
             {
                 var color = GroupColors[colorIndex % GroupColors.Length];
-                DrawGroup(builder, group, bounds.Value, color, options);
+                DrawGroup(builder, group, bounds.Value, color, options, theme);
                 colorIndex++;
             }
         }
@@ -115,14 +117,14 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
         foreach (var service in model.Services)
         {
             var pos = servicePositions[service.Id];
-            DrawService(builder, service, pos.x, pos.y, options);
+            DrawService(builder, service, pos.x, pos.y, options, theme);
         }
 
         // Draw junctions
         foreach (var junction in model.Junctions)
         {
             var pos = junctionPositions[junction.Id];
-            DrawJunction(builder, pos.x, pos.y);
+            DrawJunction(builder, pos.x, pos.y, theme);
         }
 
         // Draw edges
@@ -131,7 +133,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
             if (positions.TryGetValue(edge.SourceId, out var from) &&
                 positions.TryGetValue(edge.TargetId, out var to))
             {
-                DrawEdge(builder, from, to, edge);
+                DrawEdge(builder, from, to, edge, theme);
             }
         }
 
@@ -168,7 +170,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
     }
 
     static void DrawGroup(SvgBuilder builder, ArchitectureGroup group,
-        (double x, double y, double width, double height) bounds, string color, RenderOptions options)
+        (double x, double y, double width, double height) bounds, string color, RenderOptions options, DiagramTheme theme)
     {
         var icon = group.Icon ?? "cloud";
         var borderColor = iconColors.GetValueOrDefault(icon, "#90A4AE");
@@ -182,17 +184,17 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
         builder.AddText(bounds.x + GroupPadding, bounds.y + GroupLabelHeight / 2 + GroupPadding / 2, label,
             anchor: "start", baseline: "middle",
             fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily,
-            fontWeight: "bold", fill: "#333");
+            fontWeight: "bold", fill: theme.TextColor);
     }
 
-    static void DrawService(SvgBuilder builder, ArchitectureService service, double x, double y, RenderOptions options)
+    static void DrawService(SvgBuilder builder, ArchitectureService service, double x, double y, RenderOptions options, DiagramTheme theme)
     {
         var icon = service.Icon ?? "server";
         var color = iconColors.GetValueOrDefault(icon, "#90A4AE");
 
         // Background
         builder.AddRect(x, y, ServiceWidth, ServiceHeight, rx: 8,
-            fill: "#FAFAFA", stroke: color, strokeWidth: 2);
+            fill: theme.PrimaryFill, stroke: color, strokeWidth: 2);
 
         // Icon
         if (IconPaths.TryGetValue(icon, out var path))
@@ -200,7 +202,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
             var iconX = x + (ServiceWidth - IconSize) / 2;
             var iconY = y + 8;
             builder.BeginGroup(transform: $"translate({Fmt(iconX)},{Fmt(iconY)}) scale(0.64)");
-            builder.AddPath(path, fill: color, stroke: "#333", strokeWidth: 1);
+            builder.AddPath(path, fill: color, stroke: theme.AxisLine, strokeWidth: 1);
             builder.EndGroup();
         }
 
@@ -209,20 +211,22 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
         builder.AddText(x + ServiceWidth / 2, y + ServiceHeight - 12, label,
             anchor: "middle", baseline: "middle",
             fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily,
-            fill: "#333");
+            fill: theme.TextColor);
     }
 
     static void DrawJunction(
         SvgBuilder builder,
         double x,
-        double y) =>
-        builder.AddCircle(x, y, 8, fill: "#666", stroke: "#333", strokeWidth: 1);
+        double y,
+        DiagramTheme theme) =>
+        builder.AddCircle(x, y, 8, fill: theme.AxisLine, stroke: theme.TextColor, strokeWidth: 1);
 
     static void DrawEdge(
         SvgBuilder builder,
         (double x, double y) from,
         (double x, double y) to,
-        ArchitectureEdge edge)
+        ArchitectureEdge edge,
+        DiagramTheme theme)
     {
         // Calculate edge start/end based on direction
         var fromOffset = GetDirectionOffset(edge.SourceSide);
@@ -310,7 +314,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
         }
         path += $" L{Fmt(pts[^1].x)},{Fmt(pts[^1].y)}";
 
-        builder.AddPath(path, fill: "none", stroke: "#666", strokeWidth: 1.5);
+        builder.AddPath(path, fill: "none", stroke: theme.AxisLine, strokeWidth: 1.5);
 
         // Draw arrows at the final segment angle
         if (edge.TargetArrow)
@@ -318,7 +322,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
             var lastSeg = pts[^1];
             var prevSeg = pts[^2];
             var angle = Math.Atan2(lastSeg.y - prevSeg.y, lastSeg.x - prevSeg.x);
-            DrawArrow(builder, toX, toY, angle);
+            DrawArrow(builder, toX, toY, angle, theme);
         }
 
         if (edge.SourceArrow)
@@ -326,7 +330,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
             var firstSeg = pts[0];
             var nextSeg = pts[1];
             var angle = Math.Atan2(firstSeg.y - nextSeg.y, firstSeg.x - nextSeg.x);
-            DrawArrow(builder, fromX, fromY, angle);
+            DrawArrow(builder, fromX, fromY, angle, theme);
         }
     }
 
@@ -339,7 +343,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
         _ => (0, 0)
     };
 
-    static void DrawArrow(SvgBuilder builder, double x, double y, double angle)
+    static void DrawArrow(SvgBuilder builder, double x, double y, double angle, DiagramTheme theme)
     {
         var arrowSize = 8;
         var arrowAngle = Math.PI / 6;
@@ -349,7 +353,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
         var ay2 = y - arrowSize * Math.Sin(angle + arrowAngle);
 
         builder.AddPath($"M {Fmt(x)} {Fmt(y)} L {Fmt(ax1)} {Fmt(ay1)} L {Fmt(ax2)} {Fmt(ay2)} Z",
-            fill: "#666", stroke: "none");
+            fill: theme.AxisLine, stroke: "none");
     }
 
 }

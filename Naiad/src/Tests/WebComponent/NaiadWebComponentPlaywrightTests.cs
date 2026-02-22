@@ -283,6 +283,33 @@ public class NaiadWebComponentPlaywrightTests : PageTest
     }
 
     [Test]
+    public async Task Component_ShouldRenderGeoCountryWithTownMarkers()
+    {
+        await Page.GotoAsync($"{_baseUrl}/plain-web-component.html");
+        await WaitForDiagramSvgAsync();
+
+        await Page.EvaluateAsync(
+            """
+            () => {
+              const el = document.querySelector('naiad-diagram');
+              el.mermaid = 'geo\n  title "Geo Component Test"\n  country uk\n  town "London" color=#ef4444\n  town "Manchester" color=#3b82f6';
+            }
+            """);
+
+        await WaitForDiagramSvgAsync();
+
+        var status = await GetShadowTextAsync("#status");
+        var svgMarkup = await GetShadowInnerHtmlAsync("#diagram");
+
+        Assert.That(status, Is.EqualTo("Rendered"));
+        Assert.That(svgMarkup, Does.Contain("<svg"));
+        Assert.That(svgMarkup, Does.Contain("Geo Component Test"));
+        Assert.That(svgMarkup, Does.Contain("London"));
+        Assert.That(svgMarkup, Does.Contain("Manchester"));
+        Assert.That(svgMarkup, Does.Contain("United Kingdom"));
+    }
+
+    [Test]
     public async Task Component_ShouldEmitRenderError_ForInvalidMermaid()
     {
         await Page.GotoAsync($"{_baseUrl}/plain-web-component.html");

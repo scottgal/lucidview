@@ -155,16 +155,25 @@ public class DagreLayoutEngine : ILayoutEngine
         }
     }
 
-    static void CollectAllDescendantRanks(LayoutGraph graph, Subgraph sg, List<int> ranks)
+    static void CollectAllDescendantRanks(LayoutGraph graph, Subgraph startSg, List<int> ranks)
     {
-        foreach (var nodeId in sg.NodeIds)
+        var stack = new Stack<Subgraph>();
+        stack.Push(startSg);
+        
+        while (stack.Count > 0)
         {
-            var node = graph.GetNode(nodeId);
-            if (node is not null)
-                ranks.Add(node.Rank);
+            var sg = stack.Pop();
+            
+            foreach (var nodeId in sg.NodeIds)
+            {
+                var node = graph.GetNode(nodeId);
+                if (node is not null)
+                    ranks.Add(node.Rank);
+            }
+            
+            foreach (var nested in sg.NestedSubgraphs)
+                stack.Push(nested);
         }
-        foreach (var nested in sg.NestedSubgraphs)
-            CollectAllDescendantRanks(graph, nested, ranks);
     }
 
     /// <summary>

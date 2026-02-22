@@ -43,6 +43,10 @@ public partial class MainWindow : Window
     private bool _isSidePanelOpen;
     private string _rawContent = string.Empty;
     private List<SearchResult> _searchResults = [];
+    private AppTheme _effectiveTheme = AppTheme.Dark;
+    private Avalonia.Threading.DispatcherTimer? _diagramReplacementTimer;
+    private int _diagramReplacementAttempts;
+    private const int MaxDiagramReplacementAttempts = 8;
 
     /// <summary>
     /// Known harmless errors from third-party libraries that should not be shown to users
@@ -96,6 +100,8 @@ public partial class MainWindow : Window
                 ScrollToDiagram)
         ]);
 
+        Application.Current!.PropertyChanged += OnApplicationPropertyChanged;
+
         // Restore saved size, clamped to sensible defaults
         Width = _settings.WindowWidth is > 0 and < 10000 ? _settings.WindowWidth : 1100;
         Height = _settings.WindowHeight is > 0 and < 10000 ? _settings.WindowHeight : 750;
@@ -105,7 +111,6 @@ public partial class MainWindow : Window
 
         // Apply saved theme (needed before showing content)
         ApplyTheme(_settings.Theme);
-        UpdateThemeCardSelection(_settings.Theme);
 
         // Drag and drop
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
@@ -162,9 +167,28 @@ public partial class MainWindow : Window
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
+        if (Application.Current is not null)
+            Application.Current.PropertyChanged -= OnApplicationPropertyChanged;
+
         _settings.WindowWidth = (int)Width;
         _settings.WindowHeight = (int)Height;
         _settings.Save();
+    }
+
+    private void OnApplicationPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (!string.Equals(e.Property.Name, nameof(Application.ActualThemeVariant), StringComparison.Ordinal))
+            return;
+
+        if (_themeService.RequestedTheme != AppTheme.Auto)
+            return;
+
+        var refreshedTheme = _themeService.RefreshAutoTheme();
+        if (refreshedTheme == _effectiveTheme)
+            return;
+
+        _effectiveTheme = refreshedTheme;
+        ApplyEffectiveTheme(_effectiveTheme);
     }
 
     #endregion
@@ -573,9 +597,8 @@ public partial class MainWindow : Window
         var estimatedHeight = content.Split('\n').Length * 24.0;
         _paginationService.CalculatePages(estimatedHeight);
 
-        // Replace flowchart marker text with native FlowchartCanvas controls
-        // Defer to allow the visual tree to build first
-        Avalonia.Threading.Dispatcher.UIThread.Post(ReplaceDiagramMarkers, Avalonia.Threading.DispatcherPriority.Loaded);
+        // Replace marker text with native diagram controls once the visual tree is ready.
+        ScheduleDiagramMarkerReplacement();
 
         // Phase 2: Render uncached diagrams in background, then swap in results
         if (pendingDiagrams.Count > 0)
@@ -598,8 +621,8 @@ public partial class MainWindow : Window
                 _markdownBuilder.Append(updated);
                 RenderedScroller.Offset = scrollOffset;
 
-                // Re-run flowchart replacement after pending diagrams update
-                Avalonia.Threading.Dispatcher.UIThread.Post(ReplaceDiagramMarkers, Avalonia.Threading.DispatcherPriority.Loaded);
+                // Re-run marker replacement after pending diagrams update.
+                ScheduleDiagramMarkerReplacement();
             }
             catch (OperationCanceledException)
             {
@@ -685,17 +708,24 @@ public partial class MainWindow : Window
 
     private void ApplyTheme(AppTheme theme)
     {
-        _themeService.ApplyTheme(theme);
+        _effectiveTheme = _themeService.ApplyTheme(theme);
         _settings.Theme = theme;
-        UpdatePanelOverlay(theme);
+        ApplyEffectiveTheme(_effectiveTheme);
+    }
+
+    private void ApplyEffectiveTheme(AppTheme effectiveTheme)
+    {
+        UpdatePanelOverlay(effectiveTheme);
 
         // Update markdown service for theme-aware mermaid rendering
-        var isDark = theme != AppTheme.Light && theme != AppTheme.MostlyLucidLight;
-        var themeDefinition = ThemeColors.GetTheme(theme);
+        var isDark = !IsLightTheme(effectiveTheme);
+        var themeDefinition = ThemeColors.GetTheme(effectiveTheme);
         _markdownService.SetThemeColors(isDark, themeDefinition.Text, themeDefinition.Background);
 
         // Invalidate mermaid cache since theme colors changed
         _markdownService.InvalidateMermaidCache();
+
+        UpdateThemeCardSelection(effectiveTheme);
 
         // Refresh current document to regenerate mermaid diagrams with new theme colors
         if (!string.IsNullOrEmpty(_rawContent)) _ = DisplayMarkdown(_rawContent);
@@ -704,7 +734,7 @@ public partial class MainWindow : Window
     private void UpdatePanelOverlay(AppTheme theme)
     {
         // Light themes get dark overlay, dark themes get light overlay
-        var isLightTheme = theme == AppTheme.Light || theme == AppTheme.MostlyLucidLight;
+        var isLightTheme = IsLightTheme(theme);
         var overlayColor = isLightTheme ? "#60000000" : "#40ffffff";
 
         if (Application.Current?.Resources != null)
@@ -752,7 +782,6 @@ public partial class MainWindow : Window
             if (Enum.TryParse<AppTheme>(themeName, out var theme))
             {
                 ApplyTheme(theme);
-                UpdateThemeCardSelection(theme);
                 _settings.Save();
             }
     }
@@ -942,7 +971,6 @@ public partial class MainWindow : Window
         dialog.SettingsChanged += () =>
         {
             ApplyTheme(_settings.Theme);
-            UpdateThemeCardSelection(_settings.Theme);
             ApplyTypography();
         };
 
@@ -950,7 +978,6 @@ public partial class MainWindow : Window
 
         // Final apply in case dialog was closed without save
         ApplyTheme(_settings.Theme);
-        UpdateThemeCardSelection(_settings.Theme);
         ApplyTypography();
     }
 
@@ -1458,7 +1485,7 @@ public partial class MainWindow : Window
         var processed = _markdownService.ProcessMarkdown(markdown);
 
         // Get theme colors for print
-        var isDark = _settings.Theme != AppTheme.Light;
+        var isDark = !IsLightTheme(_effectiveTheme);
         var bgColor = isDark ? "#1e1e1e" : "#ffffff";
         var textColor = isDark ? "#d4d4d4" : "#1a1a1a";
         var codeColor = isDark ? "#2d2d2d" : "#f5f5f5";
@@ -1902,6 +1929,40 @@ public partial class MainWindow : Window
         _diagramPluginHost.ReplaceDiagramMarkers(MdViewer);
     }
 
+    private void ScheduleDiagramMarkerReplacement()
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            ReplaceDiagramMarkers();
+
+            _diagramReplacementAttempts = 0;
+            _diagramReplacementTimer ??= new Avalonia.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(100)
+            };
+
+            _diagramReplacementTimer.Tick -= OnDiagramReplacementTick;
+            _diagramReplacementTimer.Tick += OnDiagramReplacementTick;
+            _diagramReplacementTimer.Stop();
+            _diagramReplacementTimer.Start();
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void OnDiagramReplacementTick(object? sender, EventArgs e)
+    {
+        ReplaceDiagramMarkers();
+        _diagramReplacementAttempts++;
+
+        if (_diagramReplacementAttempts < MaxDiagramReplacementAttempts)
+            return;
+
+        if (_diagramReplacementTimer is not null)
+        {
+            _diagramReplacementTimer.Stop();
+            _diagramReplacementTimer.Tick -= OnDiagramReplacementTick;
+        }
+    }
+
     /// <summary>
     /// Scroll to a diagram by its key (e.g. "diagram-1") for C4 zoom navigation.
     /// </summary>
@@ -1940,11 +2001,14 @@ public partial class MainWindow : Window
 
     private IBrush? ResolveDiagramTextBrush()
     {
-        var themeTextColor = ThemeColors.GetTheme(_settings.Theme).Text;
+        var themeTextColor = ThemeColors.GetTheme(_effectiveTheme).Text;
         if (Color.TryParse(themeTextColor, out var parsedColor))
             return new Avalonia.Media.Immutable.ImmutableSolidColorBrush(parsedColor);
         return null;
     }
+
+    private static bool IsLightTheme(AppTheme theme) =>
+        theme == AppTheme.Light || theme == AppTheme.MostlyLucidLight;
 
     /// <summary>
     /// Debug: Capture a screenshot of the window + dump the visual tree to files.

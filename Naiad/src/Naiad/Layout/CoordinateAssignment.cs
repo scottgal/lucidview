@@ -57,7 +57,8 @@ static class CoordinateAssignment
         var layering = new List<LayoutNode>[graph.Ranks.Length];
         for (var r = 0; r < graph.Ranks.Length; r++)
         {
-            layering[r] = graph.Ranks[r].OrderBy(n => n.Order).ToList();
+            layering[r] = new List<LayoutNode>(graph.Ranks[r]);
+            layering[r].Sort(static (a, b) => a.Order.CompareTo(b.Order));
         }
 
         // Build position lookup (order within rank)
@@ -226,10 +227,10 @@ static class CoordinateAssignment
         HashSet<(string, string)> conflicts,
         bool usePredecessors)
     {
-        var root = new Dictionary<string, string>();
-        var align = new Dictionary<string, string>();
+        var nodeCount = graph.Nodes.Count;
+        var root = new Dictionary<string, string>(nodeCount);
+        var align = new Dictionary<string, string>(nodeCount);
 
-        // Initialize: each node is its own root and aligned to itself
         foreach (var layer in layering)
         {
             foreach (var node in layer)
@@ -239,29 +240,35 @@ static class CoordinateAssignment
             }
         }
 
-        // Process each layer
+        // Reusable list to avoid per-node allocation
+        var neighborsBuf = new List<LayoutNode>(16);
+
         foreach (var layer in layering)
         {
             var prevIdx = -1;
             foreach (var v in layer)
             {
-                var neighbors = usePredecessors
-                    ? graph.GetPredecessors(v.Id).ToList()
-                    : graph.GetSuccessors(v.Id).ToList();
+                neighborsBuf.Clear();
+                var edges = usePredecessors ? v.InEdges : v.OutEdges;
+                foreach (var edge in edges)
+                {
+                    var neighborId = usePredecessors ? edge.SourceId : edge.TargetId;
+                    var neighbor = graph.GetNode(neighborId);
+                    if (neighbor is not null)
+                        neighborsBuf.Add(neighbor);
+                }
 
-                if (neighbors.Count == 0) continue;
+                if (neighborsBuf.Count == 0) continue;
 
-                // Sort neighbors by their position in their layer
-                neighbors.Sort((a, b) => pos.GetValueOrDefault(a.Id).CompareTo(pos.GetValueOrDefault(b.Id)));
+                neighborsBuf.Sort((a, b) => pos.GetValueOrDefault(a.Id).CompareTo(pos.GetValueOrDefault(b.Id)));
 
-                // Find median neighbor(s)
-                var mp = (neighbors.Count - 1) / 2.0;
+                var mp = (neighborsBuf.Count - 1) / 2.0;
                 for (var i = (int)Math.Floor(mp); i <= (int)Math.Ceiling(mp); i++)
                 {
-                    var w = neighbors[i];
-                    if (align[v.Id] == v.Id && // v not already aligned
-                        prevIdx < pos.GetValueOrDefault(w.Id) && // maintains left-to-right order
-                        !HasConflict(conflicts, v.Id, w.Id)) // no type-1 conflict
+                    var w = neighborsBuf[i];
+                    if (align[v.Id] == v.Id &&
+                        prevIdx < pos.GetValueOrDefault(w.Id) &&
+                        !HasConflict(conflicts, v.Id, w.Id))
                     {
                         align[w.Id] = v.Id;
                         align[v.Id] = root[v.Id] = root[w.Id];
@@ -329,9 +336,28 @@ static class CoordinateAssignment
             foreach (var v in layer)
                 allRoots.Add(root[v.Id]);
 
-        // Pass 1: Left-to-right - assign minimum X based on predecessors
-        // Topological order: process blocks whose predecessors are all done
-        var inDegree = new Dictionary<string, int>();
+        // Build reverse edge map for O(1) predecessor lookups (avoids O(blocks²) scan)
+        var blockPredEdges = new Dictionary<string, Dictionary<string, double>>();
+        foreach (var r in allRoots)
+            blockPredEdges[r] = new Dictionary<string, double>();
+        foreach (var (src, targets) in blockEdges)
+        {
+            foreach (var (tgt, weight) in targets)
+            {
+                if (allRoots.Contains(tgt))
+                {
+                    if (!blockPredEdges.TryGetValue(tgt, out var preds))
+                    {
+                        preds = new Dictionary<string, double>();
+                        blockPredEdges[tgt] = preds;
+                    }
+                    preds[src] = weight;
+                }
+            }
+        }
+
+        // Pass 1: Left-to-right via topological order
+        var inDegree = new Dictionary<string, int>(allRoots.Count);
         foreach (var r in allRoots) inDegree[r] = 0;
         foreach (var (src, targets) in blockEdges)
         {
@@ -351,13 +377,11 @@ static class CoordinateAssignment
         {
             var block = queue.Dequeue();
             var maxPredX = 0.0;
-            // Find max(predecessor position + separation)
-            foreach (var (src, targets) in blockEdges)
+            // O(predecessors) lookup instead of O(all blocks)
+            if (blockPredEdges.TryGetValue(block, out var preds))
             {
-                if (targets.TryGetValue(block, out var weight))
-                {
+                foreach (var (src, weight) in preds)
                     maxPredX = Math.Max(maxPredX, xs.GetValueOrDefault(src) + weight);
-                }
             }
             xs[block] = maxPredX;
 
@@ -514,58 +538,64 @@ static class CoordinateAssignment
     {
         var isHorizontal = direction is Direction.LeftToRight or Direction.RightToLeft;
 
+        // Pre-build dummy node lookup: (source, target) → list of dummies
+        // This eliminates the O(N) scan of all nodes per edge
+        var dummyLookup = new Dictionary<(string, string), List<LayoutNode>>();
+        foreach (var node in graph.Nodes.Values)
+        {
+            if (!node.IsDummy || node.OriginalEdgeSource is null || node.OriginalEdgeTarget is null)
+                continue;
+
+            var key = (node.OriginalEdgeSource, node.OriginalEdgeTarget);
+            if (!dummyLookup.TryGetValue(key, out var list))
+            {
+                list = [];
+                dummyLookup[key] = list;
+            }
+            list.Add(node);
+        }
+
         foreach (var edge in graph.Edges)
         {
             var source = graph.GetNode(edge.SourceId);
             var target = graph.GetNode(edge.TargetId);
 
             if (source is null || target is null)
-            {
                 continue;
-            }
 
             edge.Points.Clear();
 
             if (source.IsDummy || target.IsDummy)
             {
-                // Part of a long edge - just add the node positions
                 edge.Points.Add(new(source.X, source.Y));
                 edge.Points.Add(new(target.X, target.Y));
             }
             else
             {
-                // Regular edge - create path through dummy nodes if any
-                // For horizontal layout: connect right edge of source
-                // For vertical layout: connect bottom edge of source
                 var sourceEdgeX = isHorizontal ? source.X + source.Width / 2 : source.X;
                 var sourceEdgeY = isHorizontal ? source.Y : source.Y + source.Height / 2;
                 edge.Points.Add(new(sourceEdgeX, sourceEdgeY));
 
-                // Find dummy nodes for this edge - check both directions for reversed edges
-                var dummies = graph.Nodes.Values
-                    .Where(n => n.IsDummy &&
-                                ((n.OriginalEdgeSource == edge.SourceId && n.OriginalEdgeTarget == edge.TargetId) ||
-                                 (n.OriginalEdgeSource == edge.TargetId && n.OriginalEdgeTarget == edge.SourceId)))
-                    .ToList();
+                // O(1) lookup instead of O(N) scan
+                List<LayoutNode>? dummies = null;
+                dummyLookup.TryGetValue((edge.SourceId, edge.TargetId), out dummies);
+                if (dummies is null)
+                    dummyLookup.TryGetValue((edge.TargetId, edge.SourceId), out dummies);
 
-                // Order by rank in edge direction
-                if (source.Rank > target.Rank)
-                    dummies = dummies.OrderByDescending(n => n.Rank).ToList();
-                else
-                    dummies = dummies.OrderBy(n => n.Rank).ToList();
-
-                foreach (var dummy in dummies)
+                if (dummies is not null)
                 {
-                    edge.Points.Add(new(dummy.X, dummy.Y));
+                    if (source.Rank > target.Rank)
+                        dummies.Sort(static (a, b) => b.Rank.CompareTo(a.Rank));
+                    else
+                        dummies.Sort(static (a, b) => a.Rank.CompareTo(b.Rank));
+
+                    foreach (var dummy in dummies)
+                        edge.Points.Add(new(dummy.X, dummy.Y));
                 }
 
-                // Calculate the target endpoint, offset to account for arrow marker
-                // For horizontal layout: connect left edge of target
-                // For vertical layout: connect top edge of target
                 var targetEdgeX = isHorizontal ? target.X - target.Width / 2 : target.X;
                 var targetEdgeY = isHorizontal ? target.Y : target.Y - target.Height / 2;
 
-                // Get the last point before target to determine edge direction
                 var lastPoint = edge.Points[^1];
                 var dx = targetEdgeX - lastPoint.X;
                 var dy = targetEdgeY - lastPoint.Y;
@@ -573,7 +603,6 @@ static class CoordinateAssignment
 
                 if (length > ArrowMarkerOffset)
                 {
-                    // Shorten the endpoint by the arrow marker size
                     var ratio = (length - ArrowMarkerOffset) / length;
                     targetEdgeX = lastPoint.X + dx * ratio;
                     targetEdgeY = lastPoint.Y + dy * ratio;

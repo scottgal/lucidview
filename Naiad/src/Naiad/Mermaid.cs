@@ -3,6 +3,11 @@ using System.Text.RegularExpressions;
 using System.Globalization;
 using MermaidSharp.Rendering;
 using MermaidSharp.Rendering.Skins;
+using MermaidSharp.Diagrams.ParallelCoords;
+using MermaidSharp.Diagrams.Dendrogram;
+using MermaidSharp.Diagrams.BubblePack;
+using MermaidSharp.Diagrams.Voronoi;
+using MermaidSharp.Diagrams.Geo;
 
 namespace MermaidSharp;
 
@@ -45,17 +50,121 @@ public static class Mermaid
         ShapeSkinCatalog.GetAvailablePackNames();
 
     /// <summary>
+    /// Returns registered layout engine plugins.
+    /// </summary>
+    public static IReadOnlyCollection<ILayoutEnginePlugin> GetRegisteredLayoutEngines() =>
+        MermaidLayoutEngines.Plugins;
+
+    /// <summary>
+    /// Returns available layout engine names.
+    /// </summary>
+    public static IReadOnlyList<string> GetAvailableLayoutEngines() =>
+        MermaidLayoutEngines.GetAvailableEngineNames();
+
+    /// <summary>
+    /// Returns available layout engine names for a specific diagram type.
+    /// </summary>
+    public static IReadOnlyList<string> GetAvailableLayoutEngines(DiagramType diagramType) =>
+        MermaidLayoutEngines.GetAvailableEngineNames(diagramType);
+
+    /// <summary>
+    /// Returns the recommended default layout engine name for a diagram type, when defined.
+    /// </summary>
+    public static string? GetRecommendedLayoutEngine(DiagramType diagramType) =>
+        MermaidLayoutEngines.GetRecommendedEngineName(diagramType);
+
+    /// <summary>
+    /// Registers a layout engine plugin. Newer registrations take precedence.
+    /// </summary>
+    public static void RegisterLayoutEngine(ILayoutEnginePlugin plugin) =>
+        MermaidLayoutEngines.Register(plugin);
+
+    /// <summary>
+    /// Tries to register a layout engine plugin.
+    /// </summary>
+    public static bool TryRegisterLayoutEngine(ILayoutEnginePlugin plugin, out string? error) =>
+        MermaidLayoutEngines.TryRegister(plugin, out error);
+
+    /// <summary>
+    /// Unregisters a layout engine plugin by name or alias.
+    /// </summary>
+    public static bool UnregisterLayoutEngine(string pluginName) =>
+        MermaidLayoutEngines.Unregister(pluginName);
+
+    /// <summary>
+    /// Returns registered geo map pack plugins.
+    /// </summary>
+    public static IReadOnlyCollection<IGeoMapPackPlugin> GetRegisteredGeoMapPacks() =>
+        MermaidGeoMaps.Plugins;
+
+    /// <summary>
+    /// Returns available geo map names.
+    /// </summary>
+    public static IReadOnlyList<string> GetAvailableGeoMaps() =>
+        MermaidGeoMaps.GetAvailableMapNames();
+
+    /// <summary>
+    /// Registers a geo map pack plugin. Newer registrations take precedence.
+    /// </summary>
+    public static void RegisterGeoMapPack(IGeoMapPackPlugin plugin) =>
+        MermaidGeoMaps.Register(plugin);
+
+    /// <summary>
+    /// Tries to register a geo map pack plugin.
+    /// </summary>
+    public static bool TryRegisterGeoMapPack(IGeoMapPackPlugin plugin, out string? error) =>
+        MermaidGeoMaps.TryRegister(plugin, out error);
+
+    /// <summary>
+    /// Unregisters a geo map pack plugin by name or alias.
+    /// </summary>
+    public static bool UnregisterGeoMapPack(string pluginName) =>
+        MermaidGeoMaps.Unregister(pluginName);
+
+    /// <summary>
+    /// Returns registered geo location resolver plugins.
+    /// </summary>
+    public static IReadOnlyCollection<IGeoLocationResolverPlugin> GetRegisteredGeoLocationResolvers() =>
+        MermaidGeoLocations.Plugins;
+
+    /// <summary>
+    /// Returns available geo location resolver plugin names.
+    /// </summary>
+    public static IReadOnlyList<string> GetAvailableGeoLocationResolvers() =>
+        MermaidGeoLocations.GetAvailableResolverNames();
+
+    /// <summary>
+    /// Registers a geo location resolver plugin.
+    /// </summary>
+    public static void RegisterGeoLocationResolver(IGeoLocationResolverPlugin plugin) =>
+        MermaidGeoLocations.Register(plugin);
+
+    /// <summary>
+    /// Tries to register a geo location resolver plugin.
+    /// </summary>
+    public static bool TryRegisterGeoLocationResolver(IGeoLocationResolverPlugin plugin, out string? error) =>
+        MermaidGeoLocations.TryRegister(plugin, out error);
+
+    /// <summary>
+    /// Unregisters a geo location resolver plugin by name or alias.
+    /// </summary>
+    public static bool UnregisterGeoLocationResolver(string pluginName) =>
+        MermaidGeoLocations.Unregister(pluginName);
+
+    /// <summary>
     /// Render mermaid input to a structured SvgDocument without serializing to XML.
     /// Returns the document object for direct consumption (e.g. native Avalonia rendering).
     /// </summary>
     public static SvgDocument? RenderToDocument(string input, RenderOptions? options = null)
     {
-        options ??= RenderOptions.Default;
+        options = (options ?? RenderOptions.Default).Clone();
+        SecurityValidator.NormalizeSecurityLimits(options);
 
         SecurityValidator.ValidateInput(input, options);
 
         // Parse and apply directives before rendering.
         options = ApplyNaiadDirectives(input, ApplyInitDirectives(input, options));
+        SecurityValidator.NormalizeSecurityLimits(options);
 
         var diagramType = DetectDiagramType(input);
 
@@ -87,6 +196,11 @@ public static class Mermaid
             DiagramType.Radar => RenderRadarDoc(input, options),
             DiagramType.Treemap => RenderTreemapDoc(input, options),
             DiagramType.Bpmn => RenderBpmnDoc(input, options),
+            DiagramType.ParallelCoords => RenderParallelCoordsDoc(input, options),
+            DiagramType.Dendrogram => RenderDendrogramDoc(input, options),
+            DiagramType.BubblePack => RenderBubblePackDoc(input, options),
+            DiagramType.Voronoi => RenderVoronoiDoc(input, options),
+            DiagramType.Geo => RenderGeoDoc(input, options),
             _ => throw new MermaidException($"Unsupported diagram type: {diagramType}")
         }, options.RenderTimeout, "Diagram rendering");
     }
@@ -97,15 +211,17 @@ public static class Mermaid
     /// </summary>
     public static FlowchartLayoutResult? ParseAndLayoutFlowchart(string input, RenderOptions? options = null)
     {
-        options ??= RenderOptions.Default;
+        options = (options ?? RenderOptions.Default).Clone();
+        SecurityValidator.NormalizeSecurityLimits(options);
         SecurityValidator.ValidateInput(input, options);
         options = ApplyNaiadDirectives(input, ApplyInitDirectives(input, options));
+        SecurityValidator.NormalizeSecurityLimits(options);
 
         var parser = new FlowchartParser();
         var result = parser.Parse(input);
         if (!result.Success) return null;
 
-        var renderer = new FlowchartRenderer();
+        var renderer = new FlowchartRenderer(ResolveLayoutEngine(options, DiagramType.Flowchart));
         return renderer.LayoutModel(result.Value, options);
     }
 
@@ -174,6 +290,20 @@ public static class Mermaid
         if (firstLine.StartsWith("treemap-beta", StringComparison.OrdinalIgnoreCase) ||
             firstLine.StartsWith("treemap", StringComparison.OrdinalIgnoreCase))
             return DiagramType.Treemap;
+        if (firstLine.StartsWith("parallelcoords", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("parallel-coords", StringComparison.OrdinalIgnoreCase))
+            return DiagramType.ParallelCoords;
+        if (firstLine.StartsWith("dendrogram", StringComparison.OrdinalIgnoreCase))
+            return DiagramType.Dendrogram;
+        if (firstLine.StartsWith("bubblepack", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("bubble-pack", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("bubble", StringComparison.OrdinalIgnoreCase))
+            return DiagramType.BubblePack;
+        if (firstLine.StartsWith("voronoi", StringComparison.OrdinalIgnoreCase))
+            return DiagramType.Voronoi;
+        if (firstLine.StartsWith("geo-beta", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("geo", StringComparison.OrdinalIgnoreCase))
+            return DiagramType.Geo;
 
         // BPMN XML detection: <?xml or <definitions or <bpmn:definitions
         if (firstLine.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase) ||
@@ -207,7 +337,9 @@ public static class Mermaid
             if (root.TryGetProperty("theme", out var themeProp) &&
                 themeProp.ValueKind == JsonValueKind.String)
             {
-                result.Theme = themeProp.GetString() ?? result.Theme;
+                var requestedTheme = themeProp.GetString();
+                if (ShouldApplyInitTheme(result, requestedTheme))
+                    result.Theme = requestedTheme ?? result.Theme;
             }
 
             // Apply fontFamily
@@ -226,32 +358,32 @@ public static class Mermaid
                 var overrides = result.ThemeColors ?? new ThemeColorOverrides();
 
                 if (TryGetColor(vars, "primaryTextColor", out var textColor))
-                    overrides.TextColor = textColor;
+                    ApplyThemeColorIfMissing(overrides, o => o.TextColor, (o, c) => o.TextColor = c, textColor);
                 if (TryGetColor(vars, "primaryColor", out var nodeFill))
-                    overrides.NodeFill = nodeFill;
+                    ApplyThemeColorIfMissing(overrides, o => o.NodeFill, (o, c) => o.NodeFill = c, nodeFill);
                 if (TryGetColor(vars, "primaryBorderColor", out var nodeStroke))
-                    overrides.NodeStroke = nodeStroke;
+                    ApplyThemeColorIfMissing(overrides, o => o.NodeStroke, (o, c) => o.NodeStroke = c, nodeStroke);
                 if (TryGetColor(vars, "lineColor", out var edgeStroke))
-                    overrides.EdgeStroke = edgeStroke;
+                    ApplyThemeColorIfMissing(overrides, o => o.EdgeStroke, (o, c) => o.EdgeStroke = c, edgeStroke);
                 if (TryGetColor(vars, "mainBkg", out var mainBkg))
-                    overrides.NodeFill = mainBkg;
+                    ApplyThemeColorIfMissing(overrides, o => o.NodeFill, (o, c) => o.NodeFill = c, mainBkg);
                 if (TryGetColor(vars, "nodeBorder", out var nodeBorder))
-                    overrides.NodeStroke = nodeBorder;
+                    ApplyThemeColorIfMissing(overrides, o => o.NodeStroke, (o, c) => o.NodeStroke = c, nodeBorder);
                 if (TryGetColor(vars, "clusterBkg", out var clusterBkg))
-                    overrides.SubgraphFill = clusterBkg;
+                    ApplyThemeColorIfMissing(overrides, o => o.SubgraphFill, (o, c) => o.SubgraphFill = c, clusterBkg);
                 if (TryGetColor(vars, "clusterBorder", out var clusterBorder))
-                    overrides.SubgraphStroke = clusterBorder;
+                    ApplyThemeColorIfMissing(overrides, o => o.SubgraphStroke, (o, c) => o.SubgraphStroke = c, clusterBorder);
                 if (TryGetColor(vars, "edgeLabelBackground", out var edgeLabelBg))
-                    overrides.EdgeLabelBackground = edgeLabelBg;
+                    ApplyThemeColorIfMissing(overrides, o => o.EdgeLabelBackground, (o, c) => o.EdgeLabelBackground = c, edgeLabelBg);
                 if (TryGetColor(vars, "background", out var bg))
-                    overrides.BackgroundColor = bg;
+                    ApplyThemeColorIfMissing(overrides, o => o.BackgroundColor, (o, c) => o.BackgroundColor = c, bg);
                 // Also support direct color names matching our ThemeColorOverrides
                 if (TryGetColor(vars, "textColor", out var tc))
-                    overrides.TextColor = tc;
+                    ApplyThemeColorIfMissing(overrides, o => o.TextColor, (o, c) => o.TextColor = c, tc);
                 if (TryGetColor(vars, "nodeStroke", out var ns))
-                    overrides.NodeStroke = ns;
+                    ApplyThemeColorIfMissing(overrides, o => o.NodeStroke, (o, c) => o.NodeStroke = c, ns);
                 if (TryGetColor(vars, "edgeStroke", out var es))
-                    overrides.EdgeStroke = es;
+                    ApplyThemeColorIfMissing(overrides, o => o.EdgeStroke, (o, c) => o.EdgeStroke = c, es);
 
                 result.ThemeColors = overrides;
             }
@@ -360,6 +492,9 @@ public static class Mermaid
             .Replace("-", "", StringComparison.Ordinal)
             .Replace("_", "", StringComparison.Ordinal);
 
+        if (TryApplyLayoutEngineOption(normalizedKey, value, options))
+            return;
+
         switch (normalizedKey)
         {
             case "theme":
@@ -444,6 +579,83 @@ public static class Mermaid
         }
     }
 
+    static bool TryApplyLayoutEngineOption(string normalizedKey, string value, RenderOptions options)
+    {
+        if (normalizedKey is "layoutengine" or "engine")
+        {
+            options.LayoutEngine = value;
+            return true;
+        }
+
+        if (TryApplyPerDiagramLayoutEngine("layoutengine", normalizedKey, value, options))
+            return true;
+
+        if (TryApplyPerDiagramLayoutEngine("engine", normalizedKey, value, options))
+            return true;
+
+        return false;
+    }
+
+    static bool TryApplyPerDiagramLayoutEngine(
+        string prefix,
+        string normalizedKey,
+        string value,
+        RenderOptions options)
+    {
+        if (!normalizedKey.StartsWith(prefix, StringComparison.Ordinal))
+            return false;
+
+        var suffix = normalizedKey[prefix.Length..];
+        if (string.IsNullOrWhiteSpace(suffix))
+            return false;
+
+        if (!TryParseDiagramTypeToken(suffix, out var diagramType))
+            return false;
+
+        options.LayoutEngines ??= new Dictionary<DiagramType, string>();
+        options.LayoutEngines[diagramType] = value;
+        return true;
+    }
+
+    static bool TryParseDiagramTypeToken(string token, out DiagramType diagramType)
+    {
+        if (System.Enum.TryParse<DiagramType>(token, ignoreCase: true, out diagramType))
+            return true;
+
+        switch (token.ToLowerInvariant())
+        {
+            case "flow":
+                diagramType = DiagramType.Flowchart;
+                return true;
+            case "er":
+                diagramType = DiagramType.EntityRelationship;
+                return true;
+            case "statediagram":
+                diagramType = DiagramType.State;
+                return true;
+            case "classdiagram":
+                diagramType = DiagramType.Class;
+                return true;
+            case "git":
+                diagramType = DiagramType.GitGraph;
+                return true;
+            case "xy":
+                diagramType = DiagramType.XYChart;
+                return true;
+            case "geo":
+            case "map":
+                diagramType = DiagramType.Geo;
+                return true;
+            case "c4":
+            case "c4context":
+                diagramType = DiagramType.C4Context;
+                return true;
+            default:
+                diagramType = default;
+                return false;
+        }
+    }
+
     /// <summary>
     /// Parse shape mapping directive: "nav=navbar, btn=button, search=searchbar"
     /// Maps node IDs to skin shape names without modifying the mermaid syntax.
@@ -521,6 +733,34 @@ public static class Mermaid
         return false;
     }
 
+    static bool ShouldApplyInitTheme(RenderOptions options, string? requestedTheme)
+    {
+        if (string.IsNullOrWhiteSpace(requestedTheme))
+            return false;
+
+        // Caller-provided explicit theme colors (for example host app light/dark palette)
+        // are treated as authoritative unless a Naiad directive overrides later.
+        if (!string.IsNullOrWhiteSpace(options.ThemeColors?.BackgroundColor) ||
+            !string.IsNullOrWhiteSpace(options.ThemeColors?.TextColor))
+            return false;
+
+        return true;
+    }
+
+    static void ApplyThemeColorIfMissing(
+        ThemeColorOverrides overrides,
+        Func<ThemeColorOverrides, string?> getter,
+        Action<ThemeColorOverrides, string> setter,
+        string color)
+    {
+        if (string.IsNullOrWhiteSpace(color))
+            return;
+        if (!string.IsNullOrWhiteSpace(getter(overrides)))
+            return;
+
+        setter(overrides, color);
+    }
+
     static SvgDocument RenderPieDoc(string input, RenderOptions options)
     {
         var parser = new PieParser();
@@ -536,7 +776,7 @@ public static class Mermaid
         var result = parser.Parse(input);
         if (!result.Success)
             throw new MermaidParseException($"Failed to parse flowchart: {result.Error}");
-        return new FlowchartRenderer().Render(result.Value, options);
+        return new FlowchartRenderer(ResolveLayoutEngine(options, DiagramType.Flowchart)).Render(result.Value, options);
     }
 
     static SvgDocument RenderSequenceDoc(string input, RenderOptions options)
@@ -554,7 +794,7 @@ public static class Mermaid
         var result = parser.Parse(input);
         if (!result.Success)
             throw new MermaidParseException($"Failed to parse class diagram: {result.Error}");
-        return new ClassRenderer().Render(result.Value, options);
+        return new ClassRenderer(ResolveLayoutEngine(options, DiagramType.Class)).Render(result.Value, options);
     }
 
     static SvgDocument RenderStateDoc(string input, RenderOptions options)
@@ -563,7 +803,7 @@ public static class Mermaid
         var result = parser.Parse(input);
         if (!result.Success)
             throw new MermaidParseException($"Failed to parse state diagram: {result.Error}");
-        return new StateRenderer().Render(result.Value, options);
+        return new StateRenderer(ResolveLayoutEngine(options, DiagramType.State)).Render(result.Value, options);
     }
 
     static SvgDocument RenderEntityRelationshipDoc(string input, RenderOptions options)
@@ -572,7 +812,7 @@ public static class Mermaid
         var result = parser.Parse(input);
         if (!result.Success)
             throw new MermaidParseException($"Failed to parse ER diagram: {result.Error}");
-        return new ERRenderer().Render(result.Value, options);
+        return new ERRenderer(ResolveLayoutEngine(options, DiagramType.EntityRelationship)).Render(result.Value, options);
     }
 
     static SvgDocument RenderGitGraphDoc(string input, RenderOptions options)
@@ -722,7 +962,71 @@ public static class Mermaid
     static SvgDocument RenderBpmnDoc(string input, RenderOptions options)
     {
         var model = BpmnParser.Parse(input);
-        return new FlowchartRenderer().Render(model, options);
+        return new FlowchartRenderer(ResolveLayoutEngine(options, DiagramType.Bpmn)).Render(model, options);
+    }
+
+    static ILayoutEngine ResolveLayoutEngine(RenderOptions options, DiagramType diagramType)
+    {
+        if (options.LayoutEngineResolver is not null)
+            return options.LayoutEngineResolver(diagramType);
+
+        var preferredEngine = options.LayoutEngine;
+        if (options.LayoutEngines is not null &&
+            options.LayoutEngines.TryGetValue(diagramType, out var perDiagramEngine) &&
+            !string.IsNullOrWhiteSpace(perDiagramEngine))
+        {
+            preferredEngine = perDiagramEngine;
+        }
+
+        if (!string.IsNullOrWhiteSpace(preferredEngine))
+            return MermaidLayoutEngines.Resolve(diagramType, preferredEngine);
+
+        return MermaidLayoutEngines.ResolveBest(diagramType);
+    }
+
+    static SvgDocument RenderParallelCoordsDoc(string input, RenderOptions options)
+    {
+        var parser = new ParallelCoordsParser();
+        var result = parser.Parse(input);
+        if (!result.Success)
+            throw new MermaidParseException($"Failed to parse parallel coordinates: {result.Error}");
+        return new ParallelCoordsRenderer().Render(result.Value, options);
+    }
+
+    static SvgDocument RenderDendrogramDoc(string input, RenderOptions options)
+    {
+        var parser = new DendrogramParser();
+        var result = parser.Parse(input);
+        if (!result.Success)
+            throw new MermaidParseException($"Failed to parse dendrogram: {result.Error}");
+        return new DendrogramRenderer().Render(result.Value, options);
+    }
+
+    static SvgDocument RenderBubblePackDoc(string input, RenderOptions options)
+    {
+        var parser = new BubblePackParser();
+        var result = parser.Parse(input);
+        if (!result.Success)
+            throw new MermaidParseException($"Failed to parse bubble pack: {result.Error}");
+        return new BubblePackRenderer().Render(result.Value, options);
+    }
+
+    static SvgDocument RenderVoronoiDoc(string input, RenderOptions options)
+    {
+        var parser = new VoronoiParser();
+        var result = parser.Parse(input);
+        if (!result.Success)
+            throw new MermaidParseException($"Failed to parse voronoi: {result.Error}");
+        return new VoronoiRenderer().Render(result.Value, options);
+    }
+
+    static SvgDocument RenderGeoDoc(string input, RenderOptions options)
+    {
+        var parser = new GeoParser();
+        var result = parser.Parse(input);
+        if (!result.Success)
+            throw new MermaidParseException($"Failed to parse geo diagram: {result.Error}");
+        return new GeoRenderer().Render(result.Value, options);
     }
 }
 

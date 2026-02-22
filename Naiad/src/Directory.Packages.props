@@ -1,7 +1,7 @@
 <Project>
   <ItemGroup>
-    <PackageVersion Include="Dagre.NET" Version="1.0.0.6" />
-    <PackageVersion Include="MarkdownSnippets.MsBuild" Version="28.0.0" />
+    <PackageVersion Include="Mostlylucid.Dagre" Version="*" />
+<PackageVersion Include="MarkdownSnippets.MsBuild" Version="28.0.0" />
     <PackageVersion Include="Microsoft.Playwright.NUnit" Version="1.58.0" />
     <PackageVersion Include="Pidgin" Version="3.5.1" />
     <PackageVersion Include="NUnit" Version="4.4.0" />

@@ -1,11 +1,11 @@
-using Dagre;
+using Mostlylucid.Dagre;
 using MermaidSharp.Models;
 using MermaidSharp.Rendering;
 
 namespace MermaidSharp.Layout;
 
 /// <summary>
-/// Layout engine that delegates to Dagre.NET (C# port of the dagre JS library).
+/// Layout engine that delegates to Mostlylucid.Dagre (C# port of the dagre JS library).
 /// Uses the full dagre pipeline: network simplex ranking, barycenter ordering,
 /// Brandes-Kopf coordinate assignment, and intersectRect edge routing.
 /// </summary>
@@ -101,13 +101,11 @@ public class DagreNetLayoutEngine : ILayoutEngine
         // Run dagre layout
         try
         {
-            DagreLayout.runLayout(dg);
+            Mostlylucid.Dagre.Indexed.IndexedDagreLayout.RunLayout(dg);
         }
-        catch
+        catch (Exception ex)
         {
-            // Fall back to our built-in engine on Dagre.NET crashes
-            // Fall back to our built-in engine on Dagre.NET crashes
-            return new DagreLayoutEngine().Layout(diagram, options);
+            throw new MermaidException($"Mostlylucid.Dagre layout failed: {ex.Message}");
         }
 
         // Read node positions back
@@ -120,6 +118,23 @@ public class DagreNetLayoutEngine : ILayoutEngine
             node.Position = new(x, y);
         }
 
+        // Pre-build edge lookup from dagre output: (srcKey, tgtKey) → edge data
+        // This avoids O(E²) iteration when matching diagram edges to dagre output
+        var dagreEdgeLookup = new Dictionary<(string, string), EdgeLabel>();
+        try
+        {
+            foreach (var e in dg.Edges())
+            {
+                var edgeData = dg.Edge(e);
+                if (edgeData?.Points != null)
+                    dagreEdgeLookup[(e.v, e.w)] = edgeData;
+            }
+        }
+        catch
+        {
+            // dagre may throw on malformed graphs
+        }
+
         // Read edge points back and clip endpoints to node boundaries
         foreach (var edge in diagram.Edges)
         {
@@ -127,7 +142,6 @@ public class DagreNetLayoutEngine : ILayoutEngine
 
             if (edge.SourceId == edge.TargetId)
             {
-                // Self-edge: create a simple loop path
                 var node = diagram.GetNode(edge.SourceId);
                 if (node != null)
                 {
@@ -147,28 +161,11 @@ public class DagreNetLayoutEngine : ILayoutEngine
                 !keyByNodeId.TryGetValue(edge.TargetId, out var eTgtKey))
                 continue;
 
-            // Find the edge in dagre's output
-            try
+            // O(1) lookup instead of O(E) scan
+            if (dagreEdgeLookup.TryGetValue((eSrcKey, eTgtKey), out var edgeLabel))
             {
-                foreach (var e in dg.Edges())
-                {
-                    if (e.v == eSrcKey && e.w == eTgtKey)
-                    {
-                        var edgeData = dg.Edge(e);
-                        if (edgeData?.Points != null)
-                        {
-                            foreach (var pt in edgeData.Points)
-                            {
-                                edge.Points.Add(new(pt.X, pt.Y));
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
-            catch
-            {
-                // Fall back to direct line
+                foreach (var pt in edgeLabel.Points)
+                    edge.Points.Add(new(pt.X, pt.Y));
             }
 
             if (edge.Points.Count == 0)
@@ -181,8 +178,11 @@ public class DagreNetLayoutEngine : ILayoutEngine
                     edge.Points.Add(new(tgtNode.Position.X, tgtNode.Position.Y));
                 }
             }
-
         }
+
+        // Read subgraph bounds from dagre's compound layout output
+        // (must happen before edge routing so we know subgraph boundaries)
+        ReadSubgraphBounds(diagram, dg, subgraphKeyMap);
 
         // Distribute multiple edges on the same node side evenly along the border.
         // Must run BEFORE ClipEdgeEndpoints so that distributed points on rectangular
@@ -196,6 +196,9 @@ public class DagreNetLayoutEngine : ILayoutEngine
 
         // Merge near-collinear edge segments to eliminate micro-bends from dagre waypoints
         SmoothEdgePaths(diagram);
+
+        // Route edges around subgraph boundaries they shouldn't cross through
+        RouteAroundSubgraphs(diagram);
 
         // Pull back edge endpoints to leave room for arrowhead markers
         // (markers extend ~5px past the path endpoint; nodes are drawn on top of edges)
@@ -213,9 +216,6 @@ public class DagreNetLayoutEngine : ILayoutEngine
                     edge.Points[i] = new(edge.Points[i].X, maxY - edge.Points[i].Y);
             }
         }
-
-        // Read subgraph bounds from dagre's compound layout output
-        ReadSubgraphBounds(diagram, dg, subgraphKeyMap);
 
         // Calculate total bounds (include edge points for back-edges that extend beyond nodes)
         var boundsMaxX = 0.0;
@@ -352,47 +352,51 @@ public class DagreNetLayoutEngine : ILayoutEngine
         DagreGraph dg, Dictionary<string, string> keyByNodeId,
         Dictionary<string, string> subgraphKeyMap, ref int nextKey)
     {
-        foreach (var sg in subgraphs)
+        var stack = new Stack<(IEnumerable<Subgraph> subgraphs, string? parentKey)>();
+        stack.Push((subgraphs, parentKey));
+        
+        while (stack.Count > 0)
         {
-            var sgKey = (nextKey++).ToString();
-            subgraphKeyMap[sg.Id] = sgKey;
-
-            var sgLabel = new NodeLabel
+            var (currentSubgraphs, currentParentKey) = stack.Pop();
+            
+            foreach (var sg in currentSubgraphs)
             {
-                IsGroup = true,
-                Width = 0f,
-                Height = 0f
-            };
-            dg.SetNode(sgKey, sgLabel);
+                var sgKey = nextKey.ToString();
+                nextKey++;
+                subgraphKeyMap[sg.Id] = sgKey;
 
-            if (parentKey != null)
-                TrySetParent(dg, sgKey, parentKey);
+                var sgLabel = new NodeLabel
+                {
+                    IsGroup = true,
+                    Width = 0f,
+                    Height = 0f
+                };
+                dg.SetNode(sgKey, sgLabel);
 
-            // Set parent for direct child nodes
-            foreach (var nodeId in sg.NodeIds)
-            {
-                if (keyByNodeId.TryGetValue(nodeId, out var nodeKey))
-                    TrySetParent(dg, nodeKey, sgKey);
+                if (currentParentKey != null)
+                    TrySetParent(dg, sgKey, currentParentKey);
+
+                foreach (var nodeId in sg.NodeIds)
+                {
+                    if (keyByNodeId.TryGetValue(nodeId, out var nodeKey))
+                        TrySetParent(dg, nodeKey, sgKey);
+                }
+
+                if (sg.NestedSubgraphs.Count > 0)
+                    stack.Push((sg.NestedSubgraphs, sgKey));
             }
-
-            // Recurse for nested subgraphs
-            RegisterSubgraphs(sg.NestedSubgraphs, sgKey, dg, keyByNodeId, subgraphKeyMap, ref nextKey);
         }
     }
 
     static void TrySetParent(DagreGraph graph, string childKey, string parentKey)
     {
-        var setParent = typeof(DagreGraph).GetMethod("SetParent", [typeof(string), typeof(string)]);
-        if (setParent is null)
-            return;
-
         try
         {
-            setParent.Invoke(graph, [childKey, parentKey]);
+            graph.SetParent(childKey, parentKey);
         }
         catch
         {
-            // Ignore unsupported parent assignment in forked Dagre.NET builds.
+            // Ignore unsupported parent assignment in dagre forks.
         }
     }
 
@@ -454,10 +458,18 @@ public class DagreNetLayoutEngine : ILayoutEngine
 
     static void FlattenSubgraphs(IEnumerable<Subgraph> subgraphs, Dictionary<string, Subgraph> result)
     {
-        foreach (var sg in subgraphs)
+        var stack = new Stack<IEnumerable<Subgraph>>();
+        stack.Push(subgraphs);
+        
+        while (stack.Count > 0)
         {
-            result[sg.Id] = sg;
-            FlattenSubgraphs(sg.NestedSubgraphs, result);
+            var current = stack.Pop();
+            foreach (var sg in current)
+            {
+                result[sg.Id] = sg;
+                if (sg.NestedSubgraphs.Count > 0)
+                    stack.Push(sg.NestedSubgraphs);
+            }
         }
     }
 
@@ -660,6 +672,255 @@ public class DagreNetLayoutEngine : ILayoutEngine
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Route edges around subgraph boundaries that they shouldn't pass through.
+    /// If an edge connects two nodes and neither node is inside a given subgraph,
+    /// the edge path should not cross through that subgraph's bounding box.
+    /// Adds waypoints to route around the left or right side of blocking subgraphs.
+    /// </summary>
+    static void RouteAroundSubgraphs(GraphDiagramBase diagram)
+    {
+        if (diagram.Subgraphs.Count == 0) return;
+
+        // Build flat list of all subgraphs with their bounds
+        var allSubgraphs = new List<Subgraph>();
+        var nodeToSubgraphs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        FlattenSubgraphsWithMembership(diagram.Subgraphs, allSubgraphs, nodeToSubgraphs);
+
+        // Filter to subgraphs that have valid bounds (been laid out)
+        var validSubgraphs = allSubgraphs
+            .Where(sg => sg.Width > 0 && sg.Height > 0)
+            .ToList();
+
+        if (validSubgraphs.Count == 0) return;
+
+        const double margin = 12.0; // Gap between edge and subgraph border
+
+        foreach (var edge in diagram.Edges)
+        {
+            if (edge.Points.Count < 2 || edge.SourceId == edge.TargetId) continue;
+
+            // Find subgraphs that block this edge (neither source nor target is inside)
+            var blockers = new List<Subgraph>();
+            foreach (var sg in validSubgraphs)
+            {
+                var srcInside = nodeToSubgraphs.TryGetValue(edge.SourceId, out var srcSgs) &&
+                                srcSgs.Contains(sg.Id);
+                var tgtInside = nodeToSubgraphs.TryGetValue(edge.TargetId, out var tgtSgs) &&
+                                tgtSgs.Contains(sg.Id);
+                if (srcInside || tgtInside) continue;
+
+                // Check if the edge path actually crosses this subgraph
+                var bounds = sg.Bounds;
+                if (EdgeCrossesRect(edge.Points, bounds))
+                    blockers.Add(sg);
+            }
+
+            if (blockers.Count == 0) continue;
+
+            // Route around each blocking subgraph by inserting waypoints.
+            // Process blockers sorted by Y position (top to bottom for TD layout)
+            blockers.Sort((a, b) => a.Position.Y.CompareTo(b.Position.Y));
+
+            var newPoints = new List<Position> { edge.Points[0] };
+
+            for (var i = 0; i < edge.Points.Count - 1; i++)
+            {
+                var segStart = i == 0 ? newPoints[^1] : edge.Points[i];
+                var segEnd = edge.Points[i + 1];
+
+                foreach (var sg in blockers)
+                {
+                    var bounds = sg.Bounds;
+                    if (!SegmentCrossesRect(segStart, segEnd, bounds)) continue;
+
+                    // Decide which side to route around: left or right
+                    var midX = (segStart.X + segEnd.X) / 2;
+                    var distToLeft = Math.Abs(midX - bounds.Left);
+                    var distToRight = Math.Abs(midX - bounds.Right);
+
+                    var routeX = distToLeft <= distToRight
+                        ? bounds.Left - margin   // Route around left
+                        : bounds.Right + margin;  // Route around right
+
+                    // Only add waypoints if they make sense directionally
+                    if (segStart.Y < segEnd.Y) // Going downward (TD layout)
+                    {
+                        newPoints.Add(new(routeX, bounds.Top - margin));
+                        newPoints.Add(new(routeX, bounds.Bottom + margin));
+                    }
+                    else // Going upward
+                    {
+                        newPoints.Add(new(routeX, bounds.Bottom + margin));
+                        newPoints.Add(new(routeX, bounds.Top - margin));
+                    }
+
+                    break; // Only handle one blocker per segment
+                }
+
+                if (i < edge.Points.Count - 2)
+                    newPoints.Add(edge.Points[i + 1]);
+            }
+
+            newPoints.Add(edge.Points[^1]);
+
+            // Deduplicate consecutive points
+            var deduped = new List<Position> { newPoints[0] };
+            for (var i = 1; i < newPoints.Count; i++)
+            {
+                var prev = deduped[^1];
+                var curr = newPoints[i];
+                if (Math.Abs(prev.X - curr.X) > 0.5 || Math.Abs(prev.Y - curr.Y) > 0.5)
+                    deduped.Add(curr);
+            }
+
+            if (deduped.Count > edge.Points.Count)
+            {
+                edge.Points.Clear();
+                edge.Points.AddRange(deduped);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Build flat subgraph list and node-to-subgraph membership map.
+    /// A node belongs to a subgraph if it's a direct member OR a member of a nested subgraph.
+    /// </summary>
+    static void FlattenSubgraphsWithMembership(
+        IEnumerable<Subgraph> subgraphs,
+        List<Subgraph> allSubgraphs,
+        Dictionary<string, HashSet<string>> nodeToSubgraphs)
+    {
+        var stack = new Stack<(IEnumerable<Subgraph> sgs, string? parentId)>();
+        stack.Push((subgraphs, null));
+
+        while (stack.Count > 0)
+        {
+            var (currentSgs, parentId) = stack.Pop();
+            foreach (var sg in currentSgs)
+            {
+                allSubgraphs.Add(sg);
+
+                // All direct member nodes belong to this subgraph and all ancestors
+                foreach (var nodeId in sg.NodeIds)
+                {
+                    if (!nodeToSubgraphs.TryGetValue(nodeId, out var set))
+                    {
+                        set = new(StringComparer.Ordinal);
+                        nodeToSubgraphs[nodeId] = set;
+                    }
+                    set.Add(sg.Id);
+                }
+
+                if (sg.NestedSubgraphs.Count > 0)
+                    stack.Push((sg.NestedSubgraphs, sg.Id));
+            }
+        }
+
+        // Propagate: if a node is in a nested subgraph, it's also "in" all ancestor subgraphs
+        PropagateAncestorMembership(subgraphs, nodeToSubgraphs);
+    }
+
+    static void PropagateAncestorMembership(
+        IEnumerable<Subgraph> subgraphs,
+        Dictionary<string, HashSet<string>> nodeToSubgraphs)
+    {
+        // Recursively collect all node IDs within a subgraph (including nested)
+        foreach (var sg in subgraphs)
+        {
+            var allNodeIds = new HashSet<string>(StringComparer.Ordinal);
+            CollectAllNodeIds(sg, allNodeIds);
+
+            foreach (var nodeId in allNodeIds)
+            {
+                if (!nodeToSubgraphs.TryGetValue(nodeId, out var set))
+                {
+                    set = new(StringComparer.Ordinal);
+                    nodeToSubgraphs[nodeId] = set;
+                }
+                set.Add(sg.Id);
+            }
+        }
+    }
+
+    static void CollectAllNodeIds(Subgraph sg, HashSet<string> result)
+    {
+        foreach (var nodeId in sg.NodeIds)
+            result.Add(nodeId);
+        foreach (var nested in sg.NestedSubgraphs)
+            CollectAllNodeIds(nested, result);
+    }
+
+    /// <summary>
+    /// Check if any segment of an edge path crosses through a rectangle.
+    /// </summary>
+    static bool EdgeCrossesRect(List<Position> points, Models.Rect rect)
+    {
+        for (var i = 0; i < points.Count - 1; i++)
+        {
+            if (SegmentCrossesRect(points[i], points[i + 1], rect))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Check if a line segment from p1 to p2 passes through a rectangle's interior.
+    /// A segment "crosses" if it enters and exits the rect (not just touches an edge).
+    /// </summary>
+    static bool SegmentCrossesRect(Position p1, Position p2, Models.Rect rect)
+    {
+        // Quick check: if both points are on the same side, no crossing
+        if (p1.X < rect.Left && p2.X < rect.Left) return false;
+        if (p1.X > rect.Right && p2.X > rect.Right) return false;
+        if (p1.Y < rect.Top && p2.Y < rect.Top) return false;
+        if (p1.Y > rect.Bottom && p2.Y > rect.Bottom) return false;
+
+        // Check if both endpoints are inside (edge is entirely within - not crossing)
+        var p1Inside = rect.Contains(p1);
+        var p2Inside = rect.Contains(p2);
+        if (p1Inside && p2Inside) return false;
+
+        // Check if the segment intersects any side of the rectangle
+        // using parametric line intersection
+        var dx = p2.X - p1.X;
+        var dy = p2.Y - p1.Y;
+
+        // Check intersection with each rect edge
+        double tMin = 0, tMax = 1;
+
+        if (Math.Abs(dx) > 1e-10)
+        {
+            var t1 = (rect.Left - p1.X) / dx;
+            var t2 = (rect.Right - p1.X) / dx;
+            if (t1 > t2) (t1, t2) = (t2, t1);
+            tMin = Math.Max(tMin, t1);
+            tMax = Math.Min(tMax, t2);
+            if (tMin > tMax) return false;
+        }
+        else if (p1.X < rect.Left || p1.X > rect.Right)
+        {
+            return false;
+        }
+
+        if (Math.Abs(dy) > 1e-10)
+        {
+            var t1 = (rect.Top - p1.Y) / dy;
+            var t2 = (rect.Bottom - p1.Y) / dy;
+            if (t1 > t2) (t1, t2) = (t2, t1);
+            tMin = Math.Max(tMin, t1);
+            tMax = Math.Min(tMax, t2);
+            if (tMin > tMax) return false;
+        }
+        else if (p1.Y < rect.Top || p1.Y > rect.Bottom)
+        {
+            return false;
+        }
+
+        // The segment actually crosses if it enters and has some thickness of intersection
+        return tMax - tMin > 0.01;
     }
 
     /// <summary>

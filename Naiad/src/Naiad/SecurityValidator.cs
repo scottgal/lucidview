@@ -9,6 +9,14 @@ namespace MermaidSharp;
 public static class SecurityValidator
 {
     private static readonly Regex SafeIconName = new(@"^[a-z-]+$", RegexCompat.Compiled | RegexOptions.IgnoreCase);
+
+    public const int MaxRenderOptionsJsonSize = 16_384;
+    public const int MaxRenderOptionsJsonDepth = 32;
+    public const int HardMaxInputSize = 1_000_000;
+    public const int HardMaxNodes = 20_000;
+    public const int HardMaxEdges = 50_000;
+    public const int HardMaxComplexity = 200_000;
+    public const int HardMaxRenderTimeoutMs = 60_000;
     
     /// <summary>
     /// Validates input against security limits and throws if exceeded.
@@ -22,6 +30,21 @@ public static class SecurityValidator
         {
             throw new MermaidSecurityException($"Input size ({input.Length}) exceeds maximum allowed size ({options.MaxInputSize})");
         }
+    }
+
+    /// <summary>
+    /// Applies non-bypassable upper/lower bounds to security-related render limits.
+    /// This prevents callers from disabling limits entirely or setting excessive values.
+    /// </summary>
+    public static void NormalizeSecurityLimits(RenderOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        options.MaxInputSize = ClampOrDefault(options.MaxInputSize, RenderOptions.Default.MaxInputSize, HardMaxInputSize);
+        options.MaxNodes = ClampOrDefault(options.MaxNodes, RenderOptions.Default.MaxNodes, HardMaxNodes);
+        options.MaxEdges = ClampOrDefault(options.MaxEdges, RenderOptions.Default.MaxEdges, HardMaxEdges);
+        options.MaxComplexity = ClampOrDefault(options.MaxComplexity, RenderOptions.Default.MaxComplexity, HardMaxComplexity);
+        options.RenderTimeout = ClampOrDefault(options.RenderTimeout, RenderOptions.Default.RenderTimeout, HardMaxRenderTimeoutMs);
     }
     
     /// <summary>
@@ -128,6 +151,14 @@ public static class SecurityValidator
         
         cts.Cancel();
         throw new MermaidSecurityException($"Operation '{operationName}' exceeded timeout of {timeoutMs}ms");
+    }
+
+    static int ClampOrDefault(int value, int fallback, int hardMax)
+    {
+        if (value <= 0)
+            value = fallback;
+
+        return Math.Clamp(value, 1, hardMax);
     }
 }
 

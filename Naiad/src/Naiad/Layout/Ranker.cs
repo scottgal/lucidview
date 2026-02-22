@@ -34,22 +34,72 @@ static class Ranker
         }
     }
 
-    static int DfsLongestPath(LayoutGraph graph, LayoutNode node, HashSet<string> visited)
+    static int DfsLongestPath(LayoutGraph graph, LayoutNode startNode, HashSet<string> visited)
     {
-        if (!visited.Add(node.Id))
+        var resultRanks = new Dictionary<string, int>();
+        var dfsStack = new Stack<string>();
+        var processed = new HashSet<string>();
+        
+        dfsStack.Push(startNode.Id);
+        
+        while (dfsStack.Count > 0)
         {
-            return node.Rank;
+            var nodeId = dfsStack.Peek();
+            
+            if (processed.Contains(nodeId))
+            {
+                dfsStack.Pop();
+                continue;
+            }
+            
+            if (resultRanks.ContainsKey(nodeId))
+            {
+                dfsStack.Pop();
+                continue;
+            }
+            
+            var node = graph.GetNode(nodeId);
+            if (node is null)
+            {
+                dfsStack.Pop();
+                continue;
+            }
+            
+            var predecessors = graph.GetPredecessors(nodeId).ToList();
+            var allPredsReady = true;
+            var maxPredRank = -1;
+            
+            foreach (var pred in predecessors)
+            {
+                if (!resultRanks.TryGetValue(pred.Id, out var predRank))
+                {
+                    allPredsReady = false;
+                    if (!processed.Contains(pred.Id))
+                    {
+                        dfsStack.Push(pred.Id);
+                    }
+                }
+                else
+                {
+                    maxPredRank = Math.Max(maxPredRank, predRank);
+                }
+            }
+            
+            if (allPredsReady)
+            {
+                node.Rank = maxPredRank + 1;
+                resultRanks[nodeId] = node.Rank;
+                visited.Add(nodeId);
+                processed.Add(nodeId);
+                dfsStack.Pop();
+            }
+            else
+            {
+                processed.Add(nodeId);
+            }
         }
-
-        var maxPredRank = -1;
-        foreach (var pred in graph.GetPredecessors(node.Id))
-        {
-            var predRank = DfsLongestPath(graph, pred, visited);
-            maxPredRank = Math.Max(maxPredRank, predRank);
-        }
-
-        node.Rank = maxPredRank + 1;
-        return node.Rank;
+        
+        return resultRanks.TryGetValue(startNode.Id, out var result) ? result : startNode.Rank;
     }
 
     static void TightTree(LayoutGraph graph)

@@ -9,21 +9,64 @@ namespace MarkdownViewer.Services;
 public class ThemeService
 {
     private readonly Application _app;
+    public AppTheme RequestedTheme { get; private set; } = AppTheme.Auto;
+    public AppTheme CurrentEffectiveTheme { get; private set; } = AppTheme.Dark;
 
     public ThemeService(Application app)
     {
         _app = app;
     }
 
-    public void ApplyTheme(AppTheme theme)
+    public AppTheme ApplyTheme(AppTheme theme)
     {
-        var definition = ThemeColors.GetTheme(theme);
+        RequestedTheme = theme;
 
-        // Set Avalonia theme variant based on whether it's a light or dark theme
-        var isLightTheme = theme == AppTheme.Light || theme == AppTheme.MostlyLucidLight;
-        _app.RequestedThemeVariant = isLightTheme ? ThemeVariant.Light : ThemeVariant.Dark;
+        if (theme == AppTheme.Auto)
+        {
+            // Follow the host/platform theme automatically.
+            _app.RequestedThemeVariant = ThemeVariant.Default;
+            ApplyThemeResources(ResolveSystemTheme());
+            return CurrentEffectiveTheme;
+        }
 
-        // Apply custom colors as resources
+        _app.RequestedThemeVariant = IsLightTheme(theme) ? ThemeVariant.Light : ThemeVariant.Dark;
+        ApplyThemeResources(theme);
+        return CurrentEffectiveTheme;
+    }
+
+    public AppTheme RefreshAutoTheme()
+    {
+        if (RequestedTheme != AppTheme.Auto)
+            return CurrentEffectiveTheme;
+
+        ApplyThemeResources(ResolveSystemTheme());
+        return CurrentEffectiveTheme;
+    }
+
+    private static void SetColor(IResourceDictionary resources, string key, string hex)
+    {
+        if (Color.TryParse(hex, out var color)) resources[key] = new SolidColorBrush(color);
+    }
+
+    private static void SetColorValue(IResourceDictionary resources, string key, string hex)
+    {
+        if (Color.TryParse(hex, out var color)) resources[key] = color;
+    }
+
+    private static bool IsLightTheme(AppTheme theme) =>
+        theme == AppTheme.Light || theme == AppTheme.MostlyLucidLight;
+
+    private AppTheme ResolveSystemTheme()
+    {
+        var variant = _app.ActualThemeVariant;
+        return variant == ThemeVariant.Light ? AppTheme.Light : AppTheme.Dark;
+    }
+
+    private void ApplyThemeResources(AppTheme effectiveTheme)
+    {
+        var definition = ThemeColors.GetTheme(effectiveTheme);
+        CurrentEffectiveTheme = effectiveTheme;
+
         var resources = _app.Resources;
 
         SetColor(resources, "AppBackground", definition.Background);
@@ -58,15 +101,5 @@ public class ThemeService
         SetColorValue(resources, "SecondaryCardBackgroundColor", definition.CodeBackground);
         SetColorValue(resources, "CodeInlineColor", definition.Text);
         SetColorValue(resources, "QuoteBorderColor", definition.BlockquoteBorder);
-    }
-
-    private static void SetColor(IResourceDictionary resources, string key, string hex)
-    {
-        if (Color.TryParse(hex, out var color)) resources[key] = new SolidColorBrush(color);
-    }
-
-    private static void SetColorValue(IResourceDictionary resources, string key, string hex)
-    {
-        if (Color.TryParse(hex, out var color)) resources[key] = color;
     }
 }

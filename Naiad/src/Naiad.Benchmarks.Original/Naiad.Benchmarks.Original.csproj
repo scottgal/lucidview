@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
-    <PackageReference Include="Dagre.NET" />
+    <PackageReference Include="Mostlylucid.Dagre" />
     <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
   </ItemGroup>
 

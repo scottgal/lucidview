@@ -8,6 +8,7 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <SignAssembly>false</SignAssembly>
   </PropertyGroup>

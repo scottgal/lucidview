@@ -612,7 +612,7 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
         if (!line.Contains('&'))
             return [line];
 
-        // Find the arrow in the line
+        // Find the first arrow in the line
         var arrowPatterns = new[] { "<-->", "o--o", "x--x", "-.->", "-.-", "==>", "===", "--o", "--x", "-->", "---" };
         string? arrow = null;
         var arrowIdx = -1;
@@ -645,7 +645,24 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
         }
 
         var leftNodes = SplitAmpersand(leftPart);
-        var rightNodes = SplitAmpersand(rightPart);
+
+        // Separate the immediate right-side nodes from any chain continuation.
+        // "W --> FLOOR --> FINAL" should split into right nodes ["W"] and chain tail " --> FLOOR --> FINAL".
+        // Without this, "S1 & S2 --> W --> FLOOR" would create duplicate W→FLOOR edges.
+        var chainTail = "";
+        var rightNodesRaw = rightPart;
+        if (leftNodes.Count > 1 || rightPart.Contains('&'))
+        {
+            // Find where the chain continues (next arrow after the immediate right nodes)
+            var immediateEnd = FindChainTailStart(rightPart, arrowPatterns);
+            if (immediateEnd >= 0)
+            {
+                rightNodesRaw = rightPart[..immediateEnd].Trim();
+                chainTail = rightPart[immediateEnd..];
+            }
+        }
+
+        var rightNodes = SplitAmpersand(rightNodesRaw);
 
         var result = new List<string>();
         foreach (var left in leftNodes)
@@ -656,7 +673,103 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
             }
         }
 
+        // Emit chain tail once, connected from the last right-side node.
+        // e.g. for "S1 & S2 --> W --> FLOOR --> FINAL", emit "W --> FLOOR --> FINAL" once.
+        if (chainTail.Length > 0 && rightNodes.Count > 0)
+        {
+            var lastRight = rightNodes[^1].Trim();
+            var tailLine = $"{lastRight} {chainTail.TrimStart()}";
+            // Recursively expand in case the tail also contains &
+            result.AddRange(ExpandAmpersandSyntax(tailLine));
+        }
+
         return result.Count > 0 ? result : [line];
+    }
+
+    /// <summary>
+    /// Find the start index of a chain continuation in the right part of an &amp;-expanded edge.
+    /// Skips past the immediate node(s) to find the next arrow.
+    /// Returns -1 if no chain tail exists.
+    /// </summary>
+    static int FindChainTailStart(string rightPart, string[] arrowPatterns)
+    {
+        // Skip past the immediate node (handle brackets, quotes)
+        var i = 0;
+        var depth = 0;
+        var inQuote = false;
+        var foundNode = false;
+
+        while (i < rightPart.Length)
+        {
+            var c = rightPart[i];
+            if (c == '"') inQuote = !inQuote;
+            else if (!inQuote)
+            {
+                if (c is '[' or '(' or '{') { depth++; foundNode = true; }
+                else if (c is ']' or ')' or '}') depth--;
+                else if (depth == 0 && c == '&')
+                {
+                    // Still in the immediate right nodes, skip past & groups
+                    i++;
+                    continue;
+                }
+                else if (depth == 0 && foundNode && c == ' ')
+                {
+                    // After closing a bracket, look for an arrow
+                    foreach (var ap in arrowPatterns)
+                    {
+                        var remaining = rightPart.AsSpan(i);
+                        var trimmedStart = 0;
+                        while (trimmedStart < remaining.Length && remaining[trimmedStart] == ' ')
+                            trimmedStart++;
+                        if (trimmedStart < remaining.Length &&
+                            remaining[trimmedStart..].StartsWith(ap.AsSpan(), StringComparison.Ordinal))
+                        {
+                            return i + trimmedStart;
+                        }
+                    }
+                }
+                else if (depth == 0 && !foundNode && !char.IsWhiteSpace(c))
+                {
+                    foundNode = true;
+                }
+            }
+            i++;
+        }
+
+        // Also check for bare identifiers (no brackets) followed by arrows
+        // e.g. "W --> FLOOR" where W has no brackets
+        if (depth == 0)
+        {
+            foreach (var ap in arrowPatterns)
+            {
+                // Find the arrow, but skip the very start (that's the node itself)
+                var searchStart = 1;
+                while (searchStart < rightPart.Length)
+                {
+                    var idx = rightPart.IndexOf(ap, searchStart, StringComparison.Ordinal);
+                    if (idx < 0) break;
+                    // Make sure this isn't inside brackets
+                    var d = 0;
+                    var q = false;
+                    for (var j = 0; j < idx; j++)
+                    {
+                        var ch = rightPart[j];
+                        if (ch == '"') q = !q;
+                        else if (!q)
+                        {
+                            if (ch is '[' or '(' or '{') d++;
+                            else if (ch is ']' or ')' or '}') d--;
+                        }
+                    }
+                    if (d == 0 && !q)
+                        return idx;
+                    searchStart = idx + 1;
+                }
+            }
+        }
+
+        return -1;
     }
 
     static List<string> SplitAmpersand(string part)
@@ -832,6 +945,20 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
     static readonly Regex ClassAssignmentPattern =
         new(@"^class\s+(\S+)\s+(\S+)$", RegexOptions.IgnoreCase | RegexCompat.Compiled);
 
+    static readonly Regex CssColorPattern =
+        new(
+            @"^(?:#[0-9a-fA-F]{3,8}|rgba?\(\s*[\d.\s,%]+\)|hsla?\(\s*[\d.\s,%]+\)|[a-zA-Z][a-zA-Z0-9-]{0,31})$",
+            RegexOptions.CultureInvariant | RegexCompat.Compiled);
+
+    static readonly Regex DashArrayPattern =
+        new(@"^[0-9.,\s-]{1,64}$", RegexOptions.CultureInvariant | RegexCompat.Compiled);
+
+    static readonly Regex FontFamilyPattern =
+        new(@"^[a-zA-Z0-9 ,_-]{1,80}$", RegexOptions.CultureInvariant | RegexCompat.Compiled);
+
+    static readonly Regex FontWeightPattern =
+        new(@"^(?:normal|bold|bolder|lighter|[1-9]00)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexCompat.Compiled);
+
     static bool TryParseClassAssignment(string line, out string nodeIds, out string className)
     {
         var match = ClassAssignmentPattern.Match(line);
@@ -860,20 +987,76 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
 
             switch (key)
             {
-                case "fill": style.Fill = value; break;
-                case "stroke": style.Stroke = value; break;
+                case "fill":
+                    style.Fill = SanitizeColorToken(value);
+                    break;
+                case "stroke":
+                    style.Stroke = SanitizeColorToken(value);
+                    break;
                 case "stroke-width" when double.TryParse(value.TrimEnd('p', 'x'), out var sw):
                     style.StrokeWidth = sw; break;
-                case "stroke-dasharray": style.StrokeDasharray = value; break;
-                case "color": style.TextColor = value; break;
-                case "font-family": style.FontFamily = value; break;
+                case "stroke-dasharray":
+                    style.StrokeDasharray = SanitizeDashArray(value);
+                    break;
+                case "color":
+                    style.TextColor = SanitizeColorToken(value);
+                    break;
+                case "font-family":
+                    style.FontFamily = SanitizeFontFamily(value);
+                    break;
                 case "font-size" when double.TryParse(value.TrimEnd('p', 'x'), out var fs):
                     style.FontSize = fs; break;
-                case "font-weight": style.FontWeight = value; break;
+                case "font-weight":
+                    style.FontWeight = SanitizeFontWeight(value);
+                    break;
             }
         }
 
         return style;
+    }
+
+    static string? SanitizeColorToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        if (trimmed.IndexOfAny(['"', '\'', '<', '>', ';']) >= 0)
+            return null;
+
+        if (trimmed.Contains("url(", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Contains("javascript:", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Contains("expression", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return CssColorPattern.IsMatch(trimmed) ? trimmed : null;
+    }
+
+    static string? SanitizeDashArray(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        return DashArrayPattern.IsMatch(trimmed) ? trimmed : null;
+    }
+
+    static string? SanitizeFontFamily(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        return FontFamilyPattern.IsMatch(trimmed) ? trimmed : null;
+    }
+
+    static string? SanitizeFontWeight(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        return FontWeightPattern.IsMatch(trimmed) ? trimmed : null;
     }
 
     static void ApplyStyles(FlowchartModel model, List<(string NodeId, Style Style)> styles)

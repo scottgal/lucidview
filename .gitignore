@@ -887,8 +887,14 @@ compare-output/
 **/--output/
 **/--flowcharts-only/
 **/test-output/
+**/test-renders/
 .codex-temp/
 **/EdgeTest/
 test-*.svg
 output-test.svg
+
+# npm/web build artifacts
+*.tgz
+Naiad/src/Naiad.Wasm.Npm/dist/
+Naiad/src/Naiad.Wasm.Npm.Mermaid/dist/
 

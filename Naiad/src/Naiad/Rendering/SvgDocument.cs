@@ -1,4 +1,5 @@
 using static MermaidSharp.Rendering.RenderUtils;
+using System.Net;
 
 namespace MermaidSharp.Rendering;
 
@@ -40,11 +41,11 @@ public class SvgDocument
         var sb = new StringBuilder();
 
         // Build mermaid-compatible SVG root element (attribute order matches mermaid.ink exactly)
-        sb.Append($"<svg id=\"{Id}\" width=\"100%\" xmlns=\"http://www.w3.org/2000/svg\"");
+        sb.Append($"<svg id=\"{WebUtility.HtmlEncode(Id)}\" width=\"100%\" xmlns=\"http://www.w3.org/2000/svg\"");
 
         if (!string.IsNullOrEmpty(DiagramClass))
         {
-            sb.Append($" class=\"{DiagramClass}\"");
+            sb.Append($" class=\"{WebUtility.HtmlEncode(DiagramClass)}\"");
         }
 
         sb.Append($" viewBox=\"{ViewBox}\"");
@@ -52,12 +53,12 @@ public class SvgDocument
 
         if (!string.IsNullOrEmpty(Role))
         {
-            sb.Append($" role=\"{Role}\"");
+            sb.Append($" role=\"{WebUtility.HtmlEncode(Role)}\"");
         }
 
         if (!string.IsNullOrEmpty(AriaRoledescription))
         {
-            sb.Append($" aria-roledescription=\"{AriaRoledescription}\"");
+            sb.Append($" aria-roledescription=\"{WebUtility.HtmlEncode(AriaRoledescription)}\"");
         }
 
         sb.Append(" xmlns:xlink=\"http://www.w3.org/1999/xlink\">");

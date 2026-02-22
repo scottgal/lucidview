@@ -3,35 +3,6 @@ namespace Tests.WebComponent;
 [TestFixture]
 public class NaiadNpmDistPlaywrightTests : PageTest
 {
-    StaticFileServer? _server;
-    string _baseUrl = "";
-
-    [OneTimeSetUp]
-    public async Task OneTimeSetUp()
-    {
-        var repoRoot = Path.GetFullPath(Path.Combine(TestContext.CurrentContext.TestDirectory, "..", "..", "..", "..", "..", ".."));
-        var distRoot = Path.Combine(repoRoot, "Naiad", "src", "Naiad.Wasm.Npm", "dist");
-
-        if (!Directory.Exists(distRoot))
-            Assert.Fail($"Npm dist directory not found: {distRoot}. Run npm build first.");
-
-        _server = new StaticFileServer(distRoot);
-        _server.Start();
-        _baseUrl = _server.BaseUrl;
-
-        await Task.CompletedTask;
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        if (_server is not null)
-        {
-            await _server.DisposeAsync();
-            _server = null;
-        }
-    }
-
     [SetUp]
     public void SetUpPageDiagnostics()
     {
@@ -40,58 +11,133 @@ public class NaiadNpmDistPlaywrightTests : PageTest
     }
 
     [Test]
-    public async Task NpmDist_PlainPage_ShouldRenderWebComponent()
+    public Task NpmDistComplete_ShouldRenderWebComponent() =>
+        AssertNpmDistRenders("Naiad.Wasm.Npm");
+
+    [Test]
+    public Task NpmDistMermaid_ShouldRenderWebComponent() =>
+        AssertNpmDistRenders("Naiad.Wasm.Npm.Mermaid");
+
+    [TestCase("Naiad.Wasm.Npm")]
+    [TestCase("Naiad.Wasm.Npm.Mermaid")]
+    public async Task NpmDist_ShouldSanitizeUnsafeSvgPayloads(string packageFolder)
     {
-        await Page.GotoAsync($"{_baseUrl}/plain-web-component.html");
+        var source = """
+            flowchart LR
+              A[Start] --> B[End]
+              style A fill:url(javascript:alert(1)),stroke:#333,stroke-width:2px
+            """;
 
-        await Page.WaitForFunctionAsync(
-            """
-            () => {
-              const el = document.querySelector('naiad-diagram');
-              if (!el?.shadowRoot) return false;
-              const status = el.shadowRoot.querySelector('#status')?.textContent?.trim();
-              return status === 'Rendered' || status === 'Render failed';
-            }
+        var svgMarkup = await RenderNpmDistAndGetSvg(packageFolder, source);
+        Assert.That(svgMarkup, Does.Not.Contain("onload="));
+        Assert.That(svgMarkup, Does.Not.Contain("javascript:"));
+        Assert.That(svgMarkup, Does.Not.Contain("<script"));
+    }
+
+    static string GetRepoRoot() =>
+        Path.GetFullPath(Path.Combine(TestContext.CurrentContext.TestDirectory, "..", "..", "..", "..", "..", ".."));
+
+    async Task AssertNpmDistRenders(string packageFolder)
+    {
+        var svgMarkup = await RenderNpmDistAndGetSvg(packageFolder, """
+            flowchart LR
+              A --> B
+              B --> C
+            """);
+        Assert.That(svgMarkup.Length, Is.GreaterThan(0));
+    }
+
+    async Task<string> RenderNpmDistAndGetSvg(string packageFolder, string mermaidSource)
+    {
+        var repoRoot = GetRepoRoot();
+        var distRoot = Path.Combine(repoRoot, "Naiad", "src", packageFolder, "dist");
+
+        if (!Directory.Exists(distRoot))
+            Assert.Fail($"Npm dist directory not found: {distRoot}. Run npm build first.");
+
+        var harnessFileName = $"__playwright-harness-{Guid.NewGuid():N}.html";
+        var harnessPath = Path.Combine(distRoot, harnessFileName);
+        await File.WriteAllTextAsync(harnessPath,
+            $"""
+            <!doctype html>
+            <html lang="en">
+            <body>
+              <naiad-diagram>
+            {mermaidSource}
+              </naiad-diagram>
+              <script type="module" src="./naiad-web-component.js"></script>
+            </body>
+            </html>
             """);
 
-        var status = await Page.EvaluateAsync<string>(
-            """
-            () => {
-              const el = document.querySelector('naiad-diagram');
-              return el?.shadowRoot?.querySelector('#status')?.textContent?.trim() ?? '';
-            }
-            """);
-
-        if (status == "Render failed")
+        await using var server = new StaticFileServer(distRoot);
+        try
         {
-            var error = await Page.EvaluateAsync<string>(
+            server.Start();
+
+            await Page.GotoAsync($"{server.BaseUrl}/{harnessFileName}");
+
+            await Page.WaitForFunctionAsync(
                 """
                 () => {
                   const el = document.querySelector('naiad-diagram');
-                  return el?.shadowRoot?.querySelector('#error')?.textContent?.trim() ?? '';
+                  if (!el?.shadowRoot) return false;
+                  const status = el.shadowRoot.querySelector('#status')?.textContent?.trim();
+                  return status === 'Rendered' || status === 'Render failed';
                 }
                 """);
-            Assert.Fail($"Npm dist web component render failed: {error}");
-        }
 
-        Assert.That(status, Is.EqualTo("Rendered"));
+            var status = await Page.EvaluateAsync<string>(
+                """
+                () => {
+                  const el = document.querySelector('naiad-diagram');
+                  return el?.shadowRoot?.querySelector('#status')?.textContent?.trim() ?? '';
+                }
+                """);
 
-        var svgLength = await Page.EvaluateAsync<int>(
-            """
-            () => {
-              const el = document.querySelector('naiad-diagram');
-              const svg = el?.shadowRoot?.querySelector('#diagram svg');
-              return svg?.outerHTML?.length ?? 0;
+            if (status == "Render failed")
+            {
+                var error = await Page.EvaluateAsync<string>(
+                    """
+                    () => {
+                      const el = document.querySelector('naiad-diagram');
+                      return el?.shadowRoot?.querySelector('#error')?.textContent?.trim() ?? '';
+                    }
+                    """);
+                Assert.Fail($"Npm dist web component render failed: {error}");
             }
-            """);
 
-        Assert.That(svgLength, Is.GreaterThan(0));
+            Assert.That(status, Is.EqualTo("Rendered"));
+
+            var svgLength = await Page.EvaluateAsync<int>(
+                """
+                () => {
+                  const el = document.querySelector('naiad-diagram');
+                  const svg = el?.shadowRoot?.querySelector('#diagram svg');
+                  return svg?.outerHTML?.length ?? 0;
+                }
+                """);
+
+            Assert.That(svgLength, Is.GreaterThan(0));
+            return await Page.EvaluateAsync<string>(
+                """
+                () => {
+                  const el = document.querySelector('naiad-diagram');
+                  const svg = el?.shadowRoot?.querySelector('#diagram svg');
+                  return svg?.outerHTML ?? '';
+                }
+                """);
+        }
+        finally
+        {
+            File.Delete(harnessPath);
+        }
     }
 
     [Test]
     public async Task CompareReportPage_ShouldUpgradeToLiveWebComponents()
     {
-        var repoRoot = Path.GetFullPath(Path.Combine(TestContext.CurrentContext.TestDirectory, "..", "..", "..", "..", "..", ".."));
+        var repoRoot = GetRepoRoot();
         await using var repoServer = new StaticFileServer(repoRoot);
         repoServer.Start();
 

@@ -14,15 +14,10 @@ internal static class Ordering
 
         for (var i = 0; i < MaxIterations && bestCrossings > 0; i++)
         {
-            // Alternate between sweeping down and up
             if (i % 2 == 0)
-            {
                 SweepDown(graph);
-            }
             else
-            {
                 SweepUp(graph);
-            }
 
             var crossings = CountCrossings(graph);
             if (crossings < bestCrossings)
@@ -36,30 +31,21 @@ internal static class Ordering
         graph.UpdateOrderInRanks();
     }
 
-    /// <summary>
-    /// Initialize node ordering using BFS from roots, following edge declaration
-    /// order. BFS ensures siblings at the same rank get consecutive orders
-    /// matching their edge declaration order (first edge target = leftmost).
-    /// This matches dagre's behavior better than DFS, which would visit deep
-    /// chains first and reverse sibling order.
-    /// </summary>
     static void InitializeOrder(LayoutGraph graph)
     {
-        var visited = new HashSet<string>();
+        var visited = new HashSet<string>(graph.Nodes.Count);
         var rankCounters = new int[graph.Ranks.Length];
         var queue = new Queue<LayoutNode>();
 
-        // Seed BFS with root nodes (no predecessors) in original order
         foreach (var node in graph.Nodes.Values)
         {
-            if (!graph.GetPredecessors(node.Id).Any() && visited.Add(node.Id))
+            if (node.InEdges.Count == 0 && visited.Add(node.Id))
             {
                 node.Order = rankCounters[node.Rank]++;
                 queue.Enqueue(node);
             }
         }
 
-        // BFS: visit all children before going deeper
         while (queue.Count > 0)
         {
             var node = queue.Dequeue();
@@ -74,119 +60,177 @@ internal static class Ordering
             }
         }
 
-        // Handle any unvisited nodes (cycles, disconnected components)
         foreach (var node in graph.Nodes.Values)
         {
             if (visited.Add(node.Id))
-            {
                 node.Order = rankCounters[node.Rank]++;
-            }
         }
 
-        // Rebuild rank lists in new order
         for (var r = 0; r < graph.Ranks.Length; r++)
-        {
-            graph.Ranks[r] = graph.Ranks[r].OrderBy(n => n.Order).ToList();
-        }
+            graph.Ranks[r].Sort(static (a, b) => a.Order.CompareTo(b.Order));
     }
 
     static void SweepDown(LayoutGraph graph)
     {
         for (var r = 1; r < graph.Ranks.Length; r++)
-        {
             OrderByMedian(graph, r, true);
-        }
     }
 
     static void SweepUp(LayoutGraph graph)
     {
         for (var r = graph.Ranks.Length - 2; r >= 0; r--)
-        {
             OrderByMedian(graph, r, false);
-        }
     }
 
     static void OrderByMedian(LayoutGraph graph, int rank, bool useInEdges)
     {
         var nodesInRank = graph.Ranks[rank];
-        var positions = new Dictionary<string, double>();
+        var count = nodesInRank.Count;
+        if (count == 0) return;
 
-        foreach (var node in nodesInRank)
+        // Compute median positions using a dictionary for O(1) lookup in sort
+        var positions = new Dictionary<string, double>(count);
+        var neighborBuf = new int[Math.Max(count * 4, 16)];
+
+        for (var idx = 0; idx < count; idx++)
         {
-            var neighbors = useInEdges
-                ? graph.GetPredecessors(node.Id).ToList()
-                : graph.GetSuccessors(node.Id).ToList();
+            var node = nodesInRank[idx];
+            var edges = useInEdges ? node.InEdges : node.OutEdges;
 
-            if (neighbors.Count == 0)
+            if (edges.Count == 0)
+            {
+                positions[node.Id] = node.Order;
+                continue;
+            }
+
+            var nCount = 0;
+            foreach (var edge in edges)
+            {
+                var neighborId = useInEdges ? edge.SourceId : edge.TargetId;
+                var neighbor = graph.GetNode(neighborId);
+                if (neighbor is not null && nCount < neighborBuf.Length)
+                    neighborBuf[nCount++] = neighbor.Order;
+            }
+
+            if (nCount == 0)
             {
                 positions[node.Id] = node.Order;
             }
             else
             {
-                var neighborOrders = neighbors.Select(n => (double)n.Order).OrderBy(x => x).ToList();
-                positions[node.Id] = LayoutUtils.Median(neighborOrders);
+                Array.Sort(neighborBuf, 0, nCount);
+                var mid = nCount / 2;
+                positions[node.Id] = (nCount % 2 == 1)
+                    ? neighborBuf[mid]
+                    : (neighborBuf[mid - 1] + neighborBuf[mid]) / 2.0;
             }
         }
 
-        // Sort by median position, maintaining stability for equal positions
-        var sortedNodes = nodesInRank
-            .OrderBy(n => positions[n.Id])
-            .ThenBy(n => n.Order)
-            .ToList();
-
-        for (var i = 0; i < sortedNodes.Count; i++)
+        // Sort by median position, stable via original order tiebreaker
+        nodesInRank.Sort((a, b) =>
         {
-            sortedNodes[i].Order = i;
-        }
+            var cmp = positions[a.Id].CompareTo(positions[b.Id]);
+            return cmp != 0 ? cmp : a.Order.CompareTo(b.Order);
+        });
 
-        graph.Ranks[rank] = sortedNodes;
+        for (var i = 0; i < count; i++)
+            nodesInRank[i].Order = i;
     }
 
     static int CountCrossings(LayoutGraph graph)
     {
         var total = 0;
         for (var r = 0; r < graph.Ranks.Length - 1; r++)
-        {
             total += CountCrossingsBetweenRanks(graph, r, r + 1);
-        }
         return total;
     }
 
+    /// <summary>
+    /// Count edge crossings between two adjacent ranks using O(n log n)
+    /// merge-sort inversion count instead of O(n²) brute force.
+    /// Edges are sorted by source order, then inversions in target
+    /// orders are counted — each inversion = one crossing.
+    /// </summary>
     static int CountCrossingsBetweenRanks(LayoutGraph graph, int rank1, int rank2)
     {
-        // Build list of edges between the two ranks
-        var edges = new List<(int sourceOrder, int targetOrder)>();
+        // Collect edges sorted by source order (primary), target order (secondary)
+        var rank1Nodes = graph.Ranks[rank1];
+        var edgeCount = 0;
 
-        foreach (var node in graph.Ranks[rank1])
+        // First pass: count edges to pre-allocate
+        foreach (var node in rank1Nodes)
         {
             foreach (var edge in node.OutEdges)
             {
                 var target = graph.GetNode(edge.TargetId);
                 if (target is not null && target.Rank == rank2)
-                {
-                    edges.Add((node.Order, target.Order));
-                }
+                    edgeCount++;
             }
         }
 
-        // Count inversions (crossings) using O(n^2) for simplicity
-        // Could be optimized to O(n log n) using merge sort
-        var crossings = 0;
-        for (var i = 0; i < edges.Count; i++)
+        if (edgeCount <= 1) return 0;
+
+        // Collect target orders sorted by source order
+        var targetOrders = new int[edgeCount];
+        var idx = 0;
+        foreach (var node in rank1Nodes) // already in order within rank
         {
-            for (var j = i + 1; j < edges.Count; j++)
+            foreach (var edge in node.OutEdges)
             {
-                var e1 = edges[i];
-                var e2 = edges[j];
-                if ((e1.sourceOrder < e2.sourceOrder && e1.targetOrder > e2.targetOrder) ||
-                    (e1.sourceOrder > e2.sourceOrder && e1.targetOrder < e2.targetOrder))
-                {
-                    crossings++;
-                }
+                var target = graph.GetNode(edge.TargetId);
+                if (target is not null && target.Rank == rank2)
+                    targetOrders[idx++] = target.Order;
             }
         }
 
-        return crossings;
+        // Count inversions in targetOrders using merge sort
+        var temp = new int[edgeCount];
+        return MergeSortCount(targetOrders, temp, 0, edgeCount - 1);
+    }
+
+    /// <summary>
+    /// Merge-sort based inversion count. O(n log n) instead of O(n²).
+    /// Each inversion in the target-order array = one edge crossing.
+    /// </summary>
+    static int MergeSortCount(int[] arr, int[] temp, int left, int right)
+    {
+        if (left >= right) return 0;
+
+        var mid = left + (right - left) / 2;
+        var count = 0;
+        count += MergeSortCount(arr, temp, left, mid);
+        count += MergeSortCount(arr, temp, mid + 1, right);
+        count += MergeCount(arr, temp, left, mid, right);
+        return count;
+    }
+
+    static int MergeCount(int[] arr, int[] temp, int left, int mid, int right)
+    {
+        var i = left;
+        var j = mid + 1;
+        var k = left;
+        var count = 0;
+
+        while (i <= mid && j <= right)
+        {
+            if (arr[i] <= arr[j])
+            {
+                temp[k++] = arr[i++];
+            }
+            else
+            {
+                // All remaining elements in left half (i..mid) form inversions with arr[j]
+                count += (mid - i + 1);
+                temp[k++] = arr[j++];
+            }
+        }
+
+        while (i <= mid) temp[k++] = arr[i++];
+        while (j <= right) temp[k++] = arr[j++];
+
+        // Copy back
+        Array.Copy(temp, left, arr, left, right - left + 1);
+        return count;
     }
 
     static Dictionary<string, int> SaveOrders(LayoutGraph graph) =>
@@ -196,8 +240,7 @@ internal static class Ordering
     {
         foreach (var (id, order) in orders)
         {
-            var node = graph.GetNode(id);
-            node?.Order = order;
+            graph.GetNode(id)?.SetOrder(order);
         }
     }
 }

@@ -3,7 +3,7 @@ using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
-using Dagre;
+using Mostlylucid.Dagre;
 
 namespace Naiad.Benchmarks;
 

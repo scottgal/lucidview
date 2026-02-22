@@ -6,12 +6,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NaiadWasmProfile Condition="'$(NaiadWasmProfile)' == ''">complete</NaiadWasmProfile>
+    <DefineConstants Condition="'$(NaiadWasmProfile)' == 'complete'">$(DefineConstants);NAIAD_WASM_COMPLETE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Naiad.Wasm\Naiad.Wasm.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(NaiadWasmProfile)' == 'complete'">
     <ProjectReference Include="..\Naiad.Skins.Cats\Naiad.Skins.Cats.csproj" />
     <ProjectReference Include="..\Naiad.Skins.Showcase\Naiad.Skins.Showcase.csproj" />
+    <ProjectReference Include="..\Naiad.Surfaces.ImageSharp\Naiad.Surfaces.ImageSharp.csproj" />
   </ItemGroup>
 
 </Project>

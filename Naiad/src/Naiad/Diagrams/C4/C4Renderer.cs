@@ -4,10 +4,10 @@ namespace MermaidSharp.Diagrams.C4;
 
 public class C4Renderer : IDiagramRenderer<C4Model>
 {
-    const double ElementWidth = 160;
-    const double ElementHeight = 100;
-    const double PersonHeight = 120;
-    const double ElementSpacing = 40;
+    const double ElementWidth = 200;
+    const double ElementHeight = 90;
+    const double PersonHeight = 110;
+    const double ElementSpacing = 50;
     const double TitleHeight = 50;
     const double RowSpacing = 60;
     const double BoundaryPadding = 20;
@@ -75,7 +75,7 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         // Extra height for boundary labels and padding
         var boundaryExtraHeight = boundaryCount * (BoundaryPadding * 2 + BoundaryTitleHeight);
         var height = titleOffset + totalRows * (ElementHeight + RowSpacing)
-                     + boundaryExtraHeight + options.Padding * 2 + 50;
+                     + boundaryExtraHeight + options.Padding * 2;
 
         var builder = new SvgBuilder().Size(width, height);
 
@@ -123,13 +123,15 @@ public class C4Renderer : IDiagramRenderer<C4Model>
                 options, elementPositions, theme);
         }
 
-        // Draw relationships
+        // Draw relationships with staggered labels to avoid overlap
+        var relIndex = 0;
         foreach (var rel in model.Relationships)
         {
             if (elementPositions.TryGetValue(rel.From, out var fromPos) &&
                 elementPositions.TryGetValue(rel.To, out var toPos))
             {
-                DrawRelationship(builder, fromPos, toPos, rel.Label, options, theme);
+                DrawRelationship(builder, fromPos, toPos, rel.Label, options, theme, relIndex);
+                relIndex++;
             }
         }
 
@@ -278,32 +280,36 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         if (element.Type == C4ElementType.Person)
         {
             // Draw person shape (head + body)
-            var headRadius = 20;
-            var bodyHeight = 60;
-            var bodyWidth = 80;
+            var headRadius = 18;
+            var bodyWidth = ElementWidth - 20;
+            var bodyTop = y + headRadius * 2 + 8;
+            var bodyHeight = PersonHeight - headRadius * 2 - 8;
 
             // Head
-            builder.AddCircle(x + ElementWidth / 2, y + headRadius + 5, headRadius,
+            builder.AddCircle(x + ElementWidth / 2, y + headRadius + 4, headRadius,
                 fill: color, stroke: "none");
 
-            // Body (rounded rect)
-            builder.AddRect(x + (ElementWidth - bodyWidth) / 2, y + headRadius * 2 + 10,
-                bodyWidth, bodyHeight, rx: 10,
+            // Body (rounded rect — wide enough to contain text)
+            builder.AddRect(x + (ElementWidth - bodyWidth) / 2, bodyTop,
+                bodyWidth, bodyHeight, rx: 8,
                 fill: color, stroke: "none");
 
-            // Label
-            builder.AddText(x + ElementWidth / 2, y + PersonHeight - 20, element.Label,
+            // Label (centered in body)
+            var bodyCenter = bodyTop + bodyHeight / 2;
+            var hasDesc = !string.IsNullOrEmpty(element.Description);
+            var labelY = hasDesc ? bodyCenter - 9 : bodyCenter;
+            builder.AddText(x + ElementWidth / 2, labelY, element.Label,
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{options.FontSize - 1}px", fontFamily: options.FontFamily,
                 fill: textColor, fontWeight: "bold");
 
-            // Description
-            if (!string.IsNullOrEmpty(element.Description))
+            // Description (inside body — fits wider body)
+            if (hasDesc)
             {
-                builder.AddText(x + ElementWidth / 2, y + PersonHeight - 5,
-                    TruncateText(element.Description, 40),
+                builder.AddText(x + ElementWidth / 2, bodyCenter + 10,
+                    TruncateText(element.Description!, 28),
                     anchor: "middle", baseline: "middle",
-                    fontSize: $"{options.FontSize - 3}px", fontFamily: options.FontFamily,
+                    fontSize: $"{options.FontSize - 4}px", fontFamily: options.FontFamily,
                     fill: textColor);
             }
         }
@@ -331,7 +337,7 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         else
         {
             // Standard box
-            builder.AddRect(x, y, ElementWidth, ElementHeight, rx: 5,
+            builder.AddRect(x, y, ElementWidth, ElementHeight, rx: 8,
                 fill: color, stroke: "none");
 
             DrawElementText(builder, element, x, y, options, textColor);
@@ -342,7 +348,15 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         RenderOptions options, string textColor)
     {
         var centerX = x + ElementWidth / 2;
-        var textY = y + 25;
+
+        // Count text lines to center vertically
+        var lineCount = 1; // label
+        if (!string.IsNullOrEmpty(element.Technology)) lineCount++;
+        if (!string.IsNullOrEmpty(element.Description)) lineCount++;
+
+        var lineSpacing = 17;
+        var totalTextHeight = lineCount * lineSpacing;
+        var textY = y + (ElementHeight - totalTextHeight) / 2 + lineSpacing / 2.0 + 2;
 
         // Label
         builder.AddText(centerX, textY, element.Label,
@@ -353,7 +367,7 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         // Technology
         if (!string.IsNullOrEmpty(element.Technology))
         {
-            textY += 18;
+            textY += lineSpacing;
             builder.AddText(centerX, textY, $"[{element.Technology}]",
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{options.FontSize - 3}px", fontFamily: options.FontFamily,
@@ -363,8 +377,8 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         // Description
         if (!string.IsNullOrEmpty(element.Description))
         {
-            textY += 18;
-            builder.AddText(centerX, textY, TruncateText(element.Description, 40),
+            textY += lineSpacing;
+            builder.AddText(centerX, textY, TruncateText(element.Description, 35),
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{options.FontSize - 3}px", fontFamily: options.FontFamily,
                 fill: textColor);
@@ -374,7 +388,7 @@ public class C4Renderer : IDiagramRenderer<C4Model>
     static void DrawRelationship(SvgBuilder builder,
         (double x, double y, double w, double h) from,
         (double x, double y, double w, double h) to,
-        string? label, RenderOptions options, DiagramTheme theme)
+        string? label, RenderOptions options, DiagramTheme theme, int index = 0)
     {
         // Calculate connection points
         var dx = to.x - from.x;
@@ -401,13 +415,20 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         builder.AddPath($"M {Fmt(toX)} {Fmt(toY)} L {Fmt(ax1)} {Fmt(ay1)} L {Fmt(ax2)} {Fmt(ay2)} Z",
             fill: theme.MutedText, stroke: "none");
 
-        // Draw label
+        // Draw label between the elements, offset to avoid overlap
         if (!string.IsNullOrEmpty(label))
         {
-            var midX = (fromX + toX) / 2;
-            var midY = (fromY + toY) / 2;
+            // Place label at 40% along the line (closer to source) to reduce overlap at targets
+            var t = 0.4;
+            var labelX = fromX + (toX - fromX) * t;
+            var labelY = fromY + (toY - fromY) * t;
 
-            builder.AddText(midX, midY - 8, label,
+            // Offset perpendicular to the line
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            var perpX = len > 0 ? -dy / len * 14 : 0;
+            var perpY = len > 0 ? dx / len * 14 : -14;
+
+            builder.AddText(labelX + perpX, labelY + perpY, label,
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{options.FontSize - 3}px", fontFamily: options.FontFamily,
                 fill: theme.MutedText);

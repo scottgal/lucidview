@@ -5,6 +5,10 @@
     <File Path="global.json" />
   </Folder>
   <Project Path="Naiad/Naiad.csproj" />
+  <Project Path="Naiad.Blazor/Naiad.Blazor.csproj" />
+  <Project Path="Naiad.Blazor.Sample/Naiad.Blazor.Sample.csproj" />
+  <Project Path="Naiad.Meta.Mermaid/Naiad.Meta.Mermaid.csproj" />
+  <Project Path="Naiad.Meta.Complete/Naiad.Meta.Complete.csproj" />
   <Project Path="Naiad.Benchmarks/Naiad.Benchmarks.csproj" />
   <Project Path="Naiad.Benchmarks.Original/Naiad.Benchmarks.Original.csproj" />
   <Project Path="Naiad.ConsoleDemo/Naiad.ConsoleDemo.csproj" />

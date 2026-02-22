@@ -19,11 +19,13 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
 
     public SvgDocument Render(RadarModel model, RenderOptions options)
     {
+        var theme = DiagramTheme.Resolve(options);
+
         if (model.Axes.Count == 0)
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty diagram", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -46,7 +48,8 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
             builder.AddText(contentWidth / 2, TitleHeight / 2, model.Title,
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px", fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold",
+                fill: theme.TextColor);
         }
 
         // Calculate max value
@@ -54,22 +57,22 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
         var minValue = model.Min ?? 0;
 
         // Draw graticule
-        DrawGraticule(builder, centerX, centerY, model.Axes.Count, model.Ticks, model.Graticule);
+        DrawGraticule(builder, centerX, centerY, model.Axes.Count, model.Ticks, model.Graticule, theme);
 
         // Draw axis lines and labels
-        DrawAxes(builder, centerX, centerY, model.Axes, options);
+        DrawAxes(builder, centerX, centerY, model.Axes, options, theme);
 
         // Draw curves
         for (var i = 0; i < model.Curves.Count; i++)
         {
             DrawCurve(builder, centerX, centerY, model.Curves[i], model.Axes.Count,
-                minValue, maxValue, CurveColors[i % CurveColors.Length]);
+                minValue, maxValue, CurveColors[i % CurveColors.Length], theme);
         }
 
         // Draw legend
         if (model is {ShowLegend: true, Curves.Count: > 0})
         {
-            DrawLegend(builder, model.Curves, 0, contentHeight - legendOffset + 10, options);
+            DrawLegend(builder, model.Curves, 0, contentHeight - legendOffset + 10, options, theme);
         }
 
         return builder.Build();
@@ -81,7 +84,8 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
         double cy,
         int axisCount,
         int ticks,
-        GraticuleType graticule)
+        GraticuleType graticule,
+        DiagramTheme theme)
     {
         for (var i = 1; i <= ticks; i++)
         {
@@ -89,7 +93,7 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
 
             if (graticule == GraticuleType.Circle)
             {
-                builder.AddCircle(cx, cy, radius, fill: "none", stroke: "#E0E0E0", strokeWidth: 1);
+                builder.AddCircle(cx, cy, radius, fill: "none", stroke: theme.GridLine, strokeWidth: 1);
             }
             else
             {
@@ -103,12 +107,12 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
                     pathData.Add(j == 0 ? $"M {Fmt(x)} {Fmt(y)}" : $"L {Fmt(x)} {Fmt(y)}");
                 }
                 pathData.Add("Z");
-                builder.AddPath(string.Join(" ", pathData), fill: "none", stroke: "#E0E0E0", strokeWidth: 1);
+                builder.AddPath(string.Join(" ", pathData), fill: "none", stroke: theme.GridLine, strokeWidth: 1);
             }
         }
     }
 
-    static void DrawAxes(SvgBuilder builder, double cx, double cy, List<RadarAxis> axes, RenderOptions options)
+    static void DrawAxes(SvgBuilder builder, double cx, double cy, List<RadarAxis> axes, RenderOptions options, DiagramTheme theme)
     {
         for (var i = 0; i < axes.Count; i++)
         {
@@ -117,7 +121,7 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
             var y = cy + ChartRadius * Math.Sin(angle);
 
             // Draw axis line
-            builder.AddLine(cx, cy, x, y, stroke: "#BDBDBD", strokeWidth: 1);
+            builder.AddLine(cx, cy, x, y, stroke: theme.AxisLine, strokeWidth: 1);
 
             // Draw label
             var labelX = cx + (ChartRadius + 20) * Math.Cos(angle);
@@ -127,7 +131,8 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
 
             builder.AddText(labelX, labelY, axes[i].Label ?? axes[i].Id,
                 anchor: anchor, baseline: "middle",
-                fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily,
+                fill: theme.TextColor);
         }
     }
 
@@ -139,7 +144,8 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
         int axisCount,
         double minValue,
         double maxValue,
-        string color)
+        string color,
+        DiagramTheme theme)
     {
         if (curve.Values.Count == 0)
         {
@@ -177,11 +183,11 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
             var x = cx + radius * Math.Cos(angle);
             var y = cy + radius * Math.Sin(angle);
 
-            builder.AddCircle(x, y, 4, fill: color, stroke: "white", strokeWidth: 1);
+            builder.AddCircle(x, y, 4, fill: color, stroke: theme.Background, strokeWidth: 1);
         }
     }
 
-    static void DrawLegend(SvgBuilder builder, List<RadarCurve> curves, double x, double y, RenderOptions options)
+    static void DrawLegend(SvgBuilder builder, List<RadarCurve> curves, double x, double y, RenderOptions options, DiagramTheme theme)
     {
         for (var i = 0; i < curves.Count; i++)
         {
@@ -191,7 +197,8 @@ public class RadarRenderer : IDiagramRenderer<RadarModel>
             builder.AddRect(x, legendY, 16, 12, fill: color);
             builder.AddText(x + 24, legendY + 6, curves[i].Label ?? curves[i].Id,
                 anchor: "start", baseline: "middle",
-                fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily,
+                fill: theme.TextColor);
         }
     }
 

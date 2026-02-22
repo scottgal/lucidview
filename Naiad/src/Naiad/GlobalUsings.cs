@@ -13,6 +13,7 @@ global using MermaidSharp.Diagrams.Class;
 global using MermaidSharp.Diagrams.EntityRelationship;
 global using MermaidSharp.Diagrams.Flowchart;
 global using MermaidSharp.Diagrams.Gantt;
+global using MermaidSharp.Diagrams.Geo;
 global using MermaidSharp.Diagrams.GitGraph;
 global using MermaidSharp.Diagrams.Kanban;
 global using MermaidSharp.Diagrams.Mindmap;

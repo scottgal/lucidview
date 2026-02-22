@@ -20,12 +20,33 @@ public sealed record DiagramTheme(
     string LabelBackground)
 {
     /// <summary>True when this is a dark theme.</summary>
-    public bool IsDark => this == Dark;
+    public bool IsDark => ThemeColorUtils.IsDarkColor(Background);
 
     public static DiagramTheme Resolve(RenderOptions options)
     {
         var key = (options.Theme ?? "default").Trim().ToLowerInvariant();
-        return key == "dark" ? Dark : Light;
+        var baseTheme = key == "dark" ? Dark : Light;
+
+        // If host provides explicit background override, prefer its luminance as theme source.
+        var bgOverride = options.ThemeColors?.BackgroundColor;
+        if (!string.IsNullOrWhiteSpace(bgOverride))
+        {
+            baseTheme = ThemeColorUtils.IsDarkColor(bgOverride) ? Dark : Light;
+        }
+
+        var overrides = options.ThemeColors;
+        if (overrides is null)
+            return baseTheme;
+
+        return baseTheme with
+        {
+            Background = overrides.BackgroundColor ?? baseTheme.Background,
+            TextColor = overrides.TextColor ?? baseTheme.TextColor,
+            PrimaryFill = overrides.NodeFill ?? baseTheme.PrimaryFill,
+            PrimaryStroke = overrides.NodeStroke ?? baseTheme.PrimaryStroke,
+            AxisLine = overrides.EdgeStroke ?? baseTheme.AxisLine,
+            LabelBackground = overrides.EdgeLabelBackground ?? baseTheme.LabelBackground
+        };
     }
 
     public static readonly DiagramTheme Light = new(
@@ -74,4 +95,5 @@ public sealed record DiagramTheme(
            "#6b8fa3", "#9b6b9b", "#6b9b7b", "#c08050", "#5090b0"]
         : ["#9370DB", "#5b9bd5", "#4caf50", "#ff9800", "#e74c3c",
            "#2196f3", "#9c27b0", "#009688", "#ff5722", "#3f51b5"];
+
 }

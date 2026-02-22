@@ -28,5 +28,10 @@ public enum DiagramType
     Radar,
     Treemap,
     ZenUML,
-    Bpmn
+    Bpmn,
+    ParallelCoords,
+    Dendrogram,
+    BubblePack,
+    Voronoi,
+    Geo
 }

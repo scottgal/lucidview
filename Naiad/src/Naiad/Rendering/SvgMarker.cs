@@ -1,4 +1,5 @@
 using static MermaidSharp.Rendering.RenderUtils;
+using System.Net;
 
 namespace MermaidSharp.Rendering;
 
@@ -24,13 +25,13 @@ public class SvgMarker
     public string ToXml()
     {
         var sb = new StringBuilder();
-        sb.Append($"<marker id=\"{Id}\"");
-        if (ClassName is not null) sb.Append($" class=\"{ClassName}\"");
-        if (ViewBox is not null) sb.Append($" viewBox=\"{ViewBox}\"");
+        sb.Append($"<marker id=\"{WebUtility.HtmlEncode(Id)}\"");
+        if (ClassName is not null) sb.Append($" class=\"{WebUtility.HtmlEncode(ClassName)}\"");
+        if (ViewBox is not null) sb.Append($" viewBox=\"{WebUtility.HtmlEncode(ViewBox)}\"");
         sb.Append($" refX=\"{Fmt(RefX)}\" refY=\"{Fmt(RefY)}\"");
-        if (MarkerUnits is not null) sb.Append($" markerUnits=\"{MarkerUnits}\"");
+        if (MarkerUnits is not null) sb.Append($" markerUnits=\"{WebUtility.HtmlEncode(MarkerUnits)}\"");
         sb.Append($" markerWidth=\"{Fmt(MarkerWidth)}\" markerHeight=\"{Fmt(MarkerHeight)}\"");
-        sb.Append($" orient=\"{Orient}\">");
+        sb.Append($" orient=\"{WebUtility.HtmlEncode(Orient)}\">");
 
         if (UseCircle)
         {
@@ -38,7 +39,7 @@ public class SvgMarker
         }
         else
         {
-            sb.Append($"<path d=\"{Path}\" class=\"arrowMarkerPath\" style=\"stroke-width: {StrokeWidth}; stroke-dasharray: 1, 0;\"/>");
+            sb.Append($"<path d=\"{WebUtility.HtmlEncode(Path)}\" class=\"arrowMarkerPath\" style=\"stroke-width: {StrokeWidth}; stroke-dasharray: 1, 0;\"/>");
         }
 
         sb.Append("</marker>");

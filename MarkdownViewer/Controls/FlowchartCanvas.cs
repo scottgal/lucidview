@@ -297,7 +297,10 @@ public class FlowchartCanvas : Control
             IBrush textBrush;
             if (node.Style.TextColor is not null)
             {
-                textBrush = TryParseBrush(node.Style.TextColor) ?? _textBrush;
+                var styleTextColor = TryParseColor(node.Style.TextColor);
+                if (styleTextColor is not null && _isDarkMode)
+                    styleTextColor = EnsureMinLuminance(styleTextColor.Value, 168);
+                textBrush = styleTextColor is not null ? new SolidColorBrush(styleTextColor.Value) : _textBrush;
             }
             else
             {
@@ -716,14 +719,27 @@ public class FlowchartCanvas : Control
         var bgColor = TryParseColor(skin.Background) ?? Colors.White;
         _isDarkMode = (0.299 * bgColor.R + 0.587 * bgColor.G + 0.114 * bgColor.B) < 128;
 
-        _nodeFillBrush = TryParseBrush(skin.NodeFill) ?? Brushes.White;
-        _textBrush = TryParseBrush(skin.TextColor) ?? Brushes.Black;
-        _arrowBrush = TryParseBrush(skin.EdgeStroke) ?? Brushes.Gray;
-        _arrowHighlightBrush = CreateHighlightBrush(skin.EdgeStroke);
-        _subgraphTitleBrush = TryParseBrush(skin.SubgraphTitleColor) ?? Brushes.Black;
+        var nodeFillColor = TryParseColor(skin.NodeFill) ?? (_isDarkMode ? Color.FromRgb(34, 40, 49) : Colors.White);
+        var textColor = TryParseColor(skin.TextColor) ?? (_isDarkMode ? Color.FromRgb(230, 237, 243) : Colors.Black);
+        var edgeStrokeColor = TryParseColor(skin.EdgeStroke) ?? (_isDarkMode ? Color.FromRgb(173, 186, 199) : Colors.Gray);
+        var nodeStrokeColor = TryParseColor(skin.NodeStroke) ?? (_isDarkMode ? Color.FromRgb(173, 186, 199) : Colors.Black);
+        var subgraphTitleColor = TryParseColor(skin.SubgraphTitleColor) ?? textColor;
 
-        var nodeStrokeColor = TryParseColor(skin.NodeStroke) ?? Colors.Black;
-        var edgeStrokeColor = TryParseColor(skin.EdgeStroke) ?? Colors.Gray;
+        // Some skins still emit low-contrast dark text/strokes even for dark backgrounds.
+        // Force minimum brightness so nodes/connectors remain visible.
+        if (_isDarkMode)
+        {
+            textColor = EnsureMinLuminance(textColor, 168);
+            edgeStrokeColor = EnsureMinLuminance(edgeStrokeColor, 136);
+            nodeStrokeColor = EnsureMinLuminance(nodeStrokeColor, 136);
+            subgraphTitleColor = EnsureMinLuminance(subgraphTitleColor, 168);
+        }
+
+        _nodeFillBrush = new SolidColorBrush(nodeFillColor);
+        _textBrush = new SolidColorBrush(textColor);
+        _arrowBrush = new SolidColorBrush(edgeStrokeColor);
+        _arrowHighlightBrush = new SolidColorBrush(BlendColor(edgeStrokeColor, Color.FromRgb(60, 130, 240), 0.6));
+        _subgraphTitleBrush = new SolidColorBrush(subgraphTitleColor);
 
         // Highlight color: blend toward blue
         var highlightColor = Color.FromRgb(60, 130, 240);
@@ -740,8 +756,16 @@ public class FlowchartCanvas : Control
         _edgeThickPen = new Pen(new SolidColorBrush(edgeStrokeColor), 3.5);
         _edgeThickHighlightPen = new Pen(new SolidColorBrush(highlightColor), 4.5);
 
-        _edgeLabelBgBrush = TryParseBrush(skin.EdgeLabelBackground)
-            ?? new SolidColorBrush(Colors.White, 0.9);
+        var edgeLabelBgColor = TryParseColor(skin.EdgeLabelBackground);
+        if (_isDarkMode)
+        {
+            // Prefer dark translucent label background so bright text remains readable.
+            if (edgeLabelBgColor is null || (0.299 * edgeLabelBgColor.Value.R + 0.587 * edgeLabelBgColor.Value.G + 0.114 * edgeLabelBgColor.Value.B) > 120)
+                edgeLabelBgColor = Color.FromArgb(220, 22, 27, 34);
+        }
+        _edgeLabelBgBrush = edgeLabelBgColor is not null
+            ? new SolidColorBrush(edgeLabelBgColor.Value)
+            : new SolidColorBrush(Colors.White, 0.9);
 
         _subgraphFillBrush = TryParseBrush(skin.SubgraphFill)
             ?? new SolidColorBrush(Colors.LightGray, 0.25);
@@ -900,6 +924,16 @@ public class FlowchartCanvas : Control
     {
         var c = TryParseColor(color);
         return c is not null ? new SolidColorBrush(c.Value) : null;
+    }
+
+    static Color EnsureMinLuminance(Color color, double minLuminance)
+    {
+        var luminance = 0.299 * color.R + 0.587 * color.G + 0.114 * color.B;
+        if (luminance >= minLuminance) return color;
+
+        // Blend toward white until we hit the requested minimum luminance.
+        var target = Math.Clamp((minLuminance - luminance) / 255.0, 0.0, 1.0);
+        return BlendColor(color, Colors.White, target);
     }
 
     static Color? TryParseColor(string? color)

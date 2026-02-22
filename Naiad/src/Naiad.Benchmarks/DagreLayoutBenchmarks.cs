@@ -8,7 +8,7 @@ using MermaidSharp;
 namespace Naiad.Benchmarks;
 
 /// <summary>
-/// Benchmarks that measure Dagre.NET layout performance via Mermaid.Render.
+/// Benchmarks that measure Mostlylucid.Dagre-based layout performance via Mermaid.Render.
 /// Uses end-to-end rendering to exercise the full layout pipeline: parsing,
 /// network simplex ranking, barycenter ordering, Brandes-Kopf coordinate
 /// assignment, and SVG output.
