@@ -162,6 +162,10 @@ public static class Mermaid
 
         SecurityValidator.ValidateInput(input, options);
 
+        // Return an empty SVG for empty/whitespace input instead of throwing
+        if (string.IsNullOrWhiteSpace(input))
+            return SvgDocument.CreateEmpty(options);
+
         // Parse and apply directives before rendering.
         options = ApplyNaiadDirectives(input, ApplyInitDirectives(input, options));
         SecurityValidator.NormalizeSecurityLimits(options);

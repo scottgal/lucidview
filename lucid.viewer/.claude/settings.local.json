@@ -94,7 +94,10 @@
       "Bash(python3:*)",
       "Bash(node:*)",
       "Bash(mkdir -p ~/trace-analyze && cp \"E:/source/markdown.viewer/Naiad/src/Naiad.Benchmarks/analyze-trace.cs\" ~/trace-analyze/analyze-trace.cs && cd ~/trace-analyze && dotnet run analyze-trace.cs 2>&1)",
-      "Bash(dotnet-trace collect:*)"
+      "Bash(dotnet-trace collect:*)",
+      "Bash(cd \"E:/source/markdown.viewer\" && git submodule status 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && git config --file .git/config -l | grep -i dagre 2>&1)",
+      "Bash(cd \"E:/source\" && git clone https://github.com/scottgal/mostlylucid.dagre.git mostlylucid.dagre 2>&1)"
     ]
   }
 }

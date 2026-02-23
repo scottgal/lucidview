@@ -143,19 +143,32 @@ public static class SecurityValidator
         
         var cts = new CancellationTokenSource();
         var task = Task.Run(() => action(), cts.Token);
-        
-        if (task.Wait(timeoutMs))
+
+        bool completed;
+        try
         {
-            return task.Result;
+            completed = task.Wait(timeoutMs);
         }
-        
-        cts.Cancel();
-        throw new MermaidSecurityException($"Operation '{operationName}' exceeded timeout of {timeoutMs}ms");
+        catch (AggregateException ae) when (ae.InnerExceptions.Count == 1 && ae.InnerException is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ae.InnerException).Throw();
+            throw; // unreachable
+        }
+
+        if (!completed)
+        {
+            cts.Cancel();
+            throw new MermaidSecurityException($"Operation '{operationName}' exceeded timeout of {timeoutMs}ms");
+        }
+
+        return task.GetAwaiter().GetResult();
     }
 
     static int ClampOrDefault(int value, int fallback, int hardMax)
     {
-        if (value <= 0)
+        if (value == 0)
+            return 0; // 0 = opt-out (validation methods treat 0 as disabled)
+        if (value < 0)
             value = fallback;
 
         return Math.Clamp(value, 1, hardMax);

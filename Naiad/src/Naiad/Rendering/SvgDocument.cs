@@ -36,6 +36,9 @@ public class SvgDocument
     /// </summary>
     public bool IncludeExternalResources { get; set; }
 
+    public static SvgDocument CreateEmpty(RenderOptions? options = null) =>
+        new() { Width = 0, Height = 0, ViewBoxOverride = "0 0 0 0" };
+
     public string ToXml()
     {
         var sb = new StringBuilder();
