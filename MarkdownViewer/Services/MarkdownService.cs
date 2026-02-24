@@ -229,7 +229,7 @@ public partial class MarkdownService
     }
 
     /// <summary>
-    /// Legacy synchronous API — renders everything inline. Used by print path.
+    /// Legacy synchronous API - renders everything inline. Used by print path.
     /// </summary>
     public string ProcessMarkdown(string content)
     {
@@ -274,7 +274,7 @@ public partial class MarkdownService
             {
                 ct.ThrowIfCancellationRequested();
 
-                // Naiad rendering is CPU-bound — run on thread pool
+                // Naiad rendering is CPU-bound - run on thread pool
                 var pngPath = await Task.Run(() => RenderMermaidToPng(item.MermaidCode), ct);
                 _mermaidSourceMap[pngPath] = item.MermaidCode;
                 var markdownPath = pngPath.Replace("\\", "/");
@@ -604,14 +604,14 @@ public partial class MarkdownService
 
             if (cachedPath != null)
             {
-                // Cache hit — inline immediately and track source
+                // Cache hit - inline immediately and track source
                 var markdownPath = cachedPath.Replace("\\", "/");
                 _mermaidSourceMap[cachedPath] = mermaidCode;
                 rewritten.Append($"\n\n![Mermaid Diagram]({markdownPath})\n\n");
             }
             else
             {
-                // Cache miss — insert placeholder, queue for async rendering
+                // Cache miss - insert placeholder, queue for async rendering
                 var placeholder = $"<!--mermaid-pending-{_mermaidCounter++}-->";
                 rewritten.Append(placeholder);
                 pending.Add(new MermaidWorkItem(placeholder, mermaidCode, cacheKey));
@@ -651,7 +651,7 @@ public partial class MarkdownService
                 }
                 catch
                 {
-                    // BPMN parse failure — keep original code block
+                    // BPMN parse failure - keep original code block
                 }
 
                 bpmnOutput.Append(replacement);
@@ -801,7 +801,7 @@ public partial class MarkdownService
 
     /// <summary>
     /// Render mermaid code to a PNG file. Returns the file path.
-    /// Thread-safe — can be called from multiple threads concurrently.
+    /// Thread-safe - can be called from multiple threads concurrently.
     /// </summary>
     private string RenderMermaidToPng(string mermaidCode)
     {

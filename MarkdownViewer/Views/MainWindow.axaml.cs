@@ -576,7 +576,7 @@ public partial class MainWindow : Window
         var metadata = MarkdownService.ExtractMetadata(content);
         DisplayMetadata(metadata);
 
-        // Phase 1: Fast path — text processing + cached mermaid diagrams
+        // Phase 1: Fast path - text processing + cached mermaid diagrams
         var (processed, pendingDiagrams) = _markdownService.ProcessMarkdownFast(content);
 
         // Show content immediately (with placeholders for uncached diagrams)
@@ -624,7 +624,7 @@ public partial class MainWindow : Window
             }
             catch (OperationCanceledException)
             {
-                // New file/theme switch cancelled this batch — that's fine
+                // New file/theme switch cancelled this batch - that's fine
             }
         }
     }
@@ -1170,7 +1170,7 @@ public partial class MainWindow : Window
         _contextMenuMermaidCode = null;
         _contextMenuImagePath = null;
 
-        // Check all mermaid diagrams — if there's at least one, show the options
+        // Check all mermaid diagrams - if there's at least one, show the options
         var diagrams = _markdownService.MermaidDiagrams;
         var hasDiagrams = diagrams.Count > 0;
 

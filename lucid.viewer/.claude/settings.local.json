@@ -129,7 +129,9 @@
       "Bash(curl:*)",
       "Bash(cd \"E:/source/markdown.viewer/Naiad/src\" && printf 'geo\\\\ntitle UK Town Markers\\\\ncountry uk\\\\ntown \"London\" color=#ef4444 size=6\\\\ntown \"Manchester\" color=#3b82f6\\\\ntown \"Edinburgh\" color=#22c55e\\\\n' | dotnet run --project Naiad.RenderCli -- svg --output test-renders/geo-uk-test.svg 2>&1)",
       "Bash(cd \"E:/source/markdown.viewer/Naiad/src\" && printf 'geo\\\\ntitle UK Town Markers\\\\ncountry uk\\\\ntown \"London\" color=#ef4444 size=6\\\\ntown \"Manchester\" color=#3b82f6\\\\ntown \"Edinburgh\" color=#22c55e\\\\n' | dotnet run --project Naiad.RenderCli -- svg -o \"E:/source/markdown.viewer/Naiad/src/test-renders/geo-uk-test.svg\" 2>&1)",
-      "Bash(cd \"E:/source/markdown.viewer/Naiad/src\" && printf 'geo\\\\ntitle UK Town Markers\\\\ncountry uk\\\\ntown \"London\" color=#ef4444 size=6\\\\ntown \"Manchester\" color=#3b82f6\\\\ntown \"Edinburgh\" color=#22c55e\\\\n' | dotnet run --project Naiad.RenderCli -- svg \"test-renders/geo-uk-test.svg\" 2>&1)"
+      "Bash(cd \"E:/source/markdown.viewer/Naiad/src\" && printf 'geo\\\\ntitle UK Town Markers\\\\ncountry uk\\\\ntown \"London\" color=#ef4444 size=6\\\\ntown \"Manchester\" color=#3b82f6\\\\ntown \"Edinburgh\" color=#22c55e\\\\n' | dotnet run --project Naiad.RenderCli -- svg \"test-renders/geo-uk-test.svg\" 2>&1)",
+      "Bash(ls NUL:*)",
+      "Bash(cd /e/source/markdown.viewer && gh run list --limit 10 2>&1)"
     ]
   }
 }

@@ -106,7 +106,8 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
         graphLabel.EdgeSep = (int)options.EdgeSeparation;
         graphLabel.NodeSep = (int)options.NodeSeparation;
         graphLabel.RankDir = isVertical ? "tb" : "lr";
-        graphLabel.Acyclicer = "greedy";
+        graphLabel.Acyclicer = "dfs";
+        graphLabel.EdgeStraighteningStrength = (float)options.EdgeStraighteningStrength;
 
         // Run dagre layout - indexed pipeline (optimized, same results as dagre.js)
         try
@@ -201,6 +202,10 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
             }
         }
 
+        // Edge straightening is now handled inside BK's Balance phase (fan-out-aware correction)
+        // via GraphLabel.EdgeStraighteningStrength, eliminating the need for post-processing.
+        // See: docs/papers/bk-fan-out-aware-coordinate-assignment.md
+
         // Read subgraph bounds from dagre's compound layout output
         ReadSubgraphBounds(diagram, dg, subgraphKeyMap);
 
@@ -245,6 +250,44 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
         var height = boundsMaxY;
 
         return new() { Width = width, Height = height };
+    }
+
+    /// <summary>
+    /// Post-process edge waypoints to reduce the "swoopy" curves caused by BK coordinate
+    /// assignment placing dummy nodes at suboptimal X positions for fan-out/fan-in edges.
+    ///
+    /// For each edge with 3+ waypoints, computes the ideal straight-line path from first
+    /// to last point, then linearly interpolates each interior waypoint toward that ideal
+    /// position. The alpha parameter controls the strength: 0 = no change, 1 = force straight.
+    ///
+    /// This preserves the Y coordinates (rank positions from dagre) and only adjusts X,
+    /// maintaining the topological correctness of the layout while dramatically reducing
+    /// the lateral deviation that causes B-spline overshooting.
+    /// </summary>
+    static void StraightenEdgeWaypoints(GraphDiagramBase diagram, double alpha)
+    {
+        foreach (var edge in diagram.Edges)
+        {
+            if (edge.Points.Count <= 2 || edge.SourceId == edge.TargetId) continue;
+
+            var src = edge.Points[0];
+            var tgt = edge.Points[edge.Points.Count - 1];
+            var totalDy = tgt.Y - src.Y;
+
+            // Skip edges with zero vertical span (same-rank edges)
+            if (Math.Abs(totalDy) < 0.001) continue;
+
+            for (var i = 1; i < edge.Points.Count - 1; i++)
+            {
+                var pt = edge.Points[i];
+                // Compute the ideal X position on the straight line at this Y
+                var t = (pt.Y - src.Y) / totalDy;
+                var idealX = src.X + t * (tgt.X - src.X);
+                // Blend between BK's X and the ideal X
+                var newX = pt.X * (1 - alpha) + idealX * alpha;
+                edge.Points[i] = new(newX, pt.Y);
+            }
+        }
     }
 
     /// <summary>
@@ -407,9 +450,10 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
     }
 
     /// <summary>
-    /// Read subgraph bounds from dagre's compound layout output.
-    /// Dagre computes parent node bounds from border nodes in removeBorderNodes().
-    /// Add extra top padding for subgraph titles.
+    /// Compute subgraph bounds from actual child node positions.
+    /// Dagre's border-node-derived dimensions can be stale after BK fan-out correction,
+    /// so we recompute tight bounding boxes from the laid-out child nodes and nested subgraphs.
+    /// Process bottom-up so nested subgraphs have their bounds computed first.
     /// </summary>
     static void ReadSubgraphBounds(
         GraphDiagramBase diagram, DagreGraph dg,
@@ -420,45 +464,89 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
         FlattenSubgraphs(diagram.Subgraphs, sgById);
 
         const double titlePadding = 28.0; // Extra top space for title text
-        const double extraPadding = 10.0; // Extra padding around content
+        const double contentPadding = 16.0; // Padding around content on all sides
 
-        foreach (var (sgId, sgKey) in subgraphKeyMap)
+        // Process bottom-up: nested subgraphs first, then their parents.
+        // Build ordered list with deepest subgraphs first.
+        var ordered = new List<(string sgId, string sgKey)>();
+        CollectSubgraphsBottomUp(diagram.Subgraphs, subgraphKeyMap, ordered);
+
+        foreach (var (sgId, sgKey) in ordered)
         {
-            var sgNode = dg.Node(sgKey);
-            if (sgNode == null) continue;
             if (!sgById.TryGetValue(sgId, out var sg)) continue;
 
-            var hasTitle = !string.IsNullOrWhiteSpace(sg.Title);
-            var topExtra = hasTitle ? titlePadding : extraPadding;
+            // Compute bounding box from all direct child nodes
+            var minX = double.MaxValue;
+            var maxX = double.MinValue;
+            var minY = double.MaxValue;
+            var maxY = double.MinValue;
+            var hasContent = false;
 
-            sg.Width = sgNode.Width + extraPadding * 2;
-            sg.Height = sgNode.Height + topExtra + extraPadding;
-            sg.Position = new(sgNode.X, sgNode.Y + (topExtra - extraPadding) / 2);
-
-            // Label collision avoidance: if any child node overlaps with the title area,
-            // push the subgraph top boundary up to avoid overlap
-            if (hasTitle)
+            foreach (var nodeId in sg.NodeIds)
             {
-                var sgTop = sg.Position.Y - sg.Height / 2;
-                var titleBottom = sgTop + titlePadding;
-                var minNodeTop = double.MaxValue;
-
-                foreach (var nodeId in sg.NodeIds)
-                {
-                    var node = diagram.GetNode(nodeId);
-                    if (node is null) continue;
-                    var nodeTop = node.Position.Y - node.Height / 2;
-                    if (nodeTop < minNodeTop) minNodeTop = nodeTop;
-                }
-
-                if (minNodeTop < double.MaxValue && minNodeTop < titleBottom + 4)
-                {
-                    // Push subgraph top up by the overlap amount + small gap
-                    var overlap = titleBottom - minNodeTop + 8;
-                    sg.Height += overlap;
-                    sg.Position = new(sg.Position.X, sg.Position.Y - overlap / 2);
-                }
+                var node = diagram.GetNode(nodeId);
+                if (node is null) continue;
+                hasContent = true;
+                var left = node.Position.X - node.Width / 2;
+                var right = node.Position.X + node.Width / 2;
+                var top = node.Position.Y - node.Height / 2;
+                var bottom = node.Position.Y + node.Height / 2;
+                if (left < minX) minX = left;
+                if (right > maxX) maxX = right;
+                if (top < minY) minY = top;
+                if (bottom > maxY) maxY = bottom;
             }
+
+            // Include nested subgraph bounds (already computed)
+            foreach (var nested in sg.NestedSubgraphs)
+            {
+                if (nested.Width <= 0 || nested.Height <= 0) continue;
+                hasContent = true;
+                var nb = nested.Bounds;
+                if (nb.X < minX) minX = nb.X;
+                if (nb.X + nb.Width > maxX) maxX = nb.X + nb.Width;
+                if (nb.Y < minY) minY = nb.Y;
+                if (nb.Y + nb.Height > maxY) maxY = nb.Y + nb.Height;
+            }
+
+            if (!hasContent)
+            {
+                // Fallback: use dagre's computed dimensions
+                var sgNode = dg.Node(sgKey);
+                if (sgNode == null) continue;
+                sg.Width = sgNode.Width + contentPadding * 2;
+                sg.Height = sgNode.Height + contentPadding * 2;
+                sg.Position = new(sgNode.X, sgNode.Y);
+                continue;
+            }
+
+            var hasTitle = !string.IsNullOrWhiteSpace(sg.Title);
+            var topPad = hasTitle ? titlePadding + contentPadding / 2 : contentPadding;
+
+            sg.Width = (maxX - minX) + contentPadding * 2;
+            sg.Height = (maxY - minY) + topPad + contentPadding;
+            sg.Position = new(
+                (minX + maxX) / 2,
+                (minY + maxY) / 2 + (topPad - contentPadding) / 2);
+        }
+    }
+
+    /// <summary>
+    /// Collect subgraphs bottom-up (deepest nested first) for correct bound computation.
+    /// </summary>
+    static void CollectSubgraphsBottomUp(
+        IEnumerable<Subgraph> subgraphs,
+        Dictionary<string, string> subgraphKeyMap,
+        List<(string sgId, string sgKey)> result)
+    {
+        foreach (var sg in subgraphs)
+        {
+            // Recurse into children first (bottom-up)
+            if (sg.NestedSubgraphs.Count > 0)
+                CollectSubgraphsBottomUp(sg.NestedSubgraphs, subgraphKeyMap, result);
+
+            if (subgraphKeyMap.TryGetValue(sg.Id, out var sgKey))
+                result.Add((sg.Id, sgKey));
         }
     }
 
@@ -810,7 +898,7 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
     /// After DistributeEdgePorts moves edge endpoints away from node centers,
     /// intermediate dagre waypoints still aim at the original center positions.
     /// Merge near-collinear edge segments and remove micro-points from dagre waypoints.
-    /// This is a gentle pass — only removes points that are nearly zero-length or
+    /// This is a gentle pass - only removes points that are nearly zero-length or
     /// nearly collinear (under 5 degree angle), preserving the natural curve shape.
     /// </summary>
     static void SmoothEdgePaths(GraphDiagramBase diagram)
@@ -914,7 +1002,7 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
 
         if (maxDist <= epsilon)
         {
-            // All intermediate points are within tolerance — keep only endpoints
+            // All intermediate points are within tolerance - keep only endpoints
             return [points[start], points[end]];
         }
 
@@ -959,7 +1047,7 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
         {
             if (edge.Points.Count < 2 || edge.SourceId == edge.TargetId) continue;
 
-            // Skip reversed/dotted back-edges — these intentionally cross subgraph boundaries
+            // Skip reversed/dotted back-edges - these intentionally cross subgraph boundaries
             // and should render as simple curves, not routed paths
             if (edge.LineStyle == EdgeStyle.Dotted) continue;
 

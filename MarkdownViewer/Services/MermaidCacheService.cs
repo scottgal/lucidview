@@ -77,7 +77,7 @@ public class MermaidCacheService
 
     /// <summary>
     /// Invalidate all cached entries (e.g. on theme change).
-    /// Does NOT delete files — they'll be evicted on next startup.
+    /// Does NOT delete files - they'll be evicted on next startup.
     /// </summary>
     public void InvalidateAll()
     {
@@ -96,7 +96,7 @@ public class MermaidCacheService
         }
         catch
         {
-            // Cache dir might not exist yet — that's fine
+            // Cache dir might not exist yet - that's fine
         }
     }
 

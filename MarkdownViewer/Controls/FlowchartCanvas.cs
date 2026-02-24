@@ -36,24 +36,24 @@ public class FlowchartCanvas : Control
     DispatcherTimer? _animTimer;
     double _dashOffset;
 
-    // Shape-aware color palette — light and dark variants per shape type
+    // Shape-aware color palette - light and dark variants per shape type
     // Light: pastel fills with bold strokes. Dark: deep saturated fills with lighter strokes.
     static readonly Dictionary<NodeShape, (string Fill, string Stroke)> LightShapeColors = new()
     {
-        [NodeShape.RoundedRectangle] = ("#E3F2FD", "#1565C0"), // Soft blue — processes
-        [NodeShape.Rectangle]        = ("#F3E5F5", "#7B1FA2"), // Lavender — data/IO
-        [NodeShape.Stadium]          = ("#E8F5E9", "#2E7D32"), // Mint green — terminals
-        [NodeShape.Diamond]          = ("#FFF8E1", "#F57F17"), // Warm amber — decisions
-        [NodeShape.Hexagon]          = ("#FCE4EC", "#C62828"), // Rose — preparation
-        [NodeShape.Circle]           = ("#E0F7FA", "#00838F"), // Cyan — connectors
-        [NodeShape.DoubleCircle]     = ("#E0F7FA", "#00838F"), // Cyan — connectors
-        [NodeShape.Subroutine]       = ("#EDE7F6", "#4527A0"), // Deep purple — subroutines
-        [NodeShape.Cylinder]         = ("#FFF3E0", "#E65100"), // Orange — databases
-        [NodeShape.Asymmetric]       = ("#F1F8E9", "#558B2F"), // Olive — flags
-        [NodeShape.Parallelogram]    = ("#E8EAF6", "#283593"), // Indigo — IO
-        [NodeShape.ParallelogramAlt] = ("#E8EAF6", "#283593"), // Indigo — IO
-        [NodeShape.Trapezoid]        = ("#EFEBE9", "#4E342E"), // Brown — manual ops
-        [NodeShape.TrapezoidAlt]     = ("#EFEBE9", "#4E342E"), // Brown — manual ops
+        [NodeShape.RoundedRectangle] = ("#E3F2FD", "#1565C0"), // Soft blue - processes
+        [NodeShape.Rectangle]        = ("#F3E5F5", "#7B1FA2"), // Lavender - data/IO
+        [NodeShape.Stadium]          = ("#E8F5E9", "#2E7D32"), // Mint green - terminals
+        [NodeShape.Diamond]          = ("#FFF8E1", "#F57F17"), // Warm amber - decisions
+        [NodeShape.Hexagon]          = ("#FCE4EC", "#C62828"), // Rose - preparation
+        [NodeShape.Circle]           = ("#E0F7FA", "#00838F"), // Cyan - connectors
+        [NodeShape.DoubleCircle]     = ("#E0F7FA", "#00838F"), // Cyan - connectors
+        [NodeShape.Subroutine]       = ("#EDE7F6", "#4527A0"), // Deep purple - subroutines
+        [NodeShape.Cylinder]         = ("#FFF3E0", "#E65100"), // Orange - databases
+        [NodeShape.Asymmetric]       = ("#F1F8E9", "#558B2F"), // Olive - flags
+        [NodeShape.Parallelogram]    = ("#E8EAF6", "#283593"), // Indigo - IO
+        [NodeShape.ParallelogramAlt] = ("#E8EAF6", "#283593"), // Indigo - IO
+        [NodeShape.Trapezoid]        = ("#EFEBE9", "#4E342E"), // Brown - manual ops
+        [NodeShape.TrapezoidAlt]     = ("#EFEBE9", "#4E342E"), // Brown - manual ops
     };
 
     static readonly Dictionary<NodeShape, (string Fill, string Stroke)> DarkShapeColors = new()
@@ -253,7 +253,7 @@ public class FlowchartCanvas : Control
             var geometry = BuildEdgePath(edge, layout.CurvedEdges);
             context.DrawGeometry(null, pen, geometry);
 
-            // Draw arrowhead — use semantic color if applicable
+            // Draw arrowhead - use semantic color if applicable
             var arrowBrush = GetArrowBrush(edge, isHighlighted);
             if (edge.HasArrowHead)
             {

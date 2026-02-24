@@ -10,24 +10,16 @@ public class MindmapRenderer : IDiagramRenderer<MindmapModel>
     const double HorizontalSpacing = 40;
     const double VerticalSpacing = 15;
 
-    static readonly string[] LevelColors =
-    [
-        "#FFB6C1", // pink - root
-        "#87CEEB", // sky blue - level 1
-        "#98FB98", // pale green - level 2
-        "#DDA0DD", // plum - level 3
-        "#F0E68C", // khaki - level 4
-        "#E0FFFF", // light cyan - level 5
-        "#FFDAB9"  // peach - level 6+
-    ];
-
     public SvgDocument Render(MindmapModel model, RenderOptions options)
     {
+        var theme = DiagramTheme.Resolve(options);
+
         if (model.Root == null)
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty mindmap", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily,
+                fill: theme.MutedText);
             return emptyBuilder.Build();
         }
 
@@ -48,10 +40,10 @@ public class MindmapRenderer : IDiagramRenderer<MindmapModel>
         var builder = new SvgBuilder().Size(width, height);
 
         // Draw connections first (behind nodes)
-        DrawConnections(builder, model.Root);
+        DrawConnections(builder, model.Root, theme);
 
         // Draw nodes
-        DrawNodes(builder, model.Root, options);
+        DrawNodes(builder, model.Root, options, theme);
 
         return builder.Build();
     }
@@ -129,8 +121,9 @@ public class MindmapRenderer : IDiagramRenderer<MindmapModel>
         return (rightEdge, bottomEdge);
     }
 
-    static void DrawConnections(SvgBuilder builder, MindmapNode node)
+    static void DrawConnections(SvgBuilder builder, MindmapNode node, DiagramTheme theme)
     {
+        var colors = theme.VividPalette;
         foreach (var child in node.Children)
         {
             // Draw curved connection from parent to child
@@ -145,19 +138,20 @@ public class MindmapRenderer : IDiagramRenderer<MindmapModel>
             var path = $"M {Fmt(startX)} {Fmt(startY)} " +
                        $"C {Fmt(controlX1)} {Fmt(startY)}, {Fmt(controlX2)} {Fmt(endY)}, {Fmt(endX)} {Fmt(endY)}";
 
-            var color = GetLevelColor(child.Level);
+            var color = colors[child.Level % colors.Length];
             builder.AddPath(path, stroke: color, strokeWidth: 2, fill: "none");
 
             // Recursively draw children's connections
-            DrawConnections(builder, child);
+            DrawConnections(builder, child, theme);
         }
     }
 
-    static void DrawNodes(SvgBuilder builder, MindmapNode node, RenderOptions options)
+    static void DrawNodes(SvgBuilder builder, MindmapNode node, RenderOptions options, DiagramTheme theme)
     {
         var x = node.Position.X - node.Width / 2;
         var y = node.Position.Y - node.Height / 2;
-        var color = GetLevelColor(node.Level);
+        var colors = theme.ChartPalette;
+        var color = colors[node.Level % colors.Length];
         var strokeColor = DarkenColor(color);
 
         switch (node.Shape)
@@ -201,12 +195,13 @@ public class MindmapRenderer : IDiagramRenderer<MindmapModel>
             baseline: "middle",
             fontSize: $"{options.FontSize}px",
             fontFamily: options.FontFamily,
-            fontWeight: node.Level == 0 ? "bold" : "normal");
+            fontWeight: node.Level == 0 ? "bold" : "normal",
+            fill: theme.TextColor);
 
         // Draw children
         foreach (var child in node.Children)
         {
-            DrawNodes(builder, child, options);
+            DrawNodes(builder, child, options, theme);
         }
     }
 
@@ -233,9 +228,6 @@ public class MindmapRenderer : IDiagramRenderer<MindmapModel>
 
         builder.AddPath(path, fill: fill, stroke: stroke, strokeWidth: 2);
     }
-
-    static string GetLevelColor(int level) =>
-        LevelColors[Math.Min(level, LevelColors.Length - 1)];
 
     static string DarkenColor(string hexColor)
     {

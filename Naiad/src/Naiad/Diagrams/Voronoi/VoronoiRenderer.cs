@@ -8,19 +8,14 @@ public class VoronoiRenderer : IDiagramRenderer<VoronoiModel>
     const double DefaultHeight = 400;
     const double TitleHeight = 30;
 
-    static readonly string[] Colors =
-    [
-        "#e3f2fd", "#fce4ec", "#e8f5e9", "#fff3e0",
-        "#f3e5f5", "#e0f7fa", "#fff8e1", "#efebe9",
-        "#e1f5fe", "#f1f8e9"
-    ];
-
     static readonly Random SharedRandom = new();
 
     public SvgDocument Render(VoronoiModel model, RenderOptions options)
     {
+        var theme = DiagramTheme.Resolve(options);
+
         if (model.Sites.Count < 2)
-            return RenderEmpty(options);
+            return RenderEmpty(options, theme);
 
         var titleOffset = string.IsNullOrEmpty(model.Title) ? 0 : TitleHeight;
 
@@ -31,7 +26,7 @@ public class VoronoiRenderer : IDiagramRenderer<VoronoiModel>
             builder.AddText(DefaultWidth / 2, options.Padding + TitleHeight / 2, model.Title,
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px", fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold", fill: theme.TextColor);
         }
 
         var chartX = options.Padding;
@@ -42,29 +37,29 @@ public class VoronoiRenderer : IDiagramRenderer<VoronoiModel>
         var sites = PositionSites(model, chartX, chartY, chartWidth, chartHeight);
 
         if (model.ShowCells)
-            DrawVoronoiCells(builder, sites, chartX, chartY, chartWidth, chartHeight);
+            DrawVoronoiCells(builder, sites, chartX, chartY, chartWidth, chartHeight, theme);
 
         foreach (var site in sites)
         {
             var sx = site.X ?? 0;
             var sy = site.Y ?? 0;
-            builder.AddCircle(sx, sy, 5, fill: "#333", stroke: "#fff", strokeWidth: 2);
+            builder.AddCircle(sx, sy, 5, fill: theme.TextColor, stroke: theme.Background, strokeWidth: 2);
             builder.AddText(sx, sy - 12, site.Label,
                 anchor: "middle", baseline: "bottom",
                 fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily,
-                fill: "#333", fontWeight: "bold");
+                fill: theme.TextColor, fontWeight: "bold");
         }
 
         return builder.Build();
     }
 
-    static SvgDocument RenderEmpty(RenderOptions options)
+    static SvgDocument RenderEmpty(RenderOptions options, DiagramTheme theme)
     {
         var builder = new SvgBuilder().Size(200, 100);
         builder.AddText(100, 50, "Voronoi\n(requires 2+ sites)",
             anchor: "middle", baseline: "middle",
             fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily,
-            fill: "#999");
+            fill: theme.MutedText);
         return builder.Build();
     }
 
@@ -107,8 +102,9 @@ public class VoronoiRenderer : IDiagramRenderer<VoronoiModel>
         return sites;
     }
 
-    static void DrawVoronoiCells(SvgBuilder builder, List<VoronoiSite> sites, double chartX, double chartY, double chartWidth, double chartHeight)
+    static void DrawVoronoiCells(SvgBuilder builder, List<VoronoiSite> sites, double chartX, double chartY, double chartWidth, double chartHeight, DiagramTheme theme)
     {
+        var colors = theme.ChartPalette;
         var resolution = 2;
         var width = (int)(chartWidth / resolution);
         var height = (int)(chartHeight / resolution);
@@ -148,13 +144,13 @@ public class VoronoiRenderer : IDiagramRenderer<VoronoiModel>
             var polygon = TraceCell(cellMap, s, resolution, chartX, chartY, width, height);
             if (polygon.Count > 2)
             {
-                var color = sites[s].Color ?? Colors[s % Colors.Length];
+                var color = sites[s].Color ?? colors[s % colors.Length];
                 sb.Clear();
                 sb.Append($"M {polygon[0].X} {polygon[0].Y}");
                 for (var i = 1; i < polygon.Count; i++)
                     sb.Append($" L {polygon[i].X} {polygon[i].Y}");
                 sb.Append(" Z");
-                builder.AddPath(sb.ToString(), fill: color, stroke: "#666", strokeWidth: 1);
+                builder.AddPath(sb.ToString(), fill: color, stroke: theme.MutedText, strokeWidth: 1);
             }
         }
     }

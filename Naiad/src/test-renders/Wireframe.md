@@ -1,7 +1,7 @@
 # Wireframe Skin Pack Examples
 
 All examples use standard mermaid flowchart syntax. The `%% naiad:` directives
-are mermaid `%%` comments — mermaid.js ignores them and renders normal shapes.
+are mermaid `%%` comments - mermaid.js ignores them and renders normal shapes.
 Naiad reads them and applies the wireframe skin shapes.
 
 ## Dating App for Cats
@@ -10,7 +10,7 @@ Naiad reads them and applies the wireframe skin shapes.
 %% naiad: skinPack=wireframe
 %% naiad: shapes nav=navbar, card1=card, card2=card, card3=card, hiss=button, purr=button
 flowchart TD
-    nav["PurrMatch — Browse — Messages — My Profile"]
+    nav["PurrMatch - Browse - Messages - My Profile"]
     subgraph main["Main Feed"]
         card1["Mr. Whiskers\nAge: 3\nLikes: Tuna, Naps, Boxes"]
         card2["Princess Fluffybottom\nAgeNO : 2\nLikes: Laser Pointers"]
@@ -94,7 +94,7 @@ flowchart LR
 %% naiad: shapes p1=card, img=image-placeholder, p2=card
 %% naiad: shapes like=button, share=button, comment=text-input
 flowchart TD
-    nav["Photosynthagram — Feed — Water Me — Settings"]
+    nav["Photosynthagram - Feed - Water Me - Settings"]
     subgraph profile["Plant Profile"]
         pic["Cactus Dave"]
         info["DesertDave\nSpecies: Cactus\nAge: 47 years\nWater: Never"]
@@ -125,7 +125,7 @@ flowchart TD
 flowchart TD
     brow["SockCorp Enterprise Pro Max Plus"]
     subgraph header["Navigation"]
-        topnav["Home — Socks — More Socks — Even More Socks — Help"]
+        topnav["Home - Socks - More Socks - Even More Socks - Help"]
         srch["Search 14 million socks..."]
     end
     subgraph main["Product Grid"]

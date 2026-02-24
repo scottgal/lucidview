@@ -11,7 +11,7 @@ namespace MarkdownViewer.Controls;
 
 /// <summary>
 /// Renders any Naiad SvgDocument as native Avalonia vector graphics via DrawingContext.
-/// Walks the SvgElement tree directly — no XML serialization or SkiaSharp rasterization.
+/// Walks the SvgElement tree directly - no XML serialization or SkiaSharp rasterization.
 /// Supports CSS class resolution from SvgDocument.CssStyles for elements using class-based styling.
 /// </summary>
 public class DiagramCanvas : Control
@@ -160,7 +160,7 @@ public class DiagramCanvas : Control
 
                 // Extract class names from selectors like:
                 //   "#mermaid-svg .className"
-                //   "#mermaid-svg .className text" (descendant — store under className)
+                //   "#mermaid-svg .className text" (descendant - store under className)
                 //   "#mermaid-svg g.className" (element.class)
 
                 // Find all .className segments
@@ -176,7 +176,7 @@ public class DiagramCanvas : Control
                     if (classEnd > classStart)
                     {
                         var className = selector[classStart..classEnd];
-                        // Store properties — last rule wins (CSS specificity simplified)
+                        // Store properties - last rule wins (CSS specificity simplified)
                         if (!_cssClassStyles.TryGetValue(className, out var existing))
                             _cssClassStyles[className] = properties;
                         else
@@ -202,7 +202,7 @@ public class DiagramCanvas : Control
         if (!cssClass.Contains(' '))
             return _cssClassStyles.GetValueOrDefault(cssClass);
 
-        // Multiple classes — merge all matching rules
+        // Multiple classes - merge all matching rules
         string? merged = null;
         foreach (var cls in cssClass.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -675,7 +675,7 @@ public class DiagramCanvas : Control
                 y -= formatted.Height / 2;
             else if (baseline is "hanging" or "text-before-edge")
             {
-                // y is at top — no adjustment
+                // y is at top - no adjustment
             }
             else
             {

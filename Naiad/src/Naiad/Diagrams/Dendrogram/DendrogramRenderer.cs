@@ -12,9 +12,11 @@ public class DendrogramRenderer : IDiagramRenderer<DendrogramModel>
 
     public SvgDocument Render(DendrogramModel model, RenderOptions options)
     {
+        var theme = DiagramTheme.Resolve(options);
+
         if (model.Leaves.Count == 0)
         {
-            return RenderEmpty(options);
+            return RenderEmpty(options, theme);
         }
 
         var builder = new SvgBuilder().Size(DefaultWidth, DefaultHeight);
@@ -26,7 +28,7 @@ public class DendrogramRenderer : IDiagramRenderer<DendrogramModel>
             builder.AddText(DefaultWidth / 2, options.Padding + TitleHeight / 2, model.Title,
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px", fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold", fill: theme.TextColor);
         }
 
         var chartX = options.Padding + (model.Horizontal ? 0 : LeafLabelWidth);
@@ -36,7 +38,7 @@ public class DendrogramRenderer : IDiagramRenderer<DendrogramModel>
 
         var positions = CalculatePositions(model, chartX, chartY, chartWidth, chartHeight);
 
-        DrawDendrogram(builder, model, positions, options);
+        DrawDendrogram(builder, model, positions, options, theme);
 
         foreach (var leaf in model.Leaves)
         {
@@ -46,13 +48,15 @@ public class DendrogramRenderer : IDiagramRenderer<DendrogramModel>
                 {
                     builder.AddText(pos.X + 8, pos.Y, leaf.Label,
                         anchor: "start", baseline: "middle",
-                        fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily);
+                        fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily,
+                        fill: theme.TextColor);
                 }
                 else
                 {
                     builder.AddText(chartX - 5, pos.Y, leaf.Label,
                         anchor: "end", baseline: "middle",
-                        fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily);
+                        fontSize: $"{options.FontSize - 2}px", fontFamily: options.FontFamily,
+                        fill: theme.TextColor);
                 }
             }
         }
@@ -60,13 +64,13 @@ public class DendrogramRenderer : IDiagramRenderer<DendrogramModel>
         return builder.Build();
     }
 
-    static SvgDocument RenderEmpty(RenderOptions options)
+    static SvgDocument RenderEmpty(RenderOptions options, DiagramTheme theme)
     {
         var builder = new SvgBuilder().Size(200, 100);
         builder.AddText(100, 50, "Dendrogram\n(requires leaf nodes)",
             anchor: "middle", baseline: "middle",
             fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily,
-            fill: "#999");
+            fill: theme.MutedText);
         return builder.Build();
     }
 
@@ -121,8 +125,10 @@ public class DendrogramRenderer : IDiagramRenderer<DendrogramModel>
     }
 
     static void DrawDendrogram(SvgBuilder builder, DendrogramModel model,
-        Dictionary<string, (double X, double Y, double Height)> positions, RenderOptions options)
+        Dictionary<string, (double X, double Y, double Height)> positions, RenderOptions options, DiagramTheme theme)
     {
+        var lineColor = theme.MutedText;
+
         foreach (var merge in model.Merges)
         {
             var (leftX, leftY, _) = positions.GetValueOrDefault(merge.Left, (0.0, 0.0, 0.0));
@@ -133,24 +139,24 @@ public class DendrogramRenderer : IDiagramRenderer<DendrogramModel>
             if (model.Horizontal)
             {
                 builder.AddLine(leftX, leftY, mergeX, leftY,
-                    stroke: "#666", strokeWidth: 1.5);
+                    stroke: lineColor, strokeWidth: 1.5);
                 builder.AddLine(rightX, rightY, mergeX, rightY,
-                    stroke: "#666", strokeWidth: 1.5);
+                    stroke: lineColor, strokeWidth: 1.5);
                 builder.AddLine(mergeX, leftY, mergeX, rightY,
-                    stroke: "#666", strokeWidth: 1.5);
+                    stroke: lineColor, strokeWidth: 1.5);
             }
             else
             {
                 builder.AddLine(leftX, leftY, leftX, mergeY,
-                    stroke: "#666", strokeWidth: 1.5);
+                    stroke: lineColor, strokeWidth: 1.5);
                 builder.AddLine(rightX, rightY, rightX, mergeY,
-                    stroke: "#666", strokeWidth: 1.5);
+                    stroke: lineColor, strokeWidth: 1.5);
                 builder.AddLine(leftX, mergeY, rightX, mergeY,
-                    stroke: "#666", strokeWidth: 1.5);
+                    stroke: lineColor, strokeWidth: 1.5);
             }
 
             builder.AddCircle(mergeX, mergeY, NodeRadius,
-                fill: "#4a90d9", stroke: "#2c5282", strokeWidth: 1);
+                fill: theme.PrimaryFill, stroke: theme.PrimaryStroke, strokeWidth: 1);
         }
 
         foreach (var leaf in model.Leaves)
@@ -158,7 +164,7 @@ public class DendrogramRenderer : IDiagramRenderer<DendrogramModel>
             if (positions.TryGetValue(leaf.Id, out var pos))
             {
                 builder.AddCircle(pos.X, pos.Y, NodeRadius,
-                    fill: "#68d391", stroke: "#2f855a", strokeWidth: 1);
+                    fill: theme.SecondaryFill, stroke: theme.SecondaryStroke, strokeWidth: 1);
             }
         }
     }

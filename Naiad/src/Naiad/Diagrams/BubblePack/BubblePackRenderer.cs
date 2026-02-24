@@ -8,17 +8,12 @@ public class BubblePackRenderer : IDiagramRenderer<BubblePackModel>
     const double TitleHeight = 30;
     const double Padding = 20;
 
-    static readonly string[] Colors =
-    [
-        "#4e79a7", "#f28e2c", "#e15759", "#76b7b2",
-        "#59a14f", "#edc949", "#af7aa1", "#ff9da7",
-        "#9c755f", "#bab0ab"
-    ];
-
     public SvgDocument Render(BubblePackModel model, RenderOptions options)
     {
+        var theme = DiagramTheme.Resolve(options);
+
         if (model.RootNodes.Count == 0)
-            return RenderEmpty(options);
+            return RenderEmpty(options, theme);
 
         var titleOffset = string.IsNullOrEmpty(model.Title) ? 0 : TitleHeight;
         var size = DefaultSize;
@@ -30,7 +25,7 @@ public class BubblePackRenderer : IDiagramRenderer<BubblePackModel>
             builder.AddText(size / 2, options.Padding + TitleHeight / 2, model.Title,
                 anchor: "middle", baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px", fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold", fill: theme.TextColor);
         }
 
         var centerX = size / 2;
@@ -41,19 +36,19 @@ public class BubblePackRenderer : IDiagramRenderer<BubblePackModel>
         foreach (var root in model.RootNodes)
         {
             PackCircles(root, centerX, centerY, maxRadius);
-            DrawBubble(builder, root, ref colorIndex, options);
+            DrawBubble(builder, root, ref colorIndex, options, theme);
         }
 
         return builder.Build();
     }
 
-    static SvgDocument RenderEmpty(RenderOptions options)
+    static SvgDocument RenderEmpty(RenderOptions options, DiagramTheme theme)
     {
         var builder = new SvgBuilder().Size(200, 100);
         builder.AddText(100, 50, "Bubble Pack\n(empty)",
             anchor: "middle", baseline: "middle",
             fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily,
-            fill: "#999");
+            fill: theme.MutedText);
         return builder.Build();
     }
 
@@ -142,9 +137,10 @@ public class BubblePackRenderer : IDiagramRenderer<BubblePackModel>
         return false;
     }
 
-    static void DrawBubble(SvgBuilder builder, BubbleNode node, ref int colorIndex, RenderOptions options, int depth = 0)
+    static void DrawBubble(SvgBuilder builder, BubbleNode node, ref int colorIndex, RenderOptions options, DiagramTheme theme, int depth = 0)
     {
-        var color = node.Color ?? Colors[colorIndex % Colors.Length];
+        var colors = theme.VividPalette;
+        var color = node.Color ?? colors[colorIndex % colors.Length];
         colorIndex++;
 
         var adjustedColor = AdjustOpacity(color, node.IsLeaf ? 0.8 : 0.3 + (depth * 0.1));
@@ -164,7 +160,7 @@ public class BubblePackRenderer : IDiagramRenderer<BubblePackModel>
         }
 
         foreach (var child in node.Children)
-            DrawBubble(builder, child, ref colorIndex, options, depth + 1);
+            DrawBubble(builder, child, ref colorIndex, options, theme, depth + 1);
     }
 
     static string AdjustOpacity(string hexColor, double opacity)

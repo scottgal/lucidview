@@ -45,7 +45,7 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
                     continue;
                 }
 
-                Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing flowchart '{marker.Key}' — {layout.Width:F0}x{layout.Height:F0}");
+                Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing flowchart '{marker.Key}' - {layout.Width:F0}x{layout.Height:F0}");
 
                 var canvas = new FlowchartCanvas
                 {
@@ -64,7 +64,7 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
                     continue;
                 }
 
-                Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing diagram '{marker.Key}' — {doc.Width:F0}x{doc.Height:F0}");
+                Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing diagram '{marker.Key}' - {doc.Width:F0}x{doc.Height:F0}");
 
                 var canvas = new DiagramCanvas
                 {

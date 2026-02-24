@@ -1,10 +1,11 @@
+using System.Text.RegularExpressions;
 using static MermaidSharp.Rendering.RenderUtils;
 
 namespace MermaidSharp.Diagrams.Sequence;
 
 public class SequenceRenderer : IDiagramRenderer<SequenceModel>
 {
-    const double ParticipantWidth = 100;
+    const double ParticipantMinWidth = 100;
     const double ParticipantHeight = 40;
     const double ParticipantSpacing = 150;
     const double MessageSpacing = 50;
@@ -12,6 +13,7 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
     const double NoteWidth = 120;
     const double NoteHeight = 40;
     const double ActorHeadRadius = 15;
+    const double ParticipantPadding = 20;
 
     public SvgDocument Render(SequenceModel model, RenderOptions options)
     {
@@ -65,15 +67,25 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
     static Dictionary<string, double> CalculateParticipantPositions(SequenceModel model, RenderOptions options)
     {
         var positions = new Dictionary<string, double>();
-        var x = options.Padding + ParticipantWidth / 2;
+        var widths = GetParticipantMinWidths(model, options);
+        var x = options.Padding;
 
         foreach (var participant in model.Participants)
         {
-            positions[participant.Id] = x;
-            x += ParticipantSpacing;
+            var w = widths[participant.Id];
+            positions[participant.Id] = x + w / 2;
+            x += Math.Max(w, ParticipantSpacing);
         }
 
         return positions;
+    }
+
+    static Dictionary<string, double> GetParticipantMinWidths(SequenceModel model, RenderOptions options)
+    {
+        var widths = new Dictionary<string, double>();
+        foreach (var participant in model.Participants)
+            widths[participant.Id] = GetParticipantMinWidth(participant.DisplayName, options.FontSize);
+        return widths;
     }
 
     static (double height, Dictionary<int, double> elementYPositions) CalculateHeight(
@@ -104,25 +116,32 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
 
     static double CalculateWidth(SequenceModel model, RenderOptions options)
     {
-        var participantCount = Math.Max(1, model.Participants.Count);
-        var baseWidth = options.Padding * 2 + ParticipantWidth + (participantCount - 1) * ParticipantSpacing;
+        var positions = CalculateParticipantPositions(model, options);
+        var widths = GetParticipantMinWidths(model, options);
 
-        // Account for notes that extend beyond the rightmost participant
-        var rightmostX = options.Padding + ParticipantWidth / 2 + (participantCount - 1) * ParticipantSpacing;
+        if (model.Participants.Count == 0)
+            return options.Padding * 2 + ParticipantMinWidth;
+
+        var lastP = model.Participants[model.Participants.Count - 1];
+        var rightmostX = positions[lastP.Id];
+        var rightmostW = widths[lastP.Id];
+        var baseWidth = rightmostX + rightmostW / 2 + options.Padding;
+
         var maxRightExtent = baseWidth;
 
         foreach (var element in model.Elements)
         {
-            if (element is Note { Position: NotePosition.RightOf } note)
+            if (element is Note { Position: NotePosition.RightOf } note &&
+                positions.TryGetValue(note.ParticipantId, out var noteParticipantX))
             {
-                // Note extends NoteWidth + 10px gap to the right of the participant
-                var noteRight = rightmostX + ParticipantWidth / 2 + 10 + NoteWidth + options.Padding;
+                var pW = widths.GetValueOrDefault(note.ParticipantId, ParticipantMinWidth);
+                var noteRight = noteParticipantX + pW / 2 + 10 + NoteWidth + options.Padding;
                 maxRightExtent = Math.Max(maxRightExtent, noteRight);
             }
-            else if (element is Message msg && msg.FromId == msg.ToId)
+            else if (element is Message msg && msg.FromId == msg.ToId &&
+                     positions.TryGetValue(msg.FromId, out var selfX))
             {
-                // Self-message loop extends 40px right + text
-                var selfRight = rightmostX + 40 + 80 + options.Padding;
+                var selfRight = selfX + 40 + 80 + options.Padding;
                 maxRightExtent = Math.Max(maxRightExtent, selfRight);
             }
         }
@@ -151,22 +170,20 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
     static void DrawParticipantBox(SvgBuilder builder, double cx, double y,
         string text, RenderOptions options, DiagramTheme theme)
     {
+        var w = GetParticipantMinWidth(text, options.FontSize);
+        var cleaned = CleanHtml(text);
+        var lines = cleaned.Split('\n');
+        var h = lines.Length > 1 ? ParticipantHeight + (lines.Length - 1) * options.FontSize * 1.2 : ParticipantHeight;
+
         builder.AddRect(
-            cx - ParticipantWidth / 2, y,
-            ParticipantWidth, ParticipantHeight,
+            cx - w / 2, y,
+            w, h,
             rx: 3,
             fill: theme.PrimaryFill,
             stroke: theme.PrimaryStroke,
             strokeWidth: 1);
 
-        builder.AddText(
-            cx, y + ParticipantHeight / 2,
-            text,
-            anchor: "middle",
-            baseline: "middle",
-            fontSize: $"{options.FontSize}px",
-            fontFamily: options.FontFamily,
-            fill: theme.TextColor);
+        AddTextWithLineBreaks(builder, cx, y + h / 2, text, options, theme);
     }
 
     static void DrawActor(SvgBuilder builder, double cx, double y,
@@ -204,14 +221,8 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
             strokeWidth: 1);
 
         // Label below
-        builder.AddText(
-            cx, y + ParticipantHeight + 15,
-            text,
-            anchor: "middle",
-            baseline: "top",
-            fontSize: $"{options.FontSize}px",
-            fontFamily: options.FontFamily,
-            fill: theme.TextColor);
+        AddTextWithLineBreaks(builder, cx, y + ParticipantHeight + 15, text, options, theme,
+            baseline: "top");
     }
 
     static void DrawLifelines(SvgBuilder builder, SequenceModel model,
@@ -341,12 +352,8 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
             if (!string.IsNullOrEmpty(msg.Text))
             {
                 var labelText = number.HasValue ? $"{number}. {msg.Text}" : msg.Text;
-                builder.AddText(fromX + loopWidth + 5, y + loopHeight / 2, labelText,
-                    anchor: "start",
-                    baseline: "middle",
-                    fontSize: $"{options.FontSize}px",
-                    fontFamily: options.FontFamily,
-                    fill: theme.TextColor);
+                AddTextWithLineBreaks(builder, fromX + loopWidth + 5, y + loopHeight / 2,
+                    labelText, options, theme, anchor: "start");
             }
         }
         else
@@ -369,12 +376,8 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
                         : msg.Text!;
 
                 var midX = (fromX + toX) / 2;
-                builder.AddText(midX, y - 8, labelText,
-                    anchor: "middle",
-                    baseline: "bottom",
-                    fontSize: $"{options.FontSize}px",
-                    fontFamily: options.FontFamily,
-                    fill: theme.TextColor);
+                AddTextWithLineBreaks(builder, midX, y - 8, labelText, options, theme,
+                    baseline: "bottom");
             }
         }
     }
@@ -431,10 +434,10 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
         switch (note.Position)
         {
             case NotePosition.RightOf:
-                noteX = participantX + ParticipantWidth / 2 + 10;
+                noteX = participantX + ParticipantMinWidth / 2 + 10;
                 break;
             case NotePosition.LeftOf:
-                noteX = participantX - ParticipantWidth / 2 - NoteWidth - 10;
+                noteX = participantX - ParticipantMinWidth / 2 - NoteWidth - 10;
                 break;
             case NotePosition.Over:
             default:
@@ -470,12 +473,8 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
             stroke: theme.SecondaryStroke, strokeWidth: 1);
 
         // Note text
-        builder.AddText(noteX + NoteWidth / 2, y + NoteHeight / 2, note.Text,
-            anchor: "middle",
-            baseline: "middle",
-            fontSize: $"{options.FontSize}px",
-            fontFamily: options.FontFamily,
-            fill: theme.TextColor);
+        AddTextWithLineBreaks(builder, noteX + NoteWidth / 2, y + NoteHeight / 2,
+            note.Text, options, theme);
     }
 
     static void DrawActivations(SvgBuilder builder,
@@ -494,6 +493,62 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
                     stroke: theme.MutedText,
                     strokeWidth: 1);
             }
+        }
+    }
+
+    /// <summary>
+    /// Convert HTML line breaks to newlines and strip remaining HTML tags.
+    /// </summary>
+    static string CleanHtml(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        text = Regex.Replace(text, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"<[^>]+>", "");
+        return text.Replace("&quot;", "\"")
+            .Replace("&amp;", "&")
+            .Replace("&lt;", "<")
+            .Replace("&gt;", ">")
+            .Replace("&apos;", "'")
+            .Replace("&#39;", "'")
+            .Trim();
+    }
+
+    /// <summary>
+    /// Calculate the width needed for a participant box based on its display name.
+    /// </summary>
+    static double GetParticipantMinWidth(string displayName, double fontSize)
+    {
+        var cleaned = CleanHtml(displayName);
+        var lines = cleaned.Split('\n');
+        var maxWidth = 0.0;
+        foreach (var line in lines)
+            maxWidth = Math.Max(maxWidth, MeasureTextWidth(line, fontSize));
+        return Math.Max(ParticipantMinWidth, maxWidth + ParticipantPadding * 2);
+    }
+
+    /// <summary>
+    /// Add text to SVG, handling multi-line text with tspan elements when the text contains newlines.
+    /// </summary>
+    static void AddTextWithLineBreaks(SvgBuilder builder, double x, double y, string text,
+        RenderOptions options, DiagramTheme theme, string anchor = "middle", string baseline = "middle",
+        string? fontWeight = null)
+    {
+        var cleaned = CleanHtml(text);
+        var lines = cleaned.Split('\n');
+        if (lines.Length <= 1)
+        {
+            builder.AddText(x, y, cleaned,
+                anchor: anchor, baseline: baseline,
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily,
+                fontWeight: fontWeight, fill: theme.TextColor);
+        }
+        else
+        {
+            // Center the multi-line block vertically around y
+            var lineHeight = options.FontSize * 1.2;
+            var totalHeight = lines.Length * lineHeight;
+            var startY = y - totalHeight / 2 + lineHeight / 2;
+            builder.AddMultiLineText(x, startY, lineHeight, lines, anchor: anchor, fill: theme.TextColor);
         }
     }
 
