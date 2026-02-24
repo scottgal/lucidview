@@ -4,8 +4,6 @@ namespace MarkdownViewer.Tests;
 
 public class NavigationServiceTests
 {
-    private readonly NavigationService _service = new();
-
     [Fact]
     public void ExtractHeadings_SingleHeading_ReturnsOne()
     {
@@ -13,7 +11,7 @@ public class NavigationServiceTests
         var content = "# Main Title\n\nSome content.";
 
         // Act
-        var headings = _service.ExtractHeadings(content);
+        var headings = NavigationService.ExtractHeadings(content);
 
         // Assert
         Assert.Single(headings);
@@ -32,7 +30,7 @@ public class NavigationServiceTests
 ## Section 3";
 
         // Act
-        var headings = _service.ExtractHeadings(content);
+        var headings = NavigationService.ExtractHeadings(content);
 
         // Assert
         Assert.Single(headings); // Only top-level
@@ -50,7 +48,7 @@ public class NavigationServiceTests
 ## Sub 2";
 
         // Act
-        var headings = _service.ExtractHeadings(content);
+        var headings = NavigationService.ExtractHeadings(content);
 
         // Assert
         Assert.Single(headings);
@@ -69,7 +67,7 @@ public class NavigationServiceTests
         var content = "Just regular text\n\nNo headings here.";
 
         // Act
-        var headings = _service.ExtractHeadings(content);
+        var headings = NavigationService.ExtractHeadings(content);
 
         // Assert
         Assert.Empty(headings);
@@ -89,7 +87,7 @@ public class NavigationServiceTests
 ## Another Real Heading";
 
         // Act
-        var headings = _service.ExtractHeadings(content);
+        var headings = NavigationService.ExtractHeadings(content);
 
         // Assert
         // Note: Current implementation may not handle this perfectly
@@ -107,7 +105,7 @@ public class NavigationServiceTests
 ### The `async` Keyword";
 
         // Act
-        var headings = _service.ExtractHeadings(content);
+        var headings = NavigationService.ExtractHeadings(content);
 
         // Assert
         Assert.Single(headings);

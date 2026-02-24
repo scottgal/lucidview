@@ -172,7 +172,7 @@ public static class Mermaid
 
         var diagramType = DetectDiagramType(input);
 
-        return SecurityValidator.WithTimeout(() => diagramType switch
+        var doc = SecurityValidator.WithTimeout(() => diagramType switch
         {
             DiagramType.Pie => RenderPieDoc(input, options),
             DiagramType.Flowchart => RenderFlowchartDoc(input, options),
@@ -207,6 +207,16 @@ public static class Mermaid
             DiagramType.Geo => RenderGeoDoc(input, options),
             _ => throw new MermaidException($"Unsupported diagram type: {diagramType}")
         }, options.RenderTimeout, "Diagram rendering");
+
+        // Apply background color from theme to the SVG document
+        if (doc != null)
+        {
+            var bg = options.ThemeColors?.BackgroundColor
+                     ?? DiagramTheme.Resolve(options).Background;
+            doc.BackgroundColor = bg;
+        }
+
+        return doc;
     }
 
     /// <summary>

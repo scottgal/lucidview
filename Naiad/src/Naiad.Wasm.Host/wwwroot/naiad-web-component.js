@@ -102,8 +102,9 @@ template.innerHTML = `
   #toolbar {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--naiad-toolbar-gap);
+    gap: 2px;
     margin: var(--naiad-toolbar-margin);
+    align-items: center;
   }
 
   :host(:not([show-menu])) #toolbar {
@@ -116,13 +117,58 @@ template.innerHTML = `
     border-radius: var(--naiad-button-radius);
     background: var(--naiad-button-bg);
     color: var(--naiad-button-color);
-    padding: var(--naiad-button-padding);
+    padding: 5px 7px;
     font: var(--naiad-button-font);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    min-width: 30px;
+    min-height: 30px;
+  }
+
+  #toolbar button:hover:not(:disabled) {
+    background: var(--naiad-button-hover-bg);
+  }
+
+  #toolbar button:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  #toolbar button svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  #toolbar button[title]:hover::after {
+    content: attr(title);
+  }
+
+  #toolbar .separator {
+    width: 1px;
+    height: 20px;
+    background: var(--naiad-button-border);
+    margin: 0 4px;
+  }
+
+  #zoom-label {
+    font: var(--naiad-status-font);
+    color: var(--naiad-status-color);
+    min-width: 36px;
+    text-align: center;
+    user-select: none;
     cursor: pointer;
   }
 
-  #toolbar button:hover {
-    background: var(--naiad-button-hover-bg);
+  #zoom-label:hover {
+    text-decoration: underline;
   }
 
   #status {
@@ -148,6 +194,8 @@ template.innerHTML = `
 
   #diagram {
     min-height: var(--naiad-diagram-min-height);
+    transition: transform 0.15s ease;
+    transform-origin: top left;
   }
 
   #diagram svg {
@@ -158,11 +206,33 @@ template.innerHTML = `
     width: 100%;
     height: auto;
   }
+
+  :host(:fullscreen) {
+    background: var(--naiad-bg);
+    padding: 16px;
+    overflow: auto;
+  }
 </style>
 <div id="toolbar" part="toolbar">
   <slot name="menu">
-    <button type="button" id="action-save-svg" part="menu-button">Save SVG</button>
-    <button type="button" id="action-save-png" part="menu-button">Save PNG</button>
+    <button type="button" id="action-zoom-in" part="menu-button" title="Zoom in">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <button type="button" id="action-zoom-out" part="menu-button" title="Zoom out">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <span id="zoom-label" part="zoom-label">100%</span>
+    <div class="separator"></div>
+    <button type="button" id="action-save-svg" part="menu-button" title="Save SVG">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </button>
+    <button type="button" id="action-save-png" part="menu-button" title="Save PNG">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </button>
+    <div class="separator"></div>
+    <button type="button" id="action-fullscreen" part="menu-button" title="Fullscreen">
+      <svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+    </button>
   </slot>
 </div>
 <div id="status" part="status" aria-live="polite">Initializing Naiad runtime...</div>
@@ -189,6 +259,10 @@ class NaiadDiagramElement extends HTMLElement {
   #diagramEl;
   #saveSvgButton;
   #savePngButton;
+  #zoomInButton;
+  #zoomOutButton;
+  #fullscreenButton;
+  #zoomLabelEl;
   #observer;
   #resizeObserver;
   #renderToken = 0;
@@ -198,6 +272,11 @@ class NaiadDiagramElement extends HTMLElement {
   #renderCache = new Map();
   #lastWidth = 0;
   #lastHeight = 0;
+  #zoomLevel = 1.0;
+
+  static #ZOOM_MIN = 0.25;
+  static #ZOOM_MAX = 4.0;
+  static #ZOOM_STEP = 0.25;
 
   #onThemeChanged = () => {
     if (this.#usesAutoTheme()) {
@@ -213,6 +292,22 @@ class NaiadDiagramElement extends HTMLElement {
     void this.#runMenuAction("download-png");
   };
 
+  #onZoomInClick = () => {
+    void this.#runMenuAction("zoom-in");
+  };
+
+  #onZoomOutClick = () => {
+    void this.#runMenuAction("zoom-out");
+  };
+
+  #onZoomLabelClick = () => {
+    void this.#runMenuAction("zoom-reset");
+  };
+
+  #onFullscreenClick = () => {
+    void this.#runMenuAction("fullscreen");
+  };
+
   constructor() {
     super();
     const shadow = this.attachShadow({ mode: "open" });
@@ -222,6 +317,10 @@ class NaiadDiagramElement extends HTMLElement {
     this.#diagramEl = shadow.getElementById("diagram");
     this.#saveSvgButton = shadow.getElementById("action-save-svg");
     this.#savePngButton = shadow.getElementById("action-save-png");
+    this.#zoomInButton = shadow.getElementById("action-zoom-in");
+    this.#zoomOutButton = shadow.getElementById("action-zoom-out");
+    this.#fullscreenButton = shadow.getElementById("action-fullscreen");
+    this.#zoomLabelEl = shadow.getElementById("zoom-label");
   }
 
   connectedCallback() {
@@ -501,6 +600,26 @@ class NaiadDiagramElement extends HTMLElement {
 
     if (action === "download-png") {
       await this.downloadPng();
+      return;
+    }
+
+    if (action === "zoom-in") {
+      this.#setZoom(this.#zoomLevel + NaiadDiagramElement.#ZOOM_STEP);
+      return;
+    }
+
+    if (action === "zoom-out") {
+      this.#setZoom(this.#zoomLevel - NaiadDiagramElement.#ZOOM_STEP);
+      return;
+    }
+
+    if (action === "zoom-reset") {
+      this.#setZoom(1.0);
+      return;
+    }
+
+    if (action === "fullscreen") {
+      this.#toggleFullscreen();
     }
   }
 
@@ -902,11 +1021,19 @@ class NaiadDiagramElement extends HTMLElement {
   #setupActionButtons() {
     this.#saveSvgButton?.addEventListener("click", this.#onSaveSvgClick);
     this.#savePngButton?.addEventListener("click", this.#onSavePngClick);
+    this.#zoomInButton?.addEventListener("click", this.#onZoomInClick);
+    this.#zoomOutButton?.addEventListener("click", this.#onZoomOutClick);
+    this.#zoomLabelEl?.addEventListener("click", this.#onZoomLabelClick);
+    this.#fullscreenButton?.addEventListener("click", this.#onFullscreenClick);
   }
 
   #teardownActionButtons() {
     this.#saveSvgButton?.removeEventListener("click", this.#onSaveSvgClick);
     this.#savePngButton?.removeEventListener("click", this.#onSavePngClick);
+    this.#zoomInButton?.removeEventListener("click", this.#onZoomInClick);
+    this.#zoomOutButton?.removeEventListener("click", this.#onZoomOutClick);
+    this.#zoomLabelEl?.removeEventListener("click", this.#onZoomLabelClick);
+    this.#fullscreenButton?.removeEventListener("click", this.#onFullscreenClick);
   }
 
   #setStatus(message) {
@@ -1081,6 +1208,30 @@ class NaiadDiagramElement extends HTMLElement {
     }
 
     return !this.#containsUnsafeToken(value) && !/^(?:data|javascript|vbscript):/i.test(value);
+  }
+
+  #setZoom(level) {
+    const clamped = Math.min(
+      NaiadDiagramElement.#ZOOM_MAX,
+      Math.max(NaiadDiagramElement.#ZOOM_MIN, level)
+    );
+    this.#zoomLevel = Math.round(clamped * 100) / 100;
+    this.#diagramEl.style.transform = this.#zoomLevel === 1.0
+      ? ""
+      : `scale(${this.#zoomLevel})`;
+    if (this.#zoomLabelEl) {
+      this.#zoomLabelEl.textContent = `${Math.round(this.#zoomLevel * 100)}%`;
+    }
+    this.#zoomInButton && (this.#zoomInButton.disabled = this.#zoomLevel >= NaiadDiagramElement.#ZOOM_MAX);
+    this.#zoomOutButton && (this.#zoomOutButton.disabled = this.#zoomLevel <= NaiadDiagramElement.#ZOOM_MIN);
+  }
+
+  #toggleFullscreen() {
+    if (document.fullscreenElement === this) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      this.requestFullscreen().catch(() => {});
+    }
   }
 
   #clearDebounceTimer() {

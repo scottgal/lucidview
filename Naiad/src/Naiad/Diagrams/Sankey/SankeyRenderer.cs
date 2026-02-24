@@ -20,7 +20,7 @@ public class SankeyRenderer : IDiagramRenderer<SankeyModel>
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty diagram", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -57,7 +57,8 @@ public class SankeyRenderer : IDiagramRenderer<SankeyModel>
                 baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px",
                 fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold",
+                fill: theme.TextColor);
         }
 
         // Position nodes

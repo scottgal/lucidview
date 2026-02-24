@@ -18,7 +18,7 @@ public class KanbanRenderer : IDiagramRenderer<KanbanModel>
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty board", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -39,7 +39,8 @@ public class KanbanRenderer : IDiagramRenderer<KanbanModel>
                 baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px",
                 fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold",
+                fill: theme.TextColor);
         }
 
         // Draw columns

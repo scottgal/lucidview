@@ -20,7 +20,7 @@ public class C4Renderer : IDiagramRenderer<C4Model>
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty C4 diagram", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -90,7 +90,8 @@ public class C4Renderer : IDiagramRenderer<C4Model>
                 baseline: "middle",
                 fontSize: $"{options.FontSize + 6}px",
                 fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold",
+                fill: theme.TextColor);
         }
 
         // Position tracking

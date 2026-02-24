@@ -463,8 +463,8 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
         var sgById = new Dictionary<string, Subgraph>(StringComparer.Ordinal);
         FlattenSubgraphs(diagram.Subgraphs, sgById);
 
-        const double titlePadding = 28.0; // Extra top space for title text
-        const double contentPadding = 16.0; // Padding around content on all sides
+        const double titlePadding = 24.0; // Extra top space for title text (matches FlowchartRenderer)
+        const double contentPadding = 20.0; // Padding around content on all sides (matches FlowchartRenderer)
 
         // Process bottom-up: nested subgraphs first, then their parents.
         // Build ordered list with deepest subgraphs first.

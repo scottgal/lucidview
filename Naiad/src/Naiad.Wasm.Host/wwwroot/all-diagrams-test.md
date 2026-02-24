@@ -321,6 +321,103 @@ treemap-beta
         "DevOps": 25
 ```
 
+## 26. BPMN
+
+```bpmn
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" id="definitions1">
+  <process id="orderProcess" isExecutable="false">
+    <startEvent id="start" name="Order Received"/>
+    <task id="review" name="Review Order"/>
+    <exclusiveGateway id="gw1" name="Approved?"/>
+    <task id="ship" name="Ship Order"/>
+    <task id="reject" name="Send Rejection"/>
+    <endEvent id="end" name="Complete"/>
+    <sequenceFlow id="f1" sourceRef="start" targetRef="review"/>
+    <sequenceFlow id="f2" sourceRef="review" targetRef="gw1"/>
+    <sequenceFlow id="f3" sourceRef="gw1" targetRef="ship" name="Yes"/>
+    <sequenceFlow id="f4" sourceRef="gw1" targetRef="reject" name="No"/>
+    <sequenceFlow id="f5" sourceRef="ship" targetRef="end"/>
+    <sequenceFlow id="f6" sourceRef="reject" targetRef="end"/>
+  </process>
+</definitions>
+```
+
+## 27. Parallel Coordinates
+
+```mermaid
+parallelcoords
+    title "Car Comparison"
+    axis Price, MPG, Horsepower
+    dataset "Economy"{22000, 32, 130}
+    dataset "Sport"{45000, 18, 350}
+    dataset "SUV"{38000, 24, 250}
+```
+
+## 28. Dendrogram
+
+```mermaid
+dendrogram
+    title "Species Clustering"
+    leaf "Cat", "Dog", "Fish", "Bird"
+    merge "Cat"-"Dog":0.3
+    merge "Fish"-"Bird":0.5
+    merge "CatDog"-"FishBird":0.8
+```
+
+## 29. Bubble Pack
+
+```mermaid
+bubblepack
+    "Company"
+        "Engineering": 120
+            "Frontend": 40
+            "Backend": 50
+            "DevOps": 30
+        "Design": 35
+        "Marketing": 45
+```
+
+## 30. Voronoi
+
+```mermaid
+voronoi
+    title "Territory Map"
+    site "HQ" at 200, 200
+    site "Branch A" at 100, 100
+    site "Branch B" at 300, 100
+    site "Branch C" at 100, 300
+    site "Branch D" at 300, 300
+```
+
+## 31. Geo Map
+
+```mermaid
+geo
+    title "Office Locations"
+    map world
+    town "London" country=uk color=#ef4444 size=6
+    town "New York" country=us color=#3b82f6
+    town "Tokyo" country=jp color=#22c55e
+```
+
+## 32. Wireframe
+
+```mermaid
+%% naiad: skinPack=wireframe
+%% naiad: shapes nav=navbar, card=card, btn=button, srch=searchbar
+flowchart TD
+    nav["My App - Home - Settings - Help"]
+    srch["Search..."]
+    subgraph main["Content"]
+        card["Welcome Back\nYou have 3 notifications"]
+    end
+    btn["Get Started"]
+    nav --> srch
+    srch --> main
+    main --> btn
+```
+
 ---
 
 **Expected result:** All diagrams above should render as native Avalonia vector graphics (DiagramCanvas or FlowchartCanvas), not as rasterized PNG images. Verify by right-clicking any diagram - the context menu should show "Save Diagram as PNG..." and "Save Diagram as SVG...".

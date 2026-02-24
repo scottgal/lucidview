@@ -372,20 +372,31 @@ public class SvgMultiLineText : SvgElement
     public double LineHeight { get; set; }
     public required string[] Lines { get; set; }
     public string? TextAnchor { get; set; }
+    public string? DominantBaseline { get; set; }
     public string? Fill { get; set; }
+    public string? FontSize { get; set; }
+    public string? FontFamily { get; set; }
+    public string? FontWeight { get; set; }
 
     public override string ToXml()
     {
         var sb = new StringBuilder();
         sb.Append($"<text x=\"{Fmt(X)}\" y=\"{Fmt(StartY)}\"");
         if (TextAnchor is not null) sb.Append($" text-anchor=\"{EscapeAttribute(TextAnchor)}\"");
+        if (DominantBaseline is not null) sb.Append($" dominant-baseline=\"{EscapeAttribute(DominantBaseline)}\"");
+        if (FontSize is not null) sb.Append($" font-size=\"{EscapeAttribute(FontSize)}\"");
+        if (FontFamily is not null) sb.Append($" font-family=\"{EscapeAttribute(FontFamily.Replace('"', '\''))}\"");
+        if (FontWeight is not null) sb.Append($" font-weight=\"{EscapeAttribute(FontWeight)}\"");
         if (Fill is not null) sb.Append($" fill=\"{EscapeAttribute(Fill)}\"");
         AppendCommonAttributes(sb);
         sb.Append('>');
+        // Explicit fill on each tspan for SkiaSharp SVG rasterization compatibility
+        // (SkiaSharp does not reliably inherit fill from parent <text>)
+        var tspanFill = Fill is not null ? $" fill=\"{EscapeAttribute(Fill)}\"" : "";
         for (var i = 0; i < Lines.Length; i++)
         {
             var dy = i == 0 ? "0" : Fmt(LineHeight);
-            sb.Append($"<tspan x=\"{Fmt(X)}\" dy=\"{dy}\">{EscapeXml(Lines[i])}</tspan>");
+            sb.Append($"<tspan x=\"{Fmt(X)}\" dy=\"{dy}\"{tspanFill}>{EscapeXml(Lines[i])}</tspan>");
         }
         sb.Append("</text>");
         return sb.ToString();

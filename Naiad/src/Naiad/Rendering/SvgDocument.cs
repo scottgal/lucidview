@@ -14,6 +14,11 @@ public class SvgDocument
     public string? CssStyles { get; set; }
 
     /// <summary>
+    /// Optional background color for the SVG. When set, a full-size rect is rendered behind all elements.
+    /// </summary>
+    public string? BackgroundColor { get; set; }
+
+    /// <summary>
     /// Element hit regions for interactive diagrams (ID → bounding rect). Not serialized to SVG XML.
     /// </summary>
     public Dictionary<string, (double X, double Y, double Width, double Height)> HitRegions { get; } = [];
@@ -44,7 +49,8 @@ public class SvgDocument
         var sb = new StringBuilder();
 
         // Build mermaid-compatible SVG root element (attribute order matches mermaid.ink exactly)
-        sb.Append($"<svg id=\"{WebUtility.HtmlEncode(Id)}\" width=\"100%\" xmlns=\"http://www.w3.org/2000/svg\"");
+        // Use pixel width/height for SkiaSharp SVG rasterization compatibility
+        sb.Append($"<svg id=\"{WebUtility.HtmlEncode(Id)}\" width=\"{FmtWidth(Width)}\" height=\"{Fmt(Height)}\" xmlns=\"http://www.w3.org/2000/svg\"");
 
         if (!string.IsNullOrEmpty(DiagramClass))
         {
@@ -81,6 +87,12 @@ public class SvgDocument
         if (Defs.HasContent)
         {
             sb.Append(Defs.ToXml());
+        }
+
+        // Background rect - renders behind all elements for dark mode support
+        if (!string.IsNullOrEmpty(BackgroundColor))
+        {
+            sb.Append($"<rect width=\"{FmtWidth(Width)}\" height=\"{Fmt(Height)}\" fill=\"{WebUtility.HtmlEncode(BackgroundColor)}\" />");
         }
 
         foreach (var element in Elements)

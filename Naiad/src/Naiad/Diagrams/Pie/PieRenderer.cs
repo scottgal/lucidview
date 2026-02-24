@@ -72,13 +72,14 @@ public class PieRenderer : IDiagramRenderer<PieModel>
                 cssClass: "slice",
                 style: "text-anchor: middle;",
                 transform: $"translate({FmtMermaid(labelX)},{FmtMermaid(labelY)})",
-                omitXY: true);
+                omitXY: true,
+                fill: theme.TextColor);
 
             startAngle += sweepAngle;
         }
 
         // Title (empty element if no title - self-closing)
-        builder.AddText(0, -200, model.Title ?? "", cssClass: "pieTitleText");
+        builder.AddText(0, -200, model.Title ?? "", cssClass: "pieTitleText", fill: theme.TextColor);
 
         // Legend items
         var legendStartY = -(model.Sections.Count * 22) / 2;

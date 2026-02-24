@@ -44,7 +44,8 @@ public class QuadrantRenderer : IDiagramRenderer<QuadrantModel>
                 baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px",
                 fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold",
+                fill: theme.TextColor);
         }
 
         // Draw quadrant backgrounds

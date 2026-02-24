@@ -17,6 +17,12 @@ public partial class MarkdownService
     private bool _isDarkMode = true;
     private string _themeTextColor = "#e6edf3";      // Default to dark theme text
     private string _themeBackgroundColor = "#0d1117"; // Default to dark theme background
+    private string _themeNodeFill = "#1c2333";
+    private string _themeNodeStroke = "#7c6bbd";
+    private string _themeEdgeStroke = "#c9d1d9";
+    private string _themeEdgeLabelBackground = "rgba(13,17,23,0.85)";
+    private string? _themeSubgraphFill;
+    private string? _themeSubgraphStroke;
     private ImageCacheService? _imageCacheService;
     private MermaidCacheService? _mermaidCache;
 
@@ -110,22 +116,65 @@ public partial class MarkdownService
         // Use default colors for backwards compatibility
         _themeTextColor = isDark ? "#e6edf3" : "#333333";
         _themeBackgroundColor = isDark ? "#0d1117" : "#ffffff";
+        var dt = isDark ? DiagramTheme.Dark : DiagramTheme.Light;
+        _themeNodeFill = dt.PrimaryFill;
+        _themeNodeStroke = dt.PrimaryStroke;
+        _themeEdgeStroke = dt.AxisLine;
+        _themeEdgeLabelBackground = dt.LabelBackground;
+        _themeSubgraphFill = null;
+        _themeSubgraphStroke = null;
     }
 
     /// <summary>
-    /// Set theme colors for accurate Mermaid diagram rendering
+    /// Set theme colors for accurate Mermaid diagram rendering.
+    /// Uses the full ThemeDefinition to derive diagram-specific colors (node fill, stroke, etc.)
+    /// so diagrams visually match the active lucidVIEW theme.
+    /// </summary>
+    public void SetThemeColors(ThemeDefinition themeDef)
+    {
+        var isDark = IsDarkColor(themeDef.Background, true);
+        _isDarkMode = isDark;
+        _themeTextColor = themeDef.Text;
+        _themeBackgroundColor = themeDef.Background;
+        _themeNodeFill = themeDef.Surface;
+        _themeNodeStroke = themeDef.Accent;
+        _themeEdgeStroke = themeDef.TextSecondary;
+        _themeEdgeLabelBackground = isDark
+            ? HexToRgba(themeDef.BackgroundSecondary, 0.85)
+            : HexToRgba(themeDef.Background, 0.85);
+        _themeSubgraphFill = HexToRgba(themeDef.BackgroundTertiary, 0.5);
+        _themeSubgraphStroke = themeDef.Border;
+    }
+
+    /// <summary>
+    /// Legacy overload for callers that only have basic color info.
     /// </summary>
     public void SetThemeColors(bool isDark, string textColor, string backgroundColor)
     {
         _isDarkMode = IsDarkColor(backgroundColor, isDark);
         _themeTextColor = textColor;
         _themeBackgroundColor = backgroundColor;
+        var dt = _isDarkMode ? DiagramTheme.Dark : DiagramTheme.Light;
+        _themeNodeFill = dt.PrimaryFill;
+        _themeNodeStroke = dt.PrimaryStroke;
+        _themeEdgeStroke = dt.AxisLine;
+        _themeEdgeLabelBackground = dt.LabelBackground;
+        _themeSubgraphFill = null;
+        _themeSubgraphStroke = null;
+    }
+
+    static string HexToRgba(string hex, double alpha)
+    {
+        if (string.IsNullOrEmpty(hex) || hex[0] != '#' || hex.Length < 7) return hex;
+        var r = Convert.ToInt32(hex.Substring(1, 2), 16);
+        var g = Convert.ToInt32(hex.Substring(3, 2), 16);
+        var b = Convert.ToInt32(hex.Substring(5, 2), 16);
+        return $"rgba({r},{g},{b},{alpha:0.##})";
     }
 
     RenderOptions CreateRenderOptions()
     {
         var isDarkTheme = IsDarkColor(_themeBackgroundColor, _isDarkMode);
-        var diagramTheme = isDarkTheme ? DiagramTheme.Dark : DiagramTheme.Light;
 
         return new RenderOptions
         {
@@ -134,10 +183,12 @@ public partial class MarkdownService
             {
                 TextColor = _themeTextColor,
                 BackgroundColor = _themeBackgroundColor,
-                NodeFill = diagramTheme.PrimaryFill,
-                NodeStroke = diagramTheme.PrimaryStroke,
-                EdgeStroke = diagramTheme.AxisLine,
-                EdgeLabelBackground = diagramTheme.LabelBackground
+                NodeFill = _themeNodeFill,
+                NodeStroke = _themeNodeStroke,
+                EdgeStroke = _themeEdgeStroke,
+                EdgeLabelBackground = _themeEdgeLabelBackground,
+                SubgraphFill = _themeSubgraphFill,
+                SubgraphStroke = _themeSubgraphStroke
             },
             // Desktop host allows skin packs from local folders/archives. Mermaid input
             // can keep paths relative to the current markdown file directory.
@@ -597,24 +648,11 @@ public partial class MarkdownService
                 continue;
             }
 
-            // Fallback: PNG pipeline with caching
-            var cacheKey = MermaidCacheService.ComputeKey(
-                mermaidCode, _isDarkMode, _themeTextColor, _themeBackgroundColor);
-            var cachedPath = _mermaidCache?.TryGet(cacheKey);
-
-            if (cachedPath != null)
+            // Fallback: PNG pipeline (always render fresh - fast enough without caching)
             {
-                // Cache hit - inline immediately and track source
-                var markdownPath = cachedPath.Replace("\\", "/");
-                _mermaidSourceMap[cachedPath] = mermaidCode;
-                rewritten.Append($"\n\n![Mermaid Diagram]({markdownPath})\n\n");
-            }
-            else
-            {
-                // Cache miss - insert placeholder, queue for async rendering
                 var placeholder = $"<!--mermaid-pending-{_mermaidCounter++}-->";
                 rewritten.Append(placeholder);
-                pending.Add(new MermaidWorkItem(placeholder, mermaidCode, cacheKey));
+                pending.Add(new MermaidWorkItem(placeholder, mermaidCode, null));
             }
 
             cursor = match.Index + match.Length;
@@ -837,10 +875,7 @@ public partial class MarkdownService
             pngData = data.ToArray();
         }
 
-        // Store in cache
-        var cacheKey = MermaidCacheService.ComputeKey(mermaidCode, isDark, textColor, bgColor);
-        return _mermaidCache?.Put(cacheKey, pngData)
-               ?? WriteTempPng(pngData);
+        return WriteTempPng(pngData);
     }
 
     /// <summary>
@@ -918,7 +953,7 @@ public partial class MarkdownService
     /// <summary>
     /// Work item for a mermaid diagram that needs rendering.
     /// </summary>
-    public record MermaidWorkItem(string Placeholder, string MermaidCode, string CacheKey);
+    public record MermaidWorkItem(string Placeholder, string MermaidCode, string? CacheKey);
 
     /// <summary>
     /// Try to render mermaid code with multiple preprocessing strategies

@@ -715,10 +715,9 @@ public partial class MainWindow : Window
     {
         UpdatePanelOverlay(effectiveTheme);
 
-        // Update markdown service for theme-aware mermaid rendering
-        var isDark = !IsLightTheme(effectiveTheme);
+        // Update markdown service with full theme definition for theme-aware diagram rendering
         var themeDefinition = ThemeColors.GetTheme(effectiveTheme);
-        _markdownService.SetThemeColors(isDark, themeDefinition.Text, themeDefinition.Background);
+        _markdownService.SetThemeColors(themeDefinition);
 
         // Invalidate mermaid cache since theme colors changed
         _markdownService.InvalidateMermaidCache();

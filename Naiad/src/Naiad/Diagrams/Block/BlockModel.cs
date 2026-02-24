@@ -4,6 +4,14 @@ public class BlockModel : DiagramBase
 {
     public int Columns { get; set; } = 1;
     public List<BlockElement> Elements { get; } = [];
+    public List<BlockEdge> Edges { get; } = [];
+}
+
+public class BlockEdge
+{
+    public required string FromId { get; init; }
+    public required string ToId { get; init; }
+    public string? Label { get; set; }
 }
 
 public class BlockElement

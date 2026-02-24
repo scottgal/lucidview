@@ -24,7 +24,7 @@ public class GanttRenderer : IDiagramRenderer<GanttModel>
             // Empty chart
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "No tasks", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -65,7 +65,8 @@ public class GanttRenderer : IDiagramRenderer<GanttModel>
                 anchor: "middle",
                 baseline: "middle",
                 fontSize: $"{options.FontSize + 2}px",
-                fontFamily: options.FontFamily);
+                fontFamily: options.FontFamily,
+                fill: theme.TextColor);
             offsetY += 30;
         }
 
@@ -91,7 +92,8 @@ public class GanttRenderer : IDiagramRenderer<GanttModel>
                     baseline: "middle",
                     fontSize: $"{options.FontSize}px",
                     fontFamily: options.FontFamily,
-                    fontWeight: "bold");
+                    fontWeight: "bold",
+                    fill: theme.TextColor);
                 currentRow++;
             }
 

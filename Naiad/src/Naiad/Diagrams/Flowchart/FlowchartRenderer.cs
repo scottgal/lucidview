@@ -166,6 +166,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     public SvgDocument Render(FlowchartModel model, RenderOptions options)
     {
         var layout = LayoutModel(model, options);
+        var theme = DiagramTheme.Resolve(options);
 
         // Apply skin corner radius to options so ShapePathGenerator uses it
         options.NodeCornerRadius = layout.Skin.NodeCornerRadius;
@@ -184,18 +185,18 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         builder.AddStyles(BuildSkinCss(options, layout.Skin));
 
         // Render subgraph containers first (background layer)
-        RenderSubgraphs(builder, model);
+        RenderSubgraphs(builder, model, theme);
 
         // Render edges first (behind nodes)
         foreach (var edge in model.Edges)
         {
-            RenderEdge(builder, edge, options);
+            RenderEdge(builder, edge, options, theme);
         }
 
         // Render nodes
         foreach (var node in model.Nodes)
         {
-            RenderNode(builder, node, options);
+            RenderNode(builder, node, options, theme, layout.Skin);
         }
 
         return builder.Build();
@@ -273,7 +274,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         return new() { Width = Math.Max(0, maxX), Height = Math.Max(0, maxY) };
     }
 
-    static void RenderNode(SvgBuilder builder, Node node, RenderOptions options)
+    static void RenderNode(SvgBuilder builder, Node node, RenderOptions options, DiagramTheme theme, FlowchartSkin skin)
     {
         var x = node.Position.X - node.Width / 2;
         var y = node.Position.Y - node.Height / 2;
@@ -299,7 +300,12 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
             customStyle = SecurityValidator.SanitizeCss(sb.ToString());
         }
 
-        RenderSkinnedNodePaths(builder, skinnedPath, shapeClass, customStyle);
+        // Pass skin fill/stroke as explicit SVG attributes (fallback for renderers
+        // that don't fully support embedded CSS, e.g. Svg.Skia). CSS class rules
+        // still take priority in browsers that support them.
+        var nodeFill = node.Style.Fill ?? skin.NodeFill;
+        var nodeStroke = node.Style.Stroke ?? skin.NodeStroke;
+        RenderSkinnedNodePaths(builder, skinnedPath, shapeClass, customStyle, nodeFill, nodeStroke);
 
         // Render label as SVG text (centered in node)
         // Use wrapped label if text was wrapped during measurement
@@ -336,7 +342,8 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
                 anchor: "middle",
                 baseline: "central",
                 cssClass: "flow-node-label",
-                style: textStyle);
+                style: textStyle,
+                fill: theme.TextColor);
         }
         else
         {
@@ -347,7 +354,8 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
                 centerX, startY, lineHeight,
                 lines,
                 anchor: "middle",
-                cssClass: "flow-node-label");
+                cssClass: "flow-node-label",
+                fill: theme.TextColor);
         }
     }
 
@@ -365,7 +373,9 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         SvgBuilder builder,
         ShapePathGenerator.SkinnedPath skinnedPath,
         string shapeClass,
-        string? customStyle)
+        string? customStyle,
+        string? fallbackFill = null,
+        string? fallbackStroke = null)
     {
         if (!string.IsNullOrWhiteSpace(skinnedPath.DefsContent))
         {
@@ -376,6 +386,9 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         if (layers is null || layers.Count == 0)
         {
             builder.AddPath(skinnedPath.PathData,
+                fill: fallbackFill,
+                stroke: fallbackStroke,
+                strokeWidth: 1,
                 cssClass: $"flow-node flow-node-shape {shapeClass}",
                 inlineStyle: MergeInlineStyles(skinnedPath.InlineStyle, customStyle),
                 transform: skinnedPath.Transform);
@@ -390,6 +403,9 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
                 : layer.InlineStyle;
 
             builder.AddPath(layer.PathData,
+                fill: i == 0 ? fallbackFill : null,
+                stroke: i == 0 ? fallbackStroke : null,
+                strokeWidth: i == 0 ? 1 : null,
                 cssClass: $"flow-node flow-node-shape {shapeClass}",
                 inlineStyle: style,
                 transform: skinnedPath.Transform);
@@ -507,7 +523,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         return sb.ToString();
     }
 
-    static void RenderEdge(SvgBuilder builder, Edge edge, RenderOptions options)
+    static void RenderEdge(SvgBuilder builder, Edge edge, RenderOptions options, DiagramTheme theme)
     {
         if (edge.Points.Count < 2)
         {
@@ -582,7 +598,8 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
                 edge.Label,
                 anchor: "middle",
                 baseline: "central",
-                cssClass: "flow-edge-label");
+                cssClass: "flow-edge-label",
+                fill: theme.TextColor);
         }
     }
 
@@ -658,7 +675,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
         subgraph.Position = new((minX + maxX) / 2, (minY + maxY) / 2);
     }
 
-    static void RenderSubgraphs(SvgBuilder builder, FlowchartModel model)
+    static void RenderSubgraphs(SvgBuilder builder, FlowchartModel model, DiagramTheme theme)
     {
         if (model.Subgraphs.Count == 0)
         {
@@ -696,7 +713,8 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
                     subgraph.Title!,
                     anchor: "middle",
                     baseline: "middle",
-                    cssClass: "flow-subgraph-title");
+                    cssClass: "flow-subgraph-title",
+                    fill: theme.TextColor);
             }
         }
     }

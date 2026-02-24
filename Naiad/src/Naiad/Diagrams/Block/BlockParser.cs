@@ -99,13 +99,51 @@ public class BlockParser : IDiagramParser<BlockModel>
             Span = span.GetValueOrDefault(1)
         };
 
-    // Elements on a line (space separated)
+    // Inline required whitespace (spaces/tabs only, not newlines)
+    static readonly Parser<char, Unit> InlineRequiredWhitespace =
+        Token(c => c is ' ' or '\t').SkipAtLeastOnce();
+
+    // Elements on a line (space separated, same line only)
     static readonly Parser<char, List<BlockElement>> ElementsLineParser =
         from _ in CommonParsers.InlineWhitespace
-        from elements in ElementParser.SeparatedAtLeastOnce(CommonParsers.RequiredWhitespace)
+        from elements in ElementParser.SeparatedAtLeastOnce(InlineRequiredWhitespace)
         from __ in CommonParsers.InlineWhitespace
         from ___ in CommonParsers.LineEnd
         select elements.ToList();
+
+    // Arrow: -->
+    static readonly Parser<char, Unit> ArrowParser =
+        String("-->").ThenReturn(Unit.Value);
+
+    // Arrow line: a --> b --> c (chain of identifiers connected by arrows)
+    // Must use Try() because 'a' could also be parsed as an element identifier
+    static readonly Parser<char, List<BlockEdge>> ArrowLineParser =
+        Try(
+            from _ in CommonParsers.InlineWhitespace
+            from first in Identifier
+            from rest in (
+                from __ in CommonParsers.InlineWhitespace
+                from ___ in ArrowParser
+                from ____ in CommonParsers.InlineWhitespace
+                from id in Identifier
+                select id
+            ).AtLeastOnce()
+            from _____ in CommonParsers.InlineWhitespace
+            from ______ in CommonParsers.LineEnd
+            select BuildEdgeChain(first, rest.ToList())
+        );
+
+    static List<BlockEdge> BuildEdgeChain(string first, List<string> rest)
+    {
+        var edges = new List<BlockEdge>();
+        var prev = first;
+        foreach (var next in rest)
+        {
+            edges.Add(new BlockEdge { FromId = prev, ToId = next });
+            prev = next;
+        }
+        return edges;
+    }
 
     // Skip line (comments, empty lines)
     static readonly Parser<char, Unit> SkipLine =
@@ -116,6 +154,7 @@ public class BlockParser : IDiagramParser<BlockModel>
     static Parser<char, object?> ContentItem =>
         OneOf(
             Try(ColumnsParser.Select(c => (object?)("columns", c))),
+            ArrowLineParser.Select(e => (object?)("edges", e)),
             Try(ElementsLineParser.Select(e => (object?)("elements", e))),
             SkipLine.ThenReturn((object?)null)
         );
@@ -142,6 +181,10 @@ public class BlockParser : IDiagramParser<BlockModel>
 
                 case ("elements", List<BlockElement> elements):
                     model.Elements.AddRange(elements);
+                    break;
+
+                case ("edges", List<BlockEdge> edges):
+                    model.Edges.AddRange(edges);
                     break;
             }
         }

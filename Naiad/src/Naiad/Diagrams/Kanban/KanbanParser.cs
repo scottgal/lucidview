@@ -15,23 +15,42 @@ public class KanbanParser : IDiagramParser<KanbanModel>
         from __ in Char(']')
         select label.Trim();
 
-    // Column: id[Name] (no leading whitespace or minimal)
-    static readonly Parser<char, (string id, string name)> ColumnParser =
-        from indent in CommonParsers.Indentation.Where(i => i < 4)
-        from id in Identifier
-        from name in LabelParser
-        from __ in CommonParsers.InlineWhitespace
-        from ___ in CommonParsers.LineEnd
-        select (id, name);
+    // Plain text name (rest of line, no brackets needed)
+    static readonly Parser<char, string> PlainNameParser =
+        Token(c => c != '\r' && c != '\n' && c != '[').AtLeastOnceString()
+            .Select(s => s.Trim());
 
-    // Task: id[Name] (with significant leading whitespace - 4+ spaces or tabs)
-    static readonly Parser<char, (string id, string name)> TaskParser =
-        from indent in CommonParsers.Indentation.Where(i => i >= 4)
-        from id in Identifier
-        from name in LabelParser
+    // Column: id[Name] or plain text name (indent < 8 spaces)
+    static readonly Parser<char, (string id, string name)> ColumnParser =
+        from indent in CommonParsers.Indentation.Where(i => i < 8)
+        from content in Try(
+            from id in Identifier
+            from name in LabelParser
+            select (id, name)
+        ).Or(
+            // Plain text column name (use sanitized name as id)
+            from name in PlainNameParser
+            select (name.Replace(" ", "_").ToLowerInvariant(), name)
+        )
         from __ in CommonParsers.InlineWhitespace
         from ___ in CommonParsers.LineEnd
-        select (id, name);
+        select content;
+
+    // Task: id[Name] or plain text name (indent >= 8 spaces)
+    static readonly Parser<char, (string id, string name)> TaskParser =
+        from indent in CommonParsers.Indentation.Where(i => i >= 8)
+        from content in Try(
+            from id in Identifier
+            from name in LabelParser
+            select (id, name)
+        ).Or(
+            // Plain text task name (use sanitized name as id)
+            from name in PlainNameParser
+            select (name.Replace(" ", "_").ToLowerInvariant(), name)
+        )
+        from __ in CommonParsers.InlineWhitespace
+        from ___ in CommonParsers.LineEnd
+        select content;
 
     // Skip line (comments, empty lines)
     static readonly Parser<char, Unit> SkipLine =

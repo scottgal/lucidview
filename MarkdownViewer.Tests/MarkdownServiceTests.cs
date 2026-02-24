@@ -18,7 +18,7 @@ public class MarkdownServiceTests
 Some content here.";
 
         // Act
-        var metadata = _service.ExtractMetadata(content);
+        var metadata = MarkdownService.ExtractMetadata(content);
 
         // Assert
         Assert.True(metadata.HasMetadata);
@@ -38,7 +38,7 @@ Some content here.";
 Some content here.";
 
         // Act
-        var metadata = _service.ExtractMetadata(content);
+        var metadata = MarkdownService.ExtractMetadata(content);
 
         // Assert
         Assert.True(metadata.HasMetadata);
@@ -58,7 +58,7 @@ Some content here.";
 Content here.";
 
         // Act
-        var metadata = _service.ExtractMetadata(content);
+        var metadata = MarkdownService.ExtractMetadata(content);
 
         // Assert
         Assert.True(metadata.HasMetadata);
@@ -74,7 +74,7 @@ Content here.";
 Just plain markdown here.";
 
         // Act
-        var metadata = _service.ExtractMetadata(content);
+        var metadata = MarkdownService.ExtractMetadata(content);
 
         // Assert
         Assert.False(metadata.HasMetadata);
@@ -89,7 +89,7 @@ Just plain markdown here.";
         var content = "<!--category--   Spaces  ,  Around  ,  Values  -->";
 
         // Act
-        var metadata = _service.ExtractMetadata(content);
+        var metadata = MarkdownService.ExtractMetadata(content);
 
         // Assert
         Assert.Equal(3, metadata.Categories.Count);

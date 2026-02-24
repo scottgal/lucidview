@@ -43,6 +43,12 @@ public class SvgBuilder
         return this;
     }
 
+    public SvgBuilder Background(string? color)
+    {
+        _document.BackgroundColor = color;
+        return this;
+    }
+
     public SvgBuilder DiagramType(string diagramClass, string ariaRoledescription)
     {
         _document.DiagramClass = diagramClass;
@@ -456,7 +462,9 @@ public class SvgBuilder
     }
 
     public SvgBuilder AddMultiLineText(double x, double startY, double lineHeight,
-        string[] lines, string? anchor = null, string? fill = null, string? cssClass = null)
+        string[] lines, string? anchor = null, string? baseline = null, string? fill = null,
+        string? fontSize = null, string? fontFamily = null, string? fontWeight = null,
+        string? cssClass = null)
     {
         var element = new SvgMultiLineText
         {
@@ -465,7 +473,11 @@ public class SvgBuilder
             LineHeight = lineHeight,
             Lines = lines,
             TextAnchor = anchor,
+            DominantBaseline = baseline,
             Fill = fill,
+            FontSize = fontSize,
+            FontFamily = fontFamily,
+            FontWeight = fontWeight,
             Class = cssClass
         };
         AddElement(element);

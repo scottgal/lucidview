@@ -22,7 +22,7 @@ public class XYChartRenderer : IDiagramRenderer<XYChartModel>
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty chart", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -45,7 +45,8 @@ public class XYChartRenderer : IDiagramRenderer<XYChartModel>
                 baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px",
                 fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold",
+                fill: theme.TextColor);
         }
 
         // Calculate data range

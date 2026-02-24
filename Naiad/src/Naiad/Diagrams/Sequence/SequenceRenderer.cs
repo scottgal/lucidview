@@ -548,7 +548,10 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
             var lineHeight = options.FontSize * 1.2;
             var totalHeight = lines.Length * lineHeight;
             var startY = y - totalHeight / 2 + lineHeight / 2;
-            builder.AddMultiLineText(x, startY, lineHeight, lines, anchor: anchor, fill: theme.TextColor);
+            builder.AddMultiLineText(x, startY, lineHeight, lines,
+                anchor: anchor, baseline: baseline, fill: theme.TextColor,
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily,
+                fontWeight: fontWeight);
         }
     }
 

@@ -242,6 +242,54 @@ public class ClassParser : IDiagramParser<ClassModel>
             ToCardinality = toCardinality.HasValue ? toCardinality.Value : null
         };
 
+    // Standalone member/method on class: ClassName : +memberOrMethod
+    // e.g., Animal : +int age, Duck : +swim()
+    static readonly Parser<char, (string className, object memberOrMethod)> StandaloneMemberParser =
+        from _ in CommonParsers.InlineWhitespace
+        from className in ClassIdentifier
+        from __ in CommonParsers.InlineWhitespace
+        from ___ in Char(':')
+        from ____ in CommonParsers.InlineWhitespace
+        from item in Try(
+            // Method (has parentheses)
+            from visibility in VisibilityParser.Optional()
+            from isStatic in Char('$').Optional()
+            from isAbstract in Char('*').Optional()
+            from name in Token(c => char.IsLetterOrDigit(c) || c == '_').AtLeastOnceString()
+            from parameters in ParametersParser
+            from returnType in TypeAnnotation.Optional()
+            select (object)new ClassMethod
+            {
+                Name = name,
+                ReturnType = returnType.HasValue ? returnType.Value : null,
+                Visibility = visibility.HasValue ? visibility.Value : Visibility.Public,
+                IsStatic = isStatic.HasValue,
+                IsAbstract = isAbstract.HasValue
+            }
+        ).Or(
+            // Member (no parentheses): +int age, +String gender, etc.
+            from visibility in VisibilityParser.Optional()
+            from isStatic in Char('$').Optional()
+            from firstWord in Token(c => char.IsLetterOrDigit(c) || c == '_' || c == '<' || c == '>' || c == '[' || c == ']').AtLeastOnceString()
+            from rest in Try(
+                from ws in CommonParsers.RequiredWhitespace
+                from memberName in Token(c => char.IsLetterOrDigit(c) || c == '_').AtLeastOnceString()
+                select (Type: firstWord, Name: memberName)
+            ).Or(
+                Return((Type: (string?)null, Name: firstWord))
+            )
+            select (object)new ClassMember
+            {
+                Name = rest.Name,
+                Type = rest.Type,
+                Visibility = visibility.HasValue ? visibility.Value : Visibility.Public,
+                IsStatic = isStatic.HasValue
+            }
+        )
+        from _____ in CommonParsers.InlineWhitespace
+        from ______ in CommonParsers.LineEnd
+        select (className, item);
+
     // Direction directive
     static readonly Parser<char, Direction> DirectionDirectiveParser =
         CommonParsers.InlineWhitespace
@@ -268,6 +316,7 @@ public class ClassParser : IDiagramParser<ClassModel>
         var element = OneOf(
             Try(DirectionDirectiveParser.Select(d => (object)d)),
             Try(ClassDefinitionParser.Select(c => (object)c)),
+            Try(StandaloneMemberParser.Select(s => (object)s)),
             Try(RelationshipParser.Select(r => (object)r)),
             SkipLine.ThenReturn((object)Unit.Value)
         );
@@ -294,6 +343,21 @@ public class ClassParser : IDiagramParser<ClassModel>
                         model.Classes.Add(c);
                         classIds.Add(c.Id);
                     }
+                    break;
+
+                case (string className, object memberOrMethod):
+                    // Standalone member: ClassName : +member
+                    var target = model.Classes.FirstOrDefault(c => c.Id == className);
+                    if (target == null)
+                    {
+                        target = new() { Id = className };
+                        model.Classes.Add(target);
+                        classIds.Add(className);
+                    }
+                    if (memberOrMethod is ClassMember member)
+                        target.Members.Add(member);
+                    else if (memberOrMethod is ClassMethod method)
+                        target.Methods.Add(method);
                     break;
 
                 case ClassRelationship r:

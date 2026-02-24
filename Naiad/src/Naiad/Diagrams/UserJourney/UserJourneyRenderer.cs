@@ -31,7 +31,7 @@ public class UserJourneyRenderer : IDiagramRenderer<UserJourneyModel>
         {
             var emptyBuilder = new SvgBuilder().Size(200, 100);
             emptyBuilder.AddText(100, 50, "Empty journey", anchor: "middle", baseline: "middle",
-                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily);
+                fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily, fill: theme.TextColor);
             return emptyBuilder.Build();
         }
 
@@ -61,7 +61,8 @@ public class UserJourneyRenderer : IDiagramRenderer<UserJourneyModel>
                 baseline: "middle",
                 fontSize: $"{options.FontSize + 4}px",
                 fontFamily: options.FontFamily,
-                fontWeight: "bold");
+                fontWeight: "bold",
+                fill: theme.TextColor);
         }
 
         // Draw actors legend on the right
@@ -73,7 +74,8 @@ public class UserJourneyRenderer : IDiagramRenderer<UserJourneyModel>
             baseline: "middle",
             fontSize: $"{options.FontSize}px",
             fontFamily: options.FontFamily,
-            fontWeight: "bold");
+            fontWeight: "bold",
+            fill: theme.TextColor);
 
         for (var i = 0; i < allActors.Count; i++)
         {
@@ -85,7 +87,8 @@ public class UserJourneyRenderer : IDiagramRenderer<UserJourneyModel>
                 anchor: "start",
                 baseline: "middle",
                 fontSize: $"{options.FontSize - 2}px",
-                fontFamily: options.FontFamily);
+                fontFamily: options.FontFamily,
+                fill: theme.TextColor);
         }
 
         // Draw sections
@@ -142,7 +145,8 @@ public class UserJourneyRenderer : IDiagramRenderer<UserJourneyModel>
                     anchor: "middle",
                     baseline: "middle",
                     fontSize: $"{options.FontSize - 1}px",
-                    fontFamily: options.FontFamily);
+                    fontFamily: options.FontFamily,
+                    fill: theme.TextColor);
 
                 // Score badge
                 builder.AddText(taskX + TaskWidth / 2, taskY + 45, $"Score: {task.Score}",
