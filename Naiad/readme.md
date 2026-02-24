@@ -98,6 +98,13 @@ Naiad supports **32 diagram types** - every Mermaid diagram type plus several Na
 | Diagram | Syntax | Preview |
 |---------|--------|---------|
 | [Mindmap](https://mermaid.js.org/syntax/mindmap.html) | `mindmap` | <img src="docs/diagrams/mindmap.svg" width="250"> |
+
+### Naiad Originals
+
+These diagram types are unique to Naiad and not available in Mermaid.
+
+| Diagram | Syntax | Preview |
+|---------|--------|---------|
 | Dendrogram | `dendrogram` | <img src="docs/diagrams/dendrogram.svg" width="250"> |
 | Bubble Pack | `bubblepack` | <img src="docs/diagrams/bubblepack.svg" width="200"> |
 | Voronoi | `voronoi` | <img src="docs/diagrams/voronoi.svg" width="200"> |
@@ -109,6 +116,14 @@ Naiad supports **32 diagram types** - every Mermaid diagram type plus several Na
 | Diagram | Syntax | Preview |
 |---------|--------|---------|
 | Wireframe | `%% naiad: skinPack=wireframe` | <img src="docs/diagrams/wireframe.svg" width="250"> |
+
+### Interoperability
+
+| Format | Description | Preview |
+|--------|-------------|---------|
+| [Tulip TLP](docs/tulip/README.md) | Import/export [Tulip](https://tulip.labri.fr) graph files | <img src="docs/tulip/sample-social-network.svg" width="250"> |
+
+<img src="docs/tulip/sample-dependencies.svg" width="350"> <img src="docs/tulip/sample-family-tree.svg" width="350">
 
 
 ## Theming
@@ -145,13 +160,15 @@ Auto-generated documentation from the test suite.
 
 ### Beta diagram types
 
-- [Architecture](Architecture.md)
-- [Block](Block.md)
-- [Packet](Packet.md)
-- [Radar](Radar.md)
-- [Sankey](Sankey.md)
-- [Treemap](Treemap.md)
-- [XYChart](XYChart.md)<!-- endInclude -->
+- [Architecture](src/test-renders/Architecture.md)
+- [Block](src/test-renders/Block.md)
+- [BPMN](src/test-renders/BPMN.md)
+- [Packet](src/test-renders/Packet.md)
+- [Radar](src/test-renders/Radar.md)
+- [Sankey](src/test-renders/Sankey.md)
+- [Treemap](src/test-renders/Treemap.md)
+- [Wireframe](src/test-renders/Wireframe.md)
+- [XYChart](src/test-renders/XYChart.md)<!-- endInclude -->
 
 
 ## Icon
