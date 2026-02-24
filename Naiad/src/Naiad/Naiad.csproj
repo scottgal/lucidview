@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\mostlylucid.dagre\Mostlylucid.Dagre\Mostlylucid.Dagre.csproj" />
+    <ProjectReference Include="..\..\lib\Mostlylucid.Dagre\Mostlylucid.Dagre\Mostlylucid.Dagre.csproj" />
   </ItemGroup>
 
   <ItemGroup>
