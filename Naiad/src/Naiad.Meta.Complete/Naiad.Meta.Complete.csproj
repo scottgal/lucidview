@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>Mostlylucid.Naiad.Meta.Complete</PackageId>
+    <Description>Meta package for complete Naiad composition with built-in plugin set.</Description>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naiad\Naiad.csproj" />
+    <ProjectReference Include="..\Naiad.Skins.Cats\Naiad.Skins.Cats.csproj" />
+    <ProjectReference Include="..\Naiad.Skins.Showcase\Naiad.Skins.Showcase.csproj" />
+    <ProjectReference Include="..\Naiad.Surfaces.ImageSharp\Naiad.Surfaces.ImageSharp.csproj" />
+    <ProjectReference Include="..\Naiad.Surfaces.Skia\Naiad.Surfaces.Skia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

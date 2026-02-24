@@ -1,3 +1,3 @@
-[submodule "Naiad/lib/Dagre.NET"]
-	path = Naiad/lib/Dagre.NET
+[submodule "Naiad/lib/Mostlylucid.Dagre"]
+	path = Naiad/lib/Mostlylucid.Dagre
 	url = https://github.com/scottgal/mostlylucid.dagre.git

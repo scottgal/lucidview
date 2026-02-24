@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naiad to ReactFlow Demo</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@xyflow/react@12.3.6/dist/umd/index.js" crossorigin></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; margin-bottom: 20px; font-weight: 300; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+        .panel { background: #16213e; border-radius: 12px; padding: 20px; }
+        .panel h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 12px; }
+        textarea { width: 100%; height: 200px; background: #0f0f23; border: 1px solid #333; border-radius: 8px; color: #eee; font-family: 'Fira Code', monospace; font-size: 13px; padding: 12px; resize: vertical; }
+        textarea:focus { outline: none; border-color: #4a9eff; }
+        .toolbar { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+        button { background: #4a9eff; border: none; border-radius: 6px; color: white; padding: 10px 20px; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #3a8eef; }
+        button:disabled { background: #333; cursor: not-allowed; }
+        button.secondary { background: #333; }
+        button.secondary:hover { background: #444; }
+        .flow-container { height: 500px; background: #0f0f23; border-radius: 8px; overflow: hidden; }
+        .status { padding: 10px; border-radius: 6px; margin-top: 12px; font-size: 13px; }
+        .status.success { background: #1e3a1e; color: #4ade80; }
+        .status.error { background: #3a1e1e; color: #f87171; }
+        .status.loading { background: #3a3a1e; color: #fcd34d; }
+        pre { background: #0f0f23; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 12px; margin-top: 12px; max-height: 200px; }
+        .api-demo { margin-top: 20px; }
+        .api-demo h3 { font-size: 14px; color: #888; margin-bottom: 8px; }
+        .code-block { background: #0f0f23; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Naiad → ReactFlow Integration</h1>
+        <div class="grid">
+            <div class="panel">
+                <h2>Mermaid Input</h2>
+                <textarea id="mermaid-input">flowchart TB
+    subgraph cluster1[User Interface]
+        A[Login Page]
+        B[Dashboard]
+    end
+    subgraph cluster2[Backend Services]
+        C[Auth Service]
+        D[API Gateway]
+        E[Data Service]
+    end
+    subgraph cluster3[Data Layer]
+        F[(Database)]
+        G[(Cache)]
+    end
+    A --> C
+    A --> B
+    B --> D
+    C --> G
+    D --> E
+    E --> F
+    E --> G</textarea>
+                <div class="toolbar">
+                    <button id="render-btn">Render to ReactFlow</button>
+                    <button id="svg-btn" class="secondary">Render SVG</button>
+                    <button id="fluent-btn" class="secondary">Use Fluent API</button>
+                    <button id="clear-btn" class="secondary">Clear</button>
+                </div>
+                <div id="status" class="status" style="display:none;"></div>
+            </div>
+            <div class="panel">
+                <h2>ReactFlow Output</h2>
+                <div id="flow-root" class="flow-container"></div>
+            </div>
+        </div>
+        <div class="panel api-demo" style="margin-top: 20px;">
+            <h2>Fluent API Example</h2>
+            <div class="code-block">
+<pre id="fluent-code">// Build a flowchart programmatically using the fluent API
+const diagram = await NaiadFluent.flowchart("TB")
+    .node("start", "Start", "stadium")
+    .node("process", "Process Data")
+    .node("decision", "Valid?", "diamond")
+    .node("success", "Success", "rounded")
+    .node("error", "Handle Error", "rounded")
+    .edge("start", "process")
+    .edge("process", "decision")
+    .edge("decision", "success", "Arrow", "Yes")
+    .edge("decision", "error", "Arrow", "No")
+    .classDef("successStyle", { fill: "#d4edda", stroke: "#28a745" })
+    .classDef("errorStyle", { fill: "#f8d7da", stroke: "#dc3545" })
+    .class("success", "successStyle")
+    .class("error", "errorStyle")
+    .buildAndRenderReactFlow("#flow-root");</pre>
+            </div>
+        </div>
+        <div class="panel" style="margin-top: 20px;">
+            <h2>ReactFlow JSON Data</h2>
+            <pre id="json-output">Click "Render to ReactFlow" to see the output...</pre>
+        </div>
+    </div>
+
+    <script type="module">
+        import { NaiadClient } from "./naiad-client.js";
+        import { NaiadFluent, FlowchartBuilder, Direction, NodeShape, EdgeType } from "./naiad-fluent-api.js";
+
+        const { useState, useEffect, useCallback } = React;
+        const { ReactFlow, Controls, MiniMap, Background, useNodesState, useEdgesState, addEdge, MarkerType } = window.xyflowReact;
+
+        let client = null;
+
+        async function initClient() {
+            if (!client) {
+                client = new NaiadClient();
+                await client.init();
+            }
+            return client;
+        }
+
+        function showStatus(message, type = 'loading') {
+            const el = document.getElementById('status');
+            el.textContent = message;
+            el.className = `status ${type}`;
+            el.style.display = 'block';
+        }
+
+        function hideStatus() {
+            document.getElementById('status').style.display = 'none';
+        }
+
+        function FlowComponent({ initialNodes = [], initialEdges = [] }) {
+            const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+            const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+            useEffect(() => {
+                setNodes(initialNodes);
+                setEdges(initialEdges);
+            }, [initialNodes, initialEdges]);
+
+            const nodeTypes = {
+                default: ({ data }) => (
+                    React.createElement('div', { 
+                        style: { 
+                            padding: '10px 20px', 
+                            background: data.background || '#4a9eff', 
+                            borderRadius: '8px',
+                            color: '#fff',
+                            minWidth: '80px',
+                            textAlign: 'center',
+                            fontSize: '13px',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                        } 
+                    }, data.label)
+                ),
+                group: ({ data }) => (
+                    React.createElement('div', { 
+                        style: { 
+                            padding: '20px',
+                            background: 'rgba(74, 158, 255, 0.1)',
+                            border: '2px dashed #4a9eff',
+                            borderRadius: '12px',
+                            minWidth: '200px',
+                            minHeight: '100px'
+                        } 
+                    }, 
+                    React.createElement('div', { style: { color: '#4a9eff', marginBottom: '10px', fontSize: '12px' } }, data.label)
+                    )
+                )
+            };
+
+            return React.createElement(
+                ReactFlow,
+                {
+                    nodes,
+                    edges,
+                    onNodesChange,
+                    onEdgesChange,
+                    nodeTypes,
+                    fitView: true,
+                    style: { background: '#0f0f23' }
+                },
+                React.createElement(Controls),
+                React.createElement(MiniMap, { nodeColor: '#4a9eff', style: { background: '#16213e' } }),
+                React.createElement(Background, { variant: 'dots', gap: 20, size: 1, color: '#333' })
+            );
+        }
+
+        function renderReactFlow(reactFlowData) {
+            if (reactFlowData.error) {
+                showStatus(`Error: ${reactFlowData.error}`, 'error');
+                return;
+            }
+
+            const nodes = reactFlowData.nodes.map(node => ({
+                id: node.id,
+                position: { x: node.position.x, y: node.position.y },
+                data: { 
+                    label: node.data.label,
+                    background: node.style?.background
+                },
+                type: node.type,
+                style: {
+                    width: node.width,
+                    height: node.height,
+                    ...node.style
+                },
+                parentNode: node.parentNode || undefined,
+                extent: node.extent
+            }));
+
+            const edges = reactFlowData.edges.map(edge => ({
+                id: edge.id,
+                source: edge.source,
+                target: edge.target,
+                label: edge.label,
+                animated: edge.animated,
+                style: edge.style,
+                type: 'smoothstep',
+                markerEnd: { type: MarkerType.ArrowClosed }
+            }));
+
+            document.getElementById('json-output').textContent = JSON.stringify({ nodes, edges }, null, 2);
+
+            const root = ReactDOM.createRoot(document.getElementById('flow-root'));
+            root.render(React.createElement(FlowComponent, { initialNodes: nodes, initialEdges: edges }));
+            
+            showStatus(`Rendered ${nodes.length} nodes and ${edges.length} edges`, 'success');
+        }
+
+        document.getElementById('render-btn').addEventListener('click', async () => {
+            const mermaid = document.getElementById('mermaid-input').value;
+            showStatus('Initializing Naiad runtime...', 'loading');
+            
+            try {
+                const naiad = await initClient();
+                showStatus('Converting to ReactFlow...', 'loading');
+                const data = naiad.renderReactFlow(mermaid);
+                renderReactFlow(data);
+            } catch (err) {
+                showStatus(`Error: ${err.message}`, 'error');
+            }
+        });
+
+        document.getElementById('svg-btn').addEventListener('click', async () => {
+            const mermaid = document.getElementById('mermaid-input').value;
+            showStatus('Rendering SVG...', 'loading');
+            
+            try {
+                const naiad = await initClient();
+                const svg = naiad.renderSvg(mermaid, { theme: 'dark' });
+                
+                const flowRoot = document.getElementById('flow-root');
+                flowRoot.innerHTML = `<div style="width:100%;height:100%;overflow:auto;padding:20px;">${svg}</div>`;
+                
+                showStatus('SVG rendered successfully', 'success');
+            } catch (err) {
+                showStatus(`Error: ${err.message}`, 'error');
+            }
+        });
+
+        document.getElementById('fluent-btn').addEventListener('click', async () => {
+            showStatus('Using fluent API to build flowchart...', 'loading');
+            
+            try {
+                await initClient();
+                
+                const builder = new FlowchartBuilder(Direction.TopToBottom);
+                
+                builder
+                    .direction(Direction.TopToBottom)
+                    .node("start", "Start", NodeShape.Stadium)
+                    .node("fetch", "Fetch Data")
+                    .node("validate", "Is Valid?", NodeShape.Diamond)
+                    .node("process", "Process Data")
+                    .node("save", "Save to DB")
+                    .node("success", "Done", NodeShape.DoubleCircle)
+                    .node("error", "Handle Error")
+                    .node("retry", "Retry", NodeShape.RoundedRect)
+                    .edge("start", "fetch")
+                    .edge("fetch", "validate")
+                    .edge("validate", "process", EdgeType.Arrow, "Yes")
+                    .edge("validate", "error", EdgeType.Arrow, "No")
+                    .edge("process", "save")
+                    .edge("save", "success")
+                    .edge("error", "retry")
+                    .edge("retry", "fetch")
+                    .classDef("successClass", { fill: "#1e3a1e", stroke: "#4ade80", color: "#4ade80" })
+                    .classDef("errorClass", { fill: "#3a1e1e", stroke: "#f87171", color: "#f87171" })
+                    .classDef("processClass", { fill: "#1e3a3a", stroke: "#4ade80" })
+                    .class("success", "successClass")
+                    .class("error", "errorClass")
+                    .class("retry", "errorClass")
+                    .class("process", "processClass")
+                    .class("save", "processClass");
+
+                const diagram = builder.build();
+                const mermaid = diagram.toMermaid();
+                
+                document.getElementById('mermaid-input').value = mermaid;
+                
+                const naiad = await initClient();
+                const data = naiad.renderReactFlow(mermaid);
+                renderReactFlow(data);
+                
+                showStatus('Flowchart built with fluent API', 'success');
+            } catch (err) {
+                showStatus(`Error: ${err.message}`, 'error');
+                console.error(err);
+            }
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            document.getElementById('mermaid-input').value = '';
+            document.getElementById('json-output').textContent = 'Cleared...';
+            document.getElementById('flow-root').innerHTML = '';
+            hideStatus();
+        });
+
+        (async () => {
+            try {
+                showStatus('Initializing Naiad WASM runtime...', 'loading');
+                await initClient();
+                showStatus('Ready! Click "Render to ReactFlow" to start.', 'success');
+                setTimeout(hideStatus, 3000);
+            } catch (err) {
+                showStatus(`Failed to initialize: ${err.message}`, 'error');
+            }
+        })();
+    </script>
+</body>
+</html>

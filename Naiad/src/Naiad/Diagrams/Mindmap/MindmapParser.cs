@@ -74,7 +74,7 @@ public class MindmapParser : IDiagramParser<MindmapModel>
             )
         );
 
-    // Parser for "id((label))" pattern — an optional ID prefix followed by shape syntax
+    // Parser for "id((label))" pattern - an optional ID prefix followed by shape syntax
     // e.g. "root((mindmap))" → text="mindmap", shape=Circle
     // e.g. "((mindmap))" → text="mindmap", shape=Circle (no prefix)
     static Parser<char, (string text, MindmapShape shape)> PrefixedShapedNodeParser =>

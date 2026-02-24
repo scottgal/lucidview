@@ -13,6 +13,26 @@ public class MermaidCacheService
     private readonly string _cacheDir;
     private readonly ConcurrentDictionary<string, string> _index = new(StringComparer.Ordinal);
 
+    // Include Naiad assembly write time in cache keys so layout/rendering changes
+    // automatically invalidate stale cached PNGs on rebuild.
+    private static readonly string NaiadBuildStamp = GetNaiadBuildStamp();
+
+    private static string GetNaiadBuildStamp()
+    {
+        try
+        {
+            var asm = typeof(MermaidSharp.Mermaid).Assembly;
+            var location = asm.Location;
+            if (!string.IsNullOrEmpty(location) && File.Exists(location))
+                return File.GetLastWriteTimeUtc(location).Ticks.ToString();
+            return asm.GetName().Version?.ToString() ?? "0";
+        }
+        catch
+        {
+            return "0";
+        }
+    }
+
     public MermaidCacheService()
     {
         _cacheDir = Path.Combine(Path.GetTempPath(), "lucidview-mermaid-cache");
@@ -23,10 +43,11 @@ public class MermaidCacheService
 
     /// <summary>
     /// Compute a stable cache key for a mermaid diagram + rendering context.
+    /// Includes Naiad assembly version so layout changes invalidate cached PNGs.
     /// </summary>
     public static string ComputeKey(string mermaidCode, bool isDark, string textColor, string bgColor)
     {
-        var raw = string.Concat(mermaidCode, "|", isDark ? "d" : "l", "|", textColor, "|", bgColor);
+        var raw = string.Concat(mermaidCode, "|", isDark ? "d" : "l", "|", textColor, "|", bgColor, "|v", NaiadBuildStamp);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
         return Convert.ToHexStringLower(hash);
     }

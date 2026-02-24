@@ -1,0 +1,6 @@
+﻿HostTextApplied=True
+HostEdgeApplied=True
+HostNodeFillApplied=True
+InitTextIgnored=True
+InitEdgeIgnored=True
+InitNodeIgnored=True

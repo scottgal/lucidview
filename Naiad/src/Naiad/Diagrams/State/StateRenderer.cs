@@ -7,7 +7,7 @@ namespace MermaidSharp.Diagrams.State;
 public class StateRenderer(ILayoutEngine? layoutEngine = null) :
     IDiagramRenderer<StateModel>
 {
-    readonly ILayoutEngine layoutEngine = layoutEngine ?? new DagreLayoutEngine();
+    readonly ILayoutEngine layoutEngine = layoutEngine ?? new MostlylucidDagreLayoutEngine();
 
 #if DEBUG
     readonly List<TextBounds> _textBounds = [];

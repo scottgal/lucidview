@@ -98,7 +98,7 @@ public class FlowchartParser : IDiagramParser<FlowchartModel>
             .Before(String("\\]"))
             .Select(text => (text, NodeShape.TrapezoidAlt));
 
-    // Parallelogram: [/text/] — same delimiters but without quotes inside
+    // Parallelogram: [/text/] - same delimiters but without quotes inside
     // Note: TrapezoidShape handles [/"text"/], this handles [/text/] without quotes
     static readonly Parser<char, (string Label, NodeShape Shape)> ParallelogramShape =
         String("[/")

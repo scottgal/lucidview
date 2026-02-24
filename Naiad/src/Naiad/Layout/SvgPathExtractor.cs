@@ -145,7 +145,7 @@ internal static class SvgPathExtractor
             }
             else
             {
-                // Stray number — skip
+                // Stray number - skip
                 i++;
             }
         }

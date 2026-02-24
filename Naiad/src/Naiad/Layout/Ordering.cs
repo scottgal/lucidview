@@ -149,7 +149,7 @@ internal static class Ordering
     /// Count edge crossings between two adjacent ranks using O(n log n)
     /// merge-sort inversion count instead of O(n²) brute force.
     /// Edges are sorted by source order, then inversions in target
-    /// orders are counted — each inversion = one crossing.
+    /// orders are counted - each inversion = one crossing.
     /// </summary>
     static int CountCrossingsBetweenRanks(LayoutGraph graph, int rank1, int rank2)
     {

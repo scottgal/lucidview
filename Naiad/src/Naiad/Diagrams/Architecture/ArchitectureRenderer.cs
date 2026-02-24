@@ -249,7 +249,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
 
         if (exitHoriz == entryHoriz)
         {
-            // Same axis — need a midpoint bend
+            // Same axis - need a midpoint bend
             if (exitHoriz)
             {
                 var midX = fromX + Math.Sign(toX - fromX) * Math.Min(stubLen, Math.Abs(toX - fromX) * 0.4);
@@ -265,7 +265,7 @@ public class ArchitectureRenderer : IDiagramRenderer<ArchitectureModel>
         }
         else
         {
-            // Cross-axis — single L-bend with stub
+            // Cross-axis - single L-bend with stub
             if (exitHoriz)
             {
                 var stubX = fromX + Math.Sign(toX - fromX) * stubLen;

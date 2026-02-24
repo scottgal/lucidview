@@ -323,4 +323,4 @@ treemap-beta
 
 ---
 
-**Expected result:** All diagrams above should render as native Avalonia vector graphics (DiagramCanvas or FlowchartCanvas), not as rasterized PNG images. Verify by right-clicking any diagram — the context menu should show "Save Diagram as PNG..." and "Save Diagram as SVG...".
+**Expected result:** All diagrams above should render as native Avalonia vector graphics (DiagramCanvas or FlowchartCanvas), not as rasterized PNG images. Verify by right-clicking any diagram - the context menu should show "Save Diagram as PNG..." and "Save Diagram as SVG...".

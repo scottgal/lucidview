@@ -4,7 +4,7 @@ namespace MarkdownViewer.Services;
 
 public class SearchService
 {
-    public List<SearchResult> Search(string content, string query, bool caseSensitive = false, bool wholeWord = false)
+    public static List<SearchResult> Search(string content, string query, bool caseSensitive = false, bool wholeWord = false)
     {
         if (string.IsNullOrEmpty(query) || string.IsNullOrEmpty(content))
             return [];

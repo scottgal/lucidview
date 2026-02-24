@@ -1,0 +1,92 @@
+name: Naiad Web Components CI
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/naiad-web-components-ci.yml
+      - Naiad/src/Naiad.Wasm.Npm/**
+      - Naiad/src/Naiad.Wasm.Npm.Mermaid/**
+      - Naiad/src/Naiad.Wasm.Host/**
+      - Naiad/src/Naiad.Wasm/**
+      - Naiad/src/Naiad/**
+      - Naiad/src/Directory.Build.props
+      - Naiad/src/Directory.Packages.props
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - .github/workflows/naiad-web-components-ci.yml
+      - Naiad/src/Naiad.Wasm.Npm/**
+      - Naiad/src/Naiad.Wasm.Npm.Mermaid/**
+      - Naiad/src/Naiad.Wasm.Host/**
+      - Naiad/src/Naiad.Wasm/**
+      - Naiad/src/Naiad/**
+      - Naiad/src/Directory.Build.props
+      - Naiad/src/Directory.Packages.props
+
+env:
+  DOTNET_VERSION: 10.0.x
+  NODE_VERSION: 22.x
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_dir: Naiad/src/Naiad.Wasm.Npm
+            package_name: "@mostlylucid/naiad-complete"
+            package_id: complete
+            playwright_filter: FullyQualifiedName=Tests.WebComponent.NaiadNpmDistPlaywrightTests.NpmDistComplete_ShouldRenderWebComponent
+          - package_dir: Naiad/src/Naiad.Wasm.Npm.Mermaid
+            package_name: "@mostlylucid/naiad-mermaid"
+            package_id: mermaid
+            playwright_filter: FullyQualifiedName=Tests.WebComponent.NaiadNpmDistPlaywrightTests.NpmDistMermaid_ShouldRenderWebComponent
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install WASM workload
+        run: dotnet workload install wasm-tools
+
+      - name: Build package
+        working-directory: ${{ matrix.package_dir }}
+        run: npm run build
+
+      - name: Build Playwright test project
+        run: dotnet build Naiad/src/Tests/Tests.csproj -c Release -v minimal
+
+      - name: Install Playwright Chromium
+        run: pwsh Naiad/src/Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Validate dist with Playwright
+        run: dotnet test Naiad/src/Tests/Tests.csproj -c Release --no-build --filter "${{ matrix.playwright_filter }}" --logger "console;verbosity=minimal"
+
+      - name: Pack preview
+        working-directory: ${{ matrix.package_dir }}
+        run: npm pack --dry-run
+
+      - name: Create package tarball
+        working-directory: ${{ matrix.package_dir }}
+        run: npm pack
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarball-${{ matrix.package_id }}
+          path: ${{ matrix.package_dir }}/*.tgz

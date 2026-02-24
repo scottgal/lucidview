@@ -178,7 +178,7 @@ public partial class MarkdownService
     /// <summary>
     ///     Extract metadata from markdown content (categories, publication date)
     /// </summary>
-    public DocumentMetadata ExtractMetadata(string content)
+    public static DocumentMetadata ExtractMetadata(string content)
     {
         var metadata = new DocumentMetadata();
 
@@ -388,7 +388,7 @@ public partial class MarkdownService
         try
         {
             // Handle paths starting with / (absolute from host root)
-            if (relativePath.StartsWith("/"))
+            if (relativePath.StartsWith('/'))
             {
                 var baseUri = new Uri(baseUrl);
                 return $"{baseUri.Scheme}://{baseUri.Host}{relativePath}";
@@ -428,7 +428,7 @@ public partial class MarkdownService
     /// Convert HTML img tags to markdown image syntax
     /// Handles: <img src="url" width="300" height="200" alt="text">
     /// </summary>
-    private string ProcessHtmlImageTags(string content)
+    private static string ProcessHtmlImageTags(string content)
     {
         return HtmlImgRegex().Replace(content, match =>
         {
@@ -1090,7 +1090,7 @@ public partial class MarkdownService
             if (trimmed.StartsWith("%%") && trimmed.Length > 2 && !trimmed.StartsWith("%%{"))
             {
                 // Keep directive comments like %%{init: ...}%%
-                if (!trimmed.Contains("{"))
+                if (!trimmed.Contains('{'))
                     continue;
             }
 
@@ -1206,7 +1206,13 @@ public partial class MarkdownService
     private static partial Regex ImageRegex();
 
     [GeneratedRegex(@"```mermaid\s*\n([\s\S]*?)```", RegexOptions.Multiline | RegexOptions.Compiled)]
-    private static partial Regex MermaidBlockRegex();
+    internal static partial Regex MermaidBlockRegex();
+
+    internal static IEnumerable<(string FullMatch, string MermaidCode)> FindMermaidBlocks(string content)
+    {
+        foreach (Match match in MermaidBlockRegex().Matches(content))
+            yield return (match.Value, match.Groups[1].Value.Trim());
+    }
 
     [GeneratedRegex(@"```bpmn\s*\n([\s\S]*?)```", RegexOptions.Multiline | RegexOptions.Compiled)]
     private static partial Regex BpmnBlockRegex();

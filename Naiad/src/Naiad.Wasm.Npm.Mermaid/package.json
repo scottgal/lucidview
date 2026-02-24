@@ -1,0 +1,45 @@
+{
+  "name": "@mostlylucid/naiad-mermaid",
+  "version": "0.1.0",
+  "description": "Mostlylucid fork of Naiad - Mermaid-equivalent WebAssembly web component (minimal profile).",
+  "type": "module",
+  "main": "./dist/naiad-web-component.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": "./dist/naiad-web-component.js",
+    "./client": "./dist/naiad-client.js",
+    "./styles.css": "./dist/app.css"
+  },
+  "files": [
+    "dist/_framework",
+    "dist/naiad-web-component.js",
+    "dist/naiad-client.js",
+    "dist/app.css",
+    "README.md",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "prepack": "npm run build",
+    "pack:preview": "npm pack --dry-run"
+  },
+  "keywords": [
+    "mermaid",
+    "wasm",
+    "web-component",
+    "naiad",
+    "mostlylucid"
+  ],
+  "author": "mostlylucid",
+  "license": "Unlicense",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scottgal/markdown.viewer.git",
+    "directory": "Naiad/src/Naiad.Wasm.Npm.Mermaid"
+  },
+  "homepage": "https://github.com/scottgal/markdown.viewer",
+  "bugs": {
+    "url": "https://github.com/scottgal/markdown.viewer/issues"
+  },
+  "sideEffects": true
+}

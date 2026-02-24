@@ -85,7 +85,7 @@ public class FlowchartTests : TestBase
         const string input = "flowchart LR; A & B --> C --> D";
         var svg = Mermaid.Render(input);
 
-        // Count edge paths — should be exactly 3
+        // Count edge paths - should be exactly 3
         var edgeCount = System.Text.RegularExpressions.Regex.Matches(
             svg, @"class=""flow-edge").Count;
         Assert.That(edgeCount, Is.EqualTo(3),

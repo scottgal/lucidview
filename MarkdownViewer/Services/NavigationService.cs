@@ -5,7 +5,7 @@ namespace MarkdownViewer.Services;
 
 public partial class NavigationService
 {
-    public List<HeadingItem> ExtractHeadings(string markdown)
+    public static List<HeadingItem> ExtractHeadings(string markdown)
     {
         var headings = new List<HeadingItem>();
         var lines = markdown.Split('\n');

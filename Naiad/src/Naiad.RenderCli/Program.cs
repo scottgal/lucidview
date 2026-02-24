@@ -7,7 +7,7 @@ using Naiad.RenderCli;
 using SkiaSharp;
 using Svg.Skia;
 
-// Naiad Mermaid Render CLI — renders mermaid diagrams to PNG for visual testing.
+// Naiad Mermaid Render CLI - renders mermaid diagrams to PNG for visual testing.
 // Usage:
 //   dotnet run -- render <output.png> [--dark] [--scale 2]
 //     Reads mermaid code from stdin and renders to a PNG file.
@@ -27,6 +27,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help")
           render <output.png> [--dark] [--scale N]   Render stdin mermaid to PNG
           samples <output-dir>                        Render built-in test samples
           svg <output.svg>                            Render stdin mermaid to SVG
+          md <input.md> [output-dir] [--dark]         Extract & render all mermaid blocks from markdown
           tlp <input.tlp> <output.svg>                Convert TLP file to SVG
           compare <output-dir> [options]              Side-by-side Naiad vs mermaid.js
 
@@ -42,6 +43,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help")
           dotnet run -- compare ./out --flowcharts-only
           dotnet run -- compare ./out --only fan-in
           dotnet run -- tlp graph.tlp graph.svg
+          dotnet run -- md docs/design.md ./renders
         """);
     return;
 }
@@ -59,6 +61,8 @@ if (command == "render")
     var scaleIdx = Array.IndexOf(args, "--scale");
     if (scaleIdx >= 0 && scaleIdx + 1 < args.Length)
         float.TryParse(args[scaleIdx + 1], out scale);
+    var engineIdx = Array.IndexOf(args, "--engine");
+    var engine = engineIdx >= 0 && engineIdx + 1 < args.Length ? args[engineIdx + 1] : null;
 
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)) ?? ".");
     var mermaidCode = Console.In.ReadToEnd().Trim();
@@ -68,7 +72,7 @@ if (command == "render")
         return;
     }
 
-    var options = CreateOptions(isDark);
+    var options = CreateOptions(isDark, engine);
     RenderToPng(mermaidCode, outputPath, options, scale);
     Console.WriteLine($"Rendered to {Path.GetFullPath(outputPath)}");
 }
@@ -76,6 +80,8 @@ else if (command == "svg")
 {
     var outputPath = args.Length > 1 ? args[1] : "./test-renders/output.svg";
     var isDark = args.Contains("--dark");
+    var engineIdx = Array.IndexOf(args, "--engine");
+    var engine = engineIdx >= 0 && engineIdx + 1 < args.Length ? args[engineIdx + 1] : null;
 
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)) ?? ".");
     var mermaidCode = Console.In.ReadToEnd().Trim();
@@ -85,7 +91,7 @@ else if (command == "svg")
         return;
     }
 
-    var options = CreateOptions(isDark);
+    var options = CreateOptions(isDark, engine);
     var svg = Mermaid.Render(mermaidCode, options);
     File.WriteAllText(outputPath, svg);
     Console.WriteLine($"SVG saved to {Path.GetFullPath(outputPath)}");
@@ -181,7 +187,7 @@ else if (command == "compare")
         Console.WriteLine($"Filtered to {samples.Count} flowchart sample(s)");
     }
 
-    // Render all Naiad outputs first (fast) — save SVG directly
+    // Render all Naiad outputs first (fast) - save SVG directly
     Console.WriteLine("\nPhase 1: Rendering with Naiad...");
     foreach (var (name, code) in samples)
     {
@@ -225,19 +231,77 @@ else if (command == "compare")
         catch { /* ignore if browser launch fails */ }
     }
 }
+else if (command == "md")
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: md <input.md> [output-dir] [--dark]");
+        return;
+    }
+
+    var inputPath = args[1];
+    if (!File.Exists(inputPath))
+    {
+        Console.Error.WriteLine($"Error: File not found: {inputPath}");
+        return;
+    }
+
+    var outputDir = args.Length > 2 && !args[2].StartsWith("--")
+        ? args[2]
+        : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(inputPath)) ?? ".", Path.GetFileNameWithoutExtension(inputPath) + "-diagrams");
+    var isDark = args.Contains("--dark");
+
+    Directory.CreateDirectory(outputDir);
+
+    var markdown = File.ReadAllText(inputPath);
+    var blocks = ExtractMermaidBlocks(markdown);
+
+    if (blocks.Count == 0)
+    {
+        Console.WriteLine("No mermaid code blocks found.");
+        return;
+    }
+
+    Console.WriteLine($"Found {blocks.Count} mermaid block(s) in {Path.GetFileName(inputPath)}");
+    var options = CreateOptions(isDark);
+    var rendered = 0;
+
+    for (var i = 0; i < blocks.Count; i++)
+    {
+        var (name, code) = blocks[i];
+        var fileName = $"{i + 1:D2}-{name}.svg";
+        var outputPath = Path.Combine(outputDir, fileName);
+        Console.Write($"  [{i + 1}/{blocks.Count}] {fileName}... ");
+        try
+        {
+            var svg = Mermaid.Render(code, options);
+            File.WriteAllText(outputPath, svg);
+            Console.WriteLine("OK");
+            rendered++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FAILED: {ex.Message}");
+        }
+    }
+
+    Console.WriteLine($"\n{rendered}/{blocks.Count} diagrams rendered to {Path.GetFullPath(outputDir)}");
+}
 else
 {
     Console.Error.WriteLine($"Unknown command: {command}. Use --help for usage.");
 }
 
-static RenderOptions CreateOptions(bool isDark)
+static RenderOptions CreateOptions(bool isDark, string? layoutEngine = null)
 {
     var options = new RenderOptions
     {
         CurvedEdges = true,
-        // Use built-in skin defaults — "default" = mermaid.js matching, "dark" = dark mode
+        // Use built-in skin defaults - "default" = mermaid.js matching, "dark" = dark mode
         Theme = isDark ? "dark" : "default"
     };
+    if (!string.IsNullOrEmpty(layoutEngine))
+        options.LayoutEngine = layoutEngine;
     return options;
 }
 
@@ -311,7 +375,7 @@ static async Task RenderWithMermaidJs(List<(string Name, string Code)> samples, 
             var trimmedCode = string.Join('\n',
                 code.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0));
 
-            // Render the diagram via mermaid.js — get raw SVG string
+            // Render the diagram via mermaid.js - get raw SVG string
             var result = await page.EvaluateAsync(
                 "code => renderDiagram(code)", trimmedCode);
 
@@ -680,6 +744,57 @@ static void GenerateComparisonReport(List<(string Name, string Code)> samples, s
     File.WriteAllText(Path.Combine(outputDir, "index.html"), html);
 }
 
+static List<(string Name, string Code)> ExtractMermaidBlocks(string markdown)
+{
+    var blocks = new List<(string Name, string Code)>();
+    var lines = markdown.Split('\n');
+    var inBlock = false;
+    var code = new System.Text.StringBuilder();
+    var diagramType = "";
+
+    for (var i = 0; i < lines.Length; i++)
+    {
+        var line = lines[i];
+        var trimmed = line.TrimStart();
+
+        if (!inBlock && (trimmed.StartsWith("```mermaid", StringComparison.OrdinalIgnoreCase)))
+        {
+            inBlock = true;
+            code.Clear();
+            diagramType = "";
+            continue;
+        }
+
+        if (inBlock && trimmed.StartsWith("```") && !trimmed.StartsWith("````"))
+        {
+            inBlock = false;
+            var mermaidCode = code.ToString().Trim();
+            if (mermaidCode.Length > 0)
+            {
+                // Derive name from the first line of the diagram (e.g. "flowchart TB" -> "flowchart-tb")
+                var firstLine = mermaidCode.Split('\n')[0].Trim();
+                diagramType = firstLine.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Take(2)
+                    .Select(s => s.ToLowerInvariant().Replace("-", ""))
+                    .Aggregate((a, b) => a + "-" + b);
+                // Deduplicate names
+                var baseName = diagramType;
+                var count = blocks.Count(b => b.Name.StartsWith(baseName, StringComparison.OrdinalIgnoreCase));
+                var name = count > 0 ? $"{baseName}-{count + 1}" : baseName;
+                blocks.Add((name, mermaidCode));
+            }
+            continue;
+        }
+
+        if (inBlock)
+        {
+            code.AppendLine(line);
+        }
+    }
+
+    return blocks;
+}
+
 static List<(string Name, string Code)> GetSampleDiagrams() =>
 [
     // ── Flowchart variants ──────────────────────────────────────────
@@ -974,6 +1089,53 @@ static List<(string Name, string Code)> GetSampleDiagrams() =>
             style S4 fill:#FFCDD2,stroke:#B71C1C
             classDef db fill:#E3F2FD,stroke:#1565C0
             class D1,D2,D3 db
+        """),
+
+    ("flowchart-llm-field-mapping", """
+        flowchart TB
+            subgraph Upload["1. File Upload"]
+                FILE[CSV / XLSX / JSON / Parquet]
+            end
+            subgraph Profile["2. Column Profiling"]
+                DUCK[DuckDB ingestion]
+                PROF[Column profiler<br/>types, stats, patterns, top values]
+            end
+            subgraph Score["3. Deterministic Scoring"]
+                TOK[Token similarity<br/>+ abbreviation expansion]
+                TYPE[Type compatibility]
+                PAT[Pattern matching]
+                FEAT[Feature group scoring]
+                FIT[Data fit scoring]
+                LEARN_BOOST[Learned alias boost<br/>from prior acceptances]
+            end
+            subgraph Gates["3b. Safety Gates"]
+                MOV{Margin of<br/>victory < 7%?}
+            end
+            subgraph LLM["4. LLM Verification"]
+                GATE{Confidence<br/>< 80%?}
+                OLLAMA[qwen3:0.6b<br/>via Ollama or LLamaSharp]
+                CONFIRM[LLM confirms or<br/>suggests alternative]
+            end
+            subgraph UI["5. User Review"]
+                READY[Ready mappings<br/>confidence >= 80%]
+                REVIEW[Review mappings<br/>50-79% confidence]
+                UNMAP[Unmapped<br/>< 50% confidence]
+                ACCEPT[User clicks Accept]
+            end
+            subgraph Learning["6. Learning Loop"]
+                API[POST /accept-mapping]
+                DB[(learned_aliases<br/>PostgreSQL)]
+            end
+            FILE --> DUCK --> PROF
+            PROF --> TOK & TYPE & PAT & FEAT & FIT
+            DB -.->|load at start| LEARN_BOOST
+            TOK & TYPE & PAT & FEAT & FIT & LEARN_BOOST --> MOV
+            MOV -->|Yes: cap to 79%| GATE
+            MOV -->|No| GATE
+            GATE -->|No: >= 80%| READY
+            GATE -->|Yes: < 80%| OLLAMA --> CONFIRM --> REVIEW
+            REVIEW --> ACCEPT --> API --> DB
+            READY --> ACCEPT
         """),
 
     // ── Sequence ────────────────────────────────────────────────────

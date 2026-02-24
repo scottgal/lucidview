@@ -1,0 +1,91 @@
+@using Microsoft.Extensions.Options
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JsRuntime
+@inject IOptions<NaiadBlazorOptions> NaiadOptions
+
+<naiad-diagram @ref="_diagramElement" class="@Class" @attributes="AdditionalAttributes"></naiad-diagram>
+
+@code {
+    private const string BlazorInteropModulePath = "./_content/Naiad.Blazor/naiad-blazor.js";
+    private ElementReference _diagramElement;
+    private IJSObjectReference? _interopModule;
+
+    [Parameter] public string Mermaid { get; set; } = string.Empty;
+    [Parameter] public string? OptionsJson { get; set; }
+    [Parameter] public string Theme { get; set; } = "auto";
+    [Parameter] public bool ThemeResponsive { get; set; } = true;
+    [Parameter] public bool FitWidth { get; set; } = true;
+    [Parameter] public bool StatusHidden { get; set; }
+    [Parameter] public bool RerenderOnResize { get; set; }
+    [Parameter] public bool ShowMenu { get; set; }
+    [Parameter] public int? CacheSize { get; set; }
+    [Parameter] public int? RenderDebounce { get; set; }
+    [Parameter] public string? DownloadFileName { get; set; }
+    [Parameter] public string? ScriptUrl { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        _interopModule ??= await JsRuntime.InvokeAsync<IJSObjectReference>("import", BlazorInteropModulePath);
+        await _interopModule.InvokeVoidAsync("naiadBlazor.ensureLoaded", ResolveScriptUrl());
+        await _interopModule.InvokeVoidAsync(
+            "naiadBlazor.updateDiagram",
+            _diagramElement,
+            Mermaid,
+            OptionsJson,
+            new DiagramAttributeState(
+                Theme,
+                ThemeResponsive,
+                FitWidth,
+                StatusHidden,
+                RerenderOnResize,
+                ShowMenu,
+                CacheSize,
+                RenderDebounce,
+                DownloadFileName));
+    }
+
+    private string ResolveScriptUrl()
+    {
+        if (!string.IsNullOrWhiteSpace(ScriptUrl))
+        {
+            return ScriptUrl!;
+        }
+
+        var configured = NaiadOptions.Value.ScriptUrl;
+        return string.IsNullOrWhiteSpace(configured)
+            ? NaiadBlazorProfiles.Mermaid
+            : configured;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_interopModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _interopModule.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // Ignore circuit shutdown races.
+        }
+    }
+
+    private sealed record DiagramAttributeState(
+        string Theme,
+        bool ThemeResponsive,
+        bool FitWidth,
+        bool StatusHidden,
+        bool RerenderOnResize,
+        bool ShowMenu,
+        int? CacheSize,
+        int? RenderDebounce,
+        string? DownloadFileName);
+}

@@ -1,0 +1,259 @@
+name: Publish Impacted NuGet Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version to publish (e.g. 0.2.0, 0.2.0-beta.1)
+        required: true
+        type: string
+      base_ref:
+        description: Git ref/sha to diff from (default HEAD~1)
+        required: false
+        default: ""
+        type: string
+      publish_all:
+        description: Ignore diff and publish all known packages
+        required: false
+        default: false
+        type: boolean
+      push_to_nuget:
+        description: Push to nuget.org (uncheck for dry run)
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  DOTNET_VERSION: 10.0.x
+
+jobs:
+  detect-impacted-packages:
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+      changed_files: ${{ steps.detect.outputs.changed_files }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Detect impacted packages
+        id: detect
+        shell: python
+        env:
+          HEAD_SHA: ${{ github.sha }}
+          BASE_REF: ${{ inputs.base_ref }}
+          PUBLISH_ALL: ${{ inputs.publish_all }}
+        run: |
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import sys
+          import xml.etree.ElementTree as ET
+
+          repo = pathlib.Path(".").resolve()
+          head_sha = os.environ.get("HEAD_SHA", "").strip()
+          base_ref = os.environ.get("BASE_REF", "").strip()
+          publish_all = os.environ.get("PUBLISH_ALL", "false").lower() == "true"
+
+          package_projects = [
+              "Naiad/src/Naiad/Naiad.csproj",
+              "Naiad/src/Naiad.Blazor/Naiad.Blazor.csproj",
+              "Naiad/src/Naiad.Meta.Mermaid/Naiad.Meta.Mermaid.csproj",
+              "Naiad/src/Naiad.Meta.Complete/Naiad.Meta.Complete.csproj",
+              "Naiad/src/Naiad.Skins.Cats/Naiad.Skins.Cats.csproj",
+              "Naiad/src/Naiad.Skins.Showcase/Naiad.Skins.Showcase.csproj",
+              "Naiad/src/Naiad.Surfaces.ImageSharp/Naiad.Surfaces.ImageSharp.csproj",
+              "Naiad/src/Naiad.Surfaces.Skia/Naiad.Surfaces.Skia.csproj",
+          ]
+          package_projects = [repo / p for p in package_projects]
+
+          def normalize(path: str) -> str:
+              return path.replace("\\", "/").strip("/")
+
+          def run(args: list[str]) -> str:
+              return subprocess.check_output(args, text=True).strip()
+
+          if publish_all:
+              changed_files = [
+                  normalize(p)
+                  for p in run(["git", "ls-files"]).splitlines()
+                  if p.strip()
+              ]
+          else:
+              diff_base = base_ref or "HEAD~1"
+              try:
+                  changed_files = [
+                      normalize(p)
+                      for p in run(["git", "diff", "--name-only", f"{diff_base}..{head_sha}"]).splitlines()
+                      if p.strip()
+                  ]
+              except subprocess.CalledProcessError:
+                  print(f"Failed to diff from '{diff_base}'. If this is the first commit, use publish_all=true.", file=sys.stderr)
+                  raise
+
+          def parse_package_id(project_path: pathlib.Path) -> str:
+              try:
+                  root = ET.parse(project_path).getroot()
+              except ET.ParseError:
+                  return project_path.stem
+              for elem in root.iter():
+                  if elem.tag.endswith("PackageId") and elem.text and elem.text.strip():
+                      return elem.text.strip()
+              return project_path.stem
+
+          def project_references(project_path: pathlib.Path) -> set[pathlib.Path]:
+              refs: set[pathlib.Path] = set()
+              stack = [project_path.resolve()]
+              visited: set[pathlib.Path] = set()
+              while stack:
+                  current = stack.pop()
+                  if current in visited:
+                      continue
+                  visited.add(current)
+                  try:
+                      root = ET.parse(current).getroot()
+                  except ET.ParseError:
+                      continue
+                  for elem in root.iter():
+                      if not elem.tag.endswith("ProjectReference"):
+                          continue
+                      include = (elem.attrib.get("Include") or "").strip()
+                      if not include:
+                          continue
+                      candidate = (current.parent / include).resolve()
+                      if candidate.exists() and candidate not in refs:
+                          refs.add(candidate)
+                          stack.append(candidate)
+              return refs
+
+          def starts_with(path: str, prefix: str) -> bool:
+              return path == prefix or path.startswith(prefix + "/")
+
+          impacted = []
+          for project in package_projects:
+              if not project.exists():
+                  continue
+
+              package_id = parse_package_id(project)
+              rel_project = normalize(str(project.relative_to(repo).as_posix()))
+              project_dir = normalize(str(project.parent.relative_to(repo).as_posix()))
+              watch_prefixes = {project_dir, rel_project}
+
+              for ref in project_references(project):
+                  try:
+                      rel_ref_dir = normalize(str(ref.parent.relative_to(repo).as_posix()))
+                      rel_ref_file = normalize(str(ref.relative_to(repo).as_posix()))
+                  except ValueError:
+                      continue
+                  watch_prefixes.add(rel_ref_dir)
+                  watch_prefixes.add(rel_ref_file)
+
+              if rel_project.startswith("Naiad/src/"):
+                  watch_prefixes.add("Naiad/src/Directory.Build.props")
+                  watch_prefixes.add("Naiad/src/Directory.Packages.props")
+                  watch_prefixes.add("Naiad/src/global.json")
+
+              project_changed = any(
+                  any(starts_with(changed, prefix) for prefix in watch_prefixes)
+                  for changed in changed_files
+              )
+
+              if project_changed:
+                  impacted.append(
+                      {
+                          "project_path": rel_project,
+                          "package_id": package_id,
+                          "artifact_id": package_id.lower().replace(".", "-"),
+                      }
+                  )
+
+          matrix = {"include": impacted}
+          has_changes = "true" if impacted else "false"
+
+          output = os.environ["GITHUB_OUTPUT"]
+          with open(output, "a", encoding="utf-8") as fh:
+              fh.write(f"has_changes={has_changes}\n")
+              fh.write(f"matrix={json.dumps(matrix, separators=(',', ':'))}\n")
+              fh.write("changed_files<<EOF\n")
+              for file in changed_files:
+                  fh.write(file + "\n")
+              fh.write("EOF\n")
+
+          print("Changed files:")
+          for file in changed_files:
+              print(f"- {file}")
+          print("Impacted packages:")
+          for item in impacted:
+              print(f"- {item['package_id']} ({item['project_path']})")
+
+  pack-and-publish:
+    needs: detect-impacted-packages
+    if: ${{ needs.detect-impacted-packages.outputs.has_changes == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-impacted-packages.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore ${{ matrix.project_path }}
+
+      - name: Build
+        run: dotnet build ${{ matrix.project_path }} -c Release --no-restore -p:Version=${{ inputs.version }} -p:GeneratePackageOnBuild=false
+
+      - name: Pack
+        run: dotnet pack ${{ matrix.project_path }} -c Release --no-build -p:Version=${{ inputs.version }} -p:GeneratePackageOnBuild=false -o ./nupkg
+
+      - name: Verify package file
+        shell: bash
+        run: |
+          if ! ls ./nupkg/${{ matrix.package_id }}.${{ inputs.version }}.nupkg >/dev/null 2>&1; then
+            echo "Expected ./nupkg/${{ matrix.package_id }}.${{ inputs.version }}.nupkg"
+            ls -la ./nupkg || true
+            exit 1
+          fi
+
+      - name: NuGet Login (OIDC)
+        id: nuget
+        if: ${{ inputs.push_to_nuget }}
+        uses: NuGet/login@v1
+        with:
+          user: mostlylucid
+
+      - name: Push to NuGet
+        if: ${{ inputs.push_to_nuget }}
+        run: dotnet nuget push ./nupkg/${{ matrix.package_id }}.${{ inputs.version }}.nupkg --api-key ${{ steps.nuget.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-${{ matrix.artifact_id }}-${{ inputs.version }}
+          path: ./nupkg/${{ matrix.package_id }}.${{ inputs.version }}.nupkg
+
+  no-packages-impacted:
+    needs: detect-impacted-packages
+    if: ${{ needs.detect-impacted-packages.outputs.has_changes != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: No impacted packages
+        run: echo "No impacted packages detected for this version publish run."

@@ -1,0 +1,51 @@
+@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>Naiad Blazor Sample</PageTitle>
+
+<main>
+    <h1>Naiad Blazor Profiles</h1>
+    <p>Left uses Mermaid profile (default service config). Right overrides to Complete profile.</p>
+
+    <div class="grid">
+        <section>
+            <h2>Mermaid Profile</h2>
+            <NaiadDiagram Mermaid="@MermaidDiagram"
+                          Theme="auto"
+                          FitWidth="true"
+                          StatusHidden="true"
+                          OptionsJson='{"skinPack":"material3"}'
+                          style="min-height: 260px;" />
+        </section>
+
+        <section>
+            <h2>Complete Profile</h2>
+            <NaiadDiagram ScriptUrl="@NaiadBlazorProfiles.Complete"
+                          Mermaid="@CompleteDiagram"
+                          Theme="auto"
+                          FitWidth="true"
+                          StatusHidden="true"
+                          ShowMenu="true"
+                          OptionsJson='{"skinPack":"cats"}'
+                          style="min-height: 260px;" />
+        </section>
+    </div>
+</main>
+
+@code {
+    private const string MermaidDiagram = """
+    flowchart LR
+      Client[Browser Client] --> Api[Application API]
+      Api --> Db[(Database)]
+      Api --> Queue[[Message Bus]]
+    """;
+
+    private const string CompleteDiagram = """
+    flowchart LR
+      User[End User] --> Edge[Edge Gateway]
+      Edge --> ServiceA[Service A]
+      Edge --> ServiceB[Service B]
+      ServiceA --> Store[(Primary Store)]
+      ServiceB --> Cache[(Cache)]
+    """;
+}

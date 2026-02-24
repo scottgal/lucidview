@@ -9,7 +9,7 @@ namespace Naiad.Benchmarks.Original;
 
 /// <summary>
 /// Benchmarks for the Dagre API as provided by the Mostlylucid.Dagre package.
-/// Uses DagreInputGraph.Layout() — the public API.
+/// Uses DagreInputGraph.Layout() - the public API.
 /// </summary>
 [MemoryDiagnoser]
 [Config(typeof(Config))]

@@ -1,0 +1,6 @@
+v0.1.1 - Initial public preview
+- 30+ Mermaid diagram types (flowchart, sequence, class, ER, state, geo, etc.)
+- Blazor web component wrapper
+- ImageSharp and SkiaSharp rendering surfaces
+- Showcase and Cats skin packs
+- WebAssembly support via npm packages

@@ -8,7 +8,7 @@ using Mostlylucid.Dagre;
 namespace Naiad.Benchmarks;
 
 /// <summary>
-/// Benchmarks using DagreInputGraph.Layout() — same API surface as the
+/// Benchmarks using DagreInputGraph.Layout() - same API surface as the
 /// original NuGet package, for direct comparison.
 /// </summary>
 [MemoryDiagnoser]

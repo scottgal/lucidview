@@ -1,4 +1,4 @@
-# `@naiad/web-component-complete`
+# `@mostlylucid/naiad-complete`
 
 Naiad Mermaid rendering as a standard Web Component for plain HTML pages.
 
@@ -17,7 +17,7 @@ The package includes:
 ## Install
 
 ```bash
-npm install @naiad/web-component-complete
+npm install @mostlylucid/naiad-complete
 ```
 
 ## Plain HTML Usage
@@ -32,7 +32,7 @@ flowchart LR
   B --> C
   </naiad-diagram>
 
-  <script type="module" src="/node_modules/@naiad/web-component-complete/dist/naiad-web-component.js"></script>
+  <script type="module" src="/node_modules/@mostlylucid/naiad-complete/dist/naiad-web-component.js"></script>
 </body>
 </html>
 ```
@@ -256,7 +256,7 @@ npm run pack:preview
 Use the packaged all-diagrams harness to validate web-component rendering across diagram families:
 
 ```html
-<iframe src="/node_modules/@naiad/web-component-complete/dist/all-diagrams-web-component.html"></iframe>
+<iframe src="/node_modules/@mostlylucid/naiad-complete/dist/all-diagrams-web-component.html"></iframe>
 ```
 
 ## Blazor Integration

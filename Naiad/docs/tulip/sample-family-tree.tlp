@@ -1,0 +1,86 @@
+; Family Tree / Genealogy
+; Shows 3 generations of a family
+(tlp "2.3"
+  (author "Naiad Documentation")
+  (comments "Three-generation family tree")
+  
+  ; 14 family members
+  (nodes 0..13)
+  
+  ; Generation 1 -> Generation 2 (parent-child)
+  (edge 0 0 2)   ; Grandpa -> Dad
+  (edge 1 1 2)   ; Grandma -> Dad
+  (edge 2 0 3)   ; Grandpa -> Uncle
+  (edge 3 1 3)   ; Grandma -> Uncle
+  (edge 4 0 4)   ; Grandpa -> Aunt
+  (edge 5 1 4)   ; Grandma -> Aunt
+  
+  ; Generation 2 -> Generation 3
+  (edge 6 2 6)   ; Dad -> Child1
+  (edge 7 5 6)   ; Mom -> Child1
+  (edge 8 2 7)   ; Dad -> Child2
+  (edge 9 5 7)   ; Mom -> Child2
+  (edge 10 3 8)  ; Uncle -> Cousin1
+  (edge 11 6 8)  ; Aunt2 -> Cousin1
+  (edge 12 3 9)  ; Uncle -> Cousin2
+  (edge 13 6 9)  ; Aunt2 -> Cousin2
+  (edge 14 4 10) ; Aunt -> Cousin3
+  (edge 15 7 10) ; Uncle3 -> Cousin3
+  
+  ; Marriage connections (bidirectional shown as two edges)
+  (edge 16 0 1)  ; Grandpa <-> Grandma
+  (edge 17 2 5)  ; Dad <-> Mom
+  (edge 18 3 6)  ; Uncle <-> Aunt2
+  (edge 19 4 7)  ; Aunt <-> Uncle3
+  
+  ; Names
+  (property 0 string "viewLabel"
+    (default "" "")
+    (node 0 "William Sr.")
+    (node 1 "Eleanor")
+    (node 2 "William Jr.")
+    (node 3 "Robert")
+    (node 4 "Margaret")
+    (node 5 "Sarah")
+    (node 6 "James")
+    (node 7 "Emma")
+    (node 8 "Michael")
+    (node 9 "Lisa")
+    (node 10 "David")
+    (node 11 "Thomas")
+    (node 12 "Sophia")
+    (node 13 "Oliver")
+  )
+  
+  ; Gender colors
+  (property 1 color "viewColor"
+    (default "(150,150,150,255)" "(0,0,0,0)")
+    ; Male - Blue
+    (node 0 "(66,133,244,255)")
+    (node 2 "(66,133,244,255)")
+    (node 3 "(66,133,244,255)")
+    (node 6 "(66,133,244,255)")
+    (node 8 "(66,133,244,255)")
+    (node 10 "(66,133,244,255)")
+    (node 11 "(66,133,244,255)")
+    (node 13 "(66,133,244,255)")
+    ; Female - Pink
+    (node 1 "(234,128,172,255)")
+    (node 4 "(234,128,172,255)")
+    (node 5 "(234,128,172,255)")
+    (node 7 "(234,128,172,255)")
+    (node 9 "(234,128,172,255)")
+    (node 12 "(234,128,172,255)")
+  )
+  
+  ; Generation clusters
+  (cluster 1
+    (nodes 0 1)
+  )
+  (cluster 2
+    (nodes 2 3 4 5 6 7)
+  )
+  (cluster 3
+    (nodes 8 9 10 11 12 13)
+  )
+)

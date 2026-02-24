@@ -113,7 +113,7 @@ public class GanttRenderer : IDiagramRenderer<GanttModel>
         builder.AddLine(offsetX, offsetY + AxisHeight - 5, offsetX + chartWidth, offsetY + AxisHeight - 5,
             stroke: theme.AxisLine, strokeWidth: 1);
 
-        // Date labels — adaptive interval based on available space per label
+        // Date labels - adaptive interval based on available space per label
         var minLabelWidth = 50.0; // minimum pixels between date labels
         var interval = Math.Max(1, (int)Math.Ceiling(minLabelWidth / dayWidth));
         if (totalDays > 60) interval = Math.Max(interval, 7);

@@ -1,0 +1,5 @@
+﻿Name=dark
+Background=#0f0f23
+TextColor=#e2e8f0
+NodeFill=#1e293b
+EdgeStroke=#94a3b8

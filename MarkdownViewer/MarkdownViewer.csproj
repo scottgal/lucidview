@@ -52,7 +52,8 @@
         <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
         <PackageReference Include="LiveMarkdown.Avalonia" Version="1.7.0" />
-        <PackageReference Include="Microsoft.Playwright" Version="1.58.0" />
+        <PackageReference Include="QuestPDF" Version="2026.2.1" />
+        <PackageReference Include="QuestPDF.Markdown" Version="1.47.0" />
 
         <!-- Markdown Rendering with Syntax Highlighting (YouYan fork for Avalonia 11.2+ compatibility) -->
         <ProjectReference Include="..\Naiad\src\Naiad\Naiad.csproj" />

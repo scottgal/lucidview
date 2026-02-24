@@ -13,10 +13,19 @@ public class Edge
     // Layout properties (set by layout engine)
     public List<Position> Points { get; } = [];
 
+    // Optional dagre-computed label position (set by layout engine for labeled edges).
+    // Dagre computes these from edge-label dummy nodes, handling parallel edges correctly.
+    public double? DagreLabelX { get; set; }
+    public double? DagreLabelY { get; set; }
+
     public Position LabelPosition
     {
         get
         {
+            // Prefer dagre's computed position (handles parallel edges correctly)
+            if (DagreLabelX.HasValue && DagreLabelY.HasValue)
+                return new(DagreLabelX.Value, DagreLabelY.Value);
+
             if (Points.Count == 0)
             {
                 return Position.Zero;

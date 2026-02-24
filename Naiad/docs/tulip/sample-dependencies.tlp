@@ -1,0 +1,91 @@
+; Software Dependency Graph
+; Shows package dependencies in a layered architecture
+(tlp "2.3"
+  (author "Naiad Documentation")
+  (comments "Software package dependency visualization")
+  
+  ; 16 packages
+  (nodes 0..15)
+  
+  ; Layer 1: Core libraries
+  (edge 0 0 2)  ; app -> core
+  (edge 1 1 2)  ; web -> core
+  (edge 2 2 8)  ; core -> utils
+  (edge 3 2 9)  ; core -> logging
+  
+  ; Layer 2: Data layer
+  (edge 4 0 3)  ; app -> db
+  (edge 5 3 10) ; db -> orm
+  (edge 6 3 11) ; db -> migrations
+  (edge 7 10 2) ; orm -> core
+  
+  ; Layer 3: Services
+  (edge 8 0 4)  ; app -> auth
+  (edge 9 4 5)  ; auth -> cache
+  (edge 10 5 6) ; cache -> redis-client
+  (edge 11 6 2) ; redis-client -> core
+  
+  ; Layer 4: Web/API
+  (edge 12 1 7)  ; web -> api-framework
+  (edge 13 7 12) ; api-framework -> http
+  (edge 14 7 13) ; api-framework -> json
+  (edge 15 12 2) ; http -> core
+  (edge 16 13 2) ; json -> core
+  
+  ; Layer 5: Frontend
+  (edge 17 1 14) ; web -> ui-components
+  (edge 18 14 15) ; ui-components -> state
+  (edge 19 15 9)  ; state -> logging
+  
+  ; Cross-cutting
+  (edge 20 4 9)  ; auth -> logging
+  (edge 21 7 9)  ; api-framework -> logging
+  
+  ; Package labels
+  (property 0 string "viewLabel"
+    (default "" "")
+    (node 0 "my-app")
+    (node 1 "web-frontend")
+    (node 2 "core-lib")
+    (node 3 "database")
+    (node 4 "auth-service")
+    (node 5 "cache-layer")
+    (node 6 "redis-client")
+    (node 7 "api-framework")
+    (node 8 "utils")
+    (node 9 "logging")
+    (node 10 "orm")
+    (node 11 "migrations")
+    (node 12 "http-client")
+    (node 13 "json-parser")
+    (node 14 "ui-components")
+    (node 15 "state-mgmt")
+  )
+  
+  ; Colors by layer
+  (property 1 color "viewColor"
+    (default "(200,200,200,255)" "(0,0,0,0)")
+    ; Application layer
+    (node 0 "(156,39,176,255)")
+    (node 1 "(156,39,176,255)")
+    ; Core layer
+    (node 2 "(33,150,243,255)")
+    (node 8 "(33,150,243,255)")
+    (node 9 "(33,150,243,255)")
+    ; Data layer
+    (node 3 "(76,175,80,255)")
+    (node 10 "(76,175,80,255)")
+    (node 11 "(76,175,80,255)")
+    ; Service layer
+    (node 4 "(255,152,0,255)")
+    (node 5 "(255,152,0,255)")
+    (node 6 "(255,152,0,255)")
+    ; API layer
+    (node 7 "(244,67,54,255)")
+    (node 12 "(244,67,54,255)")
+    (node 13 "(244,67,54,255)")
+    ; UI layer
+    (node 14 "(0,188,212,255)")
+    (node 15 "(0,188,212,255)")
+  )
+)

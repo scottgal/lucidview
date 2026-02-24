@@ -363,7 +363,7 @@ internal static class ShapeGeometry
             return [2 * u - p / 3, -u - p / 3];
         }
 
-        // Three real roots (casus irreducibilis) — trigonometric method
+        // Three real roots (casus irreducibilis) - trigonometric method
         var rr = Math.Sqrt(-da * da * da / 27);
         var theta = Math.Acos(Math.Clamp(-db / (2 * rr), -1, 1));
         var mag = 2 * CubeRoot(rr);

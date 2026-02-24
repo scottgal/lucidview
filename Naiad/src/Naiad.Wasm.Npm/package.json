@@ -1,7 +1,7 @@
 {
-  "name": "@naiad/web-component-complete",
+  "name": "@mostlylucid/naiad-complete",
   "version": "0.1.0",
-  "description": "Naiad complete WebAssembly web component with optional plugin packs enabled.",
+  "description": "Mostlylucid fork of Naiad - complete WebAssembly web component with optional plugin packs enabled.",
   "type": "module",
   "main": "./dist/naiad-web-component.js",
   "types": "./index.d.ts",
@@ -27,9 +27,19 @@
     "mermaid",
     "wasm",
     "web-component",
-    "naiad"
+    "naiad",
+    "mostlylucid"
   ],
   "author": "mostlylucid",
   "license": "Unlicense",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scottgal/markdown.viewer.git",
+    "directory": "Naiad/src/Naiad.Wasm.Npm"
+  },
+  "homepage": "https://github.com/scottgal/markdown.viewer",
+  "bugs": {
+    "url": "https://github.com/scottgal/markdown.viewer/issues"
+  },
   "sideEffects": true
 }

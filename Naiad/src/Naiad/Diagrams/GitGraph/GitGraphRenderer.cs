@@ -170,7 +170,7 @@ public class GitGraphRenderer : IDiagramRenderer<GitGraphModel>
             stroke: color,
             strokeWidth: strokeWidth);
 
-        // Commit ID (abbreviated) — positioned below the circle
+        // Commit ID (abbreviated) - positioned below the circle
         var displayId = commit.Id.Length > 7 ? commit.Id[..7] : commit.Id;
         builder.AddText(x, y + CommitRadius + 14, displayId,
             anchor: "middle",

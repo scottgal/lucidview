@@ -11,5 +11,11 @@
     <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <SignAssembly>false</SignAssembly>
+    <Authors>Scott Galloway</Authors>
+    <Company>mostlylucid.net</Company>
+    <PackageProjectUrl>https://github.com/scottgal/markdown.viewer</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/scottgal/markdown.viewer</RepositoryUrl>
+    <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
+    <PackageReleaseNotes>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)releasenotes.txt'))</PackageReleaseNotes>
   </PropertyGroup>
 </Project>

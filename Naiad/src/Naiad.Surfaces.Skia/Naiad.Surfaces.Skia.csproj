@@ -2,7 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <PackageId>Mostlylucid.Naiad.Surfaces.Skia</PackageId>
+    <Description>SkiaSharp rasterization surface for Naiad SVG diagrams.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Naiad\Naiad.csproj" />

@@ -8,7 +8,7 @@ namespace MermaidSharp.Diagrams.Flowchart;
 public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     IDiagramRenderer<FlowchartModel>
 {
-    readonly ILayoutEngine _layoutEngine = layoutEngine ?? new Layout.DagreNetLayoutEngine();
+    readonly ILayoutEngine _layoutEngine = layoutEngine ?? new Layout.MostlylucidDagreLayoutEngine();
 
     // FontAwesome icon pattern: fa:fa-icon-name or fab:fa-icon-name
     static readonly Regex IconPattern = new("(fa[bsr]?):fa-([a-z0-9-]+)", RegexCompat.Compiled);
@@ -99,8 +99,8 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
             }
             else
             {
-                // Rectangle and RoundedRectangle: 54px height, generous padding
-                node.Width = Math.Max(textSize.Width + 36, 80) + (hasIcon ? 20 : 0);
+                // Rectangle and RoundedRectangle: mermaid.js uses 30px padding per side (60px total)
+                node.Width = Math.Max(textSize.Width + 60, 90) + (hasIcon ? 20 : 0);
                 node.Height = textSize.Height + 30;
             }
 
@@ -145,7 +145,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
             EdgeSeparation = options.EdgeSeparation ?? 10.0
         };
         // Pass font size to layout engine so it can measure edge labels
-        if (_layoutEngine is DagreNetLayoutEngine dagreNet)
+        if (_layoutEngine is MostlylucidDagreLayoutEngine dagreNet)
         {
             dagreNet.FontSize = options.FontSize;
         }
@@ -204,7 +204,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     // Dead code removed: Port enum, GetPortPosition, GetDefaultPorts, IntersectNode,
     // IntersectRect/Diamond/Ellipse/Hexagon, IsForwardEdge, IsNonRectangularShape,
     // ComputeExitPoint/EntryPoint, GenerateOrthogonalEdgeRoutes, EdgePassesThroughNodes,
-    // GenerateSelfLoop, GenerateSideRoute — all superseded by DagreNetLayoutEngine.
+    // GenerateSelfLoop, GenerateSideRoute - all superseded by MostlylucidDagreLayoutEngine.
     static LayoutResult CalculateLayoutBounds(FlowchartModel model)
     {
         var minX = double.MaxValue;
@@ -407,70 +407,69 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     /// approximate the control polygon, staying close without wild swings.
     /// This matches mermaid.js default curve: "basis".
     /// </summary>
+    /// <summary>
+    /// Build a smooth path matching d3.curveBasis (uniform cubic B-spline).
+    /// This is the exact algorithm mermaid.js uses for edge rendering.
+    /// For N≥3 points: M P[0], L near-start, C segments..., C near-end, L P[N-1]
+    /// </summary>
     static string BuildSmoothPath(List<Position> points)
     {
+        var n = points.Count;
         var sb = new StringBuilder();
 
-        if (points.Count == 3)
+        if (n < 2) return "";
+        if (n == 2)
         {
-            // Quadratic bezier for 3 points
-            sb.Append($"M{Fmt(points[0].X)},{Fmt(points[0].Y)}");
-            sb.Append($" Q{Fmt(points[1].X)},{Fmt(points[1].Y)} {Fmt(points[2].X)},{Fmt(points[2].Y)}");
+            sb.Append($"M{Fmt(points[0].X)},{Fmt(points[0].Y)} L{Fmt(points[1].X)},{Fmt(points[1].Y)}");
             return sb.ToString();
         }
 
-        // Uniform cubic B-spline (matches d3.curveBasis).
-        // The curve starts at point[0] and ends at point[n-1].
-        // Intermediate points are approximated, not interpolated.
-        // For each interior segment, the cubic bezier control points are:
-        //   start = (P[i-1] + 4*P[i] + P[i+1]) / 6
-        //   cp1   = (2*P[i] + P[i+1]) / 3
-        //   cp2   = (P[i] + 2*P[i+1]) / 3
-        //   end   = (P[i] + 4*P[i+1] + P[i+2]) / 6
-        var n = points.Count;
+        // d3.curveBasis algorithm for N≥3 points:
+        // 1. M P[0]
+        // 2. L (5*P[0] + P[1])/6  (short line from start toward first knot)
+        // 3. For k=0 to N-3: C using P[k], P[k+1], P[k+2]
+        // 4. Final C using P[N-2], P[N-1], P[N-1] (from lineEnd)
+        // 5. L P[N-1]
 
-        // Start at the first point
+        // Step 1: Move to start
         sb.Append($"M{Fmt(points[0].X)},{Fmt(points[0].Y)}");
 
-        if (n == 4)
+        // Step 2: Line to first B-spline approach point
+        var lx = (5 * points[0].X + points[1].X) / 6;
+        var ly = (5 * points[0].Y + points[1].Y) / 6;
+        sb.Append($" L{Fmt(lx)},{Fmt(ly)}");
+
+        // Step 3: Interior cubic bezier segments
+        // Each segment uses three consecutive points P[k], P[k+1], P[k+2]
+        for (var k = 0; k <= n - 3; k++)
         {
-            // Special case: single interior segment
-            var cp1x = (2 * points[1].X + points[2].X) / 3;
-            var cp1y = (2 * points[1].Y + points[2].Y) / 3;
-            var cp2x = (points[1].X + 2 * points[2].X) / 3;
-            var cp2y = (points[1].Y + 2 * points[2].Y) / 3;
-            sb.Append($" C{Fmt(cp1x)},{Fmt(cp1y)} {Fmt(cp2x)},{Fmt(cp2y)} {Fmt(points[3].X)},{Fmt(points[3].Y)}");
-            return sb.ToString();
+            var p0 = points[k];
+            var p1 = points[k + 1];
+            var p2 = points[k + 2];
+            var cp1x = (2 * p0.X + p1.X) / 3;
+            var cp1y = (2 * p0.Y + p1.Y) / 3;
+            var cp2x = (p0.X + 2 * p1.X) / 3;
+            var cp2y = (p0.Y + 2 * p1.Y) / 3;
+            var endx = (p0.X + 4 * p1.X + p2.X) / 6;
+            var endy = (p0.Y + 4 * p1.Y + p2.Y) / 6;
+            sb.Append($" C{Fmt(cp1x)},{Fmt(cp1y)} {Fmt(cp2x)},{Fmt(cp2y)} {Fmt(endx)},{Fmt(endy)}");
         }
 
-        // First segment: from P[0] to the first B-spline knot
-        var firstKnotX = (points[0].X + 4 * points[1].X + points[2].X) / 6;
-        var firstKnotY = (points[0].Y + 4 * points[1].Y + points[2].Y) / 6;
-        var fc1x = (2 * points[0].X + points[1].X) / 3;
-        var fc1y = (2 * points[0].Y + points[1].Y) / 3;
-        var fc2x = (points[0].X + 2 * points[1].X) / 3;
-        var fc2y = (points[0].Y + 2 * points[1].Y) / 3;
-        sb.Append($" C{Fmt(fc1x)},{Fmt(fc1y)} {Fmt(fc2x)},{Fmt(fc2y)} {Fmt(firstKnotX)},{Fmt(firstKnotY)}");
-
-        // Interior segments
-        for (var i = 1; i < n - 3; i++)
+        // Step 4: Final segment from lineEnd - uses P[N-2], P[N-1], P[N-1]
         {
-            var knotX = (points[i].X + 4 * points[i + 1].X + points[i + 2].X) / 6;
-            var knotY = (points[i].Y + 4 * points[i + 1].Y + points[i + 2].Y) / 6;
-            var c1x = (2 * points[i].X + points[i + 1].X) / 3;
-            var c1y = (2 * points[i].Y + points[i + 1].Y) / 3;
-            var c2x = (points[i].X + 2 * points[i + 1].X) / 3;
-            var c2y = (points[i].Y + 2 * points[i + 1].Y) / 3;
-            sb.Append($" C{Fmt(c1x)},{Fmt(c1y)} {Fmt(c2x)},{Fmt(c2y)} {Fmt(knotX)},{Fmt(knotY)}");
+            var p0 = points[n - 2];
+            var p1 = points[n - 1];
+            var cp1x = (2 * p0.X + p1.X) / 3;
+            var cp1y = (2 * p0.Y + p1.Y) / 3;
+            var cp2x = (p0.X + 2 * p1.X) / 3;
+            var cp2y = (p0.Y + 2 * p1.Y) / 3;
+            var endx = (p0.X + 5 * p1.X) / 6;
+            var endy = (p0.Y + 5 * p1.Y) / 6;
+            sb.Append($" C{Fmt(cp1x)},{Fmt(cp1y)} {Fmt(cp2x)},{Fmt(cp2y)} {Fmt(endx)},{Fmt(endy)}");
         }
 
-        // Last segment: to P[n-1]
-        var li = n - 3;
-        var lc1x = (2 * points[li].X + points[li + 1].X) / 3;
-        var lc1y = (2 * points[li].Y + points[li + 1].Y) / 3;
-        var lc2x = (points[li].X + 2 * points[li + 1].X) / 3;
-        var lc2y = (points[li].Y + 2 * points[li + 1].Y) / 3;
-        sb.Append($" C{Fmt(lc1x)},{Fmt(lc1y)} {Fmt(lc2x)},{Fmt(lc2y)} {Fmt(points[n - 1].X)},{Fmt(points[n - 1].Y)}");
+        // Step 5: Line to exact endpoint
+        sb.Append($" L{Fmt(points[n - 1].X)},{Fmt(points[n - 1].Y)}");
 
         return sb.ToString();
     }
@@ -790,7 +789,7 @@ public class FlowchartRenderer(ILayoutEngine? layoutEngine = null) :
     }
 
     /// <summary>
-    /// Encode text for SVG text content — only &amp;, &lt;, &gt; need escaping.
+    /// Encode text for SVG text content - only &amp;, &lt;, &gt; need escaping.
     /// Unlike HtmlEncode, quotes are left as-is since they're safe in text content.
     /// </summary>
     static string XmlEncodeText(string value) =>

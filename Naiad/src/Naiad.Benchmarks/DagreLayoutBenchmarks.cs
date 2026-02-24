@@ -28,7 +28,7 @@ public class DagreLayoutBenchmarks
 
     static readonly RenderOptions Options = new();
 
-    // Small: 5 nodes, 4 edges — direct definition
+    // Small: 5 nodes, 4 edges - direct definition
     const string SmallFlowchart = """
         flowchart TD
             A --> B

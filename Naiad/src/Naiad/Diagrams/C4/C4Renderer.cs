@@ -41,7 +41,7 @@ public class C4Renderer : IDiagramRenderer<C4Model>
 
         var titleOffset = string.IsNullOrEmpty(model.Title) ? 0 : TitleHeight;
 
-        // Calculate layout — account for multi-row categories correctly
+        // Calculate layout - account for multi-row categories correctly
         var maxPerRow = 4;
         var personRows = persons.Count > 0 ? (int) Math.Ceiling((double) persons.Count / maxPerRow) : 0;
         var systemRows = systems.Count > 0 ? (int) Math.Ceiling((double) systems.Count / maxPerRow) : 0;
@@ -289,7 +289,7 @@ public class C4Renderer : IDiagramRenderer<C4Model>
             builder.AddCircle(x + ElementWidth / 2, y + headRadius + 4, headRadius,
                 fill: color, stroke: "none");
 
-            // Body (rounded rect — wide enough to contain text)
+            // Body (rounded rect - wide enough to contain text)
             builder.AddRect(x + (ElementWidth - bodyWidth) / 2, bodyTop,
                 bodyWidth, bodyHeight, rx: 8,
                 fill: color, stroke: "none");
@@ -303,7 +303,7 @@ public class C4Renderer : IDiagramRenderer<C4Model>
                 fontSize: $"{options.FontSize - 1}px", fontFamily: options.FontFamily,
                 fill: textColor, fontWeight: "bold");
 
-            // Description (inside body — fits wider body)
+            // Description (inside body - fits wider body)
             if (hasDesc)
             {
                 builder.AddText(x + ElementWidth / 2, bodyCenter + 10,

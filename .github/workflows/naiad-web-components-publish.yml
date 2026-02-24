@@ -1,0 +1,111 @@
+name: Publish Naiad Web Components
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish to npm (false runs build + dry-run only)
+        required: false
+        type: boolean
+        default: false
+      npm_tag:
+        description: npm dist-tag to publish with
+        required: false
+        type: string
+        default: latest
+  push:
+    tags:
+      - naiad-web-components-v*
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DOTNET_VERSION: 10.0.x
+  NODE_VERSION: 22.x
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_dir: Naiad/src/Naiad.Wasm.Npm
+            package_name: "@mostlylucid/naiad-complete"
+            package_id: complete
+            playwright_filter: FullyQualifiedName=Tests.WebComponent.NaiadNpmDistPlaywrightTests.NpmDistComplete_ShouldRenderWebComponent
+          - package_dir: Naiad/src/Naiad.Wasm.Npm.Mermaid
+            package_name: "@mostlylucid/naiad-mermaid"
+            package_id: mermaid
+            playwright_filter: FullyQualifiedName=Tests.WebComponent.NaiadNpmDistPlaywrightTests.NpmDistMermaid_ShouldRenderWebComponent
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+
+      - name: Install WASM workload
+        run: dotnet workload install wasm-tools
+
+      - name: Build package
+        working-directory: ${{ matrix.package_dir }}
+        run: npm run build
+
+      - name: Build Playwright test project
+        run: dotnet build Naiad/src/Tests/Tests.csproj -c Release -v minimal
+
+      - name: Install Playwright Chromium
+        run: pwsh Naiad/src/Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Validate dist with Playwright
+        run: dotnet test Naiad/src/Tests/Tests.csproj -c Release --no-build --filter "${{ matrix.playwright_filter }}" --logger "console;verbosity=minimal"
+
+      - name: Pack preview
+        working-directory: ${{ matrix.package_dir }}
+        run: npm pack --dry-run
+
+      - name: Read package metadata
+        id: pkg
+        working-directory: ${{ matrix.package_dir }}
+        run: |
+          echo "name=$(node -p 'require(\"./package.json\").name')" >> $GITHUB_OUTPUT
+          echo "version=$(node -p 'require(\"./package.json\").version')" >> $GITHUB_OUTPUT
+
+      - name: Resolve npm tag
+        id: dist_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.npm_tag }}" ]; then
+            echo "value=${{ inputs.npm_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check npm for existing version
+        id: version_check
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+        run: |
+          if npm view "${{ steps.pkg.outputs.name }}@${{ steps.pkg.outputs.version }}" version > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "${{ steps.pkg.outputs.name }}@${{ steps.pkg.outputs.version }} already exists on npm; skipping publish."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to npm with trusted publishing
+        if: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)) && steps.version_check.outputs.exists == 'false' }}
+        working-directory: ${{ matrix.package_dir }}
+        run: npm publish --provenance --access public --tag "${{ steps.dist_tag.outputs.value }}"

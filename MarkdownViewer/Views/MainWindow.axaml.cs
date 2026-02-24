@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using System.Web;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
@@ -17,7 +16,6 @@ using MarkdownViewer.Models;
 using MarkdownViewer.Plugins;
 using MarkdownViewer.Services;
 using MermaidSharp.Rendering;
-using Microsoft.Playwright;
 using SkiaSharp;
 using VisualExtensions = Avalonia.VisualTree.VisualExtensions;
 
@@ -572,10 +570,10 @@ public partial class MainWindow : Window
         _rawContent = content;
 
         // Extract headings for navigation
-        _headings = _navigationService.ExtractHeadings(content);
+        _headings = NavigationService.ExtractHeadings(content);
 
         // Extract and display metadata (categories, publication date)
-        var metadata = _markdownService.ExtractMetadata(content);
+        var metadata = MarkdownService.ExtractMetadata(content);
         DisplayMetadata(metadata);
 
         // Phase 1: Fast path — text processing + cached mermaid diagrams
@@ -731,7 +729,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(_rawContent)) _ = DisplayMarkdown(_rawContent);
     }
 
-    private void UpdatePanelOverlay(AppTheme theme)
+    private static void UpdatePanelOverlay(AppTheme theme)
     {
         // Light themes get dark overlay, dark themes get light overlay
         var isLightTheme = IsLightTheme(theme);
@@ -1153,7 +1151,7 @@ public partial class MainWindow : Window
             var clipboard = GetTopLevel(this)?.Clipboard;
             if (clipboard != null && !string.IsNullOrEmpty(_rawContent))
             {
-                var html = ConvertMarkdownToHtml(_markdownService.ProcessMarkdown(_rawContent));
+                var html = Markdig.Markdown.ToHtml(_rawContent);
                 await clipboard.SetTextAsync(html);
             }
         }
@@ -1326,7 +1324,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _searchResults = _searchService.Search(_rawContent, query);
+        _searchResults = SearchService.Search(_rawContent, query);
         _currentSearchIndex = -1;
 
         if (_searchResults.Count == 0) SearchResultsText.Text = "No matches";
@@ -1402,190 +1400,18 @@ public partial class MainWindow : Window
 
             StatusText.Text = "Exporting PDF...";
 
-            // Generate HTML for printing (cross-platform approach)
-            var html = GeneratePrintHtml(_rawContent);
+            var basePath = _currentFilePath != null ? Path.GetDirectoryName(_currentFilePath) : null;
+            var title = Path.GetFileNameWithoutExtension(_currentFilePath ?? "Document");
 
-            // Render via headless Chromium and write PDF.
-            var tempPath = Path.Combine(Path.GetTempPath(), $"lucidview_export_{Guid.NewGuid():N}.html");
-            await File.WriteAllTextAsync(tempPath, html);
+            var pdfService = new PdfExportService(_markdownService);
+            await pdfService.ExportAsync(_rawContent, outputPath, title, _fontSize, basePath);
 
-            try
-            {
-                await ExportPdfFromHtmlAsync(tempPath, outputPath);
-                StatusText.Text = $"PDF saved: {outputPath}";
-            }
-            finally
-            {
-                TryDeleteFile(tempPath);
-            }
-        }
-        catch (PlaywrightException ex) when (IsMissingPlaywrightBrowser(ex))
-        {
-            StatusText.Text = "Chromium missing for PDF export. Run playwright install chromium.";
+            StatusText.Text = $"PDF saved: {outputPath}";
         }
         catch (Exception ex)
         {
             StatusText.Text = $"PDF export error: {ex.Message}";
         }
-    }
-
-    private static async Task ExportPdfFromHtmlAsync(string htmlPath, string outputPath)
-    {
-        using var playwright = await Playwright.CreateAsync();
-        await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
-        {
-            Headless = true
-        });
-
-        var page = await browser.NewPageAsync();
-        var htmlUri = new Uri(htmlPath);
-
-        await page.GotoAsync(htmlUri.AbsoluteUri, new PageGotoOptions
-        {
-            WaitUntil = WaitUntilState.NetworkIdle
-        });
-
-        await page.PdfAsync(new PagePdfOptions
-        {
-            Path = outputPath,
-            Format = "A4",
-            PrintBackground = true,
-            Margin = new Margin
-            {
-                Top = "12mm",
-                Right = "12mm",
-                Bottom = "12mm",
-                Left = "12mm"
-            }
-        });
-    }
-
-    private static bool IsMissingPlaywrightBrowser(PlaywrightException ex)
-    {
-        return ex.Message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase) ||
-               ex.Message.Contains("download new browsers", StringComparison.OrdinalIgnoreCase) ||
-               ex.Message.Contains("playwright install", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static void TryDeleteFile(string path)
-    {
-        try
-        {
-            if (File.Exists(path))
-                File.Delete(path);
-        }
-        catch
-        {
-            // Ignore cleanup failures in temp directory.
-        }
-    }
-
-    private string GeneratePrintHtml(string markdown)
-    {
-        var processed = _markdownService.ProcessMarkdown(markdown);
-
-        // Get theme colors for print
-        var isDark = !IsLightTheme(_effectiveTheme);
-        var bgColor = isDark ? "#1e1e1e" : "#ffffff";
-        var textColor = isDark ? "#d4d4d4" : "#1a1a1a";
-        var codeColor = isDark ? "#2d2d2d" : "#f5f5f5";
-
-        return $@"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset=""utf-8"">
-    <title>{Path.GetFileName(_currentFilePath ?? "Document")} - lucidVIEW</title>
-    <style>
-        @media print {{
-            body {{ background: white !important; color: black !important; }}
-            pre, code {{ background: #f5f5f5 !important; }}
-        }}
-        @media screen {{
-            body {{ background: {bgColor}; color: {textColor}; }}
-            pre, code {{ background: {codeColor}; }}
-        }}
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            font-size: {_fontSize}px;
-            line-height: 1.6;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px;
-        }}
-        h1, h2, h3, h4, h5, h6 {{ margin-top: 1.5em; margin-bottom: 0.5em; }}
-        h1 {{ font-size: 2em; border-bottom: 1px solid #ccc; padding-bottom: 0.3em; }}
-        h2 {{ font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }}
-        pre {{ padding: 16px; border-radius: 6px; overflow-x: auto; }}
-        code {{ padding: 2px 6px; border-radius: 3px; font-family: 'Cascadia Code', 'JetBrains Mono', Consolas, monospace; }}
-        pre code {{ padding: 0; }}
-        blockquote {{ border-left: 4px solid #58a6ff; margin: 1em 0; padding-left: 1em; color: #666; }}
-        table {{ border-collapse: collapse; width: 100%; margin: 1em 0; }}
-        th, td {{ border: 1px solid #ddd; padding: 8px 12px; text-align: left; }}
-        th {{ background: #f5f5f5; }}
-        img {{ max-width: 100%; height: auto; }}
-        a {{ color: #58a6ff; }}
-        .print-header {{
-            text-align: center;
-            margin-bottom: 2em;
-            padding-bottom: 1em;
-            border-bottom: 2px solid #58a6ff;
-        }}
-        .print-header h1 {{ border: none; margin: 0; }}
-        .print-footer {{
-            margin-top: 2em;
-            padding-top: 1em;
-            border-top: 1px solid #ccc;
-            text-align: center;
-            font-size: 0.8em;
-            color: #666;
-        }}
-        @page {{ margin: 1in; }}
-    </style>
-</head>
-<body>
-    <div class=""print-header"">
-        <h1>{HttpUtility.HtmlEncode(Path.GetFileName(_currentFilePath ?? "Document"))}</h1>
-        <p>Printed from lucidVIEW</p>
-    </div>
-    <article>
-        {ConvertMarkdownToHtml(processed)}
-    </article>
-    <div class=""print-footer"">
-        <p>Generated by lucidVIEW - {DateTime.Now:yyyy-MM-dd HH:mm}</p>
-    </div>
-</body>
-</html>";
-    }
-
-    private static string ConvertMarkdownToHtml(string markdown)
-    {
-        // Basic markdown to HTML conversion for print
-        // The rendered markdown is already processed by Markdown.Avalonia
-        // This is a simple fallback for HTML output
-        var html = markdown;
-
-        // Simple conversions (Markdown.Avalonia handles the actual rendering)
-        // This produces reasonable HTML for the print view
-        html = Regex.Replace(html, @"^### (.+)$", "<h3>$1</h3>", RegexOptions.Multiline);
-        html = Regex.Replace(html, @"^## (.+)$", "<h2>$1</h2>", RegexOptions.Multiline);
-        html = Regex.Replace(html, @"^# (.+)$", "<h1>$1</h1>", RegexOptions.Multiline);
-        html = Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
-        html = Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>");
-        html = Regex.Replace(html, @"`(.+?)`", "<code>$1</code>");
-        html = Regex.Replace(html, @"^- (.+)$", "<li>$1</li>", RegexOptions.Multiline);
-        html = Regex.Replace(html, @"\[([^\]]+)\]\(([^)]+)\)", "<a href=\"$2\">$1</a>");
-
-        // Convert line breaks to paragraphs
-        var paragraphs = html.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
-        html = string.Join("\n", paragraphs.Select(p =>
-        {
-            if (p.StartsWith("<h") || p.StartsWith("<li") || p.StartsWith("<pre") || p.StartsWith("<ul") ||
-                p.StartsWith("<ol"))
-                return p;
-            return $"<p>{p.Replace("\n", "<br>")}</p>";
-        }));
-
-        return html;
     }
 
     #endregion

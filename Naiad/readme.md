@@ -5,7 +5,7 @@
 
 A .NET library for rendering [Mermaid](https://mermaid.js.org/) diagrams to SVG. No browser or JavaScript runtime required.
 
-> Local fork note: Naiad is owned/maintained by Simon Cropp. This local fork contains project-specific AI-assisted experiments and is not intended for NuGet publication.
+> **Temporary fork notice:** [Naiad](https://github.com/SimonCropp/Naiad) is owned and maintained by [Simon Cropp](https://github.com/SimonCropp). This fork (`Mostlylucid.Naiad`) is a temporary package containing experimental features and new diagram types. The intention is to contribute these changes back to the upstream Naiad project - this fork is not intended as a permanent alternative.
 
 
 ## NuGet package

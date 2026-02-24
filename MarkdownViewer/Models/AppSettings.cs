@@ -26,7 +26,7 @@ public class AppSettings
     // Layout
     public int WindowWidth { get; set; } = 1100;
     public int WindowHeight { get; set; } = 750;
-    public bool ShowNavigationPanel { get; set; } = false;
+    public bool ShowNavigationPanel { get; set; }
     public double NavigationPanelWidth { get; set; } = 260;
     public bool WordWrap { get; set; } = true;
     public double ContentMaxWidth { get; set; } = 900;

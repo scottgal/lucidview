@@ -5,7 +5,7 @@ namespace MermaidSharp.Diagrams.Class;
 public class ClassRenderer(ILayoutEngine? layoutEngine = null) :
     IDiagramRenderer<ClassModel>
 {
-    readonly ILayoutEngine _layoutEngine = layoutEngine ?? new DagreLayoutEngine();
+    readonly ILayoutEngine _layoutEngine = layoutEngine ?? new MostlylucidDagreLayoutEngine();
 
     const double ClassPadding = 10;
     const double LineHeight = 20;

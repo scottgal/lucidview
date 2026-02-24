@@ -1,0 +1,5 @@
+IsDark=False
+Background=#ffffff
+TextColor=#1a192b
+PrimaryFill=#ECECFF
+AxisLine=#333333

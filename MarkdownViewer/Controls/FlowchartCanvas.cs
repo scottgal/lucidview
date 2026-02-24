@@ -339,7 +339,7 @@ public class FlowchartCanvas : Control
         }
     }
 
-    StreamGeometry BuildEdgePath(Edge edge, bool curved)
+    static StreamGeometry BuildEdgePath(Edge edge, bool curved)
     {
         var geometry = new StreamGeometry();
         using var ctx = geometry.Open();
@@ -350,49 +350,61 @@ public class FlowchartCanvas : Control
         if (points.Count == 2 || !curved)
         {
             for (var i = 1; i < points.Count; i++)
-            {
                 ctx.LineTo(ToPoint(points[i]));
-            }
+        }
+        else if (IsCubicBezierSequence(points))
+        {
+            // MSAGL outputs: start + groups of (cp1, cp2, endpoint)
+            // Render as native cubic bezier segments
+            for (var i = 1; i + 2 < points.Count; i += 3)
+                ctx.CubicBezierTo(ToPoint(points[i]), ToPoint(points[i + 1]), ToPoint(points[i + 2]));
         }
         else
         {
-            // Curved corners matching FlowchartRenderer.RenderEdge
-            const double radius = 8.0;
+            // d3.curveBasis (uniform cubic B-spline) — matches mermaid.js edge rendering
+            var n = points.Count;
 
-            for (var i = 1; i < points.Count - 1; i++)
+            // Line to first B-spline approach point
+            var lx = (5 * points[0].X + points[1].X) / 6;
+            var ly = (5 * points[0].Y + points[1].Y) / 6;
+            ctx.LineTo(new Point(lx, ly));
+
+            // Interior cubic bezier segments using consecutive point triples
+            for (var k = 0; k <= n - 3; k++)
             {
-                var prev = points[i - 1];
-                var corner = points[i];
-                var next = points[i + 1];
-
-                var dxIn = prev.X - corner.X;
-                var dyIn = prev.Y - corner.Y;
-                var lenIn = Math.Sqrt(dxIn * dxIn + dyIn * dyIn);
-
-                var dxOut = next.X - corner.X;
-                var dyOut = next.Y - corner.Y;
-                var lenOut = Math.Sqrt(dxOut * dxOut + dyOut * dyOut);
-
-                var r = Math.Min(radius, Math.Min(lenIn / 2, lenOut / 2));
-                if (r < 0.5)
-                {
-                    ctx.LineTo(ToPoint(corner));
-                    continue;
-                }
-
-                var beforeX = corner.X + r * dxIn / lenIn;
-                var beforeY = corner.Y + r * dyIn / lenIn;
-                var afterX = corner.X + r * dxOut / lenOut;
-                var afterY = corner.Y + r * dyOut / lenOut;
-
-                ctx.LineTo(new Point(beforeX, beforeY));
-                ctx.QuadraticBezierTo(ToPoint(corner), new Point(afterX, afterY));
+                var p0 = points[k];
+                var p1 = points[k + 1];
+                var p2 = points[k + 2];
+                ctx.CubicBezierTo(
+                    new Point((2 * p0.X + p1.X) / 3, (2 * p0.Y + p1.Y) / 3),
+                    new Point((p0.X + 2 * p1.X) / 3, (p0.Y + 2 * p1.Y) / 3),
+                    new Point((p0.X + 4 * p1.X + p2.X) / 6, (p0.Y + 4 * p1.Y + p2.Y) / 6));
             }
 
+            // Final segment from lineEnd — uses P[N-2], P[N-1], P[N-1]
+            {
+                var p0 = points[n - 2];
+                var p1 = points[n - 1];
+                ctx.CubicBezierTo(
+                    new Point((2 * p0.X + p1.X) / 3, (2 * p0.Y + p1.Y) / 3),
+                    new Point((p0.X + 2 * p1.X) / 3, (p0.Y + 2 * p1.Y) / 3),
+                    new Point((p0.X + 5 * p1.X) / 6, (p0.Y + 5 * p1.Y) / 6));
+            }
+
+            // Line to exact endpoint
             ctx.LineTo(ToPoint(points[^1]));
         }
 
         return geometry;
+    }
+
+    /// <summary>
+    /// Detect if points are cubic bezier sequence from MSAGL:
+    /// start point + N groups of 3 (cp1, cp2, endpoint) = 1 + 3N points.
+    /// </summary>
+    static bool IsCubicBezierSequence(List<Position> points)
+    {
+        return points.Count >= 4 && (points.Count - 1) % 3 == 0;
     }
 
     IBrush GetArrowBrush(Edge edge, bool highlighted)
@@ -411,7 +423,7 @@ public class FlowchartCanvas : Control
         return _arrowBrush;
     }
 
-    void DrawArrowhead(DrawingContext context, List<Position> points, IBrush brush, bool atStart)
+    static void DrawArrowhead(DrawingContext context, List<Position> points, IBrush brush, bool atStart)
     {
         Point tip, from;
         if (atStart)

@@ -1,0 +1,4 @@
+﻿InitTextApplied=True
+InitEdgeApplied=True
+InitNodeFillApplied=True
+InitNodeStrokeApplied=True
