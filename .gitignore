@@ -902,3 +902,6 @@ output-test.svg
 Naiad/src/Naiad.Wasm.Npm/dist/
 Naiad/src/Naiad.Wasm.Npm.Mermaid/dist/
 
+# Local project reference (junction to E:\source\mostlylucid.dagre)
+Naiad/lib/
+

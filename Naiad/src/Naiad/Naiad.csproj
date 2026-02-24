@@ -11,8 +11,12 @@
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!-- Use local project when available, NuGet package otherwise (CI) -->
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\lib\Mostlylucid.Dagre\Mostlylucid.Dagre\Mostlylucid.Dagre.csproj')">
     <ProjectReference Include="..\..\lib\Mostlylucid.Dagre\Mostlylucid.Dagre\Mostlylucid.Dagre.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\lib\Mostlylucid.Dagre\Mostlylucid.Dagre\Mostlylucid.Dagre.csproj')">
+    <PackageReference Include="Mostlylucid.Dagre" />
   </ItemGroup>
 
   <ItemGroup>
