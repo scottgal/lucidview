@@ -1,10 +1,11 @@
 // ReSharper disable MemberCanBeMadeStatic.Local
+using System.Text.RegularExpressions;
 using MermaidSharp.Models;
 using static MermaidSharp.Rendering.RenderUtils;
 namespace MermaidSharp.Diagrams.State;
 
 [SuppressMessage("Performance", "CA1822:Mark members as static")]
-public class StateRenderer(ILayoutEngine? layoutEngine = null) :
+public partial class StateRenderer(ILayoutEngine? layoutEngine = null) :
     IDiagramRenderer<StateModel>
 {
     readonly ILayoutEngine layoutEngine = layoutEngine ?? new MostlylucidDagreLayoutEngine();
@@ -431,7 +432,9 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
             if (!stateMap.TryGetValue(note.StateId, out var state))
                 continue;
 
-            var noteWidth = Math.Max(NoteMinWidth, MeasureText(note.Text, options.FontSize - 2) + NotePadding);
+            var noteWidth = Math.Max(NoteMinWidth, MeasureMultiLineWidth(note.Text, options.FontSize - 2) + NotePadding);
+            var noteTextHeight = MeasureMultiLineHeight(note.Text, options.FontSize - 2);
+            var noteH = Math.Max(NoteHeight, noteTextHeight + 16);
 
             // Check horizontal space needed - notes go to outside of diagram
             var diagramCenterX = model.States.Average(s => s.Position.X);
@@ -465,7 +468,7 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
 
             if (placeBelow)
             {
-                var noteBottomEdge = state.Position.Y + state.Height / 2 + NoteVerticalOffset + NoteHeight;
+                var noteBottomEdge = state.Position.Y + state.Height / 2 + NoteVerticalOffset + noteH;
                 var extraHeightNeeded = noteBottomEdge - maxY;
                 maxExtraHeight = Math.Max(maxExtraHeight, extraHeightNeeded);
             }
@@ -543,12 +546,14 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
         if (state.Type == StateType.Choice)
             return (SpecialStateSize * 2, SpecialStateSize * 2);
 
-        // Size based on content
+        // Size based on content (supports multi-line via <br/> or \n)
         var label = state.Description ?? state.Id;
-        var textWidth = MeasureText(label, options.FontSize);
+        var textWidth = MeasureMultiLineWidth(label, options.FontSize);
         var width = Math.Max(StateMinWidth, textWidth + StatePadding);
+        var textHeight = MeasureMultiLineHeight(label, options.FontSize);
+        var height = Math.Max(StateHeight, textHeight + 16);
 
-        return (width, StateHeight);
+        return (width, height);
     }
 
     static void CopyPositionsToModel(StateModel model, GraphDiagramBase graph) =>
@@ -826,15 +831,36 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
         var label = state.Description ?? state.Id;
         if (state.Type == StateType.Normal)
         {
-            builder.AddText(state.Position.X, state.Position.Y, label,
-                anchor: "middle",
-                baseline: "middle",
-                fontSize: $"{options.FontSize}px",
-                fontFamily: options.FontFamily,
-                fill: theme.TextColor);
+            var cleaned = CleanHtml(label);
+            var lines = cleaned.Split('\n');
+            if (lines.Length > 1)
+            {
+                var lineHeight = options.FontSize * 1.2;
+                var totalHeight = lines.Length * lineHeight;
+                var startY = state.Position.Y - totalHeight / 2 + lineHeight / 2;
+                builder.AddMultiLineText(state.Position.X, startY, lineHeight, lines,
+                    anchor: "middle",
+                    baseline: "middle",
+                    fill: theme.TextColor,
+                    fontSize: $"{options.FontSize}px",
+                    fontFamily: options.FontFamily);
 #if DEBUG
-            TrackText(state.Position.X, state.Position.Y, label, "middle", options.FontSize);
+                foreach (var line in lines)
+                    TrackText(state.Position.X, startY, line, "middle", options.FontSize);
 #endif
+            }
+            else
+            {
+                builder.AddText(state.Position.X, state.Position.Y, cleaned,
+                    anchor: "middle",
+                    baseline: "middle",
+                    fontSize: $"{options.FontSize}px",
+                    fontFamily: options.FontFamily,
+                    fill: theme.TextColor);
+#if DEBUG
+                TrackText(state.Position.X, state.Position.Y, cleaned, "middle", options.FontSize);
+#endif
+            }
         }
     }
 
@@ -1171,7 +1197,9 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                 var labelX = leftEdge;
                 var labelY = (fromState.Position.Y + toState.Position.Y) / 2;
 
-                builder.AddRect(labelX - 30, labelY - 8, 60, 16, fill: theme.LabelBackground, stroke: "none");
+                var lblW = MeasureText(transition.Label, options.FontSize - 2) + 10;
+                var lblH = (options.FontSize - 2) * 1.2 + 4;
+                builder.AddRect(labelX - lblW / 2, labelY - lblH / 2, lblW, lblH, fill: theme.LabelBackground, stroke: "none");
                 builder.AddText(labelX, labelY, transition.Label,
                     anchor: "middle",
                     baseline: "middle",
@@ -1245,7 +1273,9 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                 var labelX = startX + t * (endX - startX);
                 var labelY = startY + t * (endY - startY) - 10;
 
-                builder.AddRect(labelX - 30, labelY - 8, 60, 16, fill: theme.LabelBackground, stroke: "none");
+                var lblW = MeasureText(transition.Label, options.FontSize - 2) + 10;
+                var lblH = (options.FontSize - 2) * 1.2 + 4;
+                builder.AddRect(labelX - lblW / 2, labelY - lblH / 2, lblW, lblH, fill: theme.LabelBackground, stroke: "none");
                 builder.AddText(labelX, labelY, transition.Label,
                     anchor: "middle",
                     baseline: "middle",
@@ -1356,7 +1386,9 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
             var labelX = routeX;
             var labelY = obstacle.Position.Y;
 
-            builder.AddRect(labelX - 30, labelY - 8, 60, 16, fill: theme.LabelBackground, stroke: "none");
+            var lblW = MeasureText(transition.Label, options.FontSize - 2) + 10;
+            var lblH = (options.FontSize - 2) * 1.2 + 4;
+            builder.AddRect(labelX - lblW / 2, labelY - lblH / 2, lblW, lblH, fill: theme.LabelBackground, stroke: "none");
             builder.AddText(labelX, labelY, transition.Label,
                 anchor: "middle",
                 baseline: "middle",
@@ -1447,8 +1479,10 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
             if (!stateMap.TryGetValue(note.StateId, out var state))
                 continue;
 
-            // Calculate note dimensions based on text content
-            var noteWidth = Math.Max(NoteMinWidth, MeasureText(note.Text, options.FontSize - 2) + NotePadding);
+            // Calculate note dimensions based on text content (multi-line aware)
+            var noteWidth = Math.Max(NoteMinWidth, MeasureMultiLineWidth(note.Text, options.FontSize - 2) + NotePadding);
+            var noteTextHeight = MeasureMultiLineHeight(note.Text, options.FontSize - 2);
+            var noteHeight = Math.Max(NoteHeight, noteTextHeight + 16);
 
             // Determine vertical placement based on available space
             // But if this state has back-edges AND note would be placed to the right,
@@ -1484,7 +1518,7 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
 
             noteY = placeBelow
                 ? state.Position.Y + state.Height / 2 + NoteVerticalOffset
-                : state.Position.Y - state.Height / 2 - NoteVerticalOffset - NoteHeight;
+                : state.Position.Y - state.Height / 2 - NoteVerticalOffset - noteHeight;
 
             // Check for overlaps with other states and adjust position
             const double minGap = 15;
@@ -1497,7 +1531,7 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                 var otherLeft = otherState.Position.X - otherState.Width / 2;
                 var otherRight = otherState.Position.X + otherState.Width / 2;
 
-                var noteBottom = noteY + NoteHeight;
+                var noteBottom = noteY + noteHeight;
                 var noteRight = noteX + noteWidth;
 
                 // Check horizontal overlap
@@ -1508,7 +1542,7 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                     // If note bottom overlaps with other state top, move note up
                     if (noteBottom > otherTop - minGap && noteY < otherTop)
                     {
-                        noteY = otherTop - NoteHeight - minGap;
+                        noteY = otherTop - noteHeight - minGap;
                     }
                     // If note top overlaps with other state bottom, move note down
                     else if (noteY < otherBottom + minGap && noteBottom > otherBottom)
@@ -1523,14 +1557,13 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
             var path = $"M{Fmt(noteX)},{Fmt(noteY)} " +
                        $"L{Fmt(noteX + noteWidth - foldSize)},{Fmt(noteY)} " +
                        $"L{Fmt(noteX + noteWidth)},{Fmt(noteY + foldSize)} " +
-                       $"L{Fmt(noteX + noteWidth)},{Fmt(noteY + NoteHeight)} " +
-                       $"L{Fmt(noteX)},{Fmt(noteY + NoteHeight)} Z";
+                       $"L{Fmt(noteX + noteWidth)},{Fmt(noteY + noteHeight)} " +
+                       $"L{Fmt(noteX)},{Fmt(noteY + noteHeight)} Z";
 
             builder.AddPath(path, fill: theme.SecondaryFill, stroke: theme.SecondaryStroke, strokeWidth: 1);
 
 #if DEBUG
-            // Track note as a node for line-under-node detection
-            TrackNode(noteX + noteWidth / 2, noteY + NoteHeight / 2, noteWidth, NoteHeight, $"Note: {note.Text}");
+            TrackNode(noteX + noteWidth / 2, noteY + noteHeight / 2, noteWidth, noteHeight, $"Note: {note.Text}");
 #endif
 
             // Fold corner
@@ -1541,20 +1574,38 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
                            noteX + noteWidth, noteY + foldSize,
                            stroke: theme.SecondaryStroke, strokeWidth: 1);
 
-            // Note text
-            builder.AddText(noteX + noteWidth / 2, noteY + NoteHeight / 2, note.Text,
-                anchor: "middle",
-                baseline: "middle",
-                fontSize: $"{options.FontSize - 2}px",
-                fontFamily: options.FontFamily,
-                fill: theme.TextColor);
+            // Note text (multi-line aware)
+            var cleanedNote = CleanHtml(note.Text);
+            var noteLines = cleanedNote.Split('\n');
+            var noteFontSize = options.FontSize - 2;
+            if (noteLines.Length > 1)
+            {
+                var lineHeight = noteFontSize * 1.2;
+                var totalTextH = noteLines.Length * lineHeight;
+                var startY = noteY + noteHeight / 2 - totalTextH / 2 + lineHeight / 2;
+                builder.AddMultiLineText(noteX + noteWidth / 2, startY, lineHeight, noteLines,
+                    anchor: "middle",
+                    baseline: "middle",
+                    fill: theme.TextColor,
+                    fontSize: $"{noteFontSize}px",
+                    fontFamily: options.FontFamily);
+            }
+            else
+            {
+                builder.AddText(noteX + noteWidth / 2, noteY + noteHeight / 2, cleanedNote,
+                    anchor: "middle",
+                    baseline: "middle",
+                    fontSize: $"{noteFontSize}px",
+                    fontFamily: options.FontFamily,
+                    fill: theme.TextColor);
+            }
 #if DEBUG
-            TrackText(noteX + noteWidth / 2, noteY + NoteHeight / 2, note.Text, "middle", options.FontSize - 2);
+            TrackText(noteX + noteWidth / 2, noteY + noteHeight / 2, cleanedNote, "middle", noteFontSize);
 #endif
 
             // Curved dashed line connecting note to state using center-targeting algorithm
             var noteCenterX = noteX + noteWidth / 2;
-            var noteCenterY = noteY + NoteHeight / 2;
+            var noteCenterY = noteY + noteHeight / 2;
 
             // State connection point - target note center, clip at state edge
             var (stateConnectX, stateConnectY) = GetEdgeIntersection(state, noteCenterX, noteCenterY);
@@ -1563,7 +1614,7 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
             var dx = state.Position.X - noteCenterX;
             var dy = state.Position.Y - noteCenterY;
             var noteHalfW = noteWidth / 2;
-            var noteHalfH = NoteHeight / 2;
+            var noteHalfH = noteHeight / 2;
             var tX = Math.Abs(dx) > 0.001 ? noteHalfW / Math.Abs(dx) : double.MaxValue;
             var tY = Math.Abs(dy) > 0.001 ? noteHalfH / Math.Abs(dy) : double.MaxValue;
             var t = Math.Min(tX, tY);
@@ -1581,6 +1632,36 @@ public class StateRenderer(ILayoutEngine? layoutEngine = null) :
 
     static double MeasureText(string text, double fontSize) =>
         text.Length * fontSize * 0.6;
+
+    static string CleanHtml(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        text = BrTagRegex().Replace(text, "\n");
+        text = HtmlTagRegex().Replace(text, "");
+        return text.Trim();
+    }
+
+    [GeneratedRegex(@"<br\s*/?>", RegexOptions.IgnoreCase)]
+    private static partial Regex BrTagRegex();
+    [GeneratedRegex(@"<[^>]+>")]
+    private static partial Regex HtmlTagRegex();
+
+    /// <summary>Returns the widest line's width for multi-line text.</summary>
+    static double MeasureMultiLineWidth(string text, double fontSize)
+    {
+        var lines = CleanHtml(text).Split('\n');
+        var maxWidth = 0.0;
+        foreach (var line in lines)
+            maxWidth = Math.Max(maxWidth, MeasureText(line, fontSize));
+        return maxWidth;
+    }
+
+    /// <summary>Returns the height needed for multi-line text.</summary>
+    static double MeasureMultiLineHeight(string text, double fontSize)
+    {
+        var lines = CleanHtml(text).Split('\n');
+        return lines.Length * fontSize * 1.2;
+    }
 
 }
 
