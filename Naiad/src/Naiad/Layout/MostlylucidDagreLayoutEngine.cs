@@ -107,6 +107,7 @@ public class MostlylucidDagreLayoutEngine : ILayoutEngine
         graphLabel.NodeSep = (int)options.NodeSeparation;
         graphLabel.RankDir = isVertical ? "tb" : "lr";
         graphLabel.Acyclicer = "dfs";
+        graphLabel.EdgeStraighteningStrength = (float)options.EdgeStraighteningStrength;
 
         // Run dagre layout - indexed pipeline (optimized, same results as dagre.js)
         try
