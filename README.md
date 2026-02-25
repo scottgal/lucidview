@@ -47,7 +47,7 @@ All diagrams rendered natively by Naiad -- no browser, no JavaScript, no externa
 
 - Real-time markdown with [LiveMarkdown.Avalonia](https://github.com/DearVa/LiveMarkdown.Avalonia) - syntax highlighting
   built-in
-- Mermaid diagrams via [Naiad](https://github.com/SimonCropp/Naiad) -- 20+ diagram types rendered natively in .NET
+- Mermaid diagrams via an [experimental Naiad fork](Naiad/readme.md) — **32 diagram types** rendered natively in .NET (see [Naiad differences](#naiad-fork) below)
 - Mermaid-compatible Naiad directives via comments (`%% naiad: ...`) for per-file theme/skin configuration
 - Local & remote images that actually work
 
@@ -138,13 +138,28 @@ dotnet publish MarkdownViewer/MarkdownViewer.csproj -c Release -r win-x64
 
 ---
 
+## Naiad Fork
+
+lucidVIEW uses a temporary experimental fork of [Naiad](https://github.com/SimonCropp/Naiad) (Simon Cropp's pure C# Mermaid renderer). The fork — published as `Mostlylucid.Naiad` — extends the upstream project with:
+
+- **12 additional diagram types** not in upstream Naiad or Mermaid: Dendrogram, Bubble Pack, Voronoi, Parallel Coordinates, Geo Map, BPMN, plus Wireframe skin pack
+- **Multiple rendering surfaces** — core SVG plus [SkiaSharp](Naiad/src/Naiad.Surfaces.Skia/README.md), [ImageSharp](Naiad/src/Naiad.Surfaces.ImageSharp/README.md), [Blazor](Naiad/src/Naiad.Blazor/README.md), and [WebAssembly](Naiad/src/Naiad.Wasm/README.md) targets
+- **Plugin system** — Render surface plugins, skin packs, and fluent API plugins for typed diagram authoring ([building a custom renderer](docs/blog/2026-02-21-building-a-renderer-for-naiad.md), [fluent plugin spec](docs/plans/2026-02-21-fluent-plugin-spec.md))
+- **[Mostlylucid.Dagre](https://github.com/scottgal/mostlylucid.dagre)** layout engine — a C# port of dagre with improved edge routing
+- **Tulip TLP** graph format import/export ([docs](Naiad/docs/tulip/README.md))
+- **Theming** — light/dark themes, Mermaid `%%init%%` directive support, per-diagram theme overrides
+
+The intention is to contribute these changes back upstream. See the full [Naiad README](Naiad/readme.md) for diagram previews and documentation.
+
+
 ## Stack
 
 | Package                                                                  | Version | Purpose                                  |
 |--------------------------------------------------------------------------|---------|------------------------------------------|
 | [Avalonia](https://avaloniaui.net/)                                      | 11.3.10 | Cross-platform UI                        |
 | [LiveMarkdown.Avalonia](https://github.com/DearVa/LiveMarkdown.Avalonia) | 1.7.0   | Markdown rendering + syntax highlighting |
-| [Naiad](https://github.com/SimonCropp/Naiad)                             | 0.1.1   | Mermaid diagrams                         |
+| [Mostlylucid.Naiad](Naiad/readme.md)                                     | fork    | Mermaid diagrams (32 types, pure C#)     |
+| [Mostlylucid.Dagre](https://github.com/scottgal/mostlylucid.dagre)      | latest  | Graph layout engine (C# dagre port)      |
 | [SkiaSharp](https://github.com/mono/SkiaSharp)                           | 3.119.1 | Graphics                                 |
 | [Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia)                    | 3.4.1   | SVG support                              |
 
