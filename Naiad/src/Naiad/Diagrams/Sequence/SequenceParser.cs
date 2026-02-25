@@ -134,10 +134,18 @@ public class SequenceParser : IDiagramParser<SequenceModel>
             .Then(Token(c => c != '\r' && c != '\n').ManyString())
             .Before(CommonParsers.LineEnd);
 
-    // Skip line
+    // Skip line — handles blank lines, comments, and unrecognized keywords
+    // (alt, else, end, loop, opt, par, critical, break, rect, etc.)
+    // Branch order matters: Comment must precede the content branch since both can match %% lines.
+    // The content branch requires AtLeastOnce to avoid infinite loops in Many() at EOF.
     static readonly Parser<char, Unit> SkipLine =
         CommonParsers.InlineWhitespace
-            .Then(Try(CommonParsers.Comment).Or(CommonParsers.Newline));
+            .Then(OneOf(
+                Try(CommonParsers.Comment),
+                Try(Token(c => c != '\r' && c != '\n').AtLeastOnceString()
+                    .Then(CommonParsers.LineEnd)),
+                CommonParsers.Newline
+            ));
 
     public static Parser<char, SequenceModel> Parser =>
         from _ in CommonParsers.InlineWhitespace

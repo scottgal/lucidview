@@ -3,7 +3,7 @@ using static MermaidSharp.Rendering.RenderUtils;
 
 namespace MermaidSharp.Diagrams.Sequence;
 
-public class SequenceRenderer : IDiagramRenderer<SequenceModel>
+public partial class SequenceRenderer : IDiagramRenderer<SequenceModel>
 {
     const double ParticipantMinWidth = 100;
     const double ParticipantHeight = 40;
@@ -14,6 +14,13 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
     const double NoteHeight = 40;
     const double ActorHeadRadius = 15;
     const double ParticipantPadding = 20;
+    const double NoteTextPaddingV = 16;
+    const double NoteTextPaddingH = 20;
+
+    [GeneratedRegex(@"<br\s*/?>", RegexOptions.IgnoreCase)]
+    private static partial Regex BrTagRegex();
+    [GeneratedRegex(@"<[^>]+>")]
+    private static partial Regex HtmlTagRegex();
 
     public SvgDocument Render(SequenceModel model, RenderOptions options)
     {
@@ -98,21 +105,56 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
         for (var i = 0; i < model.Elements.Count; i++)
         {
             elementYPositions[i] = y + titleOffset;
-            y += GetElementHeight(model.Elements[i]);
+            y += GetElementHeight(model.Elements[i], options.FontSize);
         }
 
         var totalHeight = y + ParticipantHeight + options.Padding + titleOffset;
         return (totalHeight, elementYPositions);
     }
 
-    static double GetElementHeight(SequenceElement element) =>
+    static double GetElementHeight(SequenceElement element, double fontSize) =>
         element switch
         {
-            Message => MessageSpacing,
-            Note => NoteHeight + 10,
-            Activation => 0, // Activations don't add height
+            Message m => GetMessageHeight(m, fontSize),
+            Note n => GetNoteBoxHeight(n.Text, fontSize) + MessageSpacing / 2,
+            Activation => 0,
             _ => MessageSpacing
         };
+
+    static double GetMessageHeight(Message msg, double fontSize)
+    {
+        var isSelf = msg.FromId == msg.ToId;
+        var baseHeight = isSelf ? MessageSpacing + 30 : MessageSpacing;
+
+        if (string.IsNullOrEmpty(msg.Text)) return baseHeight;
+
+        var cleaned = CleanHtml(msg.Text);
+        var lines = cleaned.Split('\n');
+        if (lines.Length <= 1) return baseHeight;
+
+        var lineHeight = fontSize * 1.2;
+        var textHeight = lines.Length * lineHeight;
+        return Math.Max(baseHeight, textHeight + 30);
+    }
+
+    static double GetNoteBoxHeight(string text, double fontSize)
+    {
+        var cleaned = CleanHtml(text);
+        var lines = cleaned.Split('\n');
+        if (lines.Length <= 1) return NoteHeight;
+        var lineHeight = fontSize * 1.2;
+        return Math.Max(NoteHeight, lines.Length * lineHeight + NoteTextPaddingV);
+    }
+
+    static double GetNoteBoxWidth(string text, double fontSize)
+    {
+        var cleaned = CleanHtml(text);
+        var lines = cleaned.Split('\n');
+        var maxWidth = 0.0;
+        foreach (var line in lines)
+            maxWidth = Math.Max(maxWidth, MeasureTextWidth(line, fontSize));
+        return Math.Max(NoteWidth, maxWidth + NoteTextPaddingH);
+    }
 
     static double CalculateWidth(SequenceModel model, RenderOptions options)
     {
@@ -135,7 +177,8 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
                 positions.TryGetValue(note.ParticipantId, out var noteParticipantX))
             {
                 var pW = widths.GetValueOrDefault(note.ParticipantId, ParticipantMinWidth);
-                var noteRight = noteParticipantX + pW / 2 + 10 + NoteWidth + options.Padding;
+                var noteW = GetNoteBoxWidth(note.Text, options.FontSize);
+                var noteRight = noteParticipantX + pW / 2 + 10 + noteW + options.Padding;
                 maxRightExtent = Math.Max(maxRightExtent, noteRight);
             }
             else if (element is Message msg && msg.FromId == msg.ToId &&
@@ -429,6 +472,8 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
         Dictionary<string, double> positions, double y, RenderOptions options, DiagramTheme theme)
     {
         var participantX = positions[note.ParticipantId];
+        var noteW = GetNoteBoxWidth(note.Text, options.FontSize);
+        var noteH = GetNoteBoxHeight(note.Text, options.FontSize);
         double noteX;
 
         switch (note.Position)
@@ -437,18 +482,18 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
                 noteX = participantX + ParticipantMinWidth / 2 + 10;
                 break;
             case NotePosition.LeftOf:
-                noteX = participantX - ParticipantMinWidth / 2 - NoteWidth - 10;
+                noteX = participantX - ParticipantMinWidth / 2 - noteW - 10;
                 break;
             case NotePosition.Over:
             default:
                 if (!string.IsNullOrEmpty(note.OverParticipantId2) &&
                     positions.TryGetValue(note.OverParticipantId2, out var participant2X))
                 {
-                    noteX = (participantX + participant2X) / 2 - NoteWidth / 2;
+                    noteX = (participantX + participant2X) / 2 - noteW / 2;
                 }
                 else
                 {
-                    noteX = participantX - NoteWidth / 2;
+                    noteX = participantX - noteW / 2;
                 }
 
                 break;
@@ -457,23 +502,23 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
         // Note box (folded corner style)
         var foldSize = 8;
         var path = $"M{Fmt(noteX)},{Fmt(y)} " +
-                   $"L{Fmt(noteX + NoteWidth - foldSize)},{Fmt(y)} " +
-                   $"L{Fmt(noteX + NoteWidth)},{Fmt(y + foldSize)} " +
-                   $"L{Fmt(noteX + NoteWidth)},{Fmt(y + NoteHeight)} " +
-                   $"L{Fmt(noteX)},{Fmt(y + NoteHeight)} Z";
+                   $"L{Fmt(noteX + noteW - foldSize)},{Fmt(y)} " +
+                   $"L{Fmt(noteX + noteW)},{Fmt(y + foldSize)} " +
+                   $"L{Fmt(noteX + noteW)},{Fmt(y + noteH)} " +
+                   $"L{Fmt(noteX)},{Fmt(y + noteH)} Z";
 
         builder.AddPath(path, fill: theme.SecondaryFill, stroke: theme.SecondaryStroke, strokeWidth: 1);
 
         // Fold line
-        builder.AddLine(noteX + NoteWidth - foldSize, y,
-            noteX + NoteWidth - foldSize, y + foldSize,
+        builder.AddLine(noteX + noteW - foldSize, y,
+            noteX + noteW - foldSize, y + foldSize,
             stroke: theme.SecondaryStroke, strokeWidth: 1);
-        builder.AddLine(noteX + NoteWidth - foldSize, y + foldSize,
-            noteX + NoteWidth, y + foldSize,
+        builder.AddLine(noteX + noteW - foldSize, y + foldSize,
+            noteX + noteW, y + foldSize,
             stroke: theme.SecondaryStroke, strokeWidth: 1);
 
         // Note text
-        AddTextWithLineBreaks(builder, noteX + NoteWidth / 2, y + NoteHeight / 2,
+        AddTextWithLineBreaks(builder, noteX + noteW / 2, y + noteH / 2,
             note.Text, options, theme);
     }
 
@@ -502,8 +547,8 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
     static string CleanHtml(string text)
     {
         if (string.IsNullOrEmpty(text)) return text;
-        text = Regex.Replace(text, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
-        text = Regex.Replace(text, @"<[^>]+>", "");
+        text = BrTagRegex().Replace(text, "\n");
+        text = HtmlTagRegex().Replace(text, "");
         return text.Replace("&quot;", "\"")
             .Replace("&amp;", "&")
             .Replace("&lt;", "<")
@@ -544,12 +589,22 @@ public class SequenceRenderer : IDiagramRenderer<SequenceModel>
         }
         else
         {
-            // Center the multi-line block vertically around y
             var lineHeight = options.FontSize * 1.2;
             var totalHeight = lines.Length * lineHeight;
-            var startY = y - totalHeight / 2 + lineHeight / 2;
+
+            // Respect baseline for multi-line blocks:
+            // "bottom" → text block sits above y, "hanging"/"top" → below y, else → centered
+            var startY = baseline switch
+            {
+                "bottom" or "text-after-edge" => y - totalHeight + lineHeight / 2,
+                "hanging" or "text-before-edge" or "top" => y + lineHeight / 2,
+                _ => y - totalHeight / 2 + lineHeight / 2 // "middle" / default: center around y
+            };
+
+            // baseline: "middle" is intentional — the caller's baseline was already applied
+            // to compute startY, so each individual line renders centered at its own y.
             builder.AddMultiLineText(x, startY, lineHeight, lines,
-                anchor: anchor, baseline: baseline, fill: theme.TextColor,
+                anchor: anchor, baseline: "middle", fill: theme.TextColor,
                 fontSize: $"{options.FontSize}px", fontFamily: options.FontFamily,
                 fontWeight: fontWeight);
         }

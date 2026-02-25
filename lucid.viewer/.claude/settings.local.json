@@ -158,7 +158,13 @@
       "Bash(cd \"E:/source/markdown.viewer\" && gh api repos/scottgal/lucidview/contents/.github/workflows/store-publish.yml --jq '.content' 2>&1 | base64 -d | grep -n \"push\\\\|on:\" 2>&1)",
       "Bash(dotnet package:*)",
       "Bash(echo Cleaned:*)",
-      "Bash(sleep 15 && cd \"E:/source/markdown.viewer\" && gh run list --limit 6 2>&1)"
+      "Bash(sleep 15 && cd \"E:/source/markdown.viewer\" && gh run list --limit 6 2>&1)",
+      "Bash(cd /e/source/markdown.viewer && gh run list --limit 5 2>&1)",
+      "Bash(cp:*)",
+      "Bash(cd /e/source/mostlylucid.dagre && gh workflow list 2>&1)",
+      "Bash(cd /e/source/mostlylucid.dagre && gh workflow view 237130726 2>&1)",
+      "Bash(cd /e/source/mostlylucid.dagre && gh workflow run publish.yml -f version=2.0.0 -f push_to_nuget=true 2>&1)",
+      "Bash(cd /e/source/mostlylucid.dagre && gh run list --limit 3 2>&1)"
     ]
   }
 }

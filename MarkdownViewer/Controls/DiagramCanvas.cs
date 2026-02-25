@@ -237,6 +237,13 @@ public class DiagramCanvas : Control
         var doc = Document;
         if (doc is null) return;
 
+        // Draw background color from the document (ensures text colors contrast correctly)
+        if (!string.IsNullOrEmpty(doc.BackgroundColor) && TryParseColor(doc.BackgroundColor, out var bgColor))
+        {
+            var bgBrush = new ImmutableSolidColorBrush(bgColor);
+            context.DrawRectangle(bgBrush, null, new Rect(0, 0, Bounds.Width, Bounds.Height));
+        }
+
         using (context.PushTransform(Matrix.CreateScale(_scale, _scale)))
         using (context.PushTransform(Matrix.CreateTranslation(10, 10)))
         {
@@ -375,6 +382,9 @@ public class DiagramCanvas : Control
                 break;
             case SvgPolyline polyline:
                 RenderPolyline(context, polyline);
+                break;
+            case SvgMultiLineText multiText:
+                RenderMultiLineText(context, multiText);
                 break;
             case SvgText text:
                 RenderText(context, text);
@@ -677,6 +687,11 @@ public class DiagramCanvas : Control
             {
                 // y is at top - no adjustment
             }
+            else if (baseline is "text-after-edge" or "bottom" or "ideographic")
+            {
+                // y is at the bottom of the text
+                y -= formatted.Height;
+            }
             else
             {
                 // Default: alphabetic baseline — approximate
@@ -685,6 +700,68 @@ public class DiagramCanvas : Control
 
             context.DrawText(formatted, new Point(x, y));
         });
+    }
+
+    void RenderMultiLineText(DrawingContext context, SvgMultiLineText multiText)
+    {
+        if (multiText.Lines.Length == 0) return;
+
+        var cssStyle = GetCssStyleForElement(multiText);
+        var fontSize = ParseFontSize(multiText.FontSize, null)
+                       ?? ParseFontSize(null, cssStyle)
+                       ?? 14.0;
+        var fontFamily = multiText.FontFamily
+                         ?? GetStyleValue(cssStyle, "font-family")
+                         ?? "Segoe UI, Arial, sans-serif";
+        var fontWeight = ParseFontWeight(multiText.FontWeight, null, cssStyle);
+        var fill = ResolveBrush(multiText.Fill, null, cssStyle, "fill")
+                   ?? GetEffectiveTextBrush();
+
+        var typeface = new Typeface(new FontFamily(fontFamily), FontStyle.Normal, fontWeight);
+
+        var anchor = multiText.TextAnchor ?? GetStyleValue(cssStyle, "text-anchor");
+        var baseline = multiText.DominantBaseline ?? GetStyleValue(cssStyle, "dominant-baseline");
+
+        var y = multiText.StartY;
+        for (var i = 0; i < multiText.Lines.Length; i++)
+        {
+            var line = multiText.Lines[i];
+            if (string.IsNullOrEmpty(line))
+            {
+                y += multiText.LineHeight;
+                continue;
+            }
+
+            var formatted = new FormattedText(
+                line,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                typeface,
+                fontSize,
+                fill);
+
+            var x = multiText.X;
+            if (anchor == "middle")
+                x -= formatted.Width / 2;
+            else if (anchor == "end")
+                x -= formatted.Width;
+
+            var drawY = y;
+            if (baseline is "central" or "middle")
+                drawY -= formatted.Height / 2;
+            else if (baseline is "hanging" or "text-before-edge")
+            {
+                // y is at top - no adjustment
+            }
+            else
+            {
+                // Default: alphabetic baseline
+                drawY -= formatted.Height * 0.8;
+            }
+
+            context.DrawText(formatted, new Point(x, drawY));
+            y += multiText.LineHeight;
+        }
     }
 
     void RenderForeignObject(DrawingContext context, SvgForeignObject foreign)
