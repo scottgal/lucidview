@@ -126,6 +126,34 @@ These diagram types are unique to Naiad and not available in Mermaid.
 <img src="docs/tulip/sample-dependencies.svg" width="350"> <img src="docs/tulip/sample-family-tree.svg" width="350">
 
 
+## Rendering Surfaces
+
+Naiad's core outputs SVG. Multiple rendering surfaces transform that SVG into other formats — or bypass SVG entirely for native rendering:
+
+| Surface | Package | Description |
+|---------|---------|-------------|
+| SVG (built-in) | `Mostlylucid.Naiad` | Core renderer — all diagram types produce SVG natively |
+| [SkiaSharp](src/Naiad.Surfaces.Skia/README.md) | `Mostlylucid.Naiad.Surfaces.Skia` | Rasterize SVG → PNG/JPEG via SkiaSharp (native libs) |
+| [ImageSharp](src/Naiad.Surfaces.ImageSharp/README.md) | `Mostlylucid.Naiad.Surfaces.ImageSharp` | Rasterize SVG → PNG/JPEG — pure managed, no native deps |
+| [Blazor](src/Naiad.Blazor/README.md) | `Mostlylucid.Naiad.Blazor` | `<NaiadDiagram>` Blazor component wrapping the WASM web component |
+| [WebAssembly](src/Naiad.Wasm/README.md) | — | `net10.0-browser` target: `RenderSvg`, `DetectDiagramType` exports |
+| Console | — | ANSI half-block art renderer ([tutorial](../docs/blog/2026-02-21-building-a-renderer-for-naiad.md)) |
+
+Building a custom surface? See [Building a Custom Renderer for Naiad](../docs/blog/2026-02-21-building-a-renderer-for-naiad.md) — a step-by-step guide implementing a console renderer in ~120 lines.
+
+
+## Plugin System
+
+Naiad is extensible at multiple levels:
+
+- **Render Surface Plugins** (`IDiagramRenderSurfacePlugin`) — Add new output formats. Register via `DiagramRenderSurfaceRegistry`. See [Building a Renderer](../docs/blog/2026-02-21-building-a-renderer-for-naiad.md).
+- **Skin Packs** — Custom node/edge styling per diagram type (e.g., [Wireframe](src/Naiad.Skins.Showcase/README.md), [Cats](src/Naiad.Skins.Cats/README.md)).
+- **Fluent API Plugins** (`IFluentDiagramPlugin`) — Typed C# builders for authoring diagrams programmatically. See the [Fluent Plugin Spec](../docs/plans/2026-02-21-fluent-plugin-spec.md) and [Fluent API Design](../docs/plans/2026-02-21-mermaid-fluent-api-design.md).
+- **Meta Packages** — [Mermaid-only](src/Naiad.Meta.Mermaid/README.md) or [Complete](src/Naiad.Meta.Complete/README.md) diagram type bundles.
+
+For Avalonia-specific rendering (interactive flowcharts with hover, click navigation, and context menus), see the [MarkdownViewer Plugin README](../MarkdownViewer/Plugins/README.md) and [Naiad Mermaid Rendering Guide](../docs/NAIAD_MERMAID_RENDERING.md).
+
+
 ## Theming
 
 Naiad supports light and dark themes out of the box:

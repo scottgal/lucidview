@@ -144,7 +144,21 @@
       "Bash(cd \"E:/source/markdown.viewer/Naiad/src\" && printf 'geo\\\\n    title \"Office Locations\"\\\\n    map world\\\\n    town \"London\" country=uk color=#ef4444 size=6\\\\n    town \"New York\" country=us color=#3b82f6\\\\n    town \"Tokyo\" country=jp color=#22c55e\\\\n' | dotnet run --project Naiad.RenderCli/Naiad.RenderCli.csproj -- svg \"E:/source/markdown.viewer/Naiad/docs/diagrams/geo.svg\" 2>&1)",
       "Bash(cd \"E:/source/markdown.viewer/Naiad/src\" && printf '%% naiad: skinPack=wireframe\\\\n%% naiad: shapes nav=navbar, card=card, btn=button, srch=searchbar\\\\nflowchart TD\\\\n    nav[\"My App - Home - Settings - Help\"]\\\\n    srch[\"Search...\"]\\\\n    subgraph main[\"Content\"]\\\\n        card[\"Welcome Back\\\\\\\\nYou have 3 notifications\"]\\\\n    end\\\\n    btn[\"Get Started\"]\\\\n    nav --> srch\\\\n    srch --> main\\\\n    main --> btn\\\\n' | dotnet run --project Naiad.RenderCli/Naiad.RenderCli.csproj -- svg \"E:/source/markdown.viewer/Naiad/docs/diagrams/wireframe.svg\" 2>&1)",
       "Bash(cd /e/source/markdown.viewer/Naiad/src && printf '%%%%{init: {\"theme\": \"dark\"}}%%%%\\\\nflowchart LR\\\\n    A[Start] --> B{Decision}\\\\n    B -->|Yes| C[OK]\\\\n    B -->|No| D[Cancel]\\\\n    C --> E[End]\\\\n    D --> E\\\\n' | dotnet run --project Naiad.RenderCli -- svg /tmp/test-dark.svg 2>&1)",
-      "Bash(grep flow-node-shape:*)"
+      "Bash(grep flow-node-shape:*)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh run list --limit 20 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh run view 22374193263 --log-failed 2>&1 | grep \"##\\\\[error\\\\]\" 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh run view 22374193256 --log-failed 2>&1 | grep \"##\\\\[error\\\\]\" 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh run view 22374192687 --log-failed 2>&1 | grep \"##\\\\[error\\\\]\" 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh api repos/scottgal/lucidview/actions/runs/22374192687 --jq '.conclusion,.status,.head_sha' 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh api repos/scottgal/lucidview/actions/runs/22374192687/jobs --jq '.jobs[] | {name: .name, conclusion: .conclusion, steps: [.steps[]? | {name: .name, conclusion: .conclusion}]}' 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh api repos/scottgal/lucidview/actions/runs/22374192687 --jq '.conclusion,.display_title,.event,.head_branch' 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh api repos/scottgal/lucidview/actions/runs/22374192687/attempts/1/jobs --jq '.total_count, .jobs[].name' 2>&1)",
+      "Bash(base64:*)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh api repos/scottgal/lucidview/actions/workflows --jq '.workflows[] | {name: .name, path: .path, state: .state}' 2>&1)",
+      "Bash(cd \"E:/source/markdown.viewer\" && gh api repos/scottgal/lucidview/contents/.github/workflows/store-publish.yml --jq '.content' 2>&1 | base64 -d | grep -n \"push\\\\|on:\" 2>&1)",
+      "Bash(dotnet package:*)",
+      "Bash(echo Cleaned:*)",
+      "Bash(sleep 15 && cd \"E:/source/markdown.viewer\" && gh run list --limit 6 2>&1)"
     ]
   }
 }

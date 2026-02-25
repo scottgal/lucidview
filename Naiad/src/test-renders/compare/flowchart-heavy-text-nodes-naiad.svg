@@ -1,0 +1,50 @@
+<svg id="mermaid-svg" width="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 742.399976 966.8" style="max-width: 742.399976px;" role="graphics-document document" xmlns:xlink="http://www.w3.org/1999/xlink"><style>/* Mermaid skin: default */
+#mermaid-svg{
+  font-family:\"trebuchet ms\", verdana, arial, sans-serif;
+  font-size:16px;
+  fill:#334155;
+}
+#mermaid-svg .flow-node-shape{
+  fill:#eff6ff;
+  stroke:#3b82f6;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-node-label,
+#mermaid-svg .flow-node-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+}
+#mermaid-svg .flow-edge{
+  stroke:#475569;
+  stroke-width:2.0px;
+  fill:none;
+}
+#mermaid-svg .flow-edge-dotted{stroke-dasharray:2;}
+#mermaid-svg .flow-edge-thick{stroke-width:3.5px;}
+#mermaid-svg .flow-edge-label-box{
+  fill:rgba(241,245,249,0.9);
+  stroke:none;
+  opacity:0.9;
+}
+#mermaid-svg .flow-edge-label,
+#mermaid-svg .flow-edge-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+  text-align:center;
+}
+#mermaid-svg .flow-subgraph-box{
+  fill:rgba(239,246,255,0.2);
+  stroke:#bfdbfe;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-subgraph-title{
+  fill:#2563eb;
+  font-weight:600;
+  font-size:15px;
+}
+#mermaid-svg .marker{
+  fill:#475569;
+  stroke:#475569;
+}</style><defs><marker id="mermaid-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><filter id="drop-shadow"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08" /></filter></defs><g transform="translate(8,8)"><path d="M372.8,102 Q372.8,127 372.8,152" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M372.8,254 Q372.8,279 372.8,304" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M320.61,403.01 Q104.4,500 104.4,544.8" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><rect x="79.12" y="485.2" width="50.56" height="29.6" class="flow-edge-label-box"/><text x="104.4" y="500" text-anchor="middle" dominant-baseline="central" class="flow-edge-label">JSON</text><path d="M372.8,455.2 Q372.8,500 372.8,544.8" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><rect x="351.84" y="485.2" width="41.92" height="29.6" class="flow-edge-label-box"/><text x="372.8" y="500" text-anchor="middle" dominant-baseline="central" class="flow-edge-label">XML</text><path d="M424.4,403.6 Q631.6,500 631.6,544.8" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><rect x="597.68" y="485.2" width="67.84" height="29.6" class="flow-edge-label-box"/><text x="631.6" y="500" text-anchor="middle" dominant-baseline="central" class="flow-edge-label">Binary</text><path d="M104.4,646.8 Q104.4,671.8 273.2,719.6" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M372.8,646.8 Q372.8,671.8 372.8,696.8" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M631.6,646.8 Q631.6,671.8 472.4,718.55" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M372.8,798.8 Q372.8,823.8 372.8,848.8" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M268.6,0 H477 Q482,0 482,5 V97 Q482,102 477,102 H268.6 Q263.6,102 263.6,97 V5 Q263.6,0 268.6,0 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="372.8" y="30" text-anchor="middle" class="flow-node-label"><tspan x="372.8" dy="0">User Authentication</tspan><tspan x="372.8" dy="21">and Authorization</tspan><tspan x="372.8" dy="21">Service Module</tspan></text><path d="M268.6,152 H477 Q482,152 482,157 V249 Q482,254 477,254 H268.6 Q263.6,254 263.6,249 V157 Q263.6,152 268.6,152 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="372.8" y="182" text-anchor="middle" class="flow-node-label"><tspan x="372.8" dy="0">Request Validation</tspan><tspan x="372.8" dy="21">Input Sanitization</tspan><tspan x="372.8" dy="21">Rate Limiting Layer</tspan></text><path d="M372.8,304 L448.4,379.6 L372.8,455.2 L297.2,379.6 Z" class="flow-node flow-node-shape flow-node-shape-diamond"/><text x="372.8" y="356.6" text-anchor="middle" class="flow-node-label"><tspan x="372.8" dy="0">Content Type</tspan><tspan x="372.8" dy="21">Router and</tspan><tspan x="372.8" dy="21">Dispatcher</tspan></text><path d="M5,544.8 H203.8 Q208.8,544.8 208.8,549.8 V641.8 Q208.8,646.8 203.8,646.8 H5 Q0,646.8 0,641.8 V549.8 Q0,544.8 5,544.8 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="104.4" y="574.8" text-anchor="middle" class="flow-node-label"><tspan x="104.4" dy="0">JSON Processing</tspan><tspan x="104.4" dy="21">Engine with Schema</tspan><tspan x="104.4" dy="21">Validation Support</tspan></text><path d="M263.8,544.8 H481.8 Q486.8,544.8 486.8,549.8 V641.8 Q486.8,646.8 481.8,646.8 H263.8 Q258.8,646.8 258.8,641.8 V549.8 Q258.8,544.8 263.8,544.8 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="372.8" y="574.8" text-anchor="middle" class="flow-node-label"><tspan x="372.8" dy="0">XML Parser with</tspan><tspan x="372.8" dy="21">DTD Validation and</tspan><tspan x="372.8" dy="21">Namespace Resolution</tspan></text><path d="M541.8,544.8 H721.4 Q726.4,544.8 726.4,549.8 V641.8 Q726.4,646.8 721.4,646.8 H541.8 Q536.8,646.8 536.8,641.8 V549.8 Q536.8,544.8 541.8,544.8 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="631.6" y="574.8" text-anchor="middle" class="flow-node-label"><tspan x="631.6" dy="0">Binary Stream</tspan><tspan x="631.6" dy="21">Handler with</tspan><tspan x="631.6" dy="21">Chunk Processing</tspan></text><path d="M278.2,696.8 H467.4 Q472.4,696.8 472.4,701.8 V793.8 Q472.4,798.8 467.4,798.8 H278.2 Q273.2,798.8 273.2,793.8 V701.8 Q273.2,696.8 278.2,696.8 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="372.8" y="726.8" text-anchor="middle" class="flow-node-label"><tspan x="372.8" dy="0">Response Builder</tspan><tspan x="372.8" dy="21">with Compression</tspan><tspan x="372.8" dy="21">and Cache Headers</tspan></text><path d="M283,848.8 H462.6 Q467.6,848.8 467.6,853.8 V945.8 Q467.6,950.8 462.6,950.8 H283 Q278,950.8 278,945.8 V853.8 Q278,848.8 283,848.8 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="372.8" y="878.8" text-anchor="middle" class="flow-node-label"><tspan x="372.8" dy="0">Load Balancer</tspan><tspan x="372.8" dy="21">Health Check and</tspan><tspan x="372.8" dy="21">Circuit Breaker</tspan></text></g></svg>

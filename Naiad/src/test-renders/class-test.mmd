@@ -1,0 +1,16 @@
+classDiagram
+    Animal <|-- Duck
+    Animal <|-- Fish
+    class Animal{
+        +int age
+        +String gender
+        +isMammal()
+    }
+    class Duck{
+        +String beakColor
+        +swim()
+    }
+    class Fish{
+        -int sizeInFeet
+        +canEat()
+    }

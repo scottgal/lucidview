@@ -887,7 +887,9 @@ compare-output/
 **/--output/
 **/--flowcharts-only/
 **/test-output/
+# test-renders excluded except Naiad docs (checked in for GitHub README)
 **/test-renders/
+!Naiad/src/test-renders/
 
 # Reference repos (not submodules)
 /automatic-graph-layout/
@@ -895,6 +897,7 @@ compare-output/
 .codex-temp/
 **/EdgeTest/
 test-*.svg
+!Naiad/docs/**/*.svg
 output-test.svg
 
 # npm/web build artifacts

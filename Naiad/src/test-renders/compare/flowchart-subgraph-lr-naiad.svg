@@ -1,0 +1,50 @@
+<svg id="mermaid-svg" width="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1091.600006 168" style="max-width: 1091.600006px;" role="graphics-document document" xmlns:xlink="http://www.w3.org/1999/xlink"><style>/* Mermaid skin: default */
+#mermaid-svg{
+  font-family:\"trebuchet ms\", verdana, arial, sans-serif;
+  font-size:16px;
+  fill:#334155;
+}
+#mermaid-svg .flow-node-shape{
+  fill:#eff6ff;
+  stroke:#3b82f6;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-node-label,
+#mermaid-svg .flow-node-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+}
+#mermaid-svg .flow-edge{
+  stroke:#475569;
+  stroke-width:2.0px;
+  fill:none;
+}
+#mermaid-svg .flow-edge-dotted{stroke-dasharray:2;}
+#mermaid-svg .flow-edge-thick{stroke-width:3.5px;}
+#mermaid-svg .flow-edge-label-box{
+  fill:rgba(241,245,249,0.9);
+  stroke:none;
+  opacity:0.9;
+}
+#mermaid-svg .flow-edge-label,
+#mermaid-svg .flow-edge-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+  text-align:center;
+}
+#mermaid-svg .flow-subgraph-box{
+  fill:rgba(239,246,255,0.2);
+  stroke:#bfdbfe;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-subgraph-title{
+  fill:#2563eb;
+  font-weight:600;
+  font-size:15px;
+}
+#mermaid-svg .marker{
+  fill:#475569;
+  stroke:#475569;
+}</style><defs><marker id="mermaid-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><filter id="drop-shadow"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08" /></filter></defs><g transform="translate(8,8)"><rect x="0" y="0" width="489.2" height="152" rx="8" ry="8" class="flow-subgraph-box flow-subgraph-depth-0"/><text x="244.6" y="14" text-anchor="middle" dominant-baseline="middle" class="flow-subgraph-title">Part 1: OCR</text><rect x="519.2" y="0" width="556.4" height="152" rx="8" ry="8" class="flow-subgraph-box flow-subgraph-depth-0"/><text x="797.4" y="14" text-anchor="middle" dominant-baseline="middle" class="flow-subgraph-title">Part 2: NER</text><path d="M119,67 Q144,67 169,67" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M291.4,67 Q316.4,67 341.4,67" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M454.2,67 C462.53,67 470.87,67 479.2,67 C487.53,67 495.87,67 504.2,67 C512.53,67 520.87,67 554.2,67" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M667,67 Q692,67 717,67" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M877.8,67 Q902.8,67 927.8,67" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M40,40 H114 Q119,40 119,45 V89 Q119,94 114,94 H40 Q35,94 35,89 V45 Q35,40 40,40 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="77" y="67" text-anchor="middle" dominant-baseline="central" class="flow-node-label">Image</text><path d="M174,40 H286.4 Q291.4,40 291.4,45 V89 Q291.4,94 286.4,94 H174 Q169,94 169,89 V45 Q169,40 174,40 Z" class="flow-node flow-node-shape flow-node-shape-rectangle" style="stroke:#f60;stroke-width:3"/><text x="230.2" y="67" text-anchor="middle" dominant-baseline="central" class="flow-node-label">Tesseract</text><path d="M346.4,40 H449.2 Q454.2,40 454.2,45 V89 Q454.2,94 449.2,94 H346.4 Q341.4,94 341.4,89 V45 Q341.4,40 346.4,40 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="397.8" y="67" text-anchor="middle" dominant-baseline="central" class="flow-node-label">Raw Text</text><path d="M559.2,40 H662 Q667,40 667,45 V89 Q667,94 662,94 H559.2 Q554.2,94 554.2,89 V45 Q554.2,40 559.2,40 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="610.6" y="67" text-anchor="middle" dominant-baseline="central" class="flow-node-label">Tokenize</text><path d="M722,40 H872.8 Q877.8,40 877.8,45 V89 Q877.8,94 872.8,94 H722 Q717,94 717,89 V45 Q717,40 722,40 Z" class="flow-node flow-node-shape flow-node-shape-rectangle" style="stroke:#f60;stroke-width:3"/><text x="797.4" y="67" text-anchor="middle" dominant-baseline="central" class="flow-node-label">BERT NER ONNX</text><path d="M932.8,40 H1035.6 Q1040.6,40 1040.6,45 V89 Q1040.6,94 1035.6,94 H932.8 Q927.8,94 927.8,89 V45 Q927.8,40 932.8,40 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="984.2" y="67" text-anchor="middle" dominant-baseline="central" class="flow-node-label">Entities</text></g></svg>

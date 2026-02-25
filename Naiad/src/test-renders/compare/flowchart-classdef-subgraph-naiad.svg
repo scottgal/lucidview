@@ -1,0 +1,50 @@
+<svg id="mermaid-svg" width="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256.800003 742" style="max-width: 256.800003px;" role="graphics-document document" xmlns:xlink="http://www.w3.org/1999/xlink"><style>/* Mermaid skin: default */
+#mermaid-svg{
+  font-family:\"trebuchet ms\", verdana, arial, sans-serif;
+  font-size:16px;
+  fill:#334155;
+}
+#mermaid-svg .flow-node-shape{
+  fill:#eff6ff;
+  stroke:#3b82f6;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-node-label,
+#mermaid-svg .flow-node-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+}
+#mermaid-svg .flow-edge{
+  stroke:#475569;
+  stroke-width:2.0px;
+  fill:none;
+}
+#mermaid-svg .flow-edge-dotted{stroke-dasharray:2;}
+#mermaid-svg .flow-edge-thick{stroke-width:3.5px;}
+#mermaid-svg .flow-edge-label-box{
+  fill:rgba(241,245,249,0.9);
+  stroke:none;
+  opacity:0.9;
+}
+#mermaid-svg .flow-edge-label,
+#mermaid-svg .flow-edge-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+  text-align:center;
+}
+#mermaid-svg .flow-subgraph-box{
+  fill:rgba(239,246,255,0.2);
+  stroke:#bfdbfe;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-subgraph-title{
+  fill:#2563eb;
+  font-weight:600;
+  font-size:15px;
+}
+#mermaid-svg .marker{
+  fill:#475569;
+  stroke:#475569;
+}</style><defs><marker id="mermaid-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><filter id="drop-shadow"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08" /></filter></defs><g transform="translate(8,8)"><rect x="0" y="0" width="240.8" height="350" rx="8" ry="8" class="flow-subgraph-box flow-subgraph-depth-0"/><text x="120.4" y="14" text-anchor="middle" dominant-baseline="middle" class="flow-subgraph-title">Frontend Layer</text><rect x="24" y="362" width="192.8" height="364" rx="8" ry="8" class="flow-subgraph-box flow-subgraph-depth-0"/><text x="120.4" y="376" text-anchor="middle" dominant-baseline="middle" class="flow-subgraph-title">Backend Layer</text><path d="M120.4,89 Q120.4,114 120.4,139" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M120.4,193 Q120.4,218 120.4,243" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M120.4,451 Q120.4,476 120.4,501" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M120.4,555 Q120.4,580 120.4,605" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M120.4,297 C120.4,305.33 120.4,313.67 120.4,322 C120.4,330.33 120.4,338.67 120.4,347 C120.4,355.33 120.4,363.67 120.4,397" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M64.2,35 H176.6 Q181.6,35 181.6,40 V84 Q181.6,89 176.6,89 H64.2 Q59.2,89 59.2,84 V40 Q59.2,35 64.2,35 Z" class="flow-node flow-node-shape flow-node-shape-rectangle" style="fill:#61DAFB;stroke:#21A0C9"/><text x="120.4" y="62" text-anchor="middle" dominant-baseline="central" class="flow-node-label" style="fill:#000">React App</text><path d="M45,139 H195.8 Q200.8,139 200.8,144 V188 Q200.8,193 195.8,193 H45 Q40,193 40,188 V144 Q40,139 45,139 Z" class="flow-node flow-node-shape flow-node-shape-rectangle" style="fill:#61DAFB;stroke:#21A0C9"/><text x="120.4" y="166" text-anchor="middle" dominant-baseline="central" class="flow-node-label" style="fill:#000">State Manager</text><path d="M59.4,243 H181.4 Q186.4,243 186.4,248 V292 Q186.4,297 181.4,297 H59.4 Q54.4,297 54.4,292 V248 Q54.4,243 59.4,243 Z" class="flow-node flow-node-shape flow-node-shape-rectangle" style="fill:#61DAFB;stroke:#21A0C9"/><text x="120.4" y="270" text-anchor="middle" dominant-baseline="central" class="flow-node-label" style="fill:#000">API Client</text><path d="M69,397 H171.8 Q176.8,397 176.8,402 V446 Q176.8,451 171.8,451 H69 Q64,451 64,446 V402 Q64,397 69,397 Z" class="flow-node flow-node-shape flow-node-shape-rectangle" style="fill:#68D391;stroke:#38A169"/><text x="120.4" y="424" text-anchor="middle" dominant-baseline="central" class="flow-node-label" style="fill:#000">REST API</text><path d="M73.8,501 H167 Q172,501 172,506 V550 Q172,555 167,555 H73.8 Q68.8,555 68.8,550 V506 Q68.8,501 73.8,501 Z" class="flow-node flow-node-shape flow-node-shape-rectangle" style="fill:#68D391;stroke:#38A169"/><text x="120.4" y="528" text-anchor="middle" dominant-baseline="central" class="flow-node-label" style="fill:#000">Service</text><path d="M68.4,611.8 A52,6.8 0 0 1 172.4,611.8 V666.2 A52,6.8 0 0 1 68.4,666.2 V611.8 Z M68.4,611.8 A52,6.8 0 0 0 172.4,611.8" class="flow-node flow-node-shape flow-node-shape-cylinder" style="fill:#F6AD55;stroke:#DD6B20"/><text x="120.4" y="639" text-anchor="middle" dominant-baseline="central" class="flow-node-label" style="fill:#000">PostgreSQL</text></g></svg>

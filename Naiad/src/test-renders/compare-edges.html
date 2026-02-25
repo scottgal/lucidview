@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html><head>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+body { margin: 0; display: flex; font-family: sans-serif; background: #1a1a2e; color: #eee; }
+.panel { flex: 1; padding: 10px; overflow: auto; border-right: 2px solid #444; }
+.panel h2 { text-align: center; margin: 5px 0; }
+.mermaid { background: transparent; }
+.mermaid svg { max-width: 100%; }
+img { width: 100%; }
+</style>
+</head><body>
+<div class="panel">
+  <h2>Mermaid.js (truth source)</h2>
+  <pre class="mermaid">
+flowchart TB
+    subgraph Upload["1. File Upload"]
+        FILE[CSV / XLSX / JSON / Parquet]
+    end
+
+    subgraph Profile["2. Column Profiling"]
+        DUCK[DuckDB ingestion]
+        PROF["Column profiler<br/>types, stats, patterns, top values"]
+    end
+
+    subgraph Score["3. Deterministic Scoring"]
+        TOK["Token similarity<br/>+ abbreviation expansion"]
+        TYPE[Type compatibility]
+        PAT[Pattern matching]
+        FEAT[Feature group scoring]
+        FIT[Data fit scoring]
+        LEARN_BOOST["Learned alias boost<br/>from prior acceptances"]
+    end
+
+    subgraph Gates["3b. Safety Gates"]
+        MOV{"Margin of<br/>victory < 7%?"}
+    end
+
+    subgraph LLM["4. LLM Verification"]
+        GATE{"Confidence<br/>< 80%?"}
+        OLLAMA["qwen3:0.6b<br/>via Ollama or LLamaSharp"]
+        CONFIRM["LLM confirms or<br/>suggests alternative"]
+    end
+
+    subgraph UI["5. User Review"]
+        READY["Ready mappings<br/>confidence >= 80%"]
+        REVIEW["Review mappings<br/>50-79% confidence"]
+        UNMAP["Unmapped<br/>< 50% confidence"]
+        ACCEPT[User clicks Accept]
+    end
+
+    subgraph Learning["6. Learning Loop"]
+        API[POST /accept-mapping]
+        DB[("learned_aliases<br/>PostgreSQL")]
+    end
+
+    FILE --> DUCK --> PROF
+    PROF --> TOK & TYPE & PAT & FEAT & FIT
+    DB -.->|load at start| LEARN_BOOST
+    TOK & TYPE & PAT & FEAT & FIT & LEARN_BOOST --> MOV
+    MOV -->|Yes: cap to 79%| GATE
+    MOV -->|No| GATE
+    GATE -->|No: >= 80%| READY
+    GATE -->|Yes: < 80%| OLLAMA --> CONFIRM --> REVIEW
+    REVIEW --> ACCEPT --> API --> DB
+    READY --> ACCEPT
+  </pre>
+</div>
+<div class="panel">
+  <h2>Naiad (current)</h2>
+  <img src="llm-field-mapping-naiad-current.svg" />
+</div>
+<script>mermaid.initialize({startOnLoad:true, theme:'dark'});</script>
+</body></html>

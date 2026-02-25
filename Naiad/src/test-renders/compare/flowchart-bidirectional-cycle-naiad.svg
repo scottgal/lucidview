@@ -1,0 +1,50 @@
+<svg id="mermaid-svg" width="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 737.519983 157" style="max-width: 737.519983px;" role="graphics-document document" xmlns:xlink="http://www.w3.org/1999/xlink"><style>/* Mermaid skin: default */
+#mermaid-svg{
+  font-family:\"trebuchet ms\", verdana, arial, sans-serif;
+  font-size:16px;
+  fill:#334155;
+}
+#mermaid-svg .flow-node-shape{
+  fill:#eff6ff;
+  stroke:#3b82f6;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-node-label,
+#mermaid-svg .flow-node-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+}
+#mermaid-svg .flow-edge{
+  stroke:#475569;
+  stroke-width:2.0px;
+  fill:none;
+}
+#mermaid-svg .flow-edge-dotted{stroke-dasharray:2;}
+#mermaid-svg .flow-edge-thick{stroke-width:3.5px;}
+#mermaid-svg .flow-edge-label-box{
+  fill:rgba(241,245,249,0.9);
+  stroke:none;
+  opacity:0.9;
+}
+#mermaid-svg .flow-edge-label,
+#mermaid-svg .flow-edge-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+  text-align:center;
+}
+#mermaid-svg .flow-subgraph-box{
+  fill:rgba(239,246,255,0.2);
+  stroke:#bfdbfe;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-subgraph-title{
+  fill:#2563eb;
+  font-weight:600;
+  font-size:15px;
+}
+#mermaid-svg .marker{
+  fill:#475569;
+  stroke:#475569;
+}</style><defs><marker id="mermaid-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><filter id="drop-shadow"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08" /></filter></defs><g transform="translate(8,8)"><path d="M345.36,75 Q395.64,55.5 445.92,18" fill="none" marker-start="url(#mermaid-svg_flowchart-v2-pointStart)" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-bidirectional"/><rect x="370.36" y="40.7" width="50.56" height="29.6" class="flow-edge-label-box"/><text x="395.64" y="55.5" text-anchor="middle" dominant-baseline="central" class="flow-edge-label">sync</text><path d="M445.92,36 C429.16,24.73 412.4,13.47 385.44,7.83 C358.48,2.2 321.32,2.2 284.16,2.2 C247,2.2 209.84,2.2 98,57" fill="none" marker-start="url(#mermaid-svg_flowchart-v2-pointStart)" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-bidirectional"/><rect x="258.88" y="-12.6" width="50.56" height="29.6" class="flow-edge-label-box"/><text x="284.16" y="2.2" text-anchor="middle" dominant-baseline="central" class="flow-edge-label">sync</text><path d="M122.4,84 Q172.68,84 222.96,84" fill="none" marker-start="url(#mermaid-svg_flowchart-v2-pointStart)" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-bidirectional"/><rect x="147.4" y="69.2" width="50.56" height="29.6" class="flow-edge-label-box"/><text x="172.68" y="84" text-anchor="middle" dominant-baseline="central" class="flow-edge-label">sync</text><path d="M345.36,93 C362.12,97.83 378.88,102.67 405.84,105.08 C432.8,107.5 469.96,107.5 502.91,107.5 C535.85,107.5 564.59,107.5 618.32,98.5" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M568.32,27 Q593.32,27 644.23,80.5" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M114.01,111 C133.56,121 153.12,131 181.48,136 C209.84,141 247,141 284.16,141 C321.32,141 358.48,141 395.64,141 C432.8,141 469.96,141 502.91,141 C535.85,141 564.59,141 618.32,116.5" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M227.96,57 H340.36 Q345.36,57 345.36,62 V106 Q345.36,111 340.36,111 H227.96 Q222.96,111 222.96,106 V62 Q222.96,57 227.96,57 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="284.16" y="84" text-anchor="middle" dominant-baseline="central" class="flow-node-label">Service A</text><path d="M450.92,0 H563.32 Q568.32,0 568.32,5 V49 Q568.32,54 563.32,54 H450.92 Q445.92,54 445.92,49 V5 Q445.92,0 450.92,0 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="507.12" y="27" text-anchor="middle" dominant-baseline="central" class="flow-node-label">Service B</text><path d="M5,57 H117.4 Q122.4,57 122.4,62 V106 Q122.4,111 117.4,111 H5 Q0,111 0,106 V62 Q0,57 5,57 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="61.2" y="84" text-anchor="middle" dominant-baseline="central" class="flow-node-label">Service C</text><path d="M623.32,80.5 H716.52 Q721.52,80.5 721.52,85.5 V129.5 Q721.52,134.5 716.52,134.5 H623.32 Q618.32,134.5 618.32,129.5 V85.5 Q618.32,80.5 623.32,80.5 Z" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="669.92" y="107.5" text-anchor="middle" dominant-baseline="central" class="flow-node-label">Monitor</text></g></svg>
