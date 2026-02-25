@@ -14,7 +14,7 @@ done[Done]
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Kanban/KanbanTests.Simple.verified.png" />
+  <img src="../Tests/Kanban/KanbanTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -46,7 +46,7 @@ done[Done]
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Kanban/KanbanTests.ThreeColumns.verified.png" />
+  <img src="../Tests/Kanban/KanbanTests.ThreeColumns.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -77,7 +77,7 @@ done[Done]
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Kanban/KanbanTests.EmptyColumns.verified.png" />
+  <img src="../Tests/Kanban/KanbanTests.EmptyColumns.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -114,7 +114,7 @@ col4[Done]
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Kanban/KanbanTests.ManyTasks.verified.png" />
+  <img src="../Tests/Kanban/KanbanTests.ManyTasks.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -151,7 +151,7 @@ tasks[All Tasks]
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Kanban/KanbanTests.SingleColumn.verified.png" />
+  <img src="../Tests/Kanban/KanbanTests.SingleColumn.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

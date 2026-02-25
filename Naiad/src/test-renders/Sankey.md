@@ -11,7 +11,7 @@ A,C,20
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sankey/SankeyTests.Simple.verified.png" />
+  <img src="../Tests/Sankey/SankeyTests.Simple.verified.svg" />
 </p>
 
 
@@ -28,7 +28,7 @@ Middle,Target,30
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sankey/SankeyTests.ThreeColumns.verified.png" />
+  <img src="../Tests/Sankey/SankeyTests.ThreeColumns.verified.svg" />
 </p>
 
 
@@ -49,7 +49,7 @@ Electricity,Commercial,40
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sankey/SankeyTests.EnergyFlow.verified.png" />
+  <img src="../Tests/Sankey/SankeyTests.EnergyFlow.verified.svg" />
 </p>
 
 
@@ -70,7 +70,7 @@ Expenses,Other,300
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sankey/SankeyTests.BudgetFlow.verified.png" />
+  <img src="../Tests/Sankey/SankeyTests.BudgetFlow.verified.svg" />
 </p>
 
 
@@ -90,7 +90,7 @@ B,Z,5
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sankey/SankeyTests.MultipleSourcesAndTargets.verified.png" />
+  <img src="../Tests/Sankey/SankeyTests.MultipleSourcesAndTargets.verified.svg" />
 </p>
 
 
@@ -106,7 +106,7 @@ Input,Output,100
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sankey/SankeyTests.SingleLink.verified.png" />
+  <img src="../Tests/Sankey/SankeyTests.SingleLink.verified.svg" />
 </p>
 
 

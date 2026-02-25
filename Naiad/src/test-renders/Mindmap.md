@@ -13,7 +13,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.Simple.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -42,7 +42,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.Nested.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.Nested.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -70,7 +70,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.CircleShape.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.CircleShape.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -95,7 +95,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.SquareShape.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.SquareShape.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -120,7 +120,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.RoundedShape.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.RoundedShape.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -145,7 +145,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.HexagonShape.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.HexagonShape.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -172,7 +172,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.MixedShapes.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.MixedShapes.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -202,7 +202,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.DeepHierarchy.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.DeepHierarchy.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -234,7 +234,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.WideTree.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.WideTree.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -274,7 +274,7 @@ mindmap
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Mindmap/MindmapTests.Complex.verified.png" />
+  <img src="../Tests/Mindmap/MindmapTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

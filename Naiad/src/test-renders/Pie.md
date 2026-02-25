@@ -13,7 +13,7 @@ pie
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Pie/PieTests.Simple.verified.png" />
+  <img src="../Tests/Pie/PieTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -40,7 +40,7 @@ pie
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Pie/PieTests.Title.verified.png" />
+  <img src="../Tests/Pie/PieTests.Title.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -65,7 +65,7 @@ pie showData
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Pie/PieTests.ShowData.verified.png" />
+  <img src="../Tests/Pie/PieTests.ShowData.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

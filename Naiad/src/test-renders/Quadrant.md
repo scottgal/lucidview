@@ -14,7 +14,7 @@ quadrantChart
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Quadrant/QuadrantTests.Simple.verified.png" />
+  <img src="../Tests/Quadrant/QuadrantTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -49,7 +49,7 @@ quadrantChart
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Quadrant/QuadrantTests.Labels.verified.png" />
+  <img src="../Tests/Quadrant/QuadrantTests.Labels.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -88,7 +88,7 @@ quadrantChart
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Quadrant/QuadrantTests.ManyPoints.verified.png" />
+  <img src="../Tests/Quadrant/QuadrantTests.ManyPoints.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -122,7 +122,7 @@ quadrantChart
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Quadrant/QuadrantTests.TitleOnly.verified.png" />
+  <img src="../Tests/Quadrant/QuadrantTests.TitleOnly.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -155,7 +155,7 @@ quadrantChart
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Quadrant/QuadrantTests.EdgePositions.verified.png" />
+  <img src="../Tests/Quadrant/QuadrantTests.EdgePositions.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

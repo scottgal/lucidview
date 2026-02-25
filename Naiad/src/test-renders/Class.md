@@ -10,7 +10,7 @@ classDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.Simple.verified.png" />
+  <img src="../Tests/Class/ClassTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -34,7 +34,7 @@ classDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.Members.verified.png" />
+  <img src="../Tests/Class/ClassTests.Members.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -61,7 +61,7 @@ classDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.Methods.verified.png" />
+  <img src="../Tests/Class/ClassTests.Methods.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -90,7 +90,7 @@ classDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.MembersAndMethods.verified.png" />
+  <img src="../Tests/Class/ClassTests.MembersAndMethods.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -117,7 +117,7 @@ classDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.Inheritance.verified.png" />
+  <img src="../Tests/Class/ClassTests.Inheritance.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -140,7 +140,7 @@ classDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.Composition.verified.png" />
+  <img src="../Tests/Class/ClassTests.Composition.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -162,7 +162,7 @@ classDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.Aggregation.verified.png" />
+  <img src="../Tests/Class/ClassTests.Aggregation.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -183,7 +183,7 @@ classDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.Association.verified.png" />
+  <img src="../Tests/Class/ClassTests.Association.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -207,7 +207,7 @@ classDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.InterfaceAnnotation.verified.png" />
+  <img src="../Tests/Class/ClassTests.InterfaceAnnotation.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -295,7 +295,7 @@ Order "1" *-- "1..*" Item : contains
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Class/ClassTests.Complex.verified.png" />
+  <img src="../Tests/Class/ClassTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

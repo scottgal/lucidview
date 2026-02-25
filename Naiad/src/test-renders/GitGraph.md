@@ -12,7 +12,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.Simple.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -37,7 +37,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.Id.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.Id.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -62,7 +62,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.Tag.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.Tag.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -86,7 +86,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.Message.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.Message.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -110,7 +110,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.Types.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.Types.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -137,7 +137,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.BranchAndCheckout.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.BranchAndCheckout.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -170,7 +170,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.MultipleBranches.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.MultipleBranches.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -205,7 +205,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.MergeBranch.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.MergeBranch.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -236,7 +236,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.MergeWithTag.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.MergeWithTag.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -265,7 +265,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.CherryPick.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.CherryPick.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -300,7 +300,7 @@ gitGraph
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/GitGraph/GitGraphTests.Complex.verified.png" />
+  <img src="../Tests/GitGraph/GitGraphTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

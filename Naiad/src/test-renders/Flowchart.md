@@ -10,7 +10,7 @@ flowchart LR
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Flowchart/FlowchartTests.Simple.verified.png" />
+  <img src="../Tests/Flowchart/FlowchartTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -35,7 +35,7 @@ flowchart TD
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Flowchart/FlowchartTests.Complex.verified.png" />
+  <img src="../Tests/Flowchart/FlowchartTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -63,7 +63,7 @@ flowchart TD
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Flowchart/FlowchartTests.Shapes.verified.png" />
+  <img src="../Tests/Flowchart/FlowchartTests.Shapes.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -88,7 +88,7 @@ flowchart LR
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Flowchart/FlowchartTests.EdgeLabels.verified.png" />
+  <img src="../Tests/Flowchart/FlowchartTests.EdgeLabels.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -110,7 +110,7 @@ graph TD
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Flowchart/FlowchartTests.GraphKeyword.verified.png" />
+  <img src="../Tests/Flowchart/FlowchartTests.GraphKeyword.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

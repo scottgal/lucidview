@@ -14,7 +14,7 @@ treemap-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Treemap/TreemapTests.Simple.verified.png" />
+  <img src="../Tests/Treemap/TreemapTests.Simple.verified.svg" />
 </p>
 
 
@@ -33,7 +33,7 @@ treemap-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Treemap/TreemapTests.SingleLevel.verified.png" />
+  <img src="../Tests/Treemap/TreemapTests.SingleLevel.verified.svg" />
 </p>
 
 
@@ -56,7 +56,7 @@ treemap-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Treemap/TreemapTests.NestedSections.verified.png" />
+  <img src="../Tests/Treemap/TreemapTests.NestedSections.verified.svg" />
 </p>
 
 
@@ -76,7 +76,7 @@ treemap-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Treemap/TreemapTests.MixedHierarchy.verified.png" />
+  <img src="../Tests/Treemap/TreemapTests.MixedHierarchy.verified.svg" />
 </p>
 
 
@@ -97,7 +97,7 @@ treemap-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Treemap/TreemapTests.LargeValues.verified.png" />
+  <img src="../Tests/Treemap/TreemapTests.LargeValues.verified.svg" />
 </p>
 
 
@@ -124,7 +124,7 @@ treemap-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Treemap/TreemapTests.Complex.verified.png" />
+  <img src="../Tests/Treemap/TreemapTests.Complex.verified.svg" />
 </p>
 
 

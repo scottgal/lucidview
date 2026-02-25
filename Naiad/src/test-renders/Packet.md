@@ -11,7 +11,7 @@ packet-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Packet/PacketTests.Simple.verified.png" />
+  <img src="../Tests/Packet/PacketTests.Simple.verified.svg" />
 </p>
 
 
@@ -42,7 +42,7 @@ packet-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Packet/PacketTests.TCPHeader.verified.png" />
+  <img src="../Tests/Packet/PacketTests.TCPHeader.verified.svg" />
 </p>
 
 
@@ -70,7 +70,7 @@ packet-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Packet/PacketTests.IPv4Header.verified.png" />
+  <img src="../Tests/Packet/PacketTests.IPv4Header.verified.svg" />
 </p>
 
 
@@ -89,7 +89,7 @@ packet-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Packet/PacketTests.SingleRow.verified.png" />
+  <img src="../Tests/Packet/PacketTests.SingleRow.verified.svg" />
 </p>
 
 
@@ -107,7 +107,7 @@ packet-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Packet/PacketTests.Fields.verified.png" />
+  <img src="../Tests/Packet/PacketTests.Fields.verified.svg" />
 </p>
 
 

@@ -89,9 +89,9 @@ Naiad supports **32 diagram types** - every Mermaid diagram type plus several Na
 | Diagram | Syntax | Preview |
 |---------|--------|---------|
 | [C4 Context](https://mermaid.js.org/syntax/c4.html) | `C4Context` | <img src="docs/diagrams/c4context.svg" width="250"> |
-| C4 Container | `C4Container` | |
-| C4 Component | `C4Component` | |
-| C4 Deployment | `C4Deployment` | |
+| C4 Container | `C4Container` | <img src="docs/diagrams/c4container.svg" width="250"> |
+| C4 Component | `C4Component` | <img src="docs/diagrams/c4component.svg" width="250"> |
+| C4 Deployment | `C4Deployment` | <img src="docs/diagrams/c4deployment.svg" width="250"> |
 
 ### Hierarchical & Spatial
 

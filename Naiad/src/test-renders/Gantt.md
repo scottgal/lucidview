@@ -12,7 +12,7 @@ gantt
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Gantt/GanttTests.Simple.verified.png" />
+  <img src="../Tests/Gantt/GanttTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -37,7 +37,7 @@ gantt
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Gantt/GanttTests.TaskWithDependency.verified.png" />
+  <img src="../Tests/Gantt/GanttTests.TaskWithDependency.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -66,7 +66,7 @@ gantt
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Gantt/GanttTests.Sections.verified.png" />
+  <img src="../Tests/Gantt/GanttTests.Sections.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -96,7 +96,7 @@ gantt
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Gantt/GanttTests.Statuses.verified.png" />
+  <img src="../Tests/Gantt/GanttTests.Statuses.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -123,7 +123,7 @@ gantt
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Gantt/GanttTests.Critical.verified.png" />
+  <img src="../Tests/Gantt/GanttTests.Critical.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -149,7 +149,7 @@ gantt
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Gantt/GanttTests.Milestones.verified.png" />
+  <img src="../Tests/Gantt/GanttTests.Milestones.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -183,7 +183,7 @@ gantt
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Gantt/GanttTests.Complex.verified.png" />
+  <img src="../Tests/Gantt/GanttTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -217,7 +217,7 @@ gantt
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Gantt/GanttTests.WeeklyDuration.verified.png" />
+  <img src="../Tests/Gantt/GanttTests.WeeklyDuration.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

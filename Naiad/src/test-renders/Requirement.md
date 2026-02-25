@@ -16,7 +16,7 @@ requirement test_req {
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Requirement/RequirementTests.Simple.verified.png" />
+  <img src="../Tests/Requirement/RequirementTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -49,7 +49,7 @@ functionalRequirement login_req {
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Requirement/RequirementTests.Functional.verified.png" />
+  <img src="../Tests/Requirement/RequirementTests.Functional.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -87,7 +87,7 @@ test_entity - satisfies -> test_req
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Requirement/RequirementTests.Element.verified.png" />
+  <img src="../Tests/Requirement/RequirementTests.Element.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -136,7 +136,7 @@ performanceRequirement perf1 {
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Requirement/RequirementTests.Multiple.verified.png" />
+  <img src="../Tests/Requirement/RequirementTests.Multiple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -199,7 +199,7 @@ login_page - derives -> user_auth
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Requirement/RequirementTests.Complex.verified.png" />
+  <img src="../Tests/Requirement/RequirementTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -262,7 +262,7 @@ elem1 - verifies -> req2
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Requirement/RequirementTests.AllTypes.verified.png" />
+  <img src="../Tests/Requirement/RequirementTests.AllTypes.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

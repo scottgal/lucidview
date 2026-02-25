@@ -13,7 +13,7 @@ journey
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/UserJourney/UserJourneyTests.Simple.verified.png" />
+  <img src="../Tests/UserJourney/UserJourneyTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -46,7 +46,7 @@ journey
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/UserJourney/UserJourneyTests.MultipleSections.verified.png" />
+  <img src="../Tests/UserJourney/UserJourneyTests.MultipleSections.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -85,7 +85,7 @@ journey
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/UserJourney/UserJourneyTests.MultipleActors.verified.png" />
+  <img src="../Tests/UserJourney/UserJourneyTests.MultipleActors.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -121,7 +121,7 @@ journey
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/UserJourney/UserJourneyTests.AllScores.verified.png" />
+  <img src="../Tests/UserJourney/UserJourneyTests.AllScores.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -150,7 +150,7 @@ journey
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/UserJourney/UserJourneyTests.WithoutTitle.verified.png" />
+  <img src="../Tests/UserJourney/UserJourneyTests.WithoutTitle.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -178,7 +178,7 @@ journey
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/UserJourney/UserJourneyTests.ManyActors.verified.png" />
+  <img src="../Tests/UserJourney/UserJourneyTests.ManyActors.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -234,7 +234,7 @@ journey
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/UserJourney/UserJourneyTests.Complex.verified.png" />
+  <img src="../Tests/UserJourney/UserJourneyTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

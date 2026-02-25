@@ -11,7 +11,7 @@ stateDiagram-v2
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/State/StateTests.Simple.verified.png" />
+  <img src="../Tests/State/StateTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -37,7 +37,7 @@ stateDiagram-v2
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/State/StateTests.MultipleStates.verified.png" />
+  <img src="../Tests/State/StateTests.MultipleStates.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -65,7 +65,7 @@ stateDiagram-v2
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/State/StateTests.TransitionLabels.verified.png" />
+  <img src="../Tests/State/StateTests.TransitionLabels.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -91,7 +91,7 @@ stateDiagram-v2
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/State/StateTests.Description.verified.png" />
+  <img src="../Tests/State/StateTests.Description.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -117,7 +117,7 @@ stateDiagram-v2
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/State/StateTests.ForkJoinState.verified.png" />
+  <img src="../Tests/State/StateTests.ForkJoinState.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -145,7 +145,7 @@ stateDiagram-v2
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/State/StateTests.ChoiceState.verified.png" />
+  <img src="../Tests/State/StateTests.ChoiceState.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -172,7 +172,7 @@ stateDiagram-v2
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/State/StateTests.StateWithNote.verified.png" />
+  <img src="../Tests/State/StateTests.StateWithNote.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -196,7 +196,7 @@ stateDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/State/StateTests.StateDiagramV1.verified.png" />
+  <img src="../Tests/State/StateTests.StateDiagramV1.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -239,7 +239,7 @@ stateDiagram-v2
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/State/StateTests.Complex.verified.png" />
+  <img src="../Tests/State/StateTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

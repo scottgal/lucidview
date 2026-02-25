@@ -11,7 +11,7 @@ block-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Block/BlockTests.Simple.verified.png" />
+  <img src="../Tests/Block/BlockTests.Simple.verified.svg" />
 </p>
 
 
@@ -29,7 +29,7 @@ block-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Block/BlockTests.Span.verified.png" />
+  <img src="../Tests/Block/BlockTests.Span.verified.svg" />
 </p>
 
 
@@ -47,7 +47,7 @@ block-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Block/BlockTests.DifferentShapes.verified.png" />
+  <img src="../Tests/Block/BlockTests.DifferentShapes.verified.svg" />
 </p>
 
 
@@ -66,7 +66,7 @@ block-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Block/BlockTests.Column.verified.png" />
+  <img src="../Tests/Block/BlockTests.Column.verified.svg" />
 </p>
 
 
@@ -83,7 +83,7 @@ block-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Block/BlockTests.ManyColumns.verified.png" />
+  <img src="../Tests/Block/BlockTests.ManyColumns.verified.svg" />
 </p>
 
 
@@ -102,7 +102,7 @@ block-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Block/BlockTests.MixedLayout.verified.png" />
+  <img src="../Tests/Block/BlockTests.MixedLayout.verified.svg" />
 </p>
 
 

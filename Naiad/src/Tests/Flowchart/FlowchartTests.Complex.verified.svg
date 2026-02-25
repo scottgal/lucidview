@@ -1,0 +1,50 @@
+﻿<svg id="mermaid-svg" width="461.2" height="558.4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 461.2 558.4" style="max-width: 461.2px;" role="graphics-document document" xmlns:xlink="http://www.w3.org/1999/xlink"><style>/* Mermaid skin: default */
+#mermaid-svg{
+  font-family:\"trebuchet ms\", verdana, arial, sans-serif;
+  font-size:16px;
+  fill:#334155;
+}
+#mermaid-svg .flow-node-shape{
+  fill:#eff6ff;
+  stroke:#3b82f6;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-node-label,
+#mermaid-svg .flow-node-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+}
+#mermaid-svg .flow-edge{
+  stroke:#475569;
+  stroke-width:2.0px;
+  fill:none;
+}
+#mermaid-svg .flow-edge-dotted{stroke-dasharray:2;}
+#mermaid-svg .flow-edge-thick{stroke-width:3.5px;}
+#mermaid-svg .flow-edge-label-box{
+  fill:rgba(241,245,249,0.9);
+  stroke:none;
+  opacity:0.9;
+}
+#mermaid-svg .flow-edge-label,
+#mermaid-svg .flow-edge-label p{
+  color:#334155;
+  fill:#334155;
+  margin:0;
+  text-align:center;
+}
+#mermaid-svg .flow-subgraph-box{
+  fill:rgba(239,246,255,0.2);
+  stroke:#bfdbfe;
+  stroke-width:1px;
+}
+#mermaid-svg .flow-subgraph-title{
+  fill:#2563eb;
+  font-weight:600;
+  font-size:15px;
+}
+#mermaid-svg .marker{
+  fill:#475569;
+  stroke:#475569;
+}</style><defs><marker id="mermaid-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="mermaid-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><filter id="drop-shadow"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08" /></filter></defs><rect width="461.2" height="558.4" fill="#ffffff" /><g transform="translate(8,8)"><path d="M226.4,54 L226.4,61.47 C226.4,68.93 226.4,83.87 226.4,98.8 C226.4,113.73 226.4,128.67 226.4,136.13 L226.4,143.6" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><rect x="231.4" y="84" width="93.76" height="29.6" class="flow-edge-label-box"/><text x="278.28" y="98.8" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-edge-label">Get money</text><path d="M226.4,197.6 L226.4,201.77 C226.4,205.93 226.4,214.27 226.4,222.6 C226.4,230.93 226.4,239.27 226.4,243.43 L226.4,247.6" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><path d="M182.4,354.81 L161.8,369.6 C141.2,384.4 100,414 79.4,436.27 C58.8,458.53 58.8,473.47 58.8,480.93 L58.8,488.4" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><rect x="63.8" y="428.8" width="41.92" height="29.6" class="flow-edge-label-box"/><text x="84.76" y="443.6" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-edge-label">One</text><path d="M226.4,398.8 L226.4,406.27 C226.4,413.73 226.4,428.67 226.4,443.6 C226.4,458.53 226.4,473.47 226.4,480.93 L226.4,488.4" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><rect x="231.4" y="428.8" width="41.92" height="29.6" class="flow-edge-label-box"/><text x="252.36" y="443.6" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-edge-label">Two</text><path d="M269.97,355.23 L290.01,369.96 C310.05,384.69 350.12,414.14 370.16,436.34 C390.2,458.53 390.2,473.47 390.2,480.93 L390.2,488.4" fill="none" marker-end="url(#mermaid-svg_flowchart-v2-pointEnd)" class="flow-edge flow-edge-solid flow-edge-arrow"/><rect x="395.2" y="428.8" width="59.2" height="29.6" class="flow-edge-label-box"/><text x="424.8" y="443.6" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-edge-label">Three</text><path d="M158.2,0 H294.6 Q299.6,0 299.6,5 V49 Q299.6,54 294.6,54 H158.2 Q153.2,54 153.2,49 V5 Q153.2,0 158.2,0 Z" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="226.4" y="27" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-node-label">Christmas</text><path d="M148.6,143.6 H304.2 Q309.2,143.6 309.2,148.6 V192.6 Q309.2,197.6 304.2,197.6 H148.6 Q143.6,197.6 143.6,192.6 V148.6 Q143.6,143.6 148.6,143.6 Z" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" class="flow-node flow-node-shape flow-node-shape-rounded"/><text x="226.4" y="170.6" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-node-label">Go shopping</text><path d="M226.4,247.6 L302,323.2 L226.4,398.8 L150.8,323.2 Z" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" class="flow-node flow-node-shape flow-node-shape-diamond"/><text x="226.4" y="321.2" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-node-label">Let me think</text><path d="M5,488.4 H112.6 Q117.6,488.4 117.6,493.4 V537.4 Q117.6,542.4 112.6,542.4 H5 Q0,542.4 0,537.4 V493.4 Q0,488.4 5,488.4 Z" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="58.8" y="515.4" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-node-label">Laptop</text><path d="M172.6,488.4 H280.2 Q285.2,488.4 285.2,493.4 V537.4 Q285.2,542.4 280.2,542.4 H172.6 Q167.6,542.4 167.6,537.4 V493.4 Q167.6,488.4 172.6,488.4 Z" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="226.4" y="515.4" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-node-label">iPhone</text><path d="M340.2,488.4 H440.2 Q445.2,488.4 445.2,493.4 V537.4 Q445.2,542.4 440.2,542.4 H340.2 Q335.2,542.4 335.2,537.4 V493.4 Q335.2,488.4 340.2,488.4 Z" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" class="flow-node flow-node-shape flow-node-shape-rectangle"/><text x="390.2" y="515.4" text-anchor="middle" dominant-baseline="central" fill="#1a192b" class="flow-node-label">Car</text></g></svg>

@@ -12,7 +12,7 @@ timeline
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Timeline/TimelineTests.Simple.verified.png" />
+  <img src="../Tests/Timeline/TimelineTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -38,7 +38,7 @@ timeline
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Timeline/TimelineTests.Title.verified.png" />
+  <img src="../Tests/Timeline/TimelineTests.Title.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -66,7 +66,7 @@ timeline
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Timeline/TimelineTests.MultipleEventsPerPeriod.verified.png" />
+  <img src="../Tests/Timeline/TimelineTests.MultipleEventsPerPeriod.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -97,7 +97,7 @@ timeline
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Timeline/TimelineTests.Sections.verified.png" />
+  <img src="../Tests/Timeline/TimelineTests.Sections.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -128,7 +128,7 @@ timeline
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Timeline/TimelineTests.TextPeriods.verified.png" />
+  <img src="../Tests/Timeline/TimelineTests.TextPeriods.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -161,7 +161,7 @@ timeline
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Timeline/TimelineTests.MultipleSections.verified.png" />
+  <img src="../Tests/Timeline/TimelineTests.MultipleSections.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -203,7 +203,7 @@ timeline
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Timeline/TimelineTests.Complex.verified.png" />
+  <img src="../Tests/Timeline/TimelineTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

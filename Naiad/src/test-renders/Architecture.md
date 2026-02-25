@@ -10,7 +10,7 @@ service db(database)[Database]
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Architecture/ArchitectureTests.BasicService.verified.png" />
+  <img src="../Tests/Architecture/ArchitectureTests.BasicService.verified.svg" />
 </p>
 
 
@@ -29,7 +29,7 @@ service cloud1(cloud)[Cloud]
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Architecture/ArchitectureTests.ServiceWithDifferentIcons.verified.png" />
+  <img src="../Tests/Architecture/ArchitectureTests.ServiceWithDifferentIcons.verified.svg" />
 </p>
 
 
@@ -47,7 +47,7 @@ service server(server)[Server] in api
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Architecture/ArchitectureTests.ServiceWithGroup.verified.png" />
+  <img src="../Tests/Architecture/ArchitectureTests.ServiceWithGroup.verified.svg" />
 </p>
 
 
@@ -65,7 +65,7 @@ db:R -- L:server
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Architecture/ArchitectureTests.ServicesWithEdge.verified.png" />
+  <img src="../Tests/Architecture/ArchitectureTests.ServicesWithEdge.verified.svg" />
 </p>
 
 
@@ -86,7 +86,7 @@ server:R -- L:disk1
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Architecture/ArchitectureTests.Complex.verified.png" />
+  <img src="../Tests/Architecture/ArchitectureTests.Complex.verified.svg" />
 </p>
 
 
@@ -106,7 +106,7 @@ server:B -- T>:db
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Architecture/ArchitectureTests.EdgeWithArrows.verified.png" />
+  <img src="../Tests/Architecture/ArchitectureTests.EdgeWithArrows.verified.svg" />
 </p>
 
 

@@ -13,7 +13,7 @@ xychart-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/XYChart/XYChartTests.Simple.verified.png" />
+  <img src="../Tests/XYChart/XYChartTests.Simple.verified.svg" />
 </p>
 
 
@@ -33,7 +33,7 @@ xychart-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/XYChart/XYChartTests.BarAndLine.verified.png" />
+  <img src="../Tests/XYChart/XYChartTests.BarAndLine.verified.svg" />
 </p>
 
 
@@ -53,7 +53,7 @@ xychart-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/XYChart/XYChartTests.MultipleBarSeries.verified.png" />
+  <img src="../Tests/XYChart/XYChartTests.MultipleBarSeries.verified.svg" />
 </p>
 
 
@@ -70,7 +70,7 @@ xychart-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/XYChart/XYChartTests.WithoutTitle.verified.png" />
+  <img src="../Tests/XYChart/XYChartTests.WithoutTitle.verified.svg" />
 </p>
 
 
@@ -89,7 +89,7 @@ xychart-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/XYChart/XYChartTests.QuotedCategories.verified.png" />
+  <img src="../Tests/XYChart/XYChartTests.QuotedCategories.verified.svg" />
 </p>
 
 
@@ -109,7 +109,7 @@ xychart-beta
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/XYChart/XYChartTests.Complex.verified.png" />
+  <img src="../Tests/XYChart/XYChartTests.Complex.verified.svg" />
 </p>
 
 

@@ -10,7 +10,7 @@ erDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/EntityRelationship/ErTests.Simple.verified.png" />
+  <img src="../Tests/EntityRelationship/ErTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -33,7 +33,7 @@ erDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/EntityRelationship/ErTests.MultipleRelationships.verified.png" />
+  <img src="../Tests/EntityRelationship/ErTests.MultipleRelationships.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -60,7 +60,7 @@ erDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/EntityRelationship/ErTests.Attributes.verified.png" />
+  <img src="../Tests/EntityRelationship/ErTests.Attributes.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -89,7 +89,7 @@ erDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/EntityRelationship/ErTests.KeyTypes.verified.png" />
+  <img src="../Tests/EntityRelationship/ErTests.KeyTypes.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -117,7 +117,7 @@ erDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/EntityRelationship/ErTests.Comments.verified.png" />
+  <img src="../Tests/EntityRelationship/ErTests.Comments.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -141,7 +141,7 @@ erDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/EntityRelationship/ErTests.OneToOne.verified.png" />
+  <img src="../Tests/EntityRelationship/ErTests.OneToOne.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -162,7 +162,7 @@ erDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/EntityRelationship/ErTests.ZeroOrOne.verified.png" />
+  <img src="../Tests/EntityRelationship/ErTests.ZeroOrOne.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -183,7 +183,7 @@ erDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/EntityRelationship/ErTests.NonIdentifying.verified.png" />
+  <img src="../Tests/EntityRelationship/ErTests.NonIdentifying.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -269,7 +269,7 @@ CATEGORY |o--o| CATEGORY : "parent of"
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/EntityRelationship/ErTests.Compelx.verified.png" />
+  <img src="../Tests/EntityRelationship/ErTests.Compelx.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**

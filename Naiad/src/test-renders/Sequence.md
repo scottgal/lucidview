@@ -11,7 +11,7 @@ sequenceDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sequence/SequenceTests.Simple.verified.png" />
+  <img src="../Tests/Sequence/SequenceTests.Simple.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -36,7 +36,7 @@ sequenceDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sequence/SequenceTests.Participants.verified.png" />
+  <img src="../Tests/Sequence/SequenceTests.Participants.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -63,7 +63,7 @@ sequenceDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sequence/SequenceTests.Actors.verified.png" />
+  <img src="../Tests/Sequence/SequenceTests.Actors.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -88,7 +88,7 @@ sequenceDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sequence/SequenceTests.Activation.verified.png" />
+  <img src="../Tests/Sequence/SequenceTests.Activation.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -113,7 +113,7 @@ sequenceDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sequence/SequenceTests.Notes.verified.png" />
+  <img src="../Tests/Sequence/SequenceTests.Notes.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -140,7 +140,7 @@ sequenceDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sequence/SequenceTests.AutoNumber.verified.png" />
+  <img src="../Tests/Sequence/SequenceTests.AutoNumber.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -169,7 +169,7 @@ sequenceDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sequence/SequenceTests.DifferentArrows.verified.png" />
+  <img src="../Tests/Sequence/SequenceTests.DifferentArrows.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -197,7 +197,7 @@ sequenceDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sequence/SequenceTests.Title.verified.png" />
+  <img src="../Tests/Sequence/SequenceTests.Title.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
@@ -240,7 +240,7 @@ sequenceDiagram
 **Rendered by Naiad:**
 
 <p align="center">
-  <img src="../Tests/Sequence/SequenceTests.Complex.verified.png" />
+  <img src="../Tests/Sequence/SequenceTests.Complex.verified.svg" />
 </p>
 
 **Rendered by Mermaid:**
