@@ -34,6 +34,12 @@ public class AppSettings
     // Recent files
     public List<RecentFile> RecentFiles { get; set; } = [];
 
+    // Optional custom theme. When the user selects AppTheme.Custom, ThemeService
+    // applies these colors. Set to null to hide the Custom theme card. Edit the
+    // settings.json file directly to define your own palette — see
+    // default-settings.json for the schema and an example.
+    public ThemeDefinition? CustomTheme { get; set; }
+
     public static AppSettings Load()
     {
         try
@@ -91,6 +97,7 @@ public class RecentFile
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(AppSettings))]
+[JsonSerializable(typeof(ThemeDefinition))]
 internal partial class AppSettingsContext : JsonSerializerContext
 {
 }

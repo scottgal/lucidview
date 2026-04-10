@@ -26,10 +26,20 @@
 
     <Style Selector="Border.header-bar">
         <Setter Property="Background" Value="{DynamicResource AppBackgroundSecondary}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
-        <Setter Property="BorderThickness" Value="0,0,0,1" />
-        <Setter Property="Padding" Value="8,6" />
-        <Setter Property="Height" Value="48" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccent}" />
+        <Setter Property="BorderThickness" Value="0,0,0,2" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Height" Value="52" />
+    </Style>
+
+    <!-- A pill-shaped grouping container for related toolbar controls -->
+    <Style Selector="Border.control-pill">
+        <Setter Property="Background" Value="{DynamicResource AppSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderSubtle}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <Style Selector="Button.header-btn">
@@ -49,14 +59,22 @@
         <Setter Property="Background" Value="{DynamicResource AppBorderSubtle}" />
     </Style>
 
-    <Style Selector="Button.font-btn-small">
-        <Setter Property="Padding" Value="8,8" />
-        <Setter Property="MinWidth" Value="36" />
+    <Style Selector="Button.font-btn">
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
+    <!-- Legacy classes kept as no-ops in case anything still references them -->
+    <Style Selector="Button.font-btn-small">
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="MinWidth" Value="32" />
+    </Style>
     <Style Selector="Button.font-btn-large">
-        <Setter Property="Padding" Value="8,4" />
-        <Setter Property="MinWidth" Value="36" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="MinWidth" Value="32" />
     </Style>
 
     <Style Selector="ToggleButton.header-btn">

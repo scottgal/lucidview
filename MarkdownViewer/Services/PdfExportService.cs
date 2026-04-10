@@ -40,6 +40,23 @@ public partial class PdfExportService
         }
     }
 
+    /// <summary>
+    /// Builds the PDF to a unique file in the system temp directory and returns the path.
+    /// Caller is responsible for deleting the file when done.
+    /// Used by the Print path so the PDF can be handed to the OS print spooler.
+    /// </summary>
+    public async Task<string> ExportToTempAsync(
+        string rawMarkdown,
+        string? documentTitle,
+        int fontSize,
+        string? basePath,
+        CancellationToken ct = default)
+    {
+        var tempPath = Path.Combine(Path.GetTempPath(), $"lucidview_print_{Guid.NewGuid():N}.pdf");
+        await ExportAsync(rawMarkdown, tempPath, documentTitle, fontSize, basePath, ct);
+        return tempPath;
+    }
+
     private async Task<(string Markdown, List<string> TempFiles)> PreprocessMermaidAsync(
         string markdown, CancellationToken ct)
     {

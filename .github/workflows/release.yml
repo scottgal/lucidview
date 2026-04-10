@@ -68,15 +68,33 @@ jobs:
         Copy-Item "MarkdownViewer/default-settings.json" "release/" -ErrorAction SilentlyContinue
       shell: pwsh
 
-    - name: Prepare release folder (Unix)
-      if: matrix.os != 'windows-latest'
+    - name: Prepare release folder (Linux)
+      if: matrix.os == 'ubuntu-latest'
       run: |
         mkdir release
         cp "publish/${{ matrix.rid }}/${{ matrix.exe }}" release/
-        # Content files aren't in publish output with SingleFile - copy from source
         cp README.md release/ 2>/dev/null || true
         cp MarkdownViewer/default-settings.json release/ 2>/dev/null || true
         chmod +x "release/${{ matrix.exe }}"
+
+    - name: Assemble macOS .app bundle
+      if: matrix.os == 'macos-latest'
+      run: |
+        set -e
+        mkdir -p release
+        APP="release/lucidVIEW.app"
+        rm -rf "$APP"
+        mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+        cp MarkdownViewer/macos/Info.plist "$APP/Contents/Info.plist"
+        cp MarkdownViewer/Assets/lucidVIEW.icns "$APP/Contents/Resources/lucidVIEW.icns"
+        cp -R publish/${{ matrix.rid }}/. "$APP/Contents/MacOS/"
+        chmod +x "$APP/Contents/MacOS/lucidVIEW"
+        # Ad-hoc codesign so Gatekeeper doesn't quarantine downloads. Distribution signing
+        # would need a real Developer ID — see docs/macos-bundle.md.
+        codesign --force --deep --sign - "$APP"
+        # Drop in README and default settings alongside the .app for convenience
+        cp README.md release/ 2>/dev/null || true
+        cp MarkdownViewer/default-settings.json release/ 2>/dev/null || true
 
     - name: Create archive (Windows)
       if: matrix.os == 'windows-latest'
@@ -141,42 +159,159 @@ jobs:
         body: |
           ## lucidVIEW ${{ steps.version.outputs.version }}
 
-          A modern, lightweight cross-platform markdown viewer.
+          A modern, lightweight cross-platform markdown viewer with mermaid diagrams,
+          syntax highlighting, six themes, real print, PDF export and an in-app
+          self-documenting user manual.
 
-          ### Download
+          ### Downloads
 
           | Platform | File |
-          |----------|------|
+          |---|---|
           | Windows x64 | `lucidVIEW-win-x64.zip` |
-          | macOS x64 (Intel) | `lucidVIEW-osx-x64.zip` |
-          | macOS ARM64 (Apple Silicon) | `lucidVIEW-osx-arm64.zip` |
+          | macOS Apple Silicon (M1/M2/M3/M4) | `lucidVIEW-osx-arm64.zip` |
+          | macOS Intel | `lucidVIEW-osx-x64.zip` |
           | Linux x64 | `lucidVIEW-linux-x64.zip` |
 
-          ### Installation
+          See the in-app **User Manual** (F1, or side panel → User Manual) for a full
+          feature walk-through with screenshots.
 
-          1. Download the zip for your platform
-          2. Extract the contents
-          3. Run `lucidVIEW` (or `lucidVIEW.exe` on Windows)
+          ---
 
-          ### Command Line
+          ### 🪟 Windows install
+
+          ```powershell
+          # 1. Download to your Downloads folder, then:
+          cd $env:USERPROFILE\Downloads
+          Expand-Archive lucidVIEW-win-x64.zip -DestinationPath "$env:LOCALAPPDATA\Programs\lucidVIEW" -Force
+
+          # 2. Launch
+          & "$env:LOCALAPPDATA\Programs\lucidVIEW\lucidVIEW.exe"
+
+          # 3. (Optional) Pin to taskbar / Start menu via Explorer right-click
+          ```
+
+          **SmartScreen warning** — lucidVIEW is unsigned (no EV cert). On first launch
+          Windows shows "Windows protected your PC". Click **More info** → **Run anyway**.
+          To stop the warning permanently, install the Microsoft Store version (coming
+          soon — see `docs/windows-store.md`) or right-click the exe → Properties →
+          tick **Unblock**.
+
+          **Set as default markdown viewer**: right-click any `.md` file → Open with →
+          Choose another app → browse to `lucidVIEW.exe`.
+
+          ---
+
+          ### 🍎 macOS install
 
           ```bash
-          # Open a markdown file
-          lucidVIEW README.md
+          # 1. Download and unzip
+          cd ~/Downloads
+          unzip -o lucidVIEW-osx-arm64.zip       # or osx-x64 on Intel
 
-          # Set as default markdown viewer (Windows):
-          # Right-click any .md file > Open with > Choose another app > lucidVIEW.exe
+          # 2. Move to /Applications
+          mv lucidVIEW.app /Applications/
+
+          # 3. Remove the quarantine attribute (required — see below)
+          xattr -dr com.apple.quarantine /Applications/lucidVIEW.app
+
+          # 4. Launch
+          open /Applications/lucidVIEW.app
           ```
+
+          **Why the `xattr` step?** lucidVIEW is ad-hoc codesigned (`codesign --sign -`),
+          not notarized with an Apple Developer ID. Without removing the quarantine
+          attribute, Gatekeeper refuses to launch the app and shows
+          *"lucidVIEW.app cannot be opened because the developer cannot be verified."*
+          The `xattr -dr` command above tells macOS to trust this specific build.
+
+          **Right-click → Open** also works on first launch as an alternative — click
+          **Open** in the warning dialog and macOS remembers your choice.
+
+          **Set as default markdown viewer**: Right-click any `.md` file in Finder →
+          *Open With* → *Other...* → pick lucidVIEW → tick *Always Open With*.
+
+          ---
+
+          ### 🐧 Linux install
+
+          ```bash
+          # 1. Download and unzip
+          cd ~/Downloads
+          unzip -o lucidVIEW-linux-x64.zip -d ~/.local/opt/lucidVIEW
+
+          # 2. Mark executable
+          chmod +x ~/.local/opt/lucidVIEW/lucidVIEW
+
+          # 3. Symlink onto your PATH
+          mkdir -p ~/.local/bin
+          ln -sf ~/.local/opt/lucidVIEW/lucidVIEW ~/.local/bin/lucidview
+
+          # 4. Launch
+          lucidview
+          ```
+
+          **Printing on Linux**: requires CUPS (`cups` and `cups-client`). On Debian/
+          Ubuntu: `sudo apt install cups`. The Print menu uses `lp` to send to your
+          default printer. Without CUPS, Export PDF still works.
+
+          **Desktop entry** (optional, for menu integration):
+
+          ```bash
+          cat > ~/.local/share/applications/lucidVIEW.desktop <<EOF
+          [Desktop Entry]
+          Name=lucidVIEW
+          Comment=Modern markdown viewer
+          Exec=$HOME/.local/bin/lucidview %f
+          Icon=$HOME/.local/opt/lucidVIEW/lucidVIEW
+          Type=Application
+          Categories=Office;Viewer;TextEditor;
+          MimeType=text/markdown;text/x-markdown;
+          EOF
+          update-desktop-database ~/.local/share/applications 2>/dev/null || true
+          ```
+
+          ---
+
+          ### Command line (all platforms)
+
+          ```bash
+          lucidVIEW path/to/document.md       # opens the file directly
+          lucidVIEW                           # opens to the welcome screen
+          ```
+
+          ### Uninstall
+
+          | Platform | Command |
+          |---|---|
+          | Windows | `Remove-Item -Recurse "$env:LOCALAPPDATA\Programs\lucidVIEW"` |
+          | macOS | `rm -rf /Applications/lucidVIEW.app` |
+          | Linux | `rm -rf ~/.local/opt/lucidVIEW ~/.local/bin/lucidview` |
+
+          User settings live at:
+          - Windows: `%APPDATA%\MarkdownViewer\`
+          - macOS: `~/Library/Application Support/MarkdownViewer/`
+          - Linux: `~/.config/MarkdownViewer/`
+
+          Delete that folder too if you want a clean slate.
+
+          ---
+
+          ### What's new
+
+          See [CHANGELOG.md](https://github.com/scottgal/lucidview/blob/main/CHANGELOG.md)
+          for the full list of changes in this release.
 
           ### Features
 
-          - Clean, modern UI with slide-out menu
-          - 6 themes: Light, Dark, VS Code, GitHub, mostlylucid dark, mostlylucid light
+          - Clean modern UI with slide-out menu
+          - **6 themes** — Light, Dark, VS Code, GitHub, mostlylucid Dark, mostlylucid Light
+          - **Real Print** (`Ctrl+P`) → default printer + **Export PDF** (`Ctrl+Shift+P`)
           - Bundled Raleway font (SIL Open Font License)
+          - **Mermaid diagrams** rendered offline via the bundled Naiad engine — 30+ diagram types
           - Remote image caching with SVG support
-          - Mermaid diagram rendering
-          - Font size controls (A/A)
-          - Print to browser
-          - Search (Ctrl+F)
-          - Drag & drop support
-          - Table of Contents navigation
+          - Font size and zoom controls
+          - Full-text search (`Ctrl+F`)
+          - Drag & drop file loading
+          - Auto-generated Table of Contents
+          - **macOS `.app` bundle** with Dock icon, file associations and no Terminal launch
+          - **Self-documenting User Manual** (F1) with screenshots of every feature

@@ -85,7 +85,7 @@ public partial class MainWindow : Window
         MdViewer.ImageBasePath = _markdownService.TempDirectory;
         MdViewer.LinkClick += OnLinkClick;
         _navigationService = new NavigationService();
-        _themeService = new ThemeService(Application.Current!);
+        _themeService = new ThemeService(Application.Current!) { CustomTheme = _settings.CustomTheme };
         _searchService = new SearchService();
         _paginationService = new PaginationService();
         _diagramPluginHost = new DiagramRendererPluginHost(
@@ -247,9 +247,12 @@ public partial class MainWindow : Window
     private ICommand? _fontSizeIncreaseCommand;
     private ICommand? _fontSizeDecreaseCommand;
     private ICommand? _printCommand;
+    private ICommand? _exportPdfCommand;
     private ICommand? _openHelpCommand;
+    private ICommand? _openUserManualCommand;
     private ICommand? _debugScreenshotCommand;
     private ICommand? _exitCommand;
+    private ICommand? _navigateCommand;
 
     public ICommand OpenFileCommand => _openFileCommand ??= new RelayCommand(async () => await OpenFile());
     public ICommand OpenUrlCommand => _openUrlCommand ??= new RelayCommand(async () => await OpenUrl());
@@ -260,10 +263,23 @@ public partial class MainWindow : Window
     public ICommand EscapeCommand => _escapeCommand ??= new RelayCommand(OnEscape);
     public ICommand FontSizeIncreaseCommand => _fontSizeIncreaseCommand ??= new RelayCommand(IncreaseFontSize);
     public ICommand FontSizeDecreaseCommand => _fontSizeDecreaseCommand ??= new RelayCommand(DecreaseFontSize);
-    public ICommand PrintCommand => _printCommand ??= new RelayCommand(async () => await Print());
+    public ICommand PrintCommand => _printCommand ??= new RelayCommand(async () => await PrintToPrinter());
+    public ICommand ExportPdfCommand => _exportPdfCommand ??= new RelayCommand(async () => await ExportPdf());
     public ICommand OpenHelpCommand => _openHelpCommand ??= new RelayCommand(async () => await OpenHelp());
+    public ICommand OpenUserManualCommand => _openUserManualCommand ??= new RelayCommand(async () => await OpenUserManual());
     public ICommand DebugScreenshotCommand => _debugScreenshotCommand ??= new RelayCommand(async () => await DebugScreenshot());
     public ICommand ExitCommand => _exitCommand ??= new RelayCommand(() => Close());
+
+    /// <summary>
+    /// NavigateCommand exists so the UITesting harness can load fixture markdown files
+    /// from YAML scripts via the standard <c>Navigate</c> action. Picked up by reflection
+    /// in <c>Mostlylucid.Avalonia.UITesting.UITestingStartup</c>. Not bound to any UI.
+    /// </summary>
+    public ICommand NavigateCommand => _navigateCommand ??= new RelayCommand<string>(path =>
+    {
+        if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            _ = LoadFile(path);
+    });
 
     #endregion
 
@@ -748,6 +764,11 @@ public partial class MainWindow : Window
         ThemeGitHubCard.Classes.Remove("selected");
         ThemeMostlyLucidDarkCard.Classes.Remove("selected");
         ThemeMostlyLucidLightCard.Classes.Remove("selected");
+        ThemePrideCard.Classes.Remove("selected");
+        ThemeCustomCard.Classes.Remove("selected");
+
+        // Custom theme card is only visible if the user defined one in settings.json
+        ThemeCustomCard.IsVisible = _settings.CustomTheme != null;
 
         // Add selected class to current theme
         switch (theme)
@@ -769,6 +790,12 @@ public partial class MainWindow : Window
                 break;
             case AppTheme.MostlyLucidLight:
                 ThemeMostlyLucidLightCard.Classes.Add("selected");
+                break;
+            case AppTheme.Pride:
+                ThemePrideCard.Classes.Add("selected");
+                break;
+            case AppTheme.Custom:
+                ThemeCustomCard.Classes.Add("selected");
                 break;
         }
     }
@@ -1354,15 +1381,23 @@ public partial class MainWindow : Window
 
     #endregion
 
-    #region Print
+    #region Print / Export PDF
 
+    // The "Export PDF..." menu item routes here.
+    private void OnExportPdf(object? sender, RoutedEventArgs e)
+    {
+        CloseSidePanel();
+        _ = ExportPdf();
+    }
+
+    // The "Print..." menu item routes here.
     private void OnPrint(object? sender, RoutedEventArgs e)
     {
         CloseSidePanel();
-        _ = Print();
+        _ = PrintToPrinter();
     }
 
-    private async Task Print()
+    private async Task ExportPdf()
     {
         if (string.IsNullOrEmpty(_rawContent))
         {
@@ -1413,6 +1448,49 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task PrintToPrinter()
+    {
+        if (string.IsNullOrEmpty(_rawContent))
+        {
+            StatusText.Text = "No document to print";
+            return;
+        }
+
+        string? tempPdf = null;
+        try
+        {
+            StatusText.Text = "Generating PDF for printer...";
+
+            var basePath = _currentFilePath != null ? Path.GetDirectoryName(_currentFilePath) : null;
+            var title = Path.GetFileNameWithoutExtension(_currentFilePath ?? "Document");
+
+            var pdfService = new PdfExportService(_markdownService);
+            tempPdf = await pdfService.ExportToTempAsync(_rawContent, title, _fontSize, basePath);
+
+            StatusText.Text = "Sending to default printer...";
+            await PrintService.PrintAsync(tempPdf);
+
+            StatusText.Text = "Sent to default printer";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Print failed: {ex.Message}";
+        }
+        finally
+        {
+            // On Windows the print handler is still reading the file when ShellExecute returns;
+            // delete on a delay so we don't yank it out from under the spooler.
+            if (tempPdf != null)
+            {
+                var pathToDelete = tempPdf;
+                _ = Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(_ =>
+                {
+                    try { if (File.Exists(pathToDelete)) File.Delete(pathToDelete); } catch { }
+                });
+            }
+        }
+    }
+
     #endregion
 
     #region Help
@@ -1440,6 +1518,34 @@ public partial class MainWindow : Window
             else
                 StatusText.Text = "README.md not found";
         }
+    }
+
+    private void OnOpenUserManual(object? sender, RoutedEventArgs e)
+    {
+        CloseSidePanel();
+        _ = OpenUserManual();
+    }
+
+    private async Task OpenUserManual()
+    {
+        var exePath = AppContext.BaseDirectory;
+        var manualPath = Path.Combine(exePath, "manual", "user-manual.md");
+
+        if (File.Exists(manualPath))
+        {
+            await LoadFile(manualPath);
+            return;
+        }
+
+        // Dev fallback — when running from `dotnet run`, the manual lives in the source tree.
+        var devPath = Path.Combine(exePath, "..", "..", "..", "Assets", "manual", "user-manual.md");
+        if (File.Exists(devPath))
+        {
+            await LoadFile(Path.GetFullPath(devPath));
+            return;
+        }
+
+        StatusText.Text = "User manual not found";
     }
 
     #endregion

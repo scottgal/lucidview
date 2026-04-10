@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Identity tokens are substituted by pack-msix.ps1 at build time:
+    $(StoreIdentityName)      e.g. "12345ABCD.lucidVIEW"          (from Partner Center)
+    $(StoreIdentityPublisher) e.g. "CN=12345ABCD-1111-2222-..."   (from Partner Center)
+    $(StoreVersion)           four-part version, e.g. "1.0.0.0"
+  The script writes the substituted file to the publish staging dir as AppxManifest.xml.
+-->
 <Package
         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
@@ -6,22 +13,20 @@
         IgnorableNamespaces="uap uap3 rescap desktop">
 
     <Identity
-            Name="YourPublisherName.MarkdownViewer"
-            Publisher="CN=YourPublisherName"
-            Version="1.0.0.0"
+            Name="$(StoreIdentityName)"
+            Publisher="$(StoreIdentityPublisher)"
+            Version="$(StoreVersion)"
             ProcessorArchitecture="x64"/>
 
     <Properties>
-        <DisplayName>Markdown Viewer</DisplayName>
-        <PublisherDisplayName>Your Publisher Name</PublisherDisplayName>
-        <Logo>Assets\StoreLogo.png</Logo>
-        <Description>A lightweight cross-platform markdown viewer with GitHub-style rendering, syntax highlighting, and
-            multiple themes.
-        </Description>
+        <DisplayName>lucidVIEW</DisplayName>
+        <PublisherDisplayName>mostlylucid</PublisherDisplayName>
+        <Logo>Assets\Store\StoreLogo.png</Logo>
+        <Description>A modern, lightweight cross-platform markdown viewer with GitHub-style rendering, syntax highlighting, mermaid diagrams, multiple themes, real print and PDF export.</Description>
     </Properties>
 
     <Dependencies>
-        <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0"/>
+        <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0"/>
     </Dependencies>
 
     <Resources>
@@ -30,25 +35,25 @@
 
     <Applications>
         <Application Id="App"
-                     Executable="MarkdownViewer.exe"
+                     Executable="lucidVIEW.exe"
                      EntryPoint="Windows.FullTrustApplication">
 
             <uap:VisualElements
-                    DisplayName="Markdown Viewer"
-                    Description="Lightweight markdown viewer with GitHub-style rendering"
+                    DisplayName="lucidVIEW"
+                    Description="Modern markdown viewer with mermaid, themes, print and PDF export"
                     BackgroundColor="transparent"
-                    Square150x150Logo="Assets\Square150x150Logo.png"
-                    Square44x44Logo="Assets\Square44x44Logo.png">
-                <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"
-                                 Square310x310Logo="Assets\Square310x310Logo.png"
-                                 Square71x71Logo="Assets\Square71x71Logo.png">
+                    Square150x150Logo="Assets\Store\Square150x150Logo.png"
+                    Square44x44Logo="Assets\Store\Square44x44Logo.png">
+                <uap:DefaultTile Wide310x150Logo="Assets\Store\Wide310x150Logo.png"
+                                 Square310x310Logo="Assets\Store\Square310x310Logo.png"
+                                 Square71x71Logo="Assets\Store\Square71x71Logo.png">
                     <uap:ShowNameOnTiles>
                         <uap:ShowOn Tile="square150x150Logo"/>
                         <uap:ShowOn Tile="wide310x150Logo"/>
                         <uap:ShowOn Tile="square310x310Logo"/>
                     </uap:ShowNameOnTiles>
                 </uap:DefaultTile>
-                <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#1e1e1e"/>
+                <uap:SplashScreen Image="Assets\Store\SplashScreen.png" BackgroundColor="#1e1e1e"/>
             </uap:VisualElements>
 
             <!-- File type associations -->
@@ -62,7 +67,7 @@
                             <uap:FileType ContentType="text/markdown">.mkd</uap:FileType>
                         </uap:SupportedFileTypes>
                         <uap:DisplayName>Markdown File</uap:DisplayName>
-                        <uap:Logo>Assets\FileIcon.png</uap:Logo>
+                        <uap:Logo>Assets\Store\FileIcon.png</uap:Logo>
                         <uap:EditFlags OpenIsSafe="true"/>
                     </uap:FileTypeAssociation>
                 </uap:Extension>

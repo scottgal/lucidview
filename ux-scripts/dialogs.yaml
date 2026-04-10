@@ -1,0 +1,86 @@
+# Dialog smoke test — opens each dialog-bound menu item, screenshots, dismisses.
+#
+# We can't drive native file pickers from Avalonia, so the "Open file..." and
+# "Open URL..." paths are tested only by clicking the menu item and verifying
+# nothing crashes. Settings and Help open custom Avalonia dialogs we can drive.
+#
+# Run:
+#   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -- \
+#       --ux-test --script ux-scripts/dialogs.yaml --output ux-results/dialogs
+
+name: dialogs
+description: Open and dismiss every dialog-bound menu item
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "800"
+
+  # Settings dialog.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: MenuSettingsBtn
+  - type: Wait
+    value: "600"
+  - type: Screenshot
+    value: dialog-settings
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+
+  # Render Mermaid Diagram dialog.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: MenuRenderMermaidBtn
+  - type: Wait
+    value: "600"
+  - type: Screenshot
+    value: dialog-render-mermaid
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+
+  # Open URL dialog.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: MenuOpenUrlBtn
+  - type: Wait
+    value: "600"
+  - type: Screenshot
+    value: dialog-open-url
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+
+  # Help — loads README.md, no dialog. Verify the page changes.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: MenuHelpBtn
+  - type: Wait
+    value: "1200"
+  - type: Screenshot
+    value: dialog-help-readme
+
+  # Note: MenuOpenFileBtn and MenuExportPdfBtn open native OS file pickers,
+  # which Avalonia cannot drive from inside the harness. Those are smoke-tested
+  # manually or in the dedicated print test.

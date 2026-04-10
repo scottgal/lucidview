@@ -1,0 +1,227 @@
+# lucidVIEW user manual capture script.
+#
+# Drives every user-facing feature and writes named screenshots that the
+# bundled USER_MANUAL.md references. Run this to (re)generate the manual
+# screenshots — the result is checked into MarkdownViewer/Assets/manual/screenshots/
+# and shipped with the app so the in-app User Manual menu item shows real
+# screenshots of every feature.
+#
+# Run:
+#   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -- \
+#       --ux-test --script ux-scripts/capture-manual.yaml \
+#       --output MarkdownViewer/Assets/manual/screenshots
+
+name: capture-manual
+description: Walk through every feature and capture screenshots for the user manual
+default_delay: 350
+
+actions:
+  # 0. Welcome screen — captured BEFORE any document is loaded.
+  - type: Wait
+    value: "1500"
+    description: Startup grace period
+  - type: Screenshot
+    value: 01-welcome
+    description: Welcome panel before any document is loaded
+
+  # 1. Load fixture document.
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "900"
+  - type: Screenshot
+    value: 02-loaded-default
+    description: Default light theme with the fixture document loaded
+
+  # 2. Side panel.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 03-side-panel
+    description: Hamburger menu open showing all top-level actions
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "300"
+
+  # 3. Themes — open side panel each time and capture each card.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeDarkCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 04-theme-dark
+  - type: Click
+    target: ThemeVSCodeCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 05-theme-vscode
+  - type: Click
+    target: ThemeGitHubCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 06-theme-github
+  - type: Click
+    target: ThemeMostlyLucidDarkCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 07-theme-mostlylucid-dark
+  - type: Click
+    target: ThemeMostlyLucidLightCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 08-theme-mostlylucid-light
+  - type: Click
+    target: ThemeLightCard
+  - type: Wait
+    value: "400"
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "300"
+
+  # 4. Table of Contents.
+  - type: Click
+    target: TocButton
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 09-toc-open
+    description: TOC panel populated from headings
+  - type: Click
+    target: TocButton
+  - type: Wait
+    value: "300"
+
+  # 5. Search.
+  - type: Click
+    target: SearchButton
+  - type: Wait
+    value: "300"
+  - type: TypeText
+    target: SearchBox
+    value: "blockquote"
+  - type: PressKey
+    value: Enter
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 10-search-results
+    description: Live search highlighting matches
+  - type: Click
+    target: SearchCloseBtn
+  - type: Wait
+    value: "300"
+
+  # 6. Preview / Raw tab.
+  - type: Click
+    target: RawTab
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 11-raw-view
+    description: Raw markdown view
+  - type: Click
+    target: PreviewTab
+  - type: Wait
+    value: "400"
+
+  # 7. Font controls.
+  - type: Click
+    target: FontIncreaseBtn
+  - type: Click
+    target: FontIncreaseBtn
+  - type: Click
+    target: FontIncreaseBtn
+  - type: Wait
+    value: "300"
+  - type: Screenshot
+    value: 12-large-font
+    description: Increased font size for readability
+  - type: Click
+    target: FontDecreaseBtn
+  - type: Click
+    target: FontDecreaseBtn
+  - type: Click
+    target: FontDecreaseBtn
+  - type: Wait
+    value: "300"
+
+  # 8. Zoom controls.
+  - type: Click
+    target: FitHeightToggle
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 13-fit-height
+    description: Fit-to-height zoom mode
+  - type: Click
+    target: FitWidthToggle
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: ResetZoomBtn
+  - type: Wait
+    value: "300"
+
+  # 9. Fullscreen.
+  - type: PressKey
+    value: F11
+  - type: Wait
+    value: "600"
+  - type: Screenshot
+    value: 14-fullscreen
+    description: Distraction-free fullscreen mode
+  - type: PressKey
+    value: F11
+  - type: Wait
+    value: "500"
+
+  # 10. Settings dialog.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: MenuSettingsBtn
+  - type: Wait
+    value: "700"
+  - type: Screenshot
+    value: 15-settings
+    description: Settings dialog
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "300"
+
+  # 11. Render Mermaid dialog.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: MenuRenderMermaidBtn
+  - type: Wait
+    value: "700"
+  - type: Screenshot
+    value: 16-render-mermaid
+    description: Standalone mermaid diagram render dialog
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "300"
+
+  # 12. Final stable shot for the closing section of the manual.
+  - type: Screenshot
+    value: 99-final
+    description: Final clean state

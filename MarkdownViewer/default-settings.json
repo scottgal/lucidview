@@ -1,4 +1,11 @@
 {
+  "//": "lucidVIEW default settings. The real settings file lives at:",
+  "//-windows": "%APPDATA%/MarkdownViewer/settings.json",
+  "//-macos":   "~/Library/Application Support/MarkdownViewer/settings.json",
+  "//-linux":   "~/.config/MarkdownViewer/settings.json",
+  "//-themes":  "Built-in: Auto, Light, Dark, VSCode, GitHub, MostlyLucidDark, MostlyLucidLight, Pride, Custom",
+  "//-custom":  "Set theme=Custom and customTheme={...} to use the example below.",
+
   "theme": "Auto",
   "codeTheme": "Auto",
   "fontFamily": "avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, sans-serif",
@@ -12,5 +19,34 @@
   "navigationPanelWidth": 260,
   "wordWrap": true,
   "contentMaxWidth": 900,
-  "recentFiles": []
+  "recentFiles": [],
+
+  "//-customTheme": "Example custom palette — copy this block, set 'theme' to 'Custom' above, and edit the colors to taste. Every key is a CSS-style hex string.",
+  "customTheme": {
+    "name": "Solarized-ish",
+    "background": "#fdf6e3",
+    "backgroundSecondary": "#eee8d5",
+    "backgroundTertiary": "#e7e1cb",
+    "surface": "#fdf6e3",
+    "surfaceHover": "#eee8d5",
+    "border": "#93a1a1",
+    "borderSubtle": "#d3cbb7",
+    "text": "#586e75",
+    "textSecondary": "#657b83",
+    "textMuted": "#93a1a1",
+    "accent": "#268bd2",
+    "accentHover": "#2076c2",
+    "link": "#268bd2",
+    "success": "#859900",
+    "warning": "#b58900",
+    "error": "#dc322f",
+    "codeBackground": "#eee8d5",
+    "codeBorder": "#93a1a1",
+    "blockquoteBorder": "#268bd2",
+    "headingBorder": "#93a1a1",
+    "tableHeaderBg": "#eee8d5",
+    "selectionBg": "#268bd230",
+    "brandLucid": "#586e75",
+    "brandVIEW": "#073642"
+  }
 }

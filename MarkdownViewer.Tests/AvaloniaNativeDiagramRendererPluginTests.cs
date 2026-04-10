@@ -107,7 +107,7 @@ public class AvaloniaNativeDiagramRendererPluginTests
             "Sequence diagram should use native DiagramCanvas path (DiagramDocuments populated)");
 
         // FlowchartLayouts is populated ONLY by TryComputeFlowchartLayout
-        Assert.Equal(0, service.FlowchartLayouts.Count);
+        Assert.Empty(service.FlowchartLayouts);
 
         var doc = service.DiagramDocuments.Values.First();
 

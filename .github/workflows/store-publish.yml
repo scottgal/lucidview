@@ -1,0 +1,45 @@
+name: Store Publish (MSIX)
+
+# Manual trigger only — Store submission to Partner Center stays a manual step.
+# This workflow just produces a signable MSIX as a build artifact.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Four-part version (e.g. 1.0.0.0). Defaults to yyyy.M.d.0.'
+        required: false
+        default: ''
+
+jobs:
+  pack:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Pack MSIX
+        env:
+          STORE_IDENTITY_NAME:      ${{ secrets.STORE_IDENTITY_NAME }}
+          STORE_IDENTITY_PUBLISHER: ${{ secrets.STORE_IDENTITY_PUBLISHER }}
+        shell: pwsh
+        run: |
+          $ver = '${{ github.event.inputs.version }}'
+          if ([string]::IsNullOrWhiteSpace($ver)) {
+            ./pack-msix.ps1
+          } else {
+            ./pack-msix.ps1 -Version $ver
+          }
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucidVIEW-msix
+          path: publish/store/lucidVIEW.msix
+          retention-days: 14

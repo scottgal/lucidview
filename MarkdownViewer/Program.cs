@@ -1,5 +1,8 @@
 using Avalonia;
 using Avalonia.Data.Core.Plugins;
+#if DEBUG
+using Mostlylucid.Avalonia.UITesting;
+#endif
 
 namespace MarkdownViewer;
 
@@ -49,14 +52,31 @@ internal class Program
         // Disable ALL data validators to avoid IBinding errors from Markdown.Avalonia's StaticBinding
         BindingPlugins.DataValidators.Clear();
 
-        return AppBuilder.Configure<App>()
+        var builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .LogToTrace()
-            .AfterSetup(builder =>
-            {
-                // Additional safety: clear validators again after setup
-                BindingPlugins.DataValidators.Clear();
-            });
+            .LogToTrace();
+
+#if DEBUG
+        // UI testing harness — Debug only, never shipped in Release.
+        // Adds support for `--ux-test`, `--ux-repl`, and `--ux-mcp` startup args.
+        // The Release build path doesn't reference any UITesting types.
+        builder = builder.UseUITesting(opts =>
+        {
+            opts.DefaultScreenshotDir = "ux-screenshots";
+            opts.Log = Console.WriteLine;
+            opts.EnableCrossWindowTracking = true;
+            // Only capture screenshots on explicit Screenshot actions, not on every Click/Type/etc.
+            // Otherwise the output dir fills up with auto-named action snapshots that the manual
+            // doesn't reference.
+            opts.CaptureScreenshotsByDefault = false;
+        });
+#endif
+
+        return builder.AfterSetup(_ =>
+        {
+            // Additional safety: clear validators again after setup
+            BindingPlugins.DataValidators.Clear();
+        });
     }
 
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)

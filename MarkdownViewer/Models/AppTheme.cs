@@ -8,7 +8,9 @@ public enum AppTheme
     VSCode,
     GitHub,
     MostlyLucidDark,
-    MostlyLucidLight
+    MostlyLucidLight,
+    Pride,
+    Custom
 }
 
 public enum CodeTheme
@@ -211,6 +213,39 @@ public static class ThemeColors
         BrandVIEW = "#1a1625"            // Dark for "VIEW"
     };
 
+    /// <summary>
+    /// Pride — a celebration theme using the rainbow palette. Background and text stay
+    /// readable; the accent and section borders cycle through Pride flag colors.
+    /// </summary>
+    public static readonly ThemeDefinition Pride = new()
+    {
+        Name = "Pride",
+        Background = "#fffafc",          // Almost white with a hint of warmth
+        BackgroundSecondary = "#fff0f6",  // Soft pink wash
+        BackgroundTertiary = "#fef5e7",   // Soft yellow/peach
+        Surface = "#ffffff",
+        SurfaceHover = "#ffeef6",         // Pink hover
+        Border = "#ff1493",               // Deep pink border
+        BorderSubtle = "#ffd6e8",
+        Text = "#1a1a2e",                 // Dark navy for legibility
+        TextSecondary = "#6b3a5e",        // Muted plum
+        TextMuted = "#a874a0",
+        Accent = "#e02e8c",               // Pink accent (Pride flag pink)
+        AccentHover = "#c91978",
+        Link = "#0066ff",                 // Bright blue (Pride flag blue)
+        Success = "#00b15c",              // Pride flag green
+        Warning = "#ff8c00",              // Pride flag orange
+        Error = "#e63946",                // Pride flag red
+        CodeBackground = "#fff5fb",       // Very light pink code background
+        CodeBorder = "#ffb6d9",
+        BlockquoteBorder = "#ff8c00",     // Orange blockquote border
+        HeadingBorder = "#ffd700",        // Gold heading underline
+        TableHeaderBg = "#fff0f6",
+        SelectionBg = "#e02e8c30",
+        BrandLucid = "#732982",           // Pride flag purple for "lucid"
+        BrandVIEW = "#e02e8c"             // Pink for "VIEW"
+    };
+
     public static ThemeDefinition GetTheme(AppTheme theme)
     {
         return theme switch
@@ -222,6 +257,8 @@ public static class ThemeColors
             AppTheme.GitHub => GitHub,
             AppTheme.MostlyLucidDark => MostlyLucidDark,
             AppTheme.MostlyLucidLight => MostlyLucidLight,
+            AppTheme.Pride => Pride,
+            AppTheme.Custom => Dark, // Resolved at runtime by ThemeService from AppSettings.CustomTheme
             _ => Dark
         };
     }

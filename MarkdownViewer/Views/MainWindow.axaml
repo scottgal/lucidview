@@ -25,7 +25,9 @@
         <KeyBinding Gesture="Ctrl+Add" Command="{Binding FontSizeIncreaseCommand}" />
         <KeyBinding Gesture="Ctrl+Subtract" Command="{Binding FontSizeDecreaseCommand}" />
         <KeyBinding Gesture="Ctrl+P" Command="{Binding PrintCommand}" />
-        <KeyBinding Gesture="F1" Command="{Binding OpenHelpCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+P" Command="{Binding ExportPdfCommand}" />
+        <KeyBinding Gesture="F1" Command="{Binding OpenUserManualCommand}" />
+        <KeyBinding Gesture="Shift+F1" Command="{Binding OpenHelpCommand}" />
         <KeyBinding Gesture="Ctrl+F12" Command="{Binding DebugScreenshotCommand}" />
         <KeyBinding Gesture="Alt+F4" Command="{Binding ExitCommand}" />
     </Window.KeyBindings>
@@ -39,7 +41,8 @@
                     <!-- Reserve space for system caption buttons (min/max/close) on the right -->
                     <Border Grid.Column="6" Width="138" />
                     <!-- Left: Hamburger Menu -->
-                    <Button Grid.Column="0"
+                    <Button x:Name="MenuButton"
+                            Grid.Column="0"
                             Classes="header-btn"
                             Click="OnToggleSidePanel"
                             ToolTip.Tip="Menu (Ctrl+B)">
@@ -93,7 +96,7 @@
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource AppTextSecondary}"
                                    FontSize="12" />
-                        <Button Classes="header-btn" Click="OnResetZoom" ToolTip.Tip="Reset zoom (1:1)">
+                        <Button x:Name="ResetZoomBtn" Classes="header-btn" Click="OnResetZoom" ToolTip.Tip="Reset zoom (1:1)">
                             <TextBlock Text="1:1" FontSize="11" FontWeight="Bold"
                                        Foreground="{DynamicResource AppText}" />
                         </Button>
@@ -124,25 +127,30 @@
                         <TextBlock Text="⌕" FontSize="18" Foreground="{DynamicResource AppText}" />
                     </Button>
 
-                    <!-- Right: Font Size Controls -->
-                    <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="0">
-                        <Button x:Name="FontDecreaseBtn"
-                                Classes="header-btn font-btn-small"
-                                Click="OnFontSizeDecrease"
-                                IsEnabled="False"
-                                ToolTip.Tip="Decrease font size (Ctrl+-)">
-                            <TextBlock Text="A" FontSize="13" FontWeight="Medium"
-                                       Foreground="{DynamicResource AppText}" />
-                        </Button>
-                        <Button x:Name="FontIncreaseBtn"
-                                Classes="header-btn font-btn-large"
-                                Click="OnFontSizeIncrease"
-                                IsEnabled="False"
-                                ToolTip.Tip="Increase font size (Ctrl++)">
-                            <TextBlock Text="A" FontSize="18" FontWeight="Medium"
-                                       Foreground="{DynamicResource AppText}" />
-                        </Button>
-                    </StackPanel>
+                    <!-- Right: Font Size Controls (grouped pill, with spacing from the system caption buttons via the Width=138 spacer in column 6) -->
+                    <Border Grid.Column="5"
+                            Classes="control-pill"
+                            Margin="8,0,12,0">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <Button x:Name="FontDecreaseBtn"
+                                    Classes="header-btn font-btn"
+                                    Click="OnFontSizeDecrease"
+                                    IsEnabled="False"
+                                    ToolTip.Tip="Decrease font size (Ctrl+-)">
+                                <TextBlock Text="A" FontSize="12" FontWeight="Medium"
+                                           Foreground="{DynamicResource AppText}" />
+                            </Button>
+                            <Border Width="1" Background="{DynamicResource AppBorderSubtle}" Margin="0,8" />
+                            <Button x:Name="FontIncreaseBtn"
+                                    Classes="header-btn font-btn"
+                                    Click="OnFontSizeIncrease"
+                                    IsEnabled="False"
+                                    ToolTip.Tip="Increase font size (Ctrl++)">
+                                <TextBlock Text="A" FontSize="18" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AppText}" />
+                            </Button>
+                        </StackPanel>
+                    </Border>
 
                 </Grid>
             </Border>
@@ -294,13 +302,15 @@
                                 <TextBox x:Name="SearchBox"
                                          Watermark="Search... (Enter to find, Esc to close)"
                                          KeyDown="OnSearchKeyDown" />
-                                <Button Grid.Column="1"
+                                <Button x:Name="SearchPrevBtn"
+                                        Grid.Column="1"
                                         Classes="toolbar"
                                         Content="Prev"
                                         ToolTip.Tip="Previous match (Shift+Enter)"
                                         Click="OnSearchPrevious"
                                         Margin="8,0,0,0" />
-                                <Button Grid.Column="2"
+                                <Button x:Name="SearchNextBtn"
+                                        Grid.Column="2"
                                         Classes="toolbar"
                                         Content="Next"
                                         ToolTip.Tip="Next match (Enter)"
@@ -312,7 +322,8 @@
                                            Foreground="{DynamicResource AppTextSecondary}"
                                            FontSize="12"
                                            Margin="12,0,0,0" />
-                                <Button Grid.Column="4"
+                                <Button x:Name="SearchCloseBtn"
+                                        Grid.Column="4"
                                         Classes="toolbar"
                                         Content="X"
                                         ToolTip.Tip="Close search (Esc)"
@@ -462,7 +473,7 @@
                 <ScrollViewer>
                     <StackPanel Margin="0,8,0,16">
                         <!-- Open File -->
-                        <Button Classes="panel-item" Click="OnOpenFile">
+                        <Button x:Name="MenuOpenFileBtn" Classes="panel-item" Click="OnOpenFile">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <TextBlock Text="📂" FontSize="18" Width="20" />
                                 <TextBlock Text="Open file..." VerticalAlignment="Center" />
@@ -470,7 +481,7 @@
                         </Button>
 
                         <!-- Open URL -->
-                        <Button Classes="panel-item" Click="OnOpenUrl">
+                        <Button x:Name="MenuOpenUrlBtn" Classes="panel-item" Click="OnOpenUrl">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <TextBlock Text="🔗" FontSize="18" Width="20" />
                                 <TextBlock Text="Open URL..." VerticalAlignment="Center" />
@@ -553,6 +564,40 @@
                                         <TextBlock Text="mostlylucid" HorizontalAlignment="Center" FontSize="11" Foreground="#7c3aed" />
                                     </StackPanel>
                                 </Button>
+                                <Button x:Name="ThemePrideCard" Classes="theme-card" Tag="Pride"
+                                        Click="OnThemeCardClick">
+                                    <StackPanel Spacing="4">
+                                        <Border Classes="theme-preview" CornerRadius="6">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                                    <GradientStop Offset="0.00" Color="#e63946" />
+                                                    <GradientStop Offset="0.20" Color="#ff8c00" />
+                                                    <GradientStop Offset="0.40" Color="#ffd700" />
+                                                    <GradientStop Offset="0.60" Color="#00b15c" />
+                                                    <GradientStop Offset="0.80" Color="#0066ff" />
+                                                    <GradientStop Offset="1.00" Color="#732982" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <TextBlock Text="A" FontSize="24" FontWeight="Bold"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Foreground="#ffffff" />
+                                        </Border>
+                                        <TextBlock Text="Pride" HorizontalAlignment="Center" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <!-- Custom theme card — only visible when settings.json defines a CustomTheme -->
+                                <Button x:Name="ThemeCustomCard" Classes="theme-card" Tag="Custom"
+                                        Click="OnThemeCardClick"
+                                        IsVisible="False">
+                                    <StackPanel Spacing="4">
+                                        <Border Classes="theme-preview" Background="#222236" BorderBrush="#888" BorderThickness="1" CornerRadius="6">
+                                            <TextBlock Text="✎" FontSize="24" FontWeight="Bold"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Foreground="#ffffff" />
+                                        </Border>
+                                        <TextBlock Text="Custom" HorizontalAlignment="Center" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
                             </UniformGrid>
                         </Expander>
 
@@ -580,16 +625,24 @@
 
                         <Border Classes="panel-separator" />
 
-                        <!-- Export PDF -->
-                        <Button Classes="panel-item" Click="OnPrint">
+                        <!-- Print to default printer -->
+                        <Button x:Name="MenuPrintBtn" Classes="panel-item" Click="OnPrint">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <TextBlock Text="🖨" FontSize="18" Width="20" />
-                                <TextBlock Text="Export PDF..." VerticalAlignment="Center" />
+                                <TextBlock Text="Print (Ctrl+P)" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Export PDF to file -->
+                        <Button x:Name="MenuExportPdfBtn" Classes="panel-item" Click="OnExportPdf">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="📄" FontSize="18" Width="20" />
+                                <TextBlock Text="Export PDF... (Ctrl+Shift+P)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
                         <!-- Render Mermaid Diagram -->
-                        <Button Classes="panel-item" Click="OnRenderMermaid">
+                        <Button x:Name="MenuRenderMermaidBtn" Classes="panel-item" Click="OnRenderMermaid">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <TextBlock Text="◇" FontSize="18" Width="20" />
                                 <TextBlock Text="Render Diagram..." VerticalAlignment="Center" />
@@ -597,7 +650,7 @@
                         </Button>
 
                         <!-- Search -->
-                        <Button Classes="panel-item" Click="OnToggleSearch">
+                        <Button x:Name="MenuSearchBtn" Classes="panel-item" Click="OnToggleSearch">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <TextBlock Text="🔍" FontSize="18" Width="20" />
                                 <TextBlock Text="Search (Ctrl+F)" VerticalAlignment="Center" />
@@ -607,18 +660,26 @@
                         <Border Classes="panel-separator" />
 
                         <!-- Settings -->
-                        <Button Classes="panel-item" Click="OnOpenSettings">
+                        <Button x:Name="MenuSettingsBtn" Classes="panel-item" Click="OnOpenSettings">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <TextBlock Text="⚙" FontSize="18" Width="20" />
                                 <TextBlock Text="Settings" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
-                        <!-- Help -->
-                        <Button Classes="panel-item" Click="OnOpenHelp">
+                        <!-- User Manual (in-app, with screenshots) -->
+                        <Button x:Name="MenuUserManualBtn" Classes="panel-item" Click="OnOpenUserManual">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="📖" FontSize="18" Width="20" />
+                                <TextBlock Text="User Manual (F1)" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Help — README -->
+                        <Button x:Name="MenuHelpBtn" Classes="panel-item" Click="OnOpenHelp">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <TextBlock Text="❓" FontSize="18" Width="20" />
-                                <TextBlock Text="Help (F1)" VerticalAlignment="Center" />
+                                <TextBlock Text="README (Shift+F1)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 

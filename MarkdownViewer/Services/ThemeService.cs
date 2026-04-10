@@ -12,6 +12,12 @@ public class ThemeService
     public AppTheme RequestedTheme { get; private set; } = AppTheme.Auto;
     public AppTheme CurrentEffectiveTheme { get; private set; } = AppTheme.Dark;
 
+    /// <summary>
+    /// User-defined custom theme loaded from settings.json. Used when
+    /// <see cref="ApplyTheme"/> is called with <see cref="AppTheme.Custom"/>.
+    /// </summary>
+    public ThemeDefinition? CustomTheme { get; set; }
+
     public ThemeService(Application app)
     {
         _app = app;
@@ -29,10 +35,22 @@ public class ThemeService
             return CurrentEffectiveTheme;
         }
 
+        if (theme == AppTheme.Custom && CustomTheme != null)
+        {
+            // Heuristic: detect light vs dark by background luminance.
+            var isLight = TryParseColor(CustomTheme.Background, out var bg) && (bg.R + bg.G + bg.B) / 3 > 128;
+            _app.RequestedThemeVariant = isLight ? ThemeVariant.Light : ThemeVariant.Dark;
+            ApplyDefinition(CustomTheme, isLight ? AppTheme.Light : AppTheme.Dark);
+            CurrentEffectiveTheme = AppTheme.Custom;
+            return AppTheme.Custom;
+        }
+
         _app.RequestedThemeVariant = IsLightTheme(theme) ? ThemeVariant.Light : ThemeVariant.Dark;
         ApplyThemeResources(theme);
         return CurrentEffectiveTheme;
     }
+
+    private static bool TryParseColor(string hex, out Color color) => Color.TryParse(hex, out color);
 
     public AppTheme RefreshAutoTheme()
     {
@@ -65,6 +83,11 @@ public class ThemeService
     private void ApplyThemeResources(AppTheme effectiveTheme)
     {
         var definition = ThemeColors.GetTheme(effectiveTheme);
+        ApplyDefinition(definition, effectiveTheme);
+    }
+
+    private void ApplyDefinition(ThemeDefinition definition, AppTheme effectiveTheme)
+    {
         CurrentEffectiveTheme = effectiveTheme;
 
         var resources = _app.Resources;

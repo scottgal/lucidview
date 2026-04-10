@@ -1,0 +1,186 @@
+# lucidVIEW smoke test — exercises every non-dialog user function.
+#
+# Run:
+#   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -- \
+#       --ux-test --script ux-scripts/smoke-all-functions.yaml --output ux-results
+#
+# Expected: exit 0, ~20 PNGs in ux-results/, no exceptions in console.
+
+name: smoke-all-functions
+description: Exercise every non-dialog function in lucidVIEW
+default_delay: 250
+
+actions:
+  # 0. Wait for the app to fully initialize and load the fixture document.
+  - type: Wait
+    value: "1500"
+    description: Startup grace period
+
+  # The Navigate action is wired to MainWindow.NavigateCommand which calls LoadFile.
+  - type: Navigate
+    value: ux-scripts/test-document.md
+    description: Load the fixture markdown
+  - type: Wait
+    value: "800"
+  - type: Screenshot
+    value: 01-loaded
+
+  # 1. Side panel open / close
+  - type: Click
+    target: MenuButton
+    description: Open hamburger menu
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 02-side-panel
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "300"
+
+  # 2. Theme cycle — every theme card. Side panel must be open to click them.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeDarkCard
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 03-theme-dark
+  - type: Click
+    target: ThemeVSCodeCard
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 04-theme-vscode
+  - type: Click
+    target: ThemeGitHubCard
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 05-theme-github
+  - type: Click
+    target: ThemeMostlyLucidDarkCard
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 06-theme-mostlylucid-dark
+  - type: Click
+    target: ThemeMostlyLucidLightCard
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 07-theme-mostlylucid-light
+  - type: Click
+    target: ThemeLightCard
+  - type: Wait
+    value: "400"
+  - type: PressKey
+    value: Escape
+
+  # 3. Table of Contents — open, screenshot, close.
+  - type: Click
+    target: TocButton
+    description: Open Table of Contents
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 08-toc-open
+  - type: Click
+    target: TocButton
+    description: Close TOC
+  - type: Wait
+    value: "300"
+
+  # 4. Search — open, type a query, navigate matches, close.
+  - type: Click
+    target: SearchButton
+  - type: Wait
+    value: "300"
+  - type: TypeText
+    target: SearchBox
+    value: "blockquote"
+  - type: PressKey
+    value: Enter
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 09-search-results
+  - type: Click
+    target: SearchNextBtn
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: SearchPrevBtn
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: SearchCloseBtn
+  - type: Wait
+    value: "300"
+
+  # 5. Preview / Raw tab toggle.
+  - type: Click
+    target: RawTab
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 10-raw-view
+  - type: Click
+    target: PreviewTab
+  - type: Wait
+    value: "400"
+
+  # 6. Font size controls.
+  - type: Click
+    target: FontIncreaseBtn
+  - type: Click
+    target: FontIncreaseBtn
+  - type: Click
+    target: FontIncreaseBtn
+  - type: Wait
+    value: "300"
+  - type: Screenshot
+    value: 11-large-font
+  - type: Click
+    target: FontDecreaseBtn
+  - type: Click
+    target: FontDecreaseBtn
+  - type: Click
+    target: FontDecreaseBtn
+  - type: Wait
+    value: "300"
+
+  # 7. Zoom controls — fit-height toggle, then back to fit-width, then 1:1 reset.
+  - type: Click
+    target: FitHeightToggle
+  - type: Wait
+    value: "300"
+  - type: Screenshot
+    value: 12-fit-height
+  - type: Click
+    target: FitWidthToggle
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: ResetZoomBtn
+  - type: Wait
+    value: "300"
+
+  # 8. Fullscreen toggle.
+  - type: PressKey
+    value: F11
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 13-fullscreen
+  - type: PressKey
+    value: F11
+  - type: Wait
+    value: "500"
+
+  # 9. Final stable screenshot.
+  - type: Screenshot
+    value: 99-done
