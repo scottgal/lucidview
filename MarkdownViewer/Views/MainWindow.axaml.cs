@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
@@ -121,11 +122,23 @@ public partial class MainWindow : Window
 
         UpdateRecentFiles();
         UpdateFontSizeDisplay();
+        ApplyContentMaxWidth();
+        ApplyRulerVisibility();
         Closing += OnWindowClosing;
 
-        // Command line argument - load file immediately
+        // Command line argument - load file immediately (terminal launches, Windows Open With)
         var args = Environment.GetCommandLineArgs();
         if (args.Length > 1 && File.Exists(args[1])) _ = LoadFile(args[1]);
+
+        // macOS / iOS / Android: file paths arrive via Apple Events / intents,
+        // delivered through IActivatableLifetime.Activated. This handles both
+        // launch-with-file ("Open With...") and runtime open events while the
+        // app is already running. Without this, double-clicking a .md in Finder
+        // launches lucidVIEW but never loads the file.
+        if (Application.Current?.TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
+        {
+            activatable.Activated += OnActivated;
+        }
 
         // Defer non-critical startup work until after window is shown
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -539,7 +552,12 @@ public partial class MainWindow : Window
             StatusText.Text = "Downloading...";
 
             using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("lucidVIEW/1.0");
+            // User-Agent identifies lucidVIEW so URL-to-markdown services (Cloudflare's
+            // browser rendering, Jina Reader, r.jina.ai etc.) can route accordingly.
+            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("lucidVIEW/2.1");
+            // text/markdown is the highest-priority Accept so origins that support
+            // content negotiation (Cloudflare URL→markdown conversion, GitHub raw,
+            // Jina Reader, etc.) return markdown directly instead of HTML.
             httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/markdown");
             httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/x-markdown;q=0.95");
             httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/plain;q=0.9");
@@ -2088,6 +2106,134 @@ public partial class MainWindow : Window
         }
     }
 #pragma warning restore CS0618
+
+    #endregion
+
+    #region File Activation (macOS / Linux Open With)
+
+    /// <summary>
+    /// Handles file open events delivered via Apple Events on macOS or comparable
+    /// activation paths on other platforms. Avalonia normalizes these into
+    /// <see cref="IActivatableLifetime.Activated"/>; without this hook,
+    /// double-clicking a .md file in Finder launches lucidVIEW but never loads it.
+    /// </summary>
+    private void OnActivated(object? sender, ActivatedEventArgs e)
+    {
+        if (e is FileActivatedEventArgs fileArgs && fileArgs.Files != null)
+        {
+            foreach (var storageFile in fileArgs.Files)
+            {
+                var path = storageFile?.Path?.LocalPath;
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    // Marshal back to the UI thread (Activated may fire from a non-UI thread).
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = LoadFile(path));
+                    break;
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    #region Word-style Ruler
+
+    // Min and max content widths in DIPs. The ruler clamps to this range so the
+    // user can't drag the column shut or wider than the viewport.
+    private const double MinContentWidth = 300;
+    private const double MaxContentWidth = 2000;
+
+    // Per-side padding inside the ScrollViewer for the ruler tick origin. The
+    // ruler measures from the inside of the left gutter, the same x-axis as the
+    // centered content Border.
+    private void ApplyContentMaxWidth()
+    {
+        var w = _settings.ContentMaxWidth;
+        if (w < MinContentWidth || w > MaxContentWidth) w = 900;
+        MarkdownContentBorder.MaxWidth = w;
+        UpdateRulerHandlesFromWidth(w);
+    }
+
+    private void ApplyRulerVisibility()
+    {
+        var visible = _settings.ShowRuler;
+        RulerBar.IsVisible = visible;
+        MarginGuideCanvas.IsVisible = visible;
+        if (visible) UpdateRulerHandlesFromWidth(MarkdownContentBorder.MaxWidth);
+    }
+
+    public void ToggleRuler()
+    {
+        _settings.ShowRuler = !_settings.ShowRuler;
+        ApplyRulerVisibility();
+        _settings.Save();
+    }
+
+    private void OnToggleRuler(object? sender, RoutedEventArgs e)
+    {
+        ToggleRuler();
+        if (sender is ToggleButton tb) tb.IsChecked = _settings.ShowRuler;
+    }
+
+    private void OnRulerCanvasSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        UpdateRulerHandlesFromWidth(MarkdownContentBorder.MaxWidth);
+    }
+
+    private void UpdateRulerHandlesFromWidth(double contentWidth)
+    {
+        if (RulerCanvas is null || RulerCanvas.Bounds.Width <= 0) return;
+
+        var canvasWidth = RulerCanvas.Bounds.Width;
+        var clamped = Math.Clamp(contentWidth, MinContentWidth, Math.Min(MaxContentWidth, canvasWidth));
+        var slack = (canvasWidth - clamped) / 2.0;
+
+        // Place handles at the column edges, centered on the column.
+        Canvas.SetLeft(RulerLeftThumb, slack - RulerLeftThumb.Width / 2);
+        Canvas.SetLeft(RulerRightThumb, slack + clamped - RulerRightThumb.Width / 2);
+        Canvas.SetLeft(RulerTrack, slack);
+        RulerTrack.Width = clamped;
+
+        RulerWidthLabel.Text = $"{(int)clamped} px";
+        Canvas.SetLeft(RulerWidthLabel, (canvasWidth - 50) / 2.0);
+
+        UpdateMarginGuides(slack, clamped);
+    }
+
+    private void UpdateMarginGuides(double slack, double contentWidth)
+    {
+        if (MarginGuideCanvas is null || MarginGuideCanvas.Bounds.Height <= 0) return;
+        var h = MarginGuideCanvas.Bounds.Height;
+        var w = MarginGuideCanvas.Bounds.Width;
+        if (w <= 0) return;
+
+        // Map ruler-canvas coordinates back to the ScrollViewer overlay coordinates.
+        // RulerCanvas and MarginGuideCanvas have the same width, both stretch to fill
+        // the parent (ScrollViewer / Border above). Slack is identical.
+        LeftMarginGuide.StartPoint = new Avalonia.Point(slack, 0);
+        LeftMarginGuide.EndPoint   = new Avalonia.Point(slack, h);
+        RightMarginGuide.StartPoint = new Avalonia.Point(slack + contentWidth, 0);
+        RightMarginGuide.EndPoint   = new Avalonia.Point(slack + contentWidth, h);
+    }
+
+    private void OnRulerHandleDragDelta(object? sender, VectorEventArgs e)
+    {
+        if (RulerCanvas is null || RulerCanvas.Bounds.Width <= 0) return;
+        var canvasWidth = RulerCanvas.Bounds.Width;
+
+        // Dragging either handle by deltaX changes the content width by 2*deltaX
+        // (because the column is centered, both edges move symmetrically).
+        var direction = sender == RulerLeftThumb ? -1.0 : 1.0;
+        var current = MarkdownContentBorder.MaxWidth;
+        if (double.IsNaN(current) || double.IsInfinity(current)) current = _settings.ContentMaxWidth;
+
+        var next = current + direction * e.Vector.X * 2.0;
+        next = Math.Clamp(next, MinContentWidth, Math.Min(MaxContentWidth, canvasWidth));
+
+        MarkdownContentBorder.MaxWidth = next;
+        _settings.ContentMaxWidth = next;
+        UpdateRulerHandlesFromWidth(next);
+    }
 
     #endregion
 }

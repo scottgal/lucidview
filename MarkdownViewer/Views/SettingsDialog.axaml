@@ -49,6 +49,7 @@
                             <ComboBox.SelectionBoxItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding}"
+                                               FontFamily="{Binding}"
                                                TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center" />
                                 </DataTemplate>
@@ -56,6 +57,8 @@
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding}"
+                                               FontFamily="{Binding}"
+                                               FontSize="14"
                                                TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center" />
                                 </DataTemplate>
@@ -86,6 +89,7 @@
                             <ComboBox.SelectionBoxItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding}"
+                                               FontFamily="{Binding}"
                                                TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center" />
                                 </DataTemplate>
@@ -93,6 +97,8 @@
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding}"
+                                               FontFamily="{Binding}"
+                                               FontSize="14"
                                                TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center" />
                                 </DataTemplate>

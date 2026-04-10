@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ic="using:FluentIcons.Avalonia.Fluent"
         xmlns:LiveMarkdown="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia">
 
     <!-- ==================== GLOBAL OVERRIDES ==================== -->
@@ -42,20 +43,19 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Side panel menu item icons (boxicons via PathIcon) -->
-    <Style Selector="PathIcon.panel-icon">
-        <Setter Property="Width" Value="20" />
-        <Setter Property="Height" Value="20" />
+    <!-- Side panel menu item icons (FluentIcons SymbolIcon, accent-tinted) -->
+    <Style Selector="ic|SymbolIcon.panel-icon">
+        <Setter Property="FontSize" Value="20" />
         <Setter Property="Foreground" Value="{DynamicResource AppAccent}" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
 
     <!-- All icons inside Buttons should be invisible to hit-testing so the Button gets the click -->
-    <Style Selector="Button > PathIcon">
+    <Style Selector="Button > ic|SymbolIcon">
         <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
-    <Style Selector="ToggleButton > PathIcon">
+    <Style Selector="ToggleButton > ic|SymbolIcon">
         <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
 
@@ -434,9 +434,11 @@
 
     <!-- ==================== MARKDOWN IMAGES ==================== -->
 
-    <!-- Images: display at natural size, never scale UP (prevents badge bloat) -->
+    <!-- Images: scale uniformly to fit the column. Aspect ratio preserved,
+         nothing is ever cropped. -->
     <Style Selector="Image">
-        <Setter Property="Stretch" Value="None" />
+        <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
     </Style>
 
     <!-- ==================== METADATA PANEL ==================== -->

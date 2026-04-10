@@ -4,6 +4,60 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v2.1.1 — 2026-04-10
+
+### Added
+
+- **FluentAvaloniaUI** adopted as the base theme. Buttons get proper hover/press
+  feedback, the side panel and header look notably more polished. ContentDialog
+  available for future Settings dialog upgrade.
+- **FluentIcons** (Microsoft Fluent UI System Icons) replace the hand-curated
+  boxicons set. 1,800+ icons available via `<ic:SymbolIcon Symbol="..."/>` —
+  themed automatically, scale via `FontSize`, no inline path data.
+- **Word-style ruler** above the document with two draggable margin handles
+  and dotted vertical column guides. Toggle via the ruler button in the
+  header. Drag a handle to live-resize the content column; the new width
+  persists to `AppSettings.ContentMaxWidth`. Default off.
+
+### Fixed
+
+- **macOS Open With** — double-clicking a `.md` file in Finder launched
+  lucidVIEW but never loaded the file. Wired up
+  `IActivatableLifetime.Activated` so file paths delivered via Apple Events
+  reach `LoadFile()`. Same hook handles iOS / Android / Linux MIME activation.
+- **Image cropping** — `<Style Selector="Image">` was setting `Stretch=None`
+  which clipped any image wider than the column. Now uses `Stretch=Uniform`
+  so images scale to fit the column width without cropping, preserving
+  aspect ratio.
+- **`ContentMaxWidth` setting** is now actually honoured. Previously the
+  XAML hard-coded `MaxWidth=1200` and ignored the persisted value.
+
+### Changed
+
+- `Open URL` HTTP client User-Agent bumped from `lucidVIEW/1.0` to
+  `lucidVIEW/2.1`. The `Accept: text/markdown` header is preserved (priority
+  q=1) so Cloudflare URL→markdown conversion, Jina Reader, and similar
+  services return markdown instead of HTML.
+
+- **Font selector** in Settings dialog stops showing the raw
+  `avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, ...`
+  URI as a dropdown entry. The bundled Raleway is now listed as
+  *"Raleway (bundled)"* at the top, the URI is parsed back when saving.
+  Each font name in the dropdown is rendered **in its own typeface**
+  (Word/Office style live preview) via `FontFamily="{Binding}"` on the
+  ItemTemplate `TextBlock`s. Same fix applied to the code font dropdown.
+
+### Internal
+
+- New `Styles/Icons.axaml` removed — replaced wholesale by FluentIcons.
+- `Border` wrapping the markdown is now named `MarkdownContentBorder` so
+  the ruler can manipulate its `MaxWidth`.
+- New `MainWindow` regions: *File Activation* (Open With handler) and
+  *Word-style Ruler* (drag math + persistence).
+- `MainWindow.axaml.cs` got an `Avalonia.Controls.ApplicationLifetimes` using.
+- `SettingsDialog.ExtractDisplayName()` parses FontFamily strings (avares
+  URIs, comma-separated lists, plain names) into clean dropdown labels.
+
 ## v2.1.0 — 2026-04-10
 
 ### Added

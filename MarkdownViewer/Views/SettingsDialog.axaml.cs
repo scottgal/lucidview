@@ -140,6 +140,14 @@ public partial class SettingsDialog : Window
         ApplySettingsLive();
     }
 
+    /// <summary>
+    /// The bundled Raleway entry — shown at the top of the font lists so users
+    /// can pick it without having to know the avares URI. Saved settings still
+    /// store the full FontFamily string with system fallbacks.
+    /// </summary>
+    private const string RalewayDisplayName = "Raleway (bundled)";
+    private const string RalewayFamilyValue = "avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, Arial, sans-serif";
+
     private void LoadFontFamilies()
     {
         try
@@ -152,45 +160,74 @@ public partial class SettingsDialog : Window
                 .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             _fontNames.Clear();
+            // Bundled fonts first
+            _fontNames.Add(RalewayDisplayName);
             foreach (var name in names)
                 _fontNames.Add(name);
         }
         catch
         {
             _fontNames.Clear();
+            _fontNames.Add(RalewayDisplayName);
         }
 
         FontFamilyComboBox.ItemsSource = _fontNames;
         CodeFontComboBox.ItemsSource = _fontNames;
     }
 
+    /// <summary>
+    /// Extracts a human-friendly font name from a FontFamily string. Handles:
+    /// - Plain names: "Cascadia Code" → "Cascadia Code"
+    /// - Comma-separated lists: "Inter, Segoe UI, sans-serif" → "Inter"
+    /// - avares URIs: "avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, ..." → the bundled Raleway display name
+    /// </summary>
+    private static string ExtractDisplayName(string fontFamily)
+    {
+        if (string.IsNullOrWhiteSpace(fontFamily)) return string.Empty;
+        var primary = fontFamily.Split(',')[0].Trim();
+
+        // avares://...#FontName — pull the family name from the fragment.
+        if (primary.StartsWith("avares://", StringComparison.OrdinalIgnoreCase))
+        {
+            // The bundled Raleway entry maps to its display name regardless of fragment.
+            if (primary.Contains("Raleway", StringComparison.OrdinalIgnoreCase))
+                return RalewayDisplayName;
+            var hashIdx = primary.LastIndexOf('#');
+            if (hashIdx >= 0 && hashIdx < primary.Length - 1)
+                return primary.Substring(hashIdx + 1);
+            return primary;
+        }
+
+        return primary;
+    }
+
     private void SelectFontFamily(ComboBox comboBox, string fontFamily)
     {
-        var primary = fontFamily.Split(',')[0].Trim();
-        if (_fontNames.Count == 0)
-        {
-            comboBox.Text = primary;
-            return;
-        }
+        var displayName = ExtractDisplayName(fontFamily);
+        if (string.IsNullOrWhiteSpace(displayName)) return;
 
         var match = _fontNames.FirstOrDefault(name =>
-            name.Equals(primary, StringComparison.OrdinalIgnoreCase));
-        if (match == null && !string.IsNullOrWhiteSpace(primary))
+            name.Equals(displayName, StringComparison.OrdinalIgnoreCase));
+
+        // If the user has a font configured that isn't installed, add it to the
+        // top of the list so they can see it's selected. We never insert raw
+        // avares:// URIs — ExtractDisplayName has already cleaned that up.
+        if (match == null)
         {
-            _fontNames.Insert(0, primary);
-            match = primary;
+            _fontNames.Insert(0, displayName);
+            match = displayName;
         }
 
-        if (!string.IsNullOrWhiteSpace(match))
-        {
-            comboBox.SelectedItem = match;
-            comboBox.Text = match;
-        }
+        comboBox.SelectedItem = match;
     }
 
     private static string ReadComboValue(ComboBox comboBox, string fallback)
     {
         var value = comboBox.SelectedItem as string ?? comboBox.Text;
-        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+        if (string.IsNullOrWhiteSpace(value)) return fallback;
+        // Map the bundled Raleway display name back to its full avares URI + fallbacks
+        // so the saved setting works the same as before.
+        if (value == RalewayDisplayName) return RalewayFamilyValue;
+        return value;
     }
 }

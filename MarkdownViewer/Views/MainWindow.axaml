@@ -3,6 +3,7 @@
         xmlns:md="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
         xmlns:services="clr-namespace:MarkdownViewer.Services"
         xmlns:models="clr-namespace:MarkdownViewer.Models"
+        xmlns:ic="using:FluentIcons.Avalonia.Fluent"
         x:Class="MarkdownViewer.Views.MainWindow"
         Title="lucidVIEW"
         Width="1100" Height="750"
@@ -46,8 +47,8 @@
                             Classes="header-btn"
                             Click="OnToggleSidePanel"
                             ToolTip.Tip="Menu (Ctrl+B)">
-                        <PathIcon Data="{StaticResource IconMenu}" Width="20" Height="20"
-                                  Foreground="{DynamicResource AppText}" />
+                        <ic:SymbolIcon Symbol="Navigation" FontSize="20"
+                                       Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- TOC Button -->
@@ -57,8 +58,8 @@
                             Click="OnToggleToc"
                             IsEnabled="False"
                             ToolTip.Tip="Table of Contents">
-                        <PathIcon Data="{StaticResource IconList}" Width="20" Height="20"
-                                  Foreground="{DynamicResource AppText}" />
+                        <ic:SymbolIcon Symbol="TextBulletList" FontSize="20"
+                                       Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- Center: Zoom Controls -->
@@ -74,16 +75,16 @@
                                       IsChecked="True"
                                       Click="OnFitModeToggle"
                                       ToolTip.Tip="Fit to width">
-                            <PathIcon Data="{StaticResource IconResizeHorizontal}" Width="18" Height="18"
-                                      Foreground="{DynamicResource AppText}" />
+                            <ic:SymbolIcon Symbol="ArrowAutofitWidth" FontSize="18"
+                                           Foreground="{DynamicResource AppText}" />
                         </ToggleButton>
                         <ToggleButton x:Name="FitHeightToggle"
                                       Classes="header-btn"
                                       IsChecked="False"
                                       Click="OnFitModeToggle"
                                       ToolTip.Tip="Fit to height">
-                            <PathIcon Data="{StaticResource IconResizeVertical}" Width="18" Height="18"
-                                      Foreground="{DynamicResource AppText}" />
+                            <ic:SymbolIcon Symbol="ArrowAutofitHeight" FontSize="18"
+                                           Foreground="{DynamicResource AppText}" />
                         </ToggleButton>
                         <Slider x:Name="ZoomSlider"
                                 Width="100"
@@ -104,6 +105,13 @@
                             <TextBlock Text="1:1" FontSize="11" FontWeight="Bold"
                                        Foreground="{DynamicResource AppText}" />
                         </Button>
+                        <ToggleButton x:Name="RulerToggleBtn"
+                                      Classes="header-btn"
+                                      Click="OnToggleRuler"
+                                      ToolTip.Tip="Show/hide the margin ruler">
+                            <ic:SymbolIcon Symbol="Ruler" FontSize="16"
+                                           Foreground="{DynamicResource AppText}" />
+                        </ToggleButton>
                     </StackPanel>
 
                     <!-- Preview/Raw Toggle -->
@@ -128,8 +136,8 @@
                             Click="OnToggleSearch"
                             IsEnabled="False"
                             ToolTip.Tip="Search (Ctrl+F)">
-                        <PathIcon Data="{StaticResource IconSearch}" Width="18" Height="18"
-                                  Foreground="{DynamicResource AppText}" />
+                        <ic:SymbolIcon Symbol="Search" FontSize="18"
+                                       Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- Right: Font Size Controls (grouped pill, with spacing from the system caption buttons via the Width=138 spacer in column 6) -->
@@ -182,8 +190,8 @@
                 <Border x:Name="DropOverlay" IsVisible="False" Classes="drop-overlay" ZIndex="100">
                     <Border Classes="drop-card" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <StackPanel Spacing="16" HorizontalAlignment="Center">
-                            <PathIcon Data="{StaticResource IconFile}" Width="56" Height="56"
-                                      Foreground="{DynamicResource AppAccent}" HorizontalAlignment="Center" />
+                            <ic:SymbolIcon Symbol="DocumentArrowDown" FontSize="56"
+                                           Foreground="{DynamicResource AppAccent}" HorizontalAlignment="Center" />
                             <TextBlock Text="Drop markdown file here"
                                        FontSize="16"
                                        Foreground="{DynamicResource AppText}"
@@ -195,8 +203,8 @@
                 <!-- Welcome Panel -->
                 <Border x:Name="WelcomePanel" IsVisible="True" Background="{DynamicResource AppBackground}">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
-                        <PathIcon Data="{StaticResource IconBookOpen}" Width="64" Height="64"
-                                  Foreground="{DynamicResource AppAccent}" HorizontalAlignment="Center" />
+                        <ic:SymbolIcon Symbol="BookOpen" FontSize="64"
+                                       Foreground="{DynamicResource AppAccent}" HorizontalAlignment="Center" />
                         <TextBlock Text="Welcome to" Classes="welcome-subtitle" HorizontalAlignment="Center" />
                         <!-- lucidVIEW Logo -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -273,8 +281,8 @@
                                                 Classes="header-btn"
                                                 Click="OnCloseToc"
                                                 ToolTip.Tip="Close TOC">
-                                            <PathIcon Data="{StaticResource IconClose}" Width="14" Height="14"
-                                                      Foreground="{DynamicResource AppText}" />
+                                            <ic:SymbolIcon Symbol="Dismiss" FontSize="14"
+                                                           Foreground="{DynamicResource AppText}" />
                                         </Button>
                                     </Grid>
                                 </Border>
@@ -377,16 +385,76 @@
                                 <Border DockPanel.Dock="Left" Width="18"
                                         Background="{DynamicResource AppBackgroundSecondary}" />
 
+                                <!-- Word-style ruler bar (toggled by ToggleRulerBtn). Sits above the document. -->
+                                <Border x:Name="RulerBar"
+                                        DockPanel.Dock="Top"
+                                        IsVisible="False"
+                                        Height="22"
+                                        Background="{DynamicResource AppBackgroundSecondary}"
+                                        BorderBrush="{DynamicResource AppBorderSubtle}"
+                                        BorderThickness="0,0,0,1">
+                                    <Canvas x:Name="RulerCanvas" ClipToBounds="True"
+                                            SizeChanged="OnRulerCanvasSizeChanged">
+                                        <!-- Active ruler track between the two handles (highlighted) -->
+                                        <Rectangle x:Name="RulerTrack"
+                                                   Canvas.Top="9"
+                                                   Height="4"
+                                                   RadiusX="2" RadiusY="2"
+                                                   Fill="{DynamicResource AppAccent}"
+                                                   Opacity="0.55" />
+                                        <!-- Left handle -->
+                                        <Thumb x:Name="RulerLeftThumb"
+                                               Canvas.Top="2"
+                                               Width="14" Height="18"
+                                               Cursor="SizeWestEast"
+                                               DragDelta="OnRulerHandleDragDelta"
+                                               ToolTip.Tip="Left margin">
+                                            <Thumb.Template>
+                                                <ControlTemplate>
+                                                    <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
+                                                          Fill="{DynamicResource AppAccent}"
+                                                          Stroke="{DynamicResource AppText}"
+                                                          StrokeThickness="1" />
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                        <!-- Right handle -->
+                                        <Thumb x:Name="RulerRightThumb"
+                                               Canvas.Top="2"
+                                               Width="14" Height="18"
+                                               Cursor="SizeWestEast"
+                                               DragDelta="OnRulerHandleDragDelta"
+                                               ToolTip.Tip="Right margin">
+                                            <Thumb.Template>
+                                                <ControlTemplate>
+                                                    <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
+                                                          Fill="{DynamicResource AppAccent}"
+                                                          Stroke="{DynamicResource AppText}"
+                                                          StrokeThickness="1" />
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                        <!-- Width readout -->
+                                        <TextBlock x:Name="RulerWidthLabel"
+                                                   Canvas.Top="3"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource AppTextSecondary}" />
+                                    </Canvas>
+                                </Border>
+
                                 <!-- ScrollViewer fills remaining space, its scrollbar naturally at right edge -->
-                                <ScrollViewer x:Name="RenderedScroller"
-                                              HorizontalScrollBarVisibility="Disabled"
-                                              VerticalScrollBarVisibility="Visible"
-                                              AllowAutoHide="False">
-                                    <LayoutTransformControl x:Name="MarkdownLayoutTransform">
-                                        <Border Padding="40,32" MaxWidth="1200" HorizontalAlignment="Center"
-                                                TextElement.FontFamily="avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, Arial, sans-serif"
-                                                TextElement.FontStyle="Normal"
-                                                TextElement.FontWeight="Normal">
+                                <Grid>
+                                    <ScrollViewer x:Name="RenderedScroller"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  VerticalScrollBarVisibility="Visible"
+                                                  AllowAutoHide="False">
+                                        <LayoutTransformControl x:Name="MarkdownLayoutTransform">
+                                            <Border x:Name="MarkdownContentBorder"
+                                                    Padding="40,32" HorizontalAlignment="Center"
+                                                    TextElement.FontFamily="avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, Arial, sans-serif"
+                                                    TextElement.FontStyle="Normal"
+                                                    TextElement.FontWeight="Normal">
                                             <md:MarkdownRenderer x:Name="MdViewer">
                                                 <md:MarkdownRenderer.ContextMenu>
                                                     <ContextMenu Opening="OnContextMenuOpening">
@@ -408,8 +476,27 @@
                                                 </md:MarkdownRenderer.ContextMenu>
                                             </md:MarkdownRenderer>
                                         </Border>
-                                    </LayoutTransformControl>
-                                </ScrollViewer>
+                                        </LayoutTransformControl>
+                                    </ScrollViewer>
+
+                                    <!-- Dotted side guides showing the column edges (only visible when ruler is on) -->
+                                    <Canvas x:Name="MarginGuideCanvas"
+                                            IsVisible="False"
+                                            IsHitTestVisible="False">
+                                        <Line x:Name="LeftMarginGuide"
+                                              StartPoint="0,0" EndPoint="0,9999"
+                                              Stroke="{DynamicResource AppAccent}"
+                                              StrokeThickness="1"
+                                              StrokeDashArray="2,3"
+                                              Opacity="0.6" />
+                                        <Line x:Name="RightMarginGuide"
+                                              StartPoint="0,0" EndPoint="0,9999"
+                                              Stroke="{DynamicResource AppAccent}"
+                                              StrokeThickness="1"
+                                              StrokeDashArray="2,3"
+                                              Opacity="0.6" />
+                                    </Canvas>
+                                </Grid>
                             </DockPanel>
 
                             <!-- Raw Markdown -->
@@ -456,8 +543,8 @@
                                 Classes="header-btn"
                                 Click="OnCloseSidePanel"
                                 ToolTip.Tip="Close menu">
-                            <PathIcon Data="{StaticResource IconClose}" Width="18" Height="18"
-                                      Foreground="{DynamicResource AppText}" />
+                            <ic:SymbolIcon Symbol="Dismiss" FontSize="18"
+                                           Foreground="{DynamicResource AppText}" />
                         </Button>
                         <StackPanel Grid.Column="1"
                                     Orientation="Horizontal"
@@ -484,7 +571,7 @@
                         <!-- Open File -->
                         <Button x:Name="MenuOpenFileBtn" Classes="panel-item" Click="OnOpenFile">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconFolderOpen}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="FolderOpen" Classes="panel-icon" />
                                 <TextBlock Text="Open file..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -492,7 +579,7 @@
                         <!-- Open URL -->
                         <Button x:Name="MenuOpenUrlBtn" Classes="panel-item" Click="OnOpenUrl">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconLink}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="Link" Classes="panel-icon" />
                                 <TextBlock Text="Open URL..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -503,7 +590,7 @@
                         <Expander Classes="panel-expander" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <PathIcon Data="{StaticResource IconPalette}" Classes="panel-icon" />
+                                    <ic:SymbolIcon Symbol="ColorBackground" Classes="panel-icon" />
                                     <TextBlock Text="Theme" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -616,7 +703,7 @@
                         <Expander Classes="panel-expander" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <PathIcon Data="{StaticResource IconClock}" Classes="panel-icon" />
+                                    <ic:SymbolIcon Symbol="History" Classes="panel-icon" />
                                     <TextBlock Text="Recent Files" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -637,7 +724,7 @@
                         <!-- Print to default printer -->
                         <Button x:Name="MenuPrintBtn" Classes="panel-item" Click="OnPrint">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconPrinter}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="Print" Classes="panel-icon" />
                                 <TextBlock Text="Print (Ctrl+P)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -645,7 +732,7 @@
                         <!-- Export PDF to file -->
                         <Button x:Name="MenuExportPdfBtn" Classes="panel-item" Click="OnExportPdf">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconFile}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="DocumentPdf" Classes="panel-icon" />
                                 <TextBlock Text="Export PDF... (Ctrl+Shift+P)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -653,7 +740,7 @@
                         <!-- Render Mermaid Diagram -->
                         <Button x:Name="MenuRenderMermaidBtn" Classes="panel-item" Click="OnRenderMermaid">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconShape}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="FlowchartCircle" Classes="panel-icon" />
                                 <TextBlock Text="Render Diagram..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -661,7 +748,7 @@
                         <!-- Search -->
                         <Button x:Name="MenuSearchBtn" Classes="panel-item" Click="OnToggleSearch">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconSearch}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="Search" Classes="panel-icon" />
                                 <TextBlock Text="Search (Ctrl+F)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -671,7 +758,7 @@
                         <!-- Settings -->
                         <Button x:Name="MenuSettingsBtn" Classes="panel-item" Click="OnOpenSettings">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconCog}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="Settings" Classes="panel-icon" />
                                 <TextBlock Text="Settings" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -679,7 +766,7 @@
                         <!-- User Manual (in-app, with screenshots) -->
                         <Button x:Name="MenuUserManualBtn" Classes="panel-item" Click="OnOpenUserManual">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconBookOpen}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="BookOpen" Classes="panel-icon" />
                                 <TextBlock Text="User Manual (F1)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -687,7 +774,7 @@
                         <!-- Help — README -->
                         <Button x:Name="MenuHelpBtn" Classes="panel-item" Click="OnOpenHelp">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconHelp}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="QuestionCircle" Classes="panel-icon" />
                                 <TextBlock Text="README (Shift+F1)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -697,7 +784,7 @@
                         <!-- Exit -->
                         <Button Classes="panel-item" Command="{Binding ExitCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <PathIcon Data="{StaticResource IconExit}" Classes="panel-icon" />
+                                <ic:SymbolIcon Symbol="SignOut" Classes="panel-icon" />
                                 <TextBlock Text="Exit (Alt+F4)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>

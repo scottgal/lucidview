@@ -31,6 +31,12 @@ public class AppSettings
     public bool WordWrap { get; set; } = true;
     public double ContentMaxWidth { get; set; } = 900;
 
+    /// <summary>
+    /// When true, shows a Word-style ruler above the document with draggable handles
+    /// to adjust ContentMaxWidth, plus dotted vertical guides at the column edges.
+    /// </summary>
+    public bool ShowRuler { get; set; }
+
     // Recent files
     public List<RecentFile> RecentFiles { get; set; } = [];
 

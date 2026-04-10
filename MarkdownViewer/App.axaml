@@ -1,5 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sty="using:FluentAvalonia.Styling"
              x:Class="MarkdownViewer.App"
              RequestedThemeVariant="Default">
 
@@ -8,7 +9,6 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml" />
-                <ResourceInclude Source="avares://lucidVIEW/Styles/Icons.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <!-- Default theme colors (GitHub Dark) - will be overridden by ThemeService -->
             <SolidColorBrush x:Key="AppBackground" Color="#0d1117" />
@@ -51,7 +51,10 @@
     </Application.Resources>
 
     <Application.Styles>
-        <FluentTheme />
+        <!-- FluentAvaloniaTheme replaces the plain FluentTheme — modern WinUI3-style controls
+             (elevated buttons with hover/press feedback, ContentDialog, NavigationView, etc).
+             Existing controls auto-pick up the new styling. -->
+        <sty:FluentAvaloniaTheme />
         <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml" />
         <StyleInclude Source="avares://lucidVIEW/Styles/AppStyles.axaml" />
     </Application.Styles>
