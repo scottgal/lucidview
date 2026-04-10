@@ -381,11 +381,10 @@
                             <!-- Rendered Markdown - DockPanel for fixed gutters at edges -->
                             <DockPanel x:Name="RenderedPanel" IsVisible="True"
                                        Background="{DynamicResource AppBackground}">
-                                <!-- Left gutter (docked to left edge of window) -->
-                                <Border DockPanel.Dock="Left" Width="18"
-                                        Background="{DynamicResource AppBackgroundSecondary}" />
 
-                                <!-- Word-style ruler bar (toggled by ToggleRulerBtn). Sits above the document. -->
+                                <!-- Word-style ruler bar (toggled by ToggleRulerBtn). Spans the FULL
+                                     window width, so it must be docked Top BEFORE the left gutter
+                                     claims its 18px. -->
                                 <Border x:Name="RulerBar"
                                         DockPanel.Dock="Top"
                                         IsVisible="False"
@@ -443,6 +442,11 @@
                                     </Canvas>
                                 </Border>
 
+                                <!-- Left gutter (docked to left edge of window). After the ruler
+                                     so the ruler spans full width. -->
+                                <Border DockPanel.Dock="Left" Width="18"
+                                        Background="{DynamicResource AppBackgroundSecondary}" />
+
                                 <!-- ScrollViewer fills remaining space, its scrollbar naturally at right edge -->
                                 <Grid>
                                     <ScrollViewer x:Name="RenderedScroller"
@@ -451,7 +455,11 @@
                                                   AllowAutoHide="False">
                                         <LayoutTransformControl x:Name="MarkdownLayoutTransform">
                                             <Border x:Name="MarkdownContentBorder"
-                                                    Padding="40,32" HorizontalAlignment="Center"
+                                                    Padding="48,40" HorizontalAlignment="Center"
+                                                    Margin="0,16,0,16"
+                                                    BorderBrush="{DynamicResource AppBorderSubtle}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
                                                     TextElement.FontFamily="avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, Arial, sans-serif"
                                                     TextElement.FontStyle="Normal"
                                                     TextElement.FontWeight="Normal">

@@ -1,0 +1,44 @@
+# Ruler test + capture for the user manual.
+#
+# The harness can toggle the ruler via Click on RulerToggleBtn but its
+# MouseDown/MouseMove/MouseUp actions are stubs (they only log) so we can't
+# script a Thumb drag end-to-end here. Drag is verified by the unit test in
+# MarkdownViewer.Tests/RulerMathTests.cs.
+#
+# Run:
+#   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -- \
+#       --ux-test --script ux-scripts/capture-ruler.yaml \
+#       --output MarkdownViewer/Assets/manual/screenshots
+
+name: capture-ruler
+description: Capture the Word-style ruler in its on/off states for the manual
+default_delay: 350
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "900"
+
+  # Default — no ruler.
+  - type: Screenshot
+    value: 17-ruler-off
+    description: Document with the ruler hidden (default)
+
+  # Toggle the ruler on. The header has RulerToggleBtn next to ResetZoomBtn.
+  - type: Click
+    target: RulerToggleBtn
+  - type: Wait
+    value: "600"
+  - type: Screenshot
+    value: 18-ruler-on
+    description: Document with the ruler visible — handles + dotted guides + width readout
+
+  # Toggle off so subsequent runs start clean.
+  - type: Click
+    target: RulerToggleBtn
+  - type: Wait
+    value: "300"

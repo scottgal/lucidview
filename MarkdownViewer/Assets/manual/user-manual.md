@@ -138,7 +138,32 @@ the document fills the screen. `F11` again or `Escape` returns to normal.
 
 ---
 
-## 11. Print and Export PDF
+## 11. Word-style ruler
+
+Click the ruler icon in the header (next to **1:1**) to show a Word-style ruler
+above the document, with two draggable handles and dotted vertical guides at
+the column edges. Drag a handle to live-resize the document column — the new
+width persists across launches.
+
+Default state (ruler hidden):
+
+![Document with the ruler hidden](screenshots/17-ruler-off.png)
+
+With the ruler shown:
+
+![Document with the ruler visible — handles, dotted guides and width readout](screenshots/18-ruler-on.png)
+
+The handles are symmetric: dragging the left handle and dragging the right
+handle both shrink or grow the centered column by the same amount, just like
+Word's text-area markers. Width is shown live in the centre of the ruler in
+device-independent pixels.
+
+To reset, drag a handle until the readout matches your preferred width, or
+edit `customTheme.contentMaxWidth` in the settings file directly.
+
+---
+
+## 12. Print and Export PDF
 
 - **Print** (`Ctrl+P`) generates a PDF and sends it directly to your default
   printer. On Windows it uses ShellExecute's `print` verb; on macOS and Linux
@@ -151,7 +176,7 @@ Both flows live under the side panel and respect your current font size.
 
 ---
 
-## 12. Settings
+## 13. Settings
 
 Open the settings dialog from the side panel (or via the menu) to tweak
 default theme, font, syntax-highlighting style, and UI preferences. Settings
@@ -162,7 +187,7 @@ macOS / Linux).
 
 ---
 
-## 13. Standalone mermaid diagrams
+## 14. Standalone mermaid diagrams
 
 Want to render a mermaid diagram without writing a whole markdown document?
 Use **Render Diagram...** in the side panel. Paste mermaid syntax into the
@@ -175,7 +200,7 @@ The result can be saved as PNG or SVG via the context menu in the main window.
 
 ---
 
-## 14. Drag and drop
+## 15. Drag and drop
 
 Drag any markdown file onto the lucidVIEW window to open it. The drop zone
 overlay highlights when a file is being dragged in. Folder drops are not
@@ -183,14 +208,14 @@ supported — drop one file at a time.
 
 ---
 
-## 15. Recent files
+## 16. Recent files
 
 The side panel lists your most recently opened files. Click any to reopen.
 The list is capped and persists across launches.
 
 ---
 
-## 16. File associations
+## 17. File associations
 
 lucidVIEW registers as a handler for `.md`, `.markdown`, `.mdown`, and `.mkd`
 on every platform.
@@ -205,7 +230,7 @@ on every platform.
 
 ---
 
-## 17. Keyboard shortcuts
+## 18. Keyboard shortcuts
 
 | Shortcut | Action |
 |---|---|
@@ -224,7 +249,7 @@ on every platform.
 
 ---
 
-## 18. Where things live
+## 19. Where things live
 
 | File | Purpose |
 |---|---|

@@ -2143,9 +2143,18 @@ public partial class MainWindow : Window
     private const double MinContentWidth = 300;
     private const double MaxContentWidth = 2000;
 
-    // Per-side padding inside the ScrollViewer for the ruler tick origin. The
-    // ruler measures from the inside of the left gutter, the same x-axis as the
-    // centered content Border.
+    // The MarkdownContentBorder has Padding="48,40" — the actual text sits 48px
+    // inside the Border edges. The ruler handles need to be at the TEXT edges,
+    // not the Border edges, otherwise there's a visible gap between each handle
+    // and the column the user thinks they're resizing. Keep this in sync with the
+    // Padding attribute on MarkdownContentBorder in MainWindow.axaml.
+    private const double MarkdownBorderHorizontalPadding = 48.0;
+
+    // The RulerBar spans the FULL window width, but the document is offset by
+    // the left gutter (18px) and centered within (window - gutter). The ruler
+    // math has to account for this so the handles land on the text edges.
+    private const double LeftGutterWidth = 18.0;
+
     private void ApplyContentMaxWidth()
     {
         var w = _settings.ContentMaxWidth;
@@ -2180,55 +2189,72 @@ public partial class MainWindow : Window
         UpdateRulerHandlesFromWidth(MarkdownContentBorder.MaxWidth);
     }
 
-    private void UpdateRulerHandlesFromWidth(double contentWidth)
+    private void UpdateRulerHandlesFromWidth(double borderWidth)
     {
         if (RulerCanvas is null || RulerCanvas.Bounds.Width <= 0) return;
 
+        // Coordinate spaces:
+        //   RulerCanvas spans the FULL window width (RulerBar is docked Top before
+        //   the left gutter), so RulerCanvas.Bounds.Width ≈ window inner width.
+        //   The document column lives inside the ScrollViewer which is offset
+        //   18px from the left by the left gutter. The Border is centered inside
+        //   the (window - 18) area with width = clamped, and has 40px horizontal
+        //   padding so the actual text column is `clamped - 80`.
         var canvasWidth = RulerCanvas.Bounds.Width;
-        var clamped = Math.Clamp(contentWidth, MinContentWidth, Math.Min(MaxContentWidth, canvasWidth));
-        var slack = (canvasWidth - clamped) / 2.0;
+        var availableForBorder = Math.Max(MinContentWidth, canvasWidth - LeftGutterWidth);
+        var clampedBorder = Math.Clamp(borderWidth, MinContentWidth, Math.Min(MaxContentWidth, availableForBorder));
 
-        // Place handles at the column edges, centered on the column.
-        Canvas.SetLeft(RulerLeftThumb, slack - RulerLeftThumb.Width / 2);
-        Canvas.SetLeft(RulerRightThumb, slack + clamped - RulerRightThumb.Width / 2);
-        Canvas.SetLeft(RulerTrack, slack);
-        RulerTrack.Width = clamped;
+        // Border position in window-x: gutter + (available - clamped)/2
+        var borderLeftX = LeftGutterWidth + (availableForBorder - clampedBorder) / 2.0;
+        var textLeftX   = borderLeftX + MarkdownBorderHorizontalPadding;
+        var textRightX  = borderLeftX + clampedBorder - MarkdownBorderHorizontalPadding;
+        var textWidth   = Math.Max(0, textRightX - textLeftX);
 
-        RulerWidthLabel.Text = $"{(int)clamped} px";
-        Canvas.SetLeft(RulerWidthLabel, (canvasWidth - 50) / 2.0);
+        Canvas.SetLeft(RulerLeftThumb,  textLeftX  - RulerLeftThumb.Width  / 2);
+        Canvas.SetLeft(RulerRightThumb, textRightX - RulerRightThumb.Width / 2);
+        Canvas.SetLeft(RulerTrack, textLeftX);
+        RulerTrack.Width = textWidth;
 
-        UpdateMarginGuides(slack, clamped);
+        RulerWidthLabel.Text = $"{(int)textWidth} px";
+        Canvas.SetLeft(RulerWidthLabel, textLeftX + (textWidth - 50) / 2.0);
+
+        UpdateMarginGuides(textLeftX, textRightX);
     }
 
-    private void UpdateMarginGuides(double slack, double contentWidth)
+    private void UpdateMarginGuides(double textLeftX, double textRightX)
     {
-        if (MarginGuideCanvas is null || MarginGuideCanvas.Bounds.Height <= 0) return;
+        if (MarginGuideCanvas is null) return;
         var h = MarginGuideCanvas.Bounds.Height;
-        var w = MarginGuideCanvas.Bounds.Width;
-        if (w <= 0) return;
+        if (h <= 0) h = 9999; // Lines stretch via fixed EndPoint Y
 
-        // Map ruler-canvas coordinates back to the ScrollViewer overlay coordinates.
-        // RulerCanvas and MarginGuideCanvas have the same width, both stretch to fill
-        // the parent (ScrollViewer / Border above). Slack is identical.
-        LeftMarginGuide.StartPoint = new Avalonia.Point(slack, 0);
-        LeftMarginGuide.EndPoint   = new Avalonia.Point(slack, h);
-        RightMarginGuide.StartPoint = new Avalonia.Point(slack + contentWidth, 0);
-        RightMarginGuide.EndPoint   = new Avalonia.Point(slack + contentWidth, h);
+        // MarginGuideCanvas sits inside the Grid that contains ScrollViewer — it
+        // does NOT include the left gutter offset. Subtract the gutter so the
+        // dotted lines line up with the text column visually.
+        var leftLocal  = textLeftX  - LeftGutterWidth;
+        var rightLocal = textRightX - LeftGutterWidth;
+
+        LeftMarginGuide.StartPoint  = new Avalonia.Point(leftLocal,  0);
+        LeftMarginGuide.EndPoint    = new Avalonia.Point(leftLocal,  h);
+        RightMarginGuide.StartPoint = new Avalonia.Point(rightLocal, 0);
+        RightMarginGuide.EndPoint   = new Avalonia.Point(rightLocal, h);
     }
 
     private void OnRulerHandleDragDelta(object? sender, VectorEventArgs e)
     {
         if (RulerCanvas is null || RulerCanvas.Bounds.Width <= 0) return;
         var canvasWidth = RulerCanvas.Bounds.Width;
+        var availableForBorder = Math.Max(MinContentWidth, canvasWidth - LeftGutterWidth);
 
         // Dragging either handle by deltaX changes the content width by 2*deltaX
-        // (because the column is centered, both edges move symmetrically).
+        // (the column is centered so both edges move symmetrically). Dragging the
+        // LEFT handle outward (negative X) widens the column; dragging the RIGHT
+        // handle outward (positive X) widens it.
         var direction = sender == RulerLeftThumb ? -1.0 : 1.0;
         var current = MarkdownContentBorder.MaxWidth;
         if (double.IsNaN(current) || double.IsInfinity(current)) current = _settings.ContentMaxWidth;
 
         var next = current + direction * e.Vector.X * 2.0;
-        next = Math.Clamp(next, MinContentWidth, Math.Min(MaxContentWidth, canvasWidth));
+        next = Math.Clamp(next, MinContentWidth, Math.Min(MaxContentWidth, availableForBorder));
 
         MarkdownContentBorder.MaxWidth = next;
         _settings.ContentMaxWidth = next;

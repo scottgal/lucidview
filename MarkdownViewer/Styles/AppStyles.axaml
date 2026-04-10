@@ -434,10 +434,17 @@
 
     <!-- ==================== MARKDOWN IMAGES ==================== -->
 
-    <!-- Images: scale uniformly to fit the column. Aspect ratio preserved,
-         nothing is ever cropped. -->
+    <!-- Image rendering rules:
+         - Stretch=Uniform preserves aspect ratio (never distorts, never crops).
+         - StretchDirection=DownOnly is the key bit: large images SHRINK to fit
+           the column width but small images stay at their natural pixel size.
+           Without this, a 100×20 status badge would blow up to fill the column.
+         - HorizontalAlignment=Left so images sit at the column's left edge,
+           matching how every other markdown renderer (GitHub, VSCode, Typora)
+           treats inline images. -->
     <Style Selector="Image">
         <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="StretchDirection" Value="DownOnly" />
         <Setter Property="HorizontalAlignment" Value="Left" />
     </Style>
 

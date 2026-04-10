@@ -4,6 +4,59 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v2.2.0 — 2026-04-10
+
+### Added
+
+- **README rewrite** — actually showcases lucidVIEW now. Hero screenshot,
+  6-theme gallery from the user manual, copy-paste install commands per
+  platform, full keyboard-shortcut table, link to the in-app user manual.
+  The Naiad fork section is still there but moved below the lucidVIEW
+  feature pitch.
+- **Subtle document border** — `MarkdownContentBorder` now has a 1px
+  `AppBorderSubtle` outline + `CornerRadius="4"` + 16px vertical margin.
+  Document looks like a card now instead of text floating in space. The
+  border colour is per-theme so it's barely-visible brightening on dark
+  themes and barely-visible darkening on light themes.
+- `ux-scripts/capture-ruler.yaml` — UI test that toggles the ruler on/off
+  and captures the two states for the user manual.
+- New section *11. Word-style ruler* in the in-app User Manual, with the
+  ruler-off and ruler-on screenshots. Subsequent sections renumbered
+  12–19.
+
+### Fixed
+
+- **Ruler handles now sit at the actual text edges**, not the Border edges.
+  Previously the `MarkdownContentBorder` had `Padding="40,32"` so the handles
+  appeared with a ~40px gap on each side of the column they were supposed to
+  resize. Ruler math now subtracts the horizontal padding when placing the
+  handles, the highlighted track, the width readout, and the dotted side
+  guides. Padding was also bumped from 40→48 to match the new card border.
+- **Ruler bar now spans the full window width**. Was being truncated by the
+  18px left gutter; reordered the DockPanel so the ruler is docked Top
+  *before* the gutter claims its space. The gutter still appears under the
+  ruler in the document area.
+- **Image scaling regression** — re-added `StretchDirection="DownOnly"`
+  alongside `Stretch="Uniform"`. Large images shrink to fit the column,
+  small badges stay at natural size (no more bloat).
+
+### Changed
+
+- **Document border** — `MarkdownContentBorder` got a 1px
+  `BorderBrush="{DynamicResource AppBorderSubtle}"` outline,
+  `CornerRadius="4"`, and a 16px vertical margin. Gives the document a card
+  feel so the text doesn't look like it's floating in space. The
+  `AppBorderSubtle` brush is per-theme so the outline is barely-visible
+  brightening on dark themes and barely-visible darkening on light themes.
+- Border padding bumped from `40,32` to `48,40` to give the new outline a
+  little breathing room around the text.
+
+### Internal
+
+- `.gitignore` now ignores `.idea/` (and `**/.idea/`) and `.DS_Store`
+  folders properly. The 10 stale `.idea/*.xml` files in `lucid.viewer/`
+  that had been tracked by mistake are now untracked (kept on disk).
+
 ## v2.1.1 — 2026-04-10
 
 ### Added
