@@ -1,0 +1,143 @@
+# Per-theme audit — captures one screenshot per theme so a human can eyeball
+# every theme's contrast and code block readability.
+#
+# Run:
+#   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -- \
+#       --ux-test --script ux-scripts/theme-audit.yaml --output /tmp/theme-audit
+
+name: theme-audit
+description: Capture every theme for visual contrast review
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "800"
+
+  # Light
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeLightCard
+  - type: Wait
+    value: "500"
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-light
+
+  # Dark
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeDarkCard
+  - type: Wait
+    value: "500"
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-dark
+
+  # VSCode
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeVSCodeCard
+  - type: Wait
+    value: "500"
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-vscode
+
+  # GitHub
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeGitHubCard
+  - type: Wait
+    value: "500"
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-github
+
+  # MostlyLucid Dark
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeMostlyLucidDarkCard
+  - type: Wait
+    value: "500"
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-mostlylucid-dark
+
+  # MostlyLucid Light
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeMostlyLucidLightCard
+  - type: Wait
+    value: "500"
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-mostlylucid-light
+
+  # Pride
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemePrideCard
+  - type: Wait
+    value: "500"
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-pride
+
+  # Reset to Light at end
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeLightCard
+  - type: Wait
+    value: "300"
+  - type: PressKey
+    value: Escape

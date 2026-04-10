@@ -8,6 +8,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml" />
+                <ResourceInclude Source="avares://lucidVIEW/Styles/Icons.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <!-- Default theme colors (GitHub Dark) - will be overridden by ThemeService -->
             <SolidColorBrush x:Key="AppBackground" Color="#0d1117" />

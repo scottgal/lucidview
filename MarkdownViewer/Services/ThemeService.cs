@@ -72,7 +72,9 @@ public class ThemeService
     }
 
     private static bool IsLightTheme(AppTheme theme) =>
-        theme == AppTheme.Light || theme == AppTheme.MostlyLucidLight;
+        theme == AppTheme.Light
+        || theme == AppTheme.MostlyLucidLight
+        || theme == AppTheme.Pride; // Pride uses a near-white background, must apply Light variant
 
     private AppTheme ResolveSystemTheme()
     {

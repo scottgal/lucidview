@@ -1,0 +1,23 @@
+name: debug-panel
+description: Open side panel and screenshot, do nothing else
+default_delay: 200
+
+actions:
+  - type: Wait
+    value: "1500"
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "800"
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "800"
+  - type: Screenshot
+    value: panel-open
+  - type: Click
+    target: ThemeDarkCard
+  - type: Wait
+    value: "800"
+  - type: Screenshot
+    value: after-dark-click

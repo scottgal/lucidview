@@ -42,6 +42,23 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- Side panel menu item icons (boxicons via PathIcon) -->
+    <Style Selector="PathIcon.panel-icon">
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="Foreground" Value="{DynamicResource AppAccent}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <!-- All icons inside Buttons should be invisible to hit-testing so the Button gets the click -->
+    <Style Selector="Button > PathIcon">
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+    <Style Selector="ToggleButton > PathIcon">
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
     <Style Selector="Button.header-btn">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />

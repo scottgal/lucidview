@@ -46,7 +46,8 @@
                             Classes="header-btn"
                             Click="OnToggleSidePanel"
                             ToolTip.Tip="Menu (Ctrl+B)">
-                        <TextBlock Text="☰" FontSize="18" Foreground="{DynamicResource AppText}" />
+                        <PathIcon Data="{StaticResource IconMenu}" Width="20" Height="20"
+                                  Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- TOC Button -->
@@ -56,7 +57,8 @@
                             Click="OnToggleToc"
                             IsEnabled="False"
                             ToolTip.Tip="Table of Contents">
-                        <TextBlock Text="≡" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AppText}" />
+                        <PathIcon Data="{StaticResource IconList}" Width="20" Height="20"
+                                  Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- Center: Zoom Controls -->
@@ -72,14 +74,16 @@
                                       IsChecked="True"
                                       Click="OnFitModeToggle"
                                       ToolTip.Tip="Fit to width">
-                            <TextBlock Text="↔" FontSize="16" Foreground="{DynamicResource AppText}" />
+                            <PathIcon Data="{StaticResource IconResizeHorizontal}" Width="18" Height="18"
+                                      Foreground="{DynamicResource AppText}" />
                         </ToggleButton>
                         <ToggleButton x:Name="FitHeightToggle"
                                       Classes="header-btn"
                                       IsChecked="False"
                                       Click="OnFitModeToggle"
                                       ToolTip.Tip="Fit to height">
-                            <TextBlock Text="↕" FontSize="16" Foreground="{DynamicResource AppText}" />
+                            <PathIcon Data="{StaticResource IconResizeVertical}" Width="18" Height="18"
+                                      Foreground="{DynamicResource AppText}" />
                         </ToggleButton>
                         <Slider x:Name="ZoomSlider"
                                 Width="100"
@@ -124,7 +128,8 @@
                             Click="OnToggleSearch"
                             IsEnabled="False"
                             ToolTip.Tip="Search (Ctrl+F)">
-                        <TextBlock Text="⌕" FontSize="18" Foreground="{DynamicResource AppText}" />
+                        <PathIcon Data="{StaticResource IconSearch}" Width="18" Height="18"
+                                  Foreground="{DynamicResource AppText}" />
                     </Button>
 
                     <!-- Right: Font Size Controls (grouped pill, with spacing from the system caption buttons via the Width=138 spacer in column 6) -->
@@ -177,8 +182,8 @@
                 <Border x:Name="DropOverlay" IsVisible="False" Classes="drop-overlay" ZIndex="100">
                     <Border Classes="drop-card" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <StackPanel Spacing="16" HorizontalAlignment="Center">
-                            <TextBlock Text="📄" FontSize="48" HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource AppAccent}" />
+                            <PathIcon Data="{StaticResource IconFile}" Width="56" Height="56"
+                                      Foreground="{DynamicResource AppAccent}" HorizontalAlignment="Center" />
                             <TextBlock Text="Drop markdown file here"
                                        FontSize="16"
                                        Foreground="{DynamicResource AppText}"
@@ -190,6 +195,8 @@
                 <!-- Welcome Panel -->
                 <Border x:Name="WelcomePanel" IsVisible="True" Background="{DynamicResource AppBackground}">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                        <PathIcon Data="{StaticResource IconBookOpen}" Width="64" Height="64"
+                                  Foreground="{DynamicResource AppAccent}" HorizontalAlignment="Center" />
                         <TextBlock Text="Welcome to" Classes="welcome-subtitle" HorizontalAlignment="Center" />
                         <!-- lucidVIEW Logo -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -266,7 +273,8 @@
                                                 Classes="header-btn"
                                                 Click="OnCloseToc"
                                                 ToolTip.Tip="Close TOC">
-                                            <TextBlock Text="✕" FontSize="14" Foreground="{DynamicResource AppText}" />
+                                            <PathIcon Data="{StaticResource IconClose}" Width="14" Height="14"
+                                                      Foreground="{DynamicResource AppText}" />
                                         </Button>
                                     </Grid>
                                 </Border>
@@ -448,7 +456,8 @@
                                 Classes="header-btn"
                                 Click="OnCloseSidePanel"
                                 ToolTip.Tip="Close menu">
-                            <TextBlock Text="←" FontSize="18" Foreground="{DynamicResource AppText}" />
+                            <PathIcon Data="{StaticResource IconClose}" Width="18" Height="18"
+                                      Foreground="{DynamicResource AppText}" />
                         </Button>
                         <StackPanel Grid.Column="1"
                                     Orientation="Horizontal"
@@ -475,7 +484,7 @@
                         <!-- Open File -->
                         <Button x:Name="MenuOpenFileBtn" Classes="panel-item" Click="OnOpenFile">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="📂" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconFolderOpen}" Classes="panel-icon" />
                                 <TextBlock Text="Open file..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -483,7 +492,7 @@
                         <!-- Open URL -->
                         <Button x:Name="MenuOpenUrlBtn" Classes="panel-item" Click="OnOpenUrl">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="🔗" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconLink}" Classes="panel-icon" />
                                 <TextBlock Text="Open URL..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -494,7 +503,7 @@
                         <Expander Classes="panel-expander" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <TextBlock Text="🎨" FontSize="18" Width="20" />
+                                    <PathIcon Data="{StaticResource IconPalette}" Classes="panel-icon" />
                                     <TextBlock Text="Theme" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -607,7 +616,7 @@
                         <Expander Classes="panel-expander" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <TextBlock Text="🕐" FontSize="18" Width="20" />
+                                    <PathIcon Data="{StaticResource IconClock}" Classes="panel-icon" />
                                     <TextBlock Text="Recent Files" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -628,7 +637,7 @@
                         <!-- Print to default printer -->
                         <Button x:Name="MenuPrintBtn" Classes="panel-item" Click="OnPrint">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="🖨" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconPrinter}" Classes="panel-icon" />
                                 <TextBlock Text="Print (Ctrl+P)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -636,7 +645,7 @@
                         <!-- Export PDF to file -->
                         <Button x:Name="MenuExportPdfBtn" Classes="panel-item" Click="OnExportPdf">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="📄" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconFile}" Classes="panel-icon" />
                                 <TextBlock Text="Export PDF... (Ctrl+Shift+P)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -644,7 +653,7 @@
                         <!-- Render Mermaid Diagram -->
                         <Button x:Name="MenuRenderMermaidBtn" Classes="panel-item" Click="OnRenderMermaid">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="◇" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconShape}" Classes="panel-icon" />
                                 <TextBlock Text="Render Diagram..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -652,7 +661,7 @@
                         <!-- Search -->
                         <Button x:Name="MenuSearchBtn" Classes="panel-item" Click="OnToggleSearch">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="🔍" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconSearch}" Classes="panel-icon" />
                                 <TextBlock Text="Search (Ctrl+F)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -662,7 +671,7 @@
                         <!-- Settings -->
                         <Button x:Name="MenuSettingsBtn" Classes="panel-item" Click="OnOpenSettings">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="⚙" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconCog}" Classes="panel-icon" />
                                 <TextBlock Text="Settings" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -670,7 +679,7 @@
                         <!-- User Manual (in-app, with screenshots) -->
                         <Button x:Name="MenuUserManualBtn" Classes="panel-item" Click="OnOpenUserManual">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="📖" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconBookOpen}" Classes="panel-icon" />
                                 <TextBlock Text="User Manual (F1)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -678,7 +687,7 @@
                         <!-- Help — README -->
                         <Button x:Name="MenuHelpBtn" Classes="panel-item" Click="OnOpenHelp">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="❓" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconHelp}" Classes="panel-icon" />
                                 <TextBlock Text="README (Shift+F1)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -688,7 +697,7 @@
                         <!-- Exit -->
                         <Button Classes="panel-item" Command="{Binding ExitCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="✕" FontSize="18" Width="20" />
+                                <PathIcon Data="{StaticResource IconExit}" Classes="panel-icon" />
                                 <TextBlock Text="Exit (Alt+F4)" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
