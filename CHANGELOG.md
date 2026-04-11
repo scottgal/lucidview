@@ -4,6 +4,53 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v2.2.1 — 2026-04-11
+
+### Fixed
+
+- **Ruler handles now sit *exactly* on the visible Border outline** at all
+  zoom levels. Replaced the hand-rolled position math with
+  `TransformToVisual(MarkdownContentBorder → RulerCanvas)` so the handles
+  use the actual rendered geometry of the card edge. No more drift from
+  scrollbar widths, content alignment, ScaleTransform, gutter padding, or
+  inner Padding offsets — the ruler asks Avalonia where the Border *is*.
+- **Removed the dotted ghost guides entirely**. The card border itself is
+  the only vertical reference now. The user complaint was that the dotted
+  guides and the visible border were two different lines that drifted out
+  of alignment; now there is exactly one line.
+- **Document no longer jumps to the right when zooming out**.
+  `RenderedScroller` got `HorizontalContentAlignment="Center"` and
+  `MarkdownLayoutTransform` got `HorizontalAlignment="Center"` so the
+  centred Border stays centred regardless of how the LayoutTransform
+  scales it. Previously the ScrollViewer aligned the shrunken content to
+  top-left.
+- **Ruler is now zoom-aware**. `GetMarkdownScale()` reads the live
+  `ScaleTransform` from `MarkdownLayoutTransform` and the ruler math
+  multiplies by it when positioning handles. The handles follow the
+  visible text edges as the user changes font size or zoom slider, not
+  the unscaled logical width.
+- **Click-anywhere-on-the-ruler** snaps the column width to that point.
+  Both edges move symmetrically since the column is centered. Lets the
+  user set the width with one click instead of fiddling with two handle
+  drags.
+- **Built-in MainWindow ruler now updates whenever the Border bounds
+  change** via a `BoundsProperty` subscription on `MarkdownContentBorder`.
+  Window resize, font-size change, zoom slider, manual MaxWidth — all
+  trigger an automatic re-position.
+
+### Internal
+
+- `OnRulerHandleDragDelta` now divides the drag vector by the current
+  scale, so dragging in window pixels translates to the right delta on
+  the underlying logical `MaxWidth`.
+- Padding bumped from 40→48 to give the new card border breathing room
+  around the text, with the math constant updated in lock-step.
+- Two upstream errors fixed in `Mostlylucid.Avalonia.UITesting`:
+  `Pointer` ambiguity in `PointerSimulator.cs` (qualified to
+  `global::Avalonia.Input.Pointer`) and unimplemented MCP wheel/pinch/
+  rotate/swipe/touch handlers (stubbed as “not implemented yet” instead
+  of unresolved methods).
+
 ## v2.2.0 — 2026-04-10
 
 ### Added

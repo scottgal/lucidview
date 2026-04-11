@@ -1,9 +1,10 @@
 # Ruler test + capture for the user manual.
 #
-# The harness can toggle the ruler via Click on RulerToggleBtn but its
-# MouseDown/MouseMove/MouseUp actions are stubs (they only log) so we can't
-# script a Thumb drag end-to-end here. Drag is verified by the unit test in
-# MarkdownViewer.Tests/RulerMathTests.cs.
+# The harness now has a real PointerSimulator so we drive the Thumb drag with
+# explicit coordinates. lucidVIEW launches at 1100×750, the left gutter is
+# 18px, the default ContentMaxWidth is 900, so the right handle sits around
+# (1009, 11) and the left handle around (109, 11) when the ruler is on.
+# These coordinates must match the math in MainWindow.UpdateRulerHandlesFromWidth.
 #
 # Run:
 #   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -- \

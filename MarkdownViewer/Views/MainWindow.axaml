@@ -393,7 +393,9 @@
                                         BorderBrush="{DynamicResource AppBorderSubtle}"
                                         BorderThickness="0,0,0,1">
                                     <Canvas x:Name="RulerCanvas" ClipToBounds="True"
-                                            SizeChanged="OnRulerCanvasSizeChanged">
+                                            Background="Transparent"
+                                            SizeChanged="OnRulerCanvasSizeChanged"
+                                            PointerPressed="OnRulerCanvasPointerPressed">
                                         <!-- Active ruler track between the two handles (highlighted) -->
                                         <Rectangle x:Name="RulerTrack"
                                                    Canvas.Top="9"
@@ -452,8 +454,10 @@
                                     <ScrollViewer x:Name="RenderedScroller"
                                                   HorizontalScrollBarVisibility="Disabled"
                                                   VerticalScrollBarVisibility="Visible"
-                                                  AllowAutoHide="False">
-                                        <LayoutTransformControl x:Name="MarkdownLayoutTransform">
+                                                  AllowAutoHide="False"
+                                                  HorizontalContentAlignment="Center">
+                                        <LayoutTransformControl x:Name="MarkdownLayoutTransform"
+                                                                HorizontalAlignment="Center">
                                             <Border x:Name="MarkdownContentBorder"
                                                     Padding="48,40" HorizontalAlignment="Center"
                                                     Margin="0,16,0,16"
@@ -487,23 +491,10 @@
                                         </LayoutTransformControl>
                                     </ScrollViewer>
 
-                                    <!-- Dotted side guides showing the column edges (only visible when ruler is on) -->
-                                    <Canvas x:Name="MarginGuideCanvas"
-                                            IsVisible="False"
-                                            IsHitTestVisible="False">
-                                        <Line x:Name="LeftMarginGuide"
-                                              StartPoint="0,0" EndPoint="0,9999"
-                                              Stroke="{DynamicResource AppAccent}"
-                                              StrokeThickness="1"
-                                              StrokeDashArray="2,3"
-                                              Opacity="0.6" />
-                                        <Line x:Name="RightMarginGuide"
-                                              StartPoint="0,0" EndPoint="0,9999"
-                                              Stroke="{DynamicResource AppAccent}"
-                                              StrokeThickness="1"
-                                              StrokeDashArray="2,3"
-                                              Opacity="0.6" />
-                                    </Canvas>
+                                    <!-- The visible card border is the ONLY vertical line; the
+                                         ruler handles slide along the Border edges. No ghost
+                                         guides — they would inevitably drift out of alignment. -->
+                                    <!-- (intentionally empty) -->
                                 </Grid>
                             </DockPanel>
 
