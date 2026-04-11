@@ -39,7 +39,7 @@
         <!-- App Info -->
         <AssemblyName>lucidVIEW</AssemblyName>
         <RootNamespace>MarkdownViewer</RootNamespace>
-        <Version>2.3.0</Version>
+        <Version>2.5.0</Version>
         <Product>lucidVIEW</Product>
         <Description>A modern, lightweight cross-platform markdown viewer</Description>
         <Copyright>Copyright 2026</Copyright>
@@ -54,7 +54,13 @@
         <PackageReference Include="FluentAvaloniaUI" Version="2.5.0" />
         <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="2.0.321" />
         <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
-        <PackageReference Include="LiveMarkdown.Avalonia" Version="1.7.0" />
+        <PackageReference Include="LiveMarkdown.Avalonia" Version="1.9.2" />
+        <!-- LiveMarkdown.Avalonia.Svg.Skia removed: ImageCacheService /
+             MarkdownService now rasterize all SVGs (remote shields, local
+             icons, mermaid diagrams) up front via Mostlylucid.ImageSharp.Svg,
+             which is AOT-clean and pulls no native binaries. Removing the
+             plugin drops Svg.Skia + ShimSkiaSharp + Svg.Custom from the
+             transitive dep tree. -->
         <PackageReference Include="QuestPDF" Version="2026.2.1" />
         <PackageReference Include="QuestPDF.Markdown" Version="1.47.0" />
 
@@ -67,8 +73,10 @@
         <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.3" />
         <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.3" />
 
-        <!-- SVG Support -->
-        <PackageReference Include="Svg.Skia" Version="3.4.1" />
+        <!-- AOT-clean SVG rasterizer used by ImageCacheService for shields,
+             badges and (via MarkdownService) mermaid diagrams. Replaces the
+             previous Svg.Skia 3.4.1 reference, which was non-AOT-friendly. -->
+        <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
 
         <!-- Diagnostics (debug only) -->
         <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12" Condition="'$(Configuration)' == 'Debug'" />
@@ -83,7 +91,7 @@
          decoupled from the lucidRESUME working tree. Bump the version when
          a new Mostlylucid.Avalonia.UITesting release lands. -->
     <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.1.0" />
+        <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.4.1" />
     </ItemGroup>
 
     <!-- Include README.md in output for Help menu -->

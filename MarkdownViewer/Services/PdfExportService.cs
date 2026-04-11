@@ -22,6 +22,7 @@ public partial class PdfExportService
         string? documentTitle,
         int fontSize,
         string? basePath,
+        bool allowLocalFiles,
         CancellationToken ct = default)
     {
         QuestPDF.Settings.License = LicenseType.Community;
@@ -30,7 +31,7 @@ public partial class PdfExportService
 
         try
         {
-            processedMarkdown = ResolveImagePaths(processedMarkdown, basePath);
+            processedMarkdown = ResolveImagePaths(processedMarkdown, basePath, allowLocalFiles);
             await BuildAndSavePdfAsync(processedMarkdown, outputPath, documentTitle, fontSize);
         }
         finally
@@ -50,10 +51,11 @@ public partial class PdfExportService
         string? documentTitle,
         int fontSize,
         string? basePath,
+        bool allowLocalFiles,
         CancellationToken ct = default)
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"lucidview_print_{Guid.NewGuid():N}.pdf");
-        await ExportAsync(rawMarkdown, tempPath, documentTitle, fontSize, basePath, ct);
+        await ExportAsync(rawMarkdown, tempPath, documentTitle, fontSize, basePath, allowLocalFiles, ct);
         return tempPath;
     }
 
@@ -104,25 +106,32 @@ public partial class PdfExportService
         return (result, tempFiles);
     }
 
-    private static string ResolveImagePaths(string markdown, string? basePath)
+    private static string ResolveImagePaths(string markdown, string? basePath, bool allowLocalFiles)
     {
-        if (string.IsNullOrEmpty(basePath))
-            return markdown;
-
         return ImagePathRegex().Replace(markdown, match =>
         {
             var alt = match.Groups[1].Value;
             var path = match.Groups[2].Value;
 
-            if (Uri.TryCreate(path, UriKind.Absolute, out var uri) &&
-                (uri.Scheme == "http" || uri.Scheme == "https" || uri.Scheme == "file" || uri.Scheme == "data"))
-                return match.Value;
+            if (Uri.TryCreate(path, UriKind.Absolute, out var uri))
+            {
+                if (uri.Scheme == "data")
+                    return match.Value;
+
+                if (allowLocalFiles && uri.Scheme == "file" && File.Exists(uri.LocalPath))
+                    return $"![{alt}]({new Uri(uri.LocalPath).AbsoluteUri})";
+
+                return $"*{alt} image omitted in export*";
+            }
+
+            if (string.IsNullOrEmpty(basePath) || !allowLocalFiles)
+                return $"*{alt} image omitted in export*";
 
             var resolved = Path.GetFullPath(Path.Combine(basePath, path));
             if (File.Exists(resolved))
                 return $"![{alt}]({new Uri(resolved).AbsoluteUri})";
 
-            return match.Value;
+            return $"*{alt} image omitted in export*";
         });
     }
 
@@ -135,7 +144,8 @@ public partial class PdfExportService
         var theme = ThemeColors.Light;
         var title = documentTitle ?? "Document";
 
-        // Parse markdown and download images (local file:// and remote http/https)
+        // Parse markdown and download images after path sanitization.
+        // Remote URLs are stripped earlier so export does not fetch arbitrary content.
         var parsed = ParsedMarkdownDocument.FromText(processedMarkdown);
         await parsed.DownloadImages();
 

@@ -1,7 +1,6 @@
 using MermaidSharp;
 using MermaidSharp.Diagrams.Flowchart;
-using SkiaSharp;
-using Svg.Skia;
+using Mostlylucid.ImageSharp.Svg;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -172,29 +171,13 @@ public class FlowchartLayoutBenchmark(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// Simulates the old pipeline: Naiad SVG render → SkiaSharp rasterize → PNG bytes
+    /// Naiad SVG render → Mostlylucid.ImageSharp.Svg rasterize → PNG bytes.
+    /// Mirrors the production path: same renderer, same scale.
     /// </summary>
     static byte[] RenderFullPipeline(string input)
     {
         var svgContent = Mermaid.Render(input, Options);
-
-        using var svg = new SKSvg();
-        svg.FromSvg(svgContent);
-        if (svg.Picture is null) return [];
-
-        var bounds = svg.Picture.CullRect;
-        var scale = 2f;
-        var width = (int)(bounds.Width * scale);
-        var height = (int)(bounds.Height * scale);
-
-        using var bitmap = new SKBitmap(width, height);
-        using var canvas = new SKCanvas(bitmap);
-        canvas.Clear(SKColors.Transparent);
-        canvas.Scale(scale);
-        canvas.DrawPicture(svg.Picture);
-
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        return data.ToArray();
+        var result = SvgImage.LoadAsPng(svgContent, new SvgRenderOptions { Scale = 2f });
+        return result.Bytes;
     }
 }

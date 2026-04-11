@@ -1,7 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ic="using:FluentIcons.Avalonia.Fluent"
-        xmlns:svg="using:Avalonia.Svg"
         xmlns:LiveMarkdown="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia">
 
     <!-- ==================== GLOBAL OVERRIDES ==================== -->
@@ -449,17 +448,6 @@
         <Setter Property="HorizontalAlignment" Value="Left" />
     </Style>
 
-    <!-- SAME RULES for the dedicated Svg control. LiveMarkdown.Avalonia uses
-         Svg.Controls.Avalonia's <Svg> control for inline SVG images (like
-         shields.io status badges). Without this style the Svg control's
-         default Stretch=Uniform fills the entire column width, blowing up a
-         100×20 badge to maybe 900×180 — what the user calls "shields render
-         absurdly big". DownOnly keeps small badges at natural size. -->
-    <Style Selector="svg|Svg">
-        <Setter Property="Stretch" Value="Uniform" />
-        <Setter Property="StretchDirection" Value="DownOnly" />
-        <Setter Property="HorizontalAlignment" Value="Left" />
-    </Style>
 
     <!-- ==================== METADATA PANEL ==================== -->
 

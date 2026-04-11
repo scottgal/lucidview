@@ -6,7 +6,6 @@ using MermaidSharp;
 using MermaidSharp.Diagrams.Flowchart;
 using MermaidSharp.Rendering;
 using SkiaSharp;
-using Svg.Skia;
 
 namespace MarkdownViewer.Services;
 
@@ -189,11 +188,7 @@ public partial class MarkdownService
                 EdgeLabelBackground = _themeEdgeLabelBackground,
                 SubgraphFill = _themeSubgraphFill,
                 SubgraphStroke = _themeSubgraphStroke
-            },
-            // Desktop host allows skin packs from local folders/archives. Mermaid input
-            // can keep paths relative to the current markdown file directory.
-            AllowFileSystemSkinPacks = true,
-            SkinPackBaseDirectory = _basePath
+            }
         };
     }
 
@@ -518,15 +513,7 @@ public partial class MarkdownService
             // Already absolute file path - convert to file URI
             if (Path.IsPathRooted(path))
             {
-                try
-                {
-                    var fileUri = new Uri(path).AbsoluteUri;
-                    return $"![{alt}]({fileUri})";
-                }
-                catch
-                {
-                    return match.Value;
-                }
+                return EmitLocalImage(alt, path);
             }
 
             // Resolve relative path
@@ -539,12 +526,10 @@ public partial class MarkdownService
 
             if (!string.IsNullOrEmpty(_basePath))
             {
-                // File-based resolution
                 try
                 {
                     var resolvedPath = Path.GetFullPath(Path.Combine(_basePath, path));
-                    var fileUri = new Uri(resolvedPath).AbsoluteUri;
-                    return $"![{alt}]({fileUri})";
+                    return EmitLocalImage(alt, resolvedPath);
                 }
                 catch
                 {
@@ -557,23 +542,51 @@ public partial class MarkdownService
     }
 
     /// <summary>
-    /// Process a remote image URL - use cached version if available
+    /// Emit markdown for a local image. SVGs are routed through
+    /// <see cref="ImageCacheService.CacheLocalSvg"/> so the AOT-clean
+    /// renderer rasterizes them to PNG up front — that lets us drop the
+    /// LiveMarkdown.Avalonia.Svg.Skia plugin entirely. Other formats are
+    /// passed through as a file:// URI for LiveMarkdown's default loader.
+    /// </summary>
+    private string EmitLocalImage(string alt, string absolutePath)
+    {
+        if (absolutePath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+        {
+            var pngPath = _imageCacheService?.CacheLocalSvg(absolutePath);
+            if (pngPath != null)
+                return $"![{alt}]({pngPath})";
+            // Fall through on render failure: emit the original SVG path so
+            // the caller still sees something (broken image vs nothing).
+        }
+
+        try
+        {
+            var fileUri = new Uri(absolutePath).AbsoluteUri;
+            return $"![{alt}]({fileUri})";
+        }
+        catch
+        {
+            return $"![{alt}]({absolutePath})";
+        }
+    }
+
+    /// <summary>
+    /// Process a remote image URL - use cached version if available.
+    /// IMPORTANT: LiveMarkdown.Avalonia's LocalFileAsyncImageLoaderHandler
+    /// only accepts PLAIN ABSOLUTE FILESYSTEM PATHS, not file:// URIs.
+    /// Wrapping the cached path in <c>new Uri(...).AbsoluteUri</c> produces
+    /// a file:// URI that LiveMarkdown silently rejects, falling back to the
+    /// original http URL — which is what made shields render as window-sized
+    /// bitmaps. Use the raw absolute path.
     /// </summary>
     private string ProcessRemoteImage(string alt, string url)
     {
-        // Use cached path if available
+        var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_IMG_DEBUG") == "1";
         var cachedPath = _imageCacheService?.GetCachedPath(url);
+        if (debug) Console.WriteLine($"[md-img] {url} → {(cachedPath ?? "MISS")}");
         if (cachedPath != null)
-        {
-            try
-            {
-                var fileUri = new Uri(cachedPath).AbsoluteUri;
-                return $"![{alt}]({fileUri})";
-            }
-            catch { }
-        }
+            return $"![{alt}]({cachedPath})";
 
-        // Return the resolved URL (will be loaded directly by renderer)
         return $"![{alt}]({url})";
     }
 
@@ -843,38 +856,9 @@ public partial class MarkdownService
     /// </summary>
     private string RenderMermaidToPng(string mermaidCode)
     {
-        // Capture theme state for thread safety
-        var isDark = _isDarkMode;
-        var textColor = _themeTextColor;
-        var bgColor = _themeBackgroundColor;
-
         var svgContent = TryRenderMermaid(mermaidCode);
         svgContent = PostProcessSvg(svgContent);
-
-        // Rasterize to PNG
-        using var svg = new SKSvg();
-        svg.FromSvg(svgContent);
-        if (svg.Picture == null)
-            throw new InvalidOperationException("SVG produced null picture");
-
-        var bounds = svg.Picture.CullRect;
-        var scale = 2f;
-        var width = (int)(bounds.Width * scale);
-        var height = (int)(bounds.Height * scale);
-
-        byte[] pngData;
-        using (var bitmap = new SKBitmap(width, height))
-        using (var canvas = new SKCanvas(bitmap))
-        {
-            canvas.Clear(SKColors.Transparent);
-            canvas.Scale(scale);
-            canvas.DrawPicture(svg.Picture);
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-            pngData = data.ToArray();
-        }
-
+        var pngData = RasterizeMermaidSvg(svgContent, scale: 2f);
         return WriteTempPng(pngData);
     }
 
@@ -894,25 +878,22 @@ public partial class MarkdownService
     {
         var svgContent = TryRenderMermaid(mermaidCode);
         svgContent = PostProcessSvg(svgContent);
+        return RasterizeMermaidSvg(svgContent, scale);
+    }
 
-        using var svg = new SKSvg();
-        svg.FromSvg(svgContent);
-        if (svg.Picture == null)
-            throw new InvalidOperationException("SVG produced null picture");
-
-        var bounds = svg.Picture.CullRect;
-        var width = (int)(bounds.Width * scale);
-        var height = (int)(bounds.Height * scale);
-
-        using var bitmap = new SKBitmap(width, height);
-        using var canvas = new SKCanvas(bitmap);
-        canvas.Clear(SKColors.Transparent);
-        canvas.Scale(scale);
-        canvas.DrawPicture(svg.Picture);
-
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        return data.ToArray();
+    /// <summary>
+    /// Rasterize a Naiad/mermaid SVG via Mostlylucid.ImageSharp.Svg — the
+    /// AOT-clean managed renderer. Replaces the previous SKSvg path so the
+    /// app no longer pulls SkiaSharp's SVG glue into AOT publish output.
+    /// </summary>
+    private static byte[] RasterizeMermaidSvg(string svgContent, float scale)
+    {
+        var result = Mostlylucid.ImageSharp.Svg.SvgImage.LoadAsPng(
+            svgContent,
+            new Mostlylucid.ImageSharp.Svg.SvgRenderOptions { Scale = scale });
+        if (result.Bytes.Length == 0)
+            throw new InvalidOperationException("SVG produced empty PNG");
+        return result.Bytes;
     }
 
     private string WriteTempPng(byte[] pngData)

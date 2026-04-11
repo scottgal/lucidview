@@ -81,9 +81,14 @@ public partial class MainWindow : Window
         _imageCacheService = new ImageCacheService();
         _markdownService.SetImageCacheService(_imageCacheService);
 
-        // Initialize LiveMarkdown renderer
+        // Initialize LiveMarkdown renderer.
+        // ImageBasePath is the security boundary for file:// images. We
+        // write cached SVGs (rendered to PNG) to a sibling temp folder, so
+        // point at the PARENT temp dir to cover both subdirectories:
+        //   {tmp}/lucidview-mermaid  ← diagrams
+        //   {tmp}/lucidview-images   ← cached remote images (incl. shields)
         MdViewer.MarkdownBuilder = _markdownBuilder;
-        MdViewer.ImageBasePath = _markdownService.TempDirectory;
+        MdViewer.ImageBasePath = Path.GetTempPath();
         MdViewer.LinkClick += OnLinkClick;
         _navigationService = new NavigationService();
         _themeService = new ThemeService(Application.Current!) { CustomTheme = _settings.CustomTheme };
@@ -353,9 +358,14 @@ public partial class MainWindow : Window
         // Phase 1: Fast path - text processing + cached mermaid diagrams
         var (processed, pendingDiagrams) = _markdownService.ProcessMarkdownFast(content);
 
-        // Show content immediately (with placeholders for uncached diagrams)
-        _markdownBuilder.Clear();
-        _markdownBuilder.Append(processed);
+        // Assign a brand-new ObservableStringBuilder each render. LiveMarkdown's
+        // image cache survives Clear+Append on the same instance, so http-loaded
+        // shields stayed huge even after the markdown source was rewritten to
+        // local paths. A new instance is the only thing that forces LiveMarkdown
+        // to drop its cached image bitmaps and re-parse from scratch.
+        var newBuilder = new LiveMarkdown.Avalonia.ObservableStringBuilder();
+        newBuilder.Append(processed);
+        MdViewer.MarkdownBuilder = newBuilder;
         RawTextBlock.Text = content;
 
         WelcomePanel.IsVisible = false;
@@ -376,6 +386,11 @@ public partial class MainWindow : Window
         // Deferred until layout has produced the visual tree.
         SchedulePromoteAnimatedImages(content);
 
+        // Apply natural display sizes to cached images (shields are rendered
+        // at 2× for hi-DPI crispness — without this they'd render at the
+        // physical pixel count and appear double-sized).
+        ScheduleConstrainCachedImages(processed);
+
         // Phase 2: Render uncached diagrams in background, then swap in results
         if (pendingDiagrams.Count > 0)
         {
@@ -391,14 +406,18 @@ public partial class MainWindow : Window
                     updated = updated.Replace(placeholder, replacement);
                 }
 
-                // Save scroll position and refresh
+                // Save scroll position and refresh — assign a new builder
+                // (same reason as the first phase: LiveMarkdown's image cache
+                // doesn't invalidate on Clear+Append against the same instance).
                 var scrollOffset = RenderedScroller.Offset;
-                _markdownBuilder.Clear();
-                _markdownBuilder.Append(updated);
+                var diagramBuilder = new LiveMarkdown.Avalonia.ObservableStringBuilder();
+                diagramBuilder.Append(updated);
+                MdViewer.MarkdownBuilder = diagramBuilder;
                 RenderedScroller.Offset = scrollOffset;
 
                 // Re-run marker replacement after pending diagrams update.
                 ScheduleDiagramMarkerReplacement();
+                ScheduleConstrainCachedImages(updated);
             }
             catch (OperationCanceledException)
             {
@@ -1828,6 +1847,76 @@ public partial class MainWindow : Window
         // Retry on a timer until we find at least one Image (or give up
         // after a few seconds).
         _ = PromoteAnimatedImagesWithRetry(animatedUrls);
+    }
+
+    /// <summary>
+    /// LiveMarkdown loads cached PNGs at their physical pixel dimensions and
+    /// uses those as DIPs. We render SVGs (shields, badges) at 2× for
+    /// hi-DPI crispness, so the on-screen result is double-sized. Walk the
+    /// rendered visual tree, pair each <see cref="Image"/> with its
+    /// corresponding cached path in document order, look up the natural 1×
+    /// display size, and assign Width/Height. Avalonia downscales the extra
+    /// pixels at composite time so the bitmap stays crisp.
+    /// </summary>
+    private void ScheduleConstrainCachedImages(string processedMarkdown)
+    {
+        if (string.IsNullOrEmpty(processedMarkdown)) return;
+        var imageUrls = ExtractAllImageUrls(processedMarkdown);
+        if (imageUrls.Count == 0) return;
+        _ = ConstrainCachedImagesWithRetry(imageUrls);
+    }
+
+    private async Task ConstrainCachedImagesWithRetry(List<string> markdownImageUrls)
+    {
+        const int maxAttempts = 30;       // ~3 seconds at 100ms cadence
+        const int delayMs = 100;
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            await Task.Delay(delayMs);
+
+            var images = Avalonia.VisualTree.VisualExtensions
+                .GetVisualDescendants(MdViewer)
+                .OfType<Image>()
+                .ToList();
+
+            if (images.Count > 0)
+            {
+                ApplyCachedImageConstraints(images, markdownImageUrls);
+                return;
+            }
+        }
+    }
+
+    private void ApplyCachedImageConstraints(List<Image> images, List<string> markdownImageUrls)
+    {
+        var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_IMG_DEBUG") == "1";
+        if (debug) Console.WriteLine($"[constrain] images={images.Count} urls={markdownImageUrls.Count}");
+
+        for (int i = 0; i < images.Count && i < markdownImageUrls.Count; i++)
+        {
+            var url = markdownImageUrls[i];
+            // url is whatever is in the rewritten markdown — for cached
+            // remote images this is the absolute local file path. Look up
+            // its natural display size in the cache.
+            var size = _imageCacheService.GetCachedDisplaySizeByLocalPath(url);
+            if (size == null) continue;
+
+            var img = images[i];
+            img.Width = size.Value.Width;
+            img.Height = size.Value.Height;
+            img.Stretch = Avalonia.Media.Stretch.Uniform;
+            if (debug) Console.WriteLine($"[constrain] image[{i}] {url} → {size.Value.Width}x{size.Value.Height}");
+        }
+    }
+
+    private static List<string> ExtractAllImageUrls(string markdown)
+    {
+        var urls = new List<string>();
+        foreach (Match m in Regex.Matches(markdown, @"!\[[^\]]*\]\(([^)\s]+)(?:\s+""[^""]*"")?\)"))
+        {
+            urls.Add(m.Groups[1].Value);
+        }
+        return urls;
     }
 
     private async Task PromoteAnimatedImagesWithRetry(List<string> animatedUrls)

@@ -1,0 +1,15 @@
+name: verify-local-svg
+description: Render a markdown file referencing local .svg files; verify they render via the AOT-clean rasterizer (no LiveMarkdown.Avalonia.Svg.Skia)
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: /tmp/local-svg-test/test-local-svg.md
+  - type: Wait
+    value: "3000"
+
+  - type: Screenshot
+    value: local-svg-rendered

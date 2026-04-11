@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Mostlylucid.ImageSharp.Svg.Cli</RootNamespace>
+    <AssemblyName>svg2png</AssemblyName>
+    <Version>0.1.0</Version>
+    <Product>svg2png</Product>
+    <Description>Tiny NativeAOT command-line SVG to PNG converter, powered by Mostlylucid.ImageSharp.Svg.</Description>
+    <Authors>Mostlylucid</Authors>
+    <Copyright>Copyright 2026</Copyright>
+
+    <!-- AOT-clean by construction. Surface trim/AOT warnings immediately so
+         we never regress. -->
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+
+    <!-- Optimise the binary for size — this is a tiny one-shot tool, code
+         locality matters more than throughput. -->
+    <OptimizationPreference>Size</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <DebuggerSupport>false</DebuggerSupport>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+
+    <!-- Drop pieces of the BCL we never touch. Each of these flips an IL
+         Linker substitution that lets the trimmer cut large swathes of
+         framework code. None of them affect SVG → PNG rendering. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <EventSourceSupport>false</EventSourceSupport>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <MetricsSupport>false</MetricsSupport>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <CustomResourceTypesSupport>false</CustomResourceTypesSupport>
+    <EnableCppCLIHostActivation>false</EnableCppCLIHostActivation>
+    <UseNativeHttpHandler>false</UseNativeHttpHandler>
+    <StackTraceSupport>false</StackTraceSupport>
+    <AutoreleasePoolSupport>false</AutoreleasePoolSupport>
+
+    <!-- Strip per-locale resources from satellite assemblies — we use
+         CultureInfo.InvariantCulture for everything anyway. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+
+    <!-- IL Linker root: keep only what's reachable from Program.Main. -->
+    <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
+  </ItemGroup>
+
+</Project>

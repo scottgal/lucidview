@@ -1,0 +1,207 @@
+name: svg2png Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., svg2png-v0.1.0)'
+        required: true
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_PATH: 'Mostlylucid.ImageSharp.Svg.Cli/Mostlylucid.ImageSharp.Svg.Cli.csproj'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            artifact: svg2png-win-x64
+            exe: svg2png.exe
+          - os: ubuntu-latest
+            rid: linux-x64
+            artifact: svg2png-linux-x64
+            exe: svg2png
+          - os: macos-latest
+            rid: osx-x64
+            artifact: svg2png-osx-x64
+            exe: svg2png
+          - os: macos-latest
+            rid: osx-arm64
+            artifact: svg2png-osx-arm64
+            exe: svg2png
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Publish (NativeAOT)
+      shell: bash
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} \
+          -c Release \
+          -r ${{ matrix.rid }} \
+          -o publish/${{ matrix.rid }}
+
+    - name: Prepare release folder (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        mkdir release
+        Copy-Item "publish/${{ matrix.rid }}/${{ matrix.exe }}" "release/"
+        Copy-Item "Mostlylucid.ImageSharp.Svg/README.md" "release/svg2png-README.md" -ErrorAction SilentlyContinue
+
+    - name: Prepare release folder (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        mkdir release
+        cp "publish/${{ matrix.rid }}/${{ matrix.exe }}" release/
+        chmod +x "release/${{ matrix.exe }}"
+        cp Mostlylucid.ImageSharp.Svg/README.md release/svg2png-README.md 2>/dev/null || true
+        # Ad-hoc codesign macOS binaries so Gatekeeper doesn't immediately
+        # quarantine downloads — distribution signing needs a Developer ID.
+        if [[ "${{ matrix.os }}" == macos-* ]]; then
+          codesign --force --sign - "release/${{ matrix.exe }}"
+        fi
+
+    - name: Create archive (Windows)
+      if: matrix.os == 'windows-latest'
+      run: Compress-Archive -Path release/* -DestinationPath ${{ matrix.artifact }}.zip
+      shell: pwsh
+
+    - name: Create archive (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        cd release
+        zip -r ../${{ matrix.artifact }}.zip .
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact }}
+        path: ${{ matrix.artifact }}.zip
+        retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Flatten artifacts
+      run: |
+        mkdir -p release-files
+        find artifacts -name "*.zip" -exec cp {} release-files/ \;
+        ls -la release-files/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.inputs.version }}
+        name: svg2png ${{ github.event.inputs.version }}
+        draft: false
+        prerelease: false
+        files: release-files/*.zip
+        body: |
+          ## svg2png ${{ github.event.inputs.version }}
+
+          A tiny **NativeAOT** command-line SVG to PNG converter, powered by
+          [`Mostlylucid.ImageSharp.Svg`](https://github.com/scottgal/lucidview/tree/main/Mostlylucid.ImageSharp.Svg).
+          Single self-contained native binary, no .NET runtime required, no
+          SkiaSharp, no native binaries beyond libc.
+
+          ### Downloads
+
+          | Platform | File | Size |
+          |---|---|---|
+          | Windows x64 | `svg2png-win-x64.zip` | ~10 MB |
+          | macOS Apple Silicon | `svg2png-osx-arm64.zip` | ~10 MB |
+          | macOS Intel | `svg2png-osx-x64.zip` | ~10 MB |
+          | Linux x64 | `svg2png-linux-x64.zip` | ~10 MB |
+
+          ### Usage
+
+          ```bash
+          svg2png input.svg output.png
+          svg2png input.svg output.png --scale 2 --background white
+          cat input.svg | svg2png - output.png
+          svg2png input.svg - > output.png
+          svg2png --help
+          ```
+
+          ### Options
+
+          | Flag | Description |
+          |---|---|
+          | `--scale <N>` | Output bitmap scale multiplier (default: 1.0) |
+          | `--background <color>` | Fill colour, e.g. `white` or `#ffffff` |
+          | `--quiet` | Suppress informational output |
+          | `-h`, `--help` | Show help |
+
+          Input or output can be `-` to use stdin/stdout.
+
+          ### Renderer scope
+
+          svg2png handles the SVG element subset that real-world content
+          actually emits — every shape (`rect/circle/ellipse/line/path/
+          polygon/polyline/text/g`), the full transform set, presentation
+          attribute inheritance, CSS class selectors from `<style>` blocks,
+          every CSS color form (hex/named/`rgb()`/`rgba()`/`hsl()`/`hsla()`),
+          gradient stops (collapsed to midpoint colour for now). Out of scope:
+          SMIL animation, `foreignObject`, advanced filters. Aim is "renders
+          the SVGs you actually feed it", not "implements the W3C spec from
+          scratch".
+
+          ### Verified against
+
+          - shields.io badges (build / license / version / language / etc.)
+          - **162/162** Naiad mermaid test fixtures (flowchart, sequence,
+            state, class, pie, ER, gantt, C4, BPMN, treemap, mindmap, gitgraph,
+            quadrant, radar, timeline, etc.)
+          - 32/32 Naiad doc-diagram fixtures
+          - lucidVIEW's own image cache pipeline (used in production
+            since v2.5.0)
+
+          ### macOS install
+
+          ```bash
+          unzip svg2png-osx-arm64.zip
+          xattr -d com.apple.quarantine svg2png 2>/dev/null || true
+          chmod +x svg2png
+          ./svg2png --help
+          ```
+
+          The macOS binary is ad-hoc codesigned. The `xattr` line removes
+          the quarantine bit so Gatekeeper lets it run.
+
+          ### Linux install
+
+          ```bash
+          unzip svg2png-linux-x64.zip
+          chmod +x svg2png
+          ./svg2png --help
+          ```
+
+          ### Windows install
+
+          ```powershell
+          Expand-Archive svg2png-win-x64.zip
+          .\svg2png-win-x64\svg2png.exe --help
+          ```
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

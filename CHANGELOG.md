@@ -4,38 +4,89 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
-## v2.3.0 — 2026-04-11
+## v2.5.0 — 2026-04-11
 
 ### Added
 
+- **`Mostlylucid.ImageSharp.Svg`** — a small, low-allocation, AOT-clean SVG
+  rasterizer built on SixLabors.ImageSharp. Lives at the repo root as a
+  standalone library (~1100 lines, 7 files). No SkiaSharp, no native binaries,
+  no reflection. Hand-rolled XmlReader-based parser → AST → ImageSharp
+  draw calls. Honours the cascade for inheritable presentation attributes
+  (`<g>` parents, `style=""`, CSS class selectors from `<style>` blocks),
+  parses every CSS color form (hex, named, `rgb()`, `rgba()`, `hsl()`,
+  `hsla()`), supports `viewBox`, transforms (translate/scale/rotate/skew/
+  matrix), and the full SVG element subset that shields.io and Naiad/mermaid
+  emit (`rect/circle/ellipse/line/path/polygon/polyline/text/g`). Publishes
+  clean under `dotnet publish -p:PublishAot=true` — verified at 1 MB native
+  dylib, zero trim warnings.
+- **`svg2png` AOT command-line tool** (released separately, see the
+  svg2png-v0.1.0 release). Single 9.7 MB native binary, no .NET runtime
+  required. Reads SVG from disk or stdin, writes PNG to disk or stdout,
+  supports `--scale`, `--background`, `--quiet`. Built from the new
+  `Mostlylucid.ImageSharp.Svg.Cli` project. Cross-platform: win-x64,
+  linux-x64, osx-x64, osx-arm64.
+- **Local SVG markdown images** are now rendered through the new managed
+  rasterizer. `MarkdownService.ProcessImagePaths` detects `.svg` paths and
+  routes them to `ImageCacheService.CacheLocalSvg`, which converts to PNG
+  via `Mostlylucid.ImageSharp.Svg` and rewrites the markdown to point at
+  the cached PNG. Cache key includes the source file's mtime so editing the
+  SVG on disk re-renders automatically on the next document open.
 - **Animated GIF / WebP / animated PNG playback** in the markdown renderer.
   LiveMarkdown.Avalonia uses Avalonia's static `Bitmap` for images which
   only decodes the first frame, so animated formats appeared as one
-  static frame. Added `AnimatedImage.Avalonia` (Debug + Release) and a
-  post-render visual-tree visitor that finds `Image` controls in the
-  document and promotes the ones whose markdown source URL is
-  `*.gif|*.webp|*.apng` to the animated source via
-  `ImageBehavior.SetAnimatedSource`. Loop count is respected via
+  static frame. Added `AnimatedImage.Avalonia` and a post-render visual-tree
+  visitor that finds `Image` controls in the document and promotes the ones
+  whose markdown source URL is `*.gif|*.webp|*.apng` to the animated source
+  via `ImageBehavior.SetAnimatedSource`. Loop count is respected via
   `RepeatBehavior.Default` (the file's embedded loop count). Verified
-  end-to-end via `ux-scripts/verify-gif-playback.yaml` — captures five
-  frames spaced 700ms apart and confirms the md5s differ.
+  end-to-end via `ux-scripts/verify-gif-playback.yaml` — captures four
+  frames spaced 600ms apart and confirms the md5s differ.
 - **Restart-animation overlay button** on each animated image. 28×28
-  circular button in the top-right corner of the image, attached via
-  `AdornerLayer`. Click → clears `AnimatedSource` and immediately re-sets
-  it, restarting the animation from frame 0. Pause/resume isn't possible
-  because `AnimatedImage.Avalonia` doesn't expose a public play/pause
-  API; clearing `AnimatedSource` would blank the image, which is worse
-  than no pause at all.
+  circular button in the top-right corner of the image, attached via the
+  visual tree alongside the image. Click → clears `AnimatedSource` and
+  immediately re-sets it, restarting the animation from frame 0.
+  Pause/resume isn't possible because `AnimatedImage.Avalonia` doesn't
+  expose a public play/pause API; clearing `AnimatedSource` would blank
+  the image, which is worse than no pause at all.
+
+### Changed
+
+- **Five SKSvg sites in lucidview replaced** with the new managed
+  rasterizer:
+  - `ImageCacheService.ConvertSvgToPng` (shields/badges)
+  - `MarkdownService.RenderMermaidToPng` (in-app mermaid PNG fallback)
+  - `MarkdownService.ExportMermaidToPngBytes` (PDF export pipeline)
+  - `FlowchartLayoutBenchmark.RenderFullPipeline` (test harness)
+  - Local `.svg` markdown image loading (was previously handled by
+    `LiveMarkdown.Avalonia.Svg.Skia`)
+- **`Svg.Skia` and the `LiveMarkdown.Avalonia.Svg.Skia` plugin removed**
+  from `MarkdownViewer.csproj`. The entire `Svg.Skia` / `Svg.Custom` /
+  `Svg.Model` / `ShimSkiaSharp` family is gone from the resolved
+  dependency graph (`dotnet list package --include-transitive` confirms
+  this for both `MarkdownViewer` and `MarkdownViewer.Tests`). Trims a
+  meaningful chunk of the Release single-file payload — the new
+  `Mostlylucid.ImageSharp.Svg.dll` is 31 KB, replacing several MB of
+  Svg.Skia + ShimSkiaSharp + Svg.Custom + Svg.Model.
 
 ### Fixed
 
-- **Shields/badges no longer render double-size**. The
-  `Svg.Controls.Avalonia` `SvgImage` control has its own
-  `Stretch`/`StretchDirection` properties separate from `Image`, and the
-  default `Stretch=Uniform` was filling the column width — blowing up a
-  100×20 shield to 800×160. Added a matching style on `svg|SvgImage` with
-  `Stretch=Uniform StretchDirection=DownOnly` so badges stay at natural
-  size like normal `Image` controls.
+- **Shields/badges no longer render at column width.** Two distinct
+  bugs were collapsing into the same visible symptom. (1) The cache
+  rewriter was emitting `file://` URIs for resolved cache paths, which
+  LiveMarkdown's `LocalFileAsyncImageLoaderHandler` silently rejects —
+  fixed by emitting plain absolute paths. (2) PNGs cached at 2× their
+  intrinsic size for hi-DPI crispness were being displayed pixel-for-DIP
+  by Avalonia, doubling on-screen size — fixed by `ImageCacheService`
+  recording the SVG's natural 1× dimensions and a post-render visual-tree
+  walker (`MainWindow.ScheduleConstrainCachedImages`) setting `Width`/
+  `Height` on each cached `Image` control to the natural size, so the
+  bitmap downscales at composite time and looks crisp.
+- **Shields re-fetch on every document open.** Added
+  `ImageCacheService.InvalidateInMemoryCache()`, called from
+  `LoadFile`/`LoadFromUrl` so dynamic shields (build status, latest
+  version, downloads) reflect the current state instead of whatever was
+  cached when the app started.
 
 ## v2.2.4 — 2026-04-11
 

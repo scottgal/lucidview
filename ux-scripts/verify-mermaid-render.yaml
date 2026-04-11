@@ -1,0 +1,15 @@
+name: verify-mermaid-render
+description: Render a markdown file with a mermaid block, capture, eyeball whether the diagram came out
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: test-flowchart.md
+  - type: Wait
+    value: "3500"
+
+  - type: Screenshot
+    value: mermaid-rendered
