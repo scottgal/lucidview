@@ -4,6 +4,39 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- **Animated GIF / WebP / animated PNG playback** in the markdown renderer.
+  LiveMarkdown.Avalonia uses Avalonia's static `Bitmap` for images which
+  only decodes the first frame, so animated formats appeared as one
+  static frame. Added `AnimatedImage.Avalonia` (Debug + Release) and a
+  post-render visual-tree visitor that finds `Image` controls in the
+  document and promotes the ones whose markdown source URL is
+  `*.gif|*.webp|*.apng` to the animated source via
+  `ImageBehavior.SetAnimatedSource`. Loop count is respected via
+  `RepeatBehavior.Default` (the file's embedded loop count). Verified
+  end-to-end via `ux-scripts/verify-gif-playback.yaml` — captures five
+  frames spaced 700ms apart and confirms the md5s differ.
+- **Restart-animation overlay button** on each animated image. 28×28
+  circular button in the top-right corner of the image, attached via
+  `AdornerLayer`. Click → clears `AnimatedSource` and immediately re-sets
+  it, restarting the animation from frame 0. Pause/resume isn't possible
+  because `AnimatedImage.Avalonia` doesn't expose a public play/pause
+  API; clearing `AnimatedSource` would blank the image, which is worse
+  than no pause at all.
+
+### Fixed
+
+- **Shields/badges no longer render double-size**. The
+  `Svg.Controls.Avalonia` `SvgImage` control has its own
+  `Stretch`/`StretchDirection` properties separate from `Image`, and the
+  default `Stretch=Uniform` was filling the column width — blowing up a
+  100×20 shield to 800×160. Added a matching style on `svg|SvgImage` with
+  `Stretch=Uniform StretchDirection=DownOnly` so badges stay at natural
+  size like normal `Image` controls.
+
 ## v2.2.4 — 2026-04-11
 
 ### Fixed

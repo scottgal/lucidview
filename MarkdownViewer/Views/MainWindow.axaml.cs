@@ -460,10 +460,21 @@ public partial class MainWindow : Window
     // underneath the first, unclickable). The guard makes the dialog one-at-
     // a-time regardless of which path triggered it.
     private bool _filePickerOpen;
+    private int _openFileEnterCount;
+    private int _openFileBlockedCount;
 
     private async Task OpenFile()
     {
-        if (_filePickerOpen) return;
+        Interlocked.Increment(ref _openFileEnterCount);
+        if (Environment.GetEnvironmentVariable("LUCIDVIEW_FILE_DEBUG") == "1")
+            Console.WriteLine($"[file] OpenFile enter#{_openFileEnterCount} pickerOpen={_filePickerOpen}");
+        if (_filePickerOpen)
+        {
+            Interlocked.Increment(ref _openFileBlockedCount);
+            if (Environment.GetEnvironmentVariable("LUCIDVIEW_FILE_DEBUG") == "1")
+                Console.WriteLine($"[file] OpenFile BLOCKED (re-entry) blocked#{_openFileBlockedCount}");
+            return;
+        }
         _filePickerOpen = true;
         try
         {
@@ -646,6 +657,10 @@ public partial class MainWindow : Window
 
         // Replace marker text with native diagram controls once the visual tree is ready.
         ScheduleDiagramMarkerReplacement();
+
+        // Promote any GIF Image controls to AnimatedImage so they actually play.
+        // Deferred until layout has produced the visual tree.
+        SchedulePromoteAnimatedImages(content);
 
         // Phase 2: Render uncached diagrams in background, then swap in results
         if (pendingDiagrams.Count > 0)
@@ -2185,6 +2200,216 @@ public partial class MainWindow : Window
                 }
             }
         }
+    }
+
+    #endregion
+
+    #region Animated Images (GIF / WebP / animated PNG)
+
+    // Markdown image references that look animated. We treat .gif, .webp,
+    // and .apng as the targets — AnimatedImage.Avalonia handles all three.
+    private static readonly Regex AnimatedImageMarkdownRegex =
+        new(@"!\[[^\]]*\]\(([^)\s]+\.(?:gif|webp|apng)(?:\?[^)\s]*)?)\)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Schedule a visual-tree walk that promotes animated image URLs to
+    /// <see cref="AnimatedImage.Avalonia.ImageBehavior.AnimatedSourceProperty"/>.
+    /// LiveMarkdown.Avalonia uses Avalonia's static <c>Bitmap</c> for images,
+    /// which only decodes the first frame. After LiveMarkdown finishes
+    /// building the visual tree, we walk it, find <see cref="Image"/> controls
+    /// in document order, and pair them up with the markdown's animated
+    /// image URLs (in source order). For each match we set the AnimatedSource
+    /// attached property — that triggers AnimatedImage's frame loop and
+    /// clears the static Source.
+    /// </summary>
+    private void SchedulePromoteAnimatedImages(string markdown)
+    {
+        if (string.IsNullOrEmpty(markdown)) return;
+        var animatedUrls = ExtractAnimatedImageUrls(markdown);
+        if (animatedUrls.Count == 0) return;
+
+        // LiveMarkdown materializes images asynchronously well after the
+        // first layout pass, so a single Dispatcher.Post finds zero Images.
+        // Retry on a timer until we find at least one Image (or give up
+        // after a few seconds).
+        _ = PromoteAnimatedImagesWithRetry(animatedUrls);
+    }
+
+    private async Task PromoteAnimatedImagesWithRetry(List<string> animatedUrls)
+    {
+        const int maxAttempts = 30;       // ~3 seconds at 100ms cadence
+        const int delayMs = 100;
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            await Task.Delay(delayMs);
+
+            var images = Avalonia.VisualTree.VisualExtensions
+                .GetVisualDescendants(MdViewer)
+                .OfType<Image>()
+                .ToList();
+
+            if (images.Count > 0)
+            {
+                PromoteAnimatedImages(animatedUrls);
+                return;
+            }
+        }
+    }
+
+    private static List<string> ExtractAnimatedImageUrls(string markdown)
+    {
+        var urls = new List<string>();
+        foreach (Match m in AnimatedImageMarkdownRegex.Matches(markdown))
+        {
+            var url = m.Groups[1].Value;
+            if (!string.IsNullOrWhiteSpace(url)) urls.Add(url);
+        }
+        return urls;
+    }
+
+    private void PromoteAnimatedImages(List<string> animatedUrls)
+    {
+        if (MdViewer is null) return;
+        var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_GIF_DEBUG") == "1";
+        if (debug) Console.WriteLine($"[gif] promote called animated={animatedUrls.Count}");
+
+        // Walk the rendered visual tree to find Image controls in document
+        // order. LiveMarkdown emits images in markdown source order so we
+        // can pair them up by index — we step through the tree's Images and
+        // promote ones whose corresponding markdown reference is animated.
+        // We assume EVERY markdown image becomes an Image control (LiveMarkdown
+        // doesn't drop any), so the i-th Image corresponds to the i-th
+        // markdown image. The animatedUrls list is in source order too.
+
+        var images = Avalonia.VisualTree.VisualExtensions
+            .GetVisualDescendants(MdViewer)
+            .OfType<Image>()
+            .ToList();
+
+        if (debug) Console.WriteLine($"[gif] images found in tree: {images.Count}");
+        if (images.Count == 0) return;
+
+        // Re-extract ALL image URLs (animated and static) from the markdown
+        // in order, so we can map index → URL and pick out the animated ones.
+        var allMarkdownImageUrls = new List<string>();
+        foreach (Match m in Regex.Matches(_rawContent, @"!\[[^\]]*\]\(([^)\s]+)(?:\s+""[^""]*"")?\)"))
+        {
+            allMarkdownImageUrls.Add(m.Groups[1].Value);
+        }
+
+        var animatedSet = new HashSet<string>(animatedUrls, StringComparer.OrdinalIgnoreCase);
+
+        if (debug) Console.WriteLine($"[gif] markdown image URLs: {allMarkdownImageUrls.Count} animatedSet={animatedSet.Count}");
+
+        if (debug) Console.WriteLine($"[gif] markdown image URLs: {allMarkdownImageUrls.Count} animatedSet={animatedSet.Count}");
+
+        for (int i = 0; i < images.Count && i < allMarkdownImageUrls.Count; i++)
+        {
+            var url = allMarkdownImageUrls[i];
+            if (!animatedSet.Contains(url))
+            {
+                if (debug) Console.WriteLine($"[gif] skip[{i}] url={url} (not animated)");
+                continue;
+            }
+
+            try
+            {
+                var resolvedUri = ResolveImageUriForAnimation(url);
+                if (debug) Console.WriteLine($"[gif] promote[{i}] url={url} resolved={resolvedUri}");
+                if (resolvedUri is null) continue;
+
+                AnimatedImage.Avalonia.ImageBehavior.SetAnimatedSource(images[i], resolvedUri);
+                AttachGifPlaybackOverlay(images[i], resolvedUri);
+                if (debug) Console.WriteLine($"[gif] SetAnimatedSource OK on image[{i}]");
+            }
+            catch (Exception ex)
+            {
+                if (debug) Console.WriteLine($"[gif] ERROR promoting image[{i}]: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Attaches a small "restart" button overlay to an animated image via the
+    /// AdornerLayer. Click → clears AnimatedSource and immediately re-sets it,
+    /// which restarts the animation from frame 0. This is the only "playback
+    /// control" we can offer cleanly because AnimatedImage.Avalonia doesn't
+    /// expose a public pause/resume API — pausing would just blank the image.
+    /// </summary>
+    private static void AttachGifPlaybackOverlay(Image image, Uri uri)
+    {
+        var adornerLayer = AdornerLayer.GetAdornerLayer(image);
+        if (adornerLayer is null) return;
+
+        // Don't double-attach if a previous render already added one.
+        if (image.GetValue(GifOverlayAttachedProperty) is true) return;
+        image.SetValue(GifOverlayAttachedProperty, true);
+
+        var restartButton = new Button
+        {
+            Width = 28,
+            Height = 28,
+            Padding = new Avalonia.Thickness(4),
+            Background = new SolidColorBrush(Color.FromArgb(0xC0, 0x00, 0x00, 0x00)),
+            BorderThickness = new Avalonia.Thickness(0),
+            CornerRadius = new Avalonia.CornerRadius(14),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            Margin = new Avalonia.Thickness(0, 6, 6, 0),
+            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+            [ToolTip.TipProperty] = "Restart animation",
+            Content = new FluentIcons.Avalonia.Fluent.SymbolIcon
+            {
+                Symbol = FluentIcons.Common.Symbol.ArrowClockwise,
+                FontSize = 16,
+                Foreground = Brushes.White
+            }
+        };
+
+        restartButton.Click += (_, _) =>
+        {
+            // The only way to restart with AnimatedImage.Avalonia is to clear
+            // and re-set the AnimatedSource. This jumps the animation back to
+            // frame 0 and respects the file's loop behavior again.
+            AnimatedImage.Avalonia.ImageBehavior.SetAnimatedSource(image, null!);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                AnimatedImage.Avalonia.ImageBehavior.SetAnimatedSource(image, uri);
+            });
+        };
+
+        adornerLayer.Children.Add(restartButton);
+        AdornerLayer.SetAdornedElement(restartButton, image);
+    }
+
+    private static readonly AttachedProperty<bool> GifOverlayAttachedProperty =
+        AvaloniaProperty.RegisterAttached<MainWindow, Image, bool>("GifOverlayAttached");
+
+    /// <summary>
+    /// Map a markdown image URL into something <c>AnimatedImageSource</c>'s
+    /// implicit Uri conversion can open. Handles http(s), absolute file
+    /// paths, and document-relative paths.
+    /// </summary>
+    private Uri? ResolveImageUriForAnimation(string url)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out var absolute))
+        {
+            if (absolute.Scheme == "http" || absolute.Scheme == "https" ||
+                absolute.Scheme == "file" || absolute.Scheme == "avares")
+                return absolute;
+        }
+
+        // Document-relative path: resolve against the current file's directory.
+        var basePath = _currentFilePath != null ? Path.GetDirectoryName(_currentFilePath) : null;
+        if (!string.IsNullOrEmpty(basePath))
+        {
+            var combined = Path.GetFullPath(Path.Combine(basePath, url));
+            if (File.Exists(combined))
+                return new Uri(combined);
+        }
+
+        return null;
     }
 
     #endregion

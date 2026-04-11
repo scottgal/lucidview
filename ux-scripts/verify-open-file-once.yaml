@@ -1,0 +1,55 @@
+# Verify the Open File picker only opens ONCE per click — was double-firing
+# in v2.2.3 (second dialog stacked underneath the first, unclickable).
+#
+# This script clicks the Open File menu item TWICE rapidly. With the
+# _filePickerOpen guard in place, only the first click should reach the
+# StorageProvider — the second should be blocked. The diagnostic in
+# OpenFile() (gated by LUCIDVIEW_FILE_DEBUG=1) prints to Console:
+#
+#   [file] OpenFile enter#1 pickerOpen=False
+#   [file] OpenFile enter#2 pickerOpen=True
+#   [file] OpenFile BLOCKED (re-entry) blocked#1
+#
+# That's the contract. We grep the log for "BLOCKED" to confirm the guard
+# fired. If we see two enters with pickerOpen=False, the guard is broken.
+#
+# Run:
+#   LUCIDVIEW_FILE_DEBUG=1 dotnet MarkdownViewer/bin/Debug/net10.0/osx-arm64/lucidVIEW.dll \
+#       --ux-test --script ux-scripts/verify-open-file-once.yaml \
+#       --output /tmp/verify-open-file > /tmp/verify.log 2>&1
+#   grep "\[file\]" /tmp/verify.log
+
+name: verify-open-file-once
+description: Click Open File twice rapidly, verify the re-entry guard fires
+default_delay: 200
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "800"
+
+  # Open the side panel
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+
+  # Click Open File TWICE in rapid succession.
+  # The first should fire OpenFile() and start a picker.
+  # The second should be blocked by _filePickerOpen.
+  - type: Click
+    target: MenuOpenFileBtn
+  - type: Click
+    target: MenuOpenFileBtn
+  - type: Wait
+    value: "1000"
+
+  # Try to dismiss any picker that may have surfaced
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "500"

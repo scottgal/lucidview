@@ -1,0 +1,15 @@
+name: verify-shield-size
+description: Render a doc with shields, capture, eyeball whether they're natural-size or blown up
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: /tmp/gif-test/test-shield.md
+  - type: Wait
+    value: "2500"
+
+  - type: Screenshot
+    value: shields-rendered

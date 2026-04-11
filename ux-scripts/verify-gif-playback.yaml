@@ -1,0 +1,46 @@
+# Verify animated GIF playback in the markdown renderer.
+#
+# Loads /tmp/gif-test/test-gif.md (which references ruler-drag-demo.gif),
+# waits for two render passes far enough apart that an animated GIF will
+# be on different frames, takes two screenshots, then compares md5s.
+# Different md5s = animation worked. Same md5s = static first frame only.
+#
+# Run:
+#   dotnet MarkdownViewer/bin/Debug/net10.0/osx-arm64/lucidVIEW.dll \
+#       --ux-test --script ux-scripts/verify-gif-playback.yaml \
+#       --output /tmp/verify-gif
+
+name: verify-gif-playback
+description: Load a doc with an animated GIF, screenshot at two times, diff to verify animation
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: /tmp/gif-test/test-gif.md
+  - type: Wait
+    value: "1500"
+
+  # Capture five frames over ~3 seconds. The ruler-drag-demo.gif is ~30
+  # frames at 10 fps so each capture should land on a different frame if
+  # the animation is actually running.
+  - type: Screenshot
+    value: gif-frame-A
+  - type: Wait
+    value: "700"
+  - type: Screenshot
+    value: gif-frame-B
+  - type: Wait
+    value: "700"
+  - type: Screenshot
+    value: gif-frame-C
+  - type: Wait
+    value: "700"
+  - type: Screenshot
+    value: gif-frame-D
+  - type: Wait
+    value: "700"
+  - type: Screenshot
+    value: gif-frame-E
