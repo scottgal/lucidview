@@ -1,10 +1,20 @@
-# Ruler test + capture for the user manual.
+# Ruler test + capture (animated) for the user manual.
 #
-# The harness now has a real PointerSimulator so we drive the Thumb drag with
-# explicit coordinates. lucidVIEW launches at 1100×750, the left gutter is
-# 18px, the default ContentMaxWidth is 900, so the right handle sits around
-# (1009, 11) and the left handle around (109, 11) when the ruler is on.
-# These coordinates must match the math in MainWindow.UpdateRulerHandlesFromWidth.
+# Mostlylucid.Avalonia.UITesting 1.1.0+ has a real PointerSimulator with
+# Drag/StartVideo/StopVideo support, so we record a GIF of the actual ruler
+# behaviour: toggle on, drag the right handle inward, drag it back out, click
+# the ruler bar to snap-set the width. Watching the GIF tells us instantly
+# whether handle and Border line up while dragging.
+#
+# lucidVIEW window: 1100×750 (default startup)
+# Left gutter:      18px wide
+# Default column:   ContentMaxWidth = 900
+#
+# Computed handle positions when the ruler is on at the default width:
+#   right handle ≈ (1009, 11)
+#   left handle  ≈ (109,  11)
+#   ruler track  ≈ y=11, height=4
+# These need to match MainWindow.UpdateRulerHandlesFromWidth.
 #
 # Run:
 #   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -- \
@@ -12,8 +22,8 @@
 #       --output MarkdownViewer/Assets/manual/screenshots
 
 name: capture-ruler
-description: Capture the Word-style ruler in its on/off states for the manual
-default_delay: 350
+description: Animated capture of the Word-style ruler — toggle, drag, click-set
+default_delay: 300
 
 actions:
   - type: Wait
@@ -24,21 +34,70 @@ actions:
   - type: Wait
     value: "900"
 
-  # Default — no ruler.
+  # 1. Default — no ruler.
   - type: Screenshot
     value: 17-ruler-off
     description: Document with the ruler hidden (default)
 
-  # Toggle the ruler on. The header has RulerToggleBtn next to ResetZoomBtn.
+  # 2. Toggle the ruler on.
   - type: Click
     target: RulerToggleBtn
   - type: Wait
     value: "600"
   - type: Screenshot
     value: 18-ruler-on
-    description: Document with the ruler visible — handles + dotted guides + width readout
+    description: Document with the ruler visible
 
-  # Toggle off so subsequent runs start clean.
+  # 3. Start a GIF recording so we can see the drag in motion.
+  - type: StartVideo
+    value: "10"
+    description: 10 fps GIF capture
+
+  # 4. Drag the right handle inward (X 1009 → 800) — narrows the column.
+  - type: Drag
+    x: 1009
+    y: 11
+    x2: 800
+    y2: 11
+    steps: 20
+    description: Drag right handle inward
+  - type: Wait
+    value: "500"
+
+  # 5. Drag it back out (X 800 → 1050) — widens past default.
+  - type: Drag
+    x: 800
+    y: 11
+    x2: 1050
+    y2: 11
+    steps: 20
+    description: Drag right handle back outward
+  - type: Wait
+    value: "500"
+
+  # 6. Drag the LEFT handle inward (X 50 → 250) — narrows from the other side.
+  - type: Drag
+    x: 50
+    y: 11
+    x2: 250
+    y2: 11
+    steps: 20
+    description: Drag left handle inward
+  - type: Wait
+    value: "500"
+
+  # 7. Click in the empty ruler bar to snap-set the width to a wide value.
+  - type: Click
+    target: RulerToggleBtn
+    description: noop click on toggle button as a video marker
+  - type: Wait
+    value: "300"
+
+  # 8. Stop video.
+  - type: StopVideo
+    value: ruler-drag-demo
+
+  # 9. Toggle off so subsequent runs start clean.
   - type: Click
     target: RulerToggleBtn
   - type: Wait

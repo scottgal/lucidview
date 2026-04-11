@@ -4,6 +4,40 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v2.2.2 — 2026-04-11
+
+### Fixed
+
+- **Ruler handles align with the actual card outline at every scale.** The
+  Border had `HorizontalAlignment="Center"` which made it shrink to fit the
+  content's natural width rather than honour `MaxWidth`. So the visible
+  card was sitting at the *content* width (e.g. 616px), not the configured
+  900px column, and the handles were correctly placed on the *configured*
+  edges — which were nowhere near the visible card edges. Switched to
+  `Border.Width = ContentMaxWidth` (an explicit width, not a cap) so the
+  Border is forced to the column width regardless of content.
+- **Width persists immediately on drag.** `OnRulerHandleDragDelta` now
+  calls `_settings.Save()` after each delta. The settings file is tiny so
+  the write cost is negligible. Survives unexpected app exit, not just a
+  clean window close.
+
+### Changed
+
+- **`Mostlylucid.Avalonia.UITesting` is now consumed via NuGet (1.1.0)**
+  instead of a `<ProjectReference>` to the local lucidRESUME working tree.
+  Decouples the lucidVIEW Debug build from in-progress lucidRESUME edits.
+  The package is still gated to Debug-only so Release builds stay tiny and
+  AOT-friendly.
+
+### Internal
+
+- Added a `LUCIDVIEW_RULER_DEBUG=1` environment variable that prints the
+  computed ruler alignment values to `Console.WriteLine` on every layout
+  update. Avoids having to record large GIFs to diagnose alignment drift.
+- All ruler logic now reads/writes `MarkdownContentBorder.Width` instead
+  of `.MaxWidth` (drag handler, click handler, scale refresh, layout
+  subscription, width readout).
+
 ## v2.2.1 — 2026-04-11
 
 ### Fixed

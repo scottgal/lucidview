@@ -2172,7 +2172,12 @@ public partial class MainWindow : Window
     {
         var w = _settings.ContentMaxWidth;
         if (w < MinContentWidth || w > MaxContentWidth) w = 900;
-        MarkdownContentBorder.MaxWidth = w;
+        // Use Width (not MaxWidth) so the Border is FORCED to this size
+        // regardless of its content. Otherwise HorizontalAlignment="Center"
+        // shrinks the Border to fit the natural text width and the ruler
+        // handles end up sitting on a column much narrower than the user
+        // thinks they're resizing.
+        MarkdownContentBorder.Width = w;
 
         // Subscribe to the Border's bounds — that's the authoritative position
         // for the handles. Handles will track real layout changes (resize,
@@ -2184,7 +2189,7 @@ public partial class MainWindow : Window
             MarkdownContentBorder.PropertyChanged += (_, e) =>
             {
                 if (e.Property == BoundsProperty && _settings.ShowRuler)
-                    UpdateRulerHandlesFromWidth(MarkdownContentBorder.MaxWidth);
+                    UpdateRulerHandlesFromWidth(MarkdownContentBorder.Width);
             };
         }
 
@@ -2195,7 +2200,7 @@ public partial class MainWindow : Window
     {
         var visible = _settings.ShowRuler;
         RulerBar.IsVisible = visible;
-        if (visible) UpdateRulerHandlesFromWidth(MarkdownContentBorder.MaxWidth);
+        if (visible) UpdateRulerHandlesFromWidth(MarkdownContentBorder.Width);
     }
 
     public void ToggleRuler()
@@ -2223,7 +2228,7 @@ public partial class MainWindow : Window
     private void RefreshRulerForScaleChange()
     {
         if (_settings.ShowRuler && MarkdownContentBorder != null)
-            UpdateRulerHandlesFromWidth(MarkdownContentBorder.MaxWidth);
+            UpdateRulerHandlesFromWidth(MarkdownContentBorder.Width);
     }
 
     /// <summary>
@@ -2276,10 +2281,23 @@ public partial class MainWindow : Window
         Canvas.SetLeft(RulerTrack, visibleLeftX);
         RulerTrack.Width = visibleWidthPx;
 
+#if DEBUG
+        // Diagnostic: dump the computed alignment so we can spot drift
+        // between the Border and the handle positions without recording GIFs.
+        if (Environment.GetEnvironmentVariable("LUCIDVIEW_RULER_DEBUG") == "1")
+        {
+            Console.WriteLine($"[ruler] canvas={RulerCanvas.Bounds.Width:F1} " +
+                              $"borderBounds={MarkdownContentBorder.Bounds.Width:F1} " +
+                              $"visibleL={visibleLeftX:F1} visibleR={visibleRightX:F1} " +
+                              $"track={visibleWidthPx:F1} scale={GetMarkdownScale():F2} " +
+                              $"transformOK={transform.HasValue}");
+        }
+#endif
+
         // Show the LOGICAL width in the readout — the underlying setting value,
         // not the zoomed pixel width which would change every time the user
         // bumps the font size.
-        var logical = MarkdownContentBorder.MaxWidth;
+        var logical = MarkdownContentBorder.Width;
         if (double.IsNaN(logical) || double.IsInfinity(logical))
             logical = visibleWidthPx / Math.Max(0.01, GetMarkdownScale());
         RulerWidthLabel.Text = $"{(int)logical} px";
@@ -2299,15 +2317,18 @@ public partial class MainWindow : Window
         // is centered so both edges move by deltaX → visible width changes by
         // 2 × deltaX. Convert to logical units by dividing by the scale.
         var direction = sender == RulerLeftThumb ? -1.0 : 1.0;
-        var current = MarkdownContentBorder.MaxWidth;
+        var current = MarkdownContentBorder.Width;
         if (double.IsNaN(current) || double.IsInfinity(current)) current = _settings.ContentMaxWidth;
 
         var next = current + direction * e.Vector.X * 2.0 / scale;
         next = Math.Clamp(next, MinContentWidth, maxLogical);
 
-        MarkdownContentBorder.MaxWidth = next;
+        MarkdownContentBorder.Width = next;
         _settings.ContentMaxWidth = next;
         UpdateRulerHandlesFromWidth(next);
+        // Persist on every drag delta — settings.json is tiny and writes are
+        // cheap, so we don't need to debounce. Survives unexpected app exit.
+        _settings.Save();
     }
 
     /// <summary>
@@ -2338,7 +2359,7 @@ public partial class MainWindow : Window
         var newLogical = newVisible / scale;
         newLogical = Math.Clamp(newLogical, MinContentWidth, maxLogical);
 
-        MarkdownContentBorder.MaxWidth = newLogical;
+        MarkdownContentBorder.Width = newLogical;
         _settings.ContentMaxWidth = newLogical;
         UpdateRulerHandlesFromWidth(newLogical);
         _settings.Save();

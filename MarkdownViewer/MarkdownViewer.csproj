@@ -39,7 +39,7 @@
         <!-- App Info -->
         <AssemblyName>lucidVIEW</AssemblyName>
         <RootNamespace>MarkdownViewer</RootNamespace>
-        <Version>2.2.1</Version>
+        <Version>2.2.2</Version>
         <Product>lucidVIEW</Product>
         <Description>A modern, lightweight cross-platform markdown viewer</Description>
         <Copyright>Copyright 2026</Copyright>
@@ -77,9 +77,12 @@
         <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />
     </ItemGroup>
 
-    <!-- UI Testing harness (Debug only - NEVER shipped in Release) -->
+    <!-- UI Testing harness (Debug only - NEVER shipped in Release).
+         Pulled from NuGet, NOT a project reference, so the Debug build is
+         decoupled from the lucidRESUME working tree. Bump the version when
+         a new Mostlylucid.Avalonia.UITesting release lands. -->
     <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <ProjectReference Include="..\..\lucidRESUME\src\Mostlylucid.Avalonia.UITesting\Mostlylucid.Avalonia.UITesting.csproj" />
+        <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.1.0" />
     </ItemGroup>
 
     <!-- Include README.md in output for Help menu -->
