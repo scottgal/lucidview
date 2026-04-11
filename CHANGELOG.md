@@ -4,6 +4,19 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v2.2.4 — 2026-04-11
+
+### Fixed
+
+- **Open File / Save File / Export PDF / Export Diagram dialogs no longer
+  stack on top of each other**. macOS was firing the click path AND the
+  `IActivatableLifetime.Activated` event in the same flow, opening two
+  pickers — the second one underneath the first and unclickable. Added a
+  `_filePickerOpen` re-entry guard around every `StorageProvider` call so
+  the dialog is one-at-a-time regardless of which path triggered it.
+  Applies to: `OpenFile`, `ExportPdf`, `ExportMermaidDiagram`,
+  `ExportAllMermaidDiagrams`, `SaveDiagramAs`.
+
 ## v2.2.3 — 2026-04-11
 
 ### Changed (rip and replace, not patch)

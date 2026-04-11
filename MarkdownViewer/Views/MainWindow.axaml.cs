@@ -455,21 +455,36 @@ public partial class MainWindow : Window
         }
     }
 
+    // Re-entry guard. macOS sometimes fires Click + IActivatableLifetime in
+    // the same flow which used to open two stacked file pickers (the second
+    // underneath the first, unclickable). The guard makes the dialog one-at-
+    // a-time regardless of which path triggered it.
+    private bool _filePickerOpen;
+
     private async Task OpenFile()
     {
-        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        if (_filePickerOpen) return;
+        _filePickerOpen = true;
+        try
         {
-            Title = "Open Markdown File",
-            AllowMultiple = false,
-            FileTypeFilter =
-            [
-                new FilePickerFileType("Markdown Files")
-                    { Patterns = ["*.md", "*.markdown", "*.mdown", "*.mkd", "*.txt"] },
-                new FilePickerFileType("All Files") { Patterns = ["*.*"] }
-            ]
-        });
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Open Markdown File",
+                AllowMultiple = false,
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("Markdown Files")
+                        { Patterns = ["*.md", "*.markdown", "*.mdown", "*.mkd", "*.txt"] },
+                    new FilePickerFileType("All Files") { Patterns = ["*.*"] }
+                ]
+            });
 
-        if (files.Count > 0) await LoadFile(files[0].Path.LocalPath);
+            if (files.Count > 0) await LoadFile(files[0].Path.LocalPath);
+        }
+        finally
+        {
+            _filePickerOpen = false;
+        }
     }
 
     private async Task LoadFile(string path)
@@ -1427,6 +1442,8 @@ public partial class MainWindow : Window
             StatusText.Text = "No document to export";
             return;
         }
+        if (_filePickerOpen) return;
+        _filePickerOpen = true;
 
         try
         {
@@ -1468,6 +1485,10 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = $"PDF export error: {ex.Message}";
+        }
+        finally
+        {
+            _filePickerOpen = false;
         }
     }
 
@@ -1605,43 +1626,56 @@ public partial class MainWindow : Window
 
     private async Task ExportMermaidDiagram(string mermaidCode)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title = "Export Diagram",
-            SuggestedFileName = "diagram",
-            DefaultExtension = "svg",
-            FileTypeChoices =
-            [
-                new FilePickerFileType("SVG Image") { Patterns = ["*.svg"] },
-                new FilePickerFileType("PNG Image") { Patterns = ["*.png"] }
-            ]
-        });
-
-        if (file is null) return;
-
-        var outputPath = file.Path.LocalPath;
+        if (_filePickerOpen) return;
+        _filePickerOpen = true;
         try
         {
-            if (outputPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                var pngBytes = _markdownService.ExportMermaidToPngBytes(mermaidCode, 3f);
-                await File.WriteAllBytesAsync(outputPath, pngBytes);
-            }
-            else
+                Title = "Export Diagram",
+                SuggestedFileName = "diagram",
+                DefaultExtension = "svg",
+                FileTypeChoices =
+                [
+                    new FilePickerFileType("SVG Image") { Patterns = ["*.svg"] },
+                    new FilePickerFileType("PNG Image") { Patterns = ["*.png"] }
+                ]
+            });
+
+            if (file is null) return;
+
+            var outputPath = file.Path.LocalPath;
+            try
             {
-                var svg = _markdownService.ExportMermaidToSvg(mermaidCode);
-                await File.WriteAllTextAsync(outputPath, svg);
+                if (outputPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    var pngBytes = _markdownService.ExportMermaidToPngBytes(mermaidCode, 3f);
+                    await File.WriteAllBytesAsync(outputPath, pngBytes);
+                }
+                else
+                {
+                    var svg = _markdownService.ExportMermaidToSvg(mermaidCode);
+                    await File.WriteAllTextAsync(outputPath, svg);
+                }
+                StatusText.Text = $"Diagram saved: {Path.GetFileName(outputPath)}";
             }
-            StatusText.Text = $"Diagram saved: {Path.GetFileName(outputPath)}";
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Export error: {ex.Message}";
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            StatusText.Text = $"Export error: {ex.Message}";
+            _filePickerOpen = false;
         }
     }
 
     private async Task ExportAllMermaidDiagrams(List<string> diagrams)
     {
+        if (_filePickerOpen) return;
+        _filePickerOpen = true;
+        try
+        {
         var folder = await StorageProvider.OpenFolderPickerAsync(
             new FolderPickerOpenOptions { Title = "Export All Diagrams — Choose Folder" });
 
@@ -1670,6 +1704,11 @@ public partial class MainWindow : Window
         }
 
         StatusText.Text = $"Exported {exported} diagrams (SVG + PNG) to {outputDir}";
+        }
+        finally
+        {
+            _filePickerOpen = false;
+        }
     }
 
     /// <summary>
@@ -1677,6 +1716,10 @@ public partial class MainWindow : Window
     /// </summary>
     private async Task SaveDiagramAs(string mermaidCode, string format)
     {
+        if (_filePickerOpen) return;
+        _filePickerOpen = true;
+        try
+        {
         var ext = format.ToLowerInvariant();
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
@@ -1711,6 +1754,11 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = $"Export error: {ex.Message}";
+        }
+        }
+        finally
+        {
+            _filePickerOpen = false;
         }
     }
 
