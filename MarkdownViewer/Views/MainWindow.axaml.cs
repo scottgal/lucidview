@@ -339,292 +339,6 @@ public partial class MainWindow : Window
 
     #endregion
 
-    #region File Operations
-
-    private void OnOpenFile(object? sender, RoutedEventArgs e)
-    {
-        CloseSidePanel();
-        _ = OpenFile();
-    }
-
-    private void OnOpenUrl(object? sender, RoutedEventArgs e)
-    {
-        CloseSidePanel();
-        _ = OpenUrl();
-    }
-
-    private void OnMostlyLucidClick(object? sender, RoutedEventArgs e)
-    {
-        OpenBrowserUrl("https://www.mostlylucid.net");
-    }
-
-    private void OnLinkClick(object? sender, LinkClickedEventArgs e)
-    {
-        var href = e.HRef;
-        if (href == null) return;
-
-        var url = href.ToString();
-        if (string.IsNullOrWhiteSpace(url)) return;
-
-        // Anchor links: scroll within document
-        if (url.StartsWith('#'))
-        {
-            var anchorText = Uri.UnescapeDataString(url[1..]).Replace("-", " ");
-            var heading = _headings
-                .SelectMany(h => FlattenHeadings([h]))
-                .FirstOrDefault(h => h.Text.Equals(anchorText, StringComparison.OrdinalIgnoreCase)
-                    || h.Text.Replace(" ", "-").Equals(url[1..], StringComparison.OrdinalIgnoreCase));
-            if (heading != null)
-            {
-                ScrollToHeading(heading);
-            }
-            e.Handled = true;
-            return;
-        }
-
-        // HTTP(S) links: open in default browser
-        if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-            url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
-            (href.IsAbsoluteUri && href.Scheme is "http" or "https"))
-        {
-            OpenBrowserUrl(href.IsAbsoluteUri ? href.AbsoluteUri : url);
-            e.Handled = true;
-            return;
-        }
-
-        // Resolve relative paths against current file's directory
-        var resolvedPath = TryResolveLocalPath(url);
-        if (resolvedPath != null)
-        {
-            var ext = Path.GetExtension(resolvedPath).ToLowerInvariant();
-            if (ext is ".md" or ".markdown" or ".mdown" or ".mkd" or ".txt")
-            {
-                _ = LoadFile(resolvedPath);
-                e.Handled = true;
-                return;
-            }
-
-            // Other local files: open with default app
-            OpenBrowserUrl(resolvedPath);
-            e.Handled = true;
-            return;
-        }
-
-        // file:// URIs
-        if (href.IsAbsoluteUri && href.Scheme == "file")
-        {
-            var localPath = href.LocalPath;
-            var ext = Path.GetExtension(localPath).ToLowerInvariant();
-            if (ext is ".md" or ".markdown" or ".mdown" or ".mkd" or ".txt")
-            {
-                _ = LoadFile(localPath);
-                e.Handled = true;
-                return;
-            }
-        }
-
-        // Fallback: try to open in browser
-        OpenBrowserUrl(url);
-        e.Handled = true;
-    }
-
-    private string? TryResolveLocalPath(string relativePath)
-    {
-        if (_currentFilePath == null) return null;
-
-        var dir = Path.GetDirectoryName(_currentFilePath);
-        if (dir == null) return null;
-
-        // Handle relative paths like ./other.md or ../other.md or other.md
-        var candidate = Path.GetFullPath(Path.Combine(dir, relativePath));
-        return File.Exists(candidate) ? candidate : null;
-    }
-
-    private void OpenBrowserUrl(string url)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true
-            });
-        }
-        catch
-        {
-        }
-    }
-
-    // Re-entry guard. macOS sometimes fires Click + IActivatableLifetime in
-    // the same flow which used to open two stacked file pickers (the second
-    // underneath the first, unclickable). The guard makes the dialog one-at-
-    // a-time regardless of which path triggered it.
-    private bool _filePickerOpen;
-    private int _openFileEnterCount;
-    private int _openFileBlockedCount;
-
-    private async Task OpenFile()
-    {
-        Interlocked.Increment(ref _openFileEnterCount);
-        if (Environment.GetEnvironmentVariable("LUCIDVIEW_FILE_DEBUG") == "1")
-            Console.WriteLine($"[file] OpenFile enter#{_openFileEnterCount} pickerOpen={_filePickerOpen}");
-        if (_filePickerOpen)
-        {
-            Interlocked.Increment(ref _openFileBlockedCount);
-            if (Environment.GetEnvironmentVariable("LUCIDVIEW_FILE_DEBUG") == "1")
-                Console.WriteLine($"[file] OpenFile BLOCKED (re-entry) blocked#{_openFileBlockedCount}");
-            return;
-        }
-        _filePickerOpen = true;
-        try
-        {
-            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-            {
-                Title = "Open Markdown File",
-                AllowMultiple = false,
-                FileTypeFilter =
-                [
-                    new FilePickerFileType("Markdown Files")
-                        { Patterns = ["*.md", "*.markdown", "*.mdown", "*.mkd", "*.txt"] },
-                    new FilePickerFileType("All Files") { Patterns = ["*.*"] }
-                ]
-            });
-
-            if (files.Count > 0) await LoadFile(files[0].Path.LocalPath);
-        }
-        finally
-        {
-            _filePickerOpen = false;
-        }
-    }
-
-    private async Task LoadFile(string path)
-    {
-        try
-        {
-            StatusText.Text = $"Loading {Path.GetFileName(path)}...";
-
-            var content = await File.ReadAllTextAsync(path);
-            var basePath = Path.GetDirectoryName(path);
-            _markdownService.SetBasePath(basePath);
-
-            // Display content immediately for fast response
-            await DisplayMarkdown(content);
-
-            _currentFilePath = path;
-            Title = $"{Path.GetFileName(path)} - lucidVIEW";
-            EnableDocumentControls(true);
-            _settings.AddRecentFile(path);
-            UpdateRecentFiles();
-
-            var fileInfo = new FileInfo(path);
-            var wordCount = CountWords(content);
-
-            StatusText.Text = path;
-            FileDateText.Text = fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm");
-            WordCountText.Text = $"{wordCount:N0} words";
-            FileInfoText.Text = $"{fileInfo.Length:N0} bytes";
-
-            // Cache remote images in background, then refresh
-            var imageUrls = _markdownService.ExtractImageUrls(content);
-            if (imageUrls.Count > 0)
-            {
-                _ = CacheImagesAndRefreshAsync(content, imageUrls);
-            }
-        }
-        catch (Exception ex) when (!IsIgnorableError(ex))
-        {
-            StatusText.Text = $"Error: {ex.Message}";
-        }
-        catch
-        {
-            // Ignore known library errors (e.g., StaticBinding from Markdown.Avalonia)
-        }
-    }
-
-    /// <summary>
-    /// Cache images in background and refresh display when done
-    /// </summary>
-    private async Task CacheImagesAndRefreshAsync(string content, List<string> imageUrls)
-    {
-        try
-        {
-            await _imageCacheService.PreCacheImagesAsync(imageUrls);
-            // Refresh markdown to use cached images
-            await DisplayMarkdown(content);
-        }
-        catch (Exception ex) when (IsIgnorableError(ex))
-        {
-            // Ignore known library errors
-        }
-        catch
-        {
-            // Ignore caching errors - original URLs still work
-        }
-    }
-
-    private async Task OpenUrl()
-    {
-        var dialog = new InputDialog("Open URL", "Enter the URL of a markdown file:");
-        var result = await dialog.ShowDialog<string?>(this);
-
-        if (!string.IsNullOrWhiteSpace(result)) await LoadFromUrl(result);
-    }
-
-    private async Task LoadFromUrl(string url)
-    {
-        try
-        {
-            StatusText.Text = "Downloading...";
-
-            using var httpClient = new HttpClient();
-            // User-Agent identifies lucidVIEW so URL-to-markdown services (Cloudflare's
-            // browser rendering, Jina Reader, r.jina.ai etc.) can route accordingly.
-            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("lucidVIEW/2.1");
-            // text/markdown is the highest-priority Accept so origins that support
-            // content negotiation (Cloudflare URL→markdown conversion, GitHub raw,
-            // Jina Reader, etc.) return markdown directly instead of HTML.
-            httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/markdown");
-            httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/x-markdown;q=0.95");
-            httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/plain;q=0.9");
-            httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/*;q=0.8");
-            httpClient.DefaultRequestHeaders.Accept.ParseAdd("*/*;q=0.5");
-            var content = await httpClient.GetStringAsync(url);
-
-            var uri = new Uri(url);
-            var baseUrl = $"{uri.Scheme}://{uri.Host}{string.Join("", uri.Segments.Take(uri.Segments.Length - 1))}";
-            _markdownService.SetBaseUrl(baseUrl);
-
-            // Display content immediately for fast response
-            await DisplayMarkdown(content);
-
-            _currentFilePath = url;
-            Title = $"{uri.Segments.LastOrDefault()?.TrimEnd('/') ?? "Remote"} - lucidVIEW";
-            EnableDocumentControls(true);
-            var wordCount = CountWords(content);
-
-            StatusText.Text = url;
-            FileDateText.Text = "Remote";
-            WordCountText.Text = $"{wordCount:N0} words";
-            FileInfoText.Text = $"{content.Length:N0} chars";
-
-            // Cache remote images in background, then refresh
-            var imageUrls = _markdownService.ExtractImageUrls(content);
-            if (imageUrls.Count > 0)
-            {
-                _ = CacheImagesAndRefreshAsync(content, imageUrls);
-            }
-        }
-        catch (Exception ex) when (!IsIgnorableError(ex))
-        {
-            StatusText.Text = $"Error: {ex.Message}";
-        }
-        catch
-        {
-            // Ignore known library errors
-        }
-    }
-
     private async Task DisplayMarkdown(string content)
     {
         _rawContent = content;
@@ -742,8 +456,6 @@ public partial class MainWindow : Window
             MetadataDateText.Text = "";
         }
     }
-
-    #endregion
 
     #region Recent Files
 
@@ -1429,124 +1141,6 @@ public partial class MainWindow : Window
             var lineHeight = 18.0;
             var scrollOffset = result.Line * lineHeight;
             RawScroller.Offset = new Vector(0, Math.Max(0, scrollOffset - 100));
-        }
-    }
-
-    #endregion
-
-    #region Print / Export PDF
-
-    // The "Export PDF..." menu item routes here.
-    private void OnExportPdf(object? sender, RoutedEventArgs e)
-    {
-        CloseSidePanel();
-        _ = ExportPdf();
-    }
-
-    // The "Print..." menu item routes here.
-    private void OnPrint(object? sender, RoutedEventArgs e)
-    {
-        CloseSidePanel();
-        _ = PrintToPrinter();
-    }
-
-    private async Task ExportPdf()
-    {
-        if (string.IsNullOrEmpty(_rawContent))
-        {
-            StatusText.Text = "No document to export";
-            return;
-        }
-        if (_filePickerOpen) return;
-        _filePickerOpen = true;
-
-        try
-        {
-            var suggestedName = Path.GetFileNameWithoutExtension(_currentFilePath ?? "document");
-            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title = "Export PDF",
-                SuggestedFileName = $"{suggestedName}.pdf",
-                DefaultExtension = "pdf",
-                FileTypeChoices =
-                [
-                    new FilePickerFileType("PDF Document") { Patterns = ["*.pdf"] }
-                ]
-            });
-
-            if (file is null)
-            {
-                StatusText.Text = "PDF export canceled";
-                return;
-            }
-
-            var outputPath = file.Path.LocalPath;
-            if (string.IsNullOrWhiteSpace(outputPath))
-            {
-                StatusText.Text = "Unable to resolve output path";
-                return;
-            }
-
-            StatusText.Text = "Exporting PDF...";
-
-            var basePath = _currentFilePath != null ? Path.GetDirectoryName(_currentFilePath) : null;
-            var title = Path.GetFileNameWithoutExtension(_currentFilePath ?? "Document");
-
-            var pdfService = new PdfExportService(_markdownService);
-            await pdfService.ExportAsync(_rawContent, outputPath, title, _fontSize, basePath);
-
-            StatusText.Text = $"PDF saved: {outputPath}";
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = $"PDF export error: {ex.Message}";
-        }
-        finally
-        {
-            _filePickerOpen = false;
-        }
-    }
-
-    private async Task PrintToPrinter()
-    {
-        if (string.IsNullOrEmpty(_rawContent))
-        {
-            StatusText.Text = "No document to print";
-            return;
-        }
-
-        string? tempPdf = null;
-        try
-        {
-            StatusText.Text = "Generating PDF for printer...";
-
-            var basePath = _currentFilePath != null ? Path.GetDirectoryName(_currentFilePath) : null;
-            var title = Path.GetFileNameWithoutExtension(_currentFilePath ?? "Document");
-
-            var pdfService = new PdfExportService(_markdownService);
-            tempPdf = await pdfService.ExportToTempAsync(_rawContent, title, _fontSize, basePath);
-
-            StatusText.Text = "Sending to default printer...";
-            await PrintService.PrintAsync(tempPdf);
-
-            StatusText.Text = "Sent to default printer";
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = $"Print failed: {ex.Message}";
-        }
-        finally
-        {
-            // On Windows the print handler is still reading the file when ShellExecute returns;
-            // delete on a delay so we don't yank it out from under the spooler.
-            if (tempPdf != null)
-            {
-                var pathToDelete = tempPdf;
-                _ = Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(_ =>
-                {
-                    try { if (File.Exists(pathToDelete)) File.Delete(pathToDelete); } catch { }
-                });
-            }
         }
     }
 
@@ -2339,15 +1933,99 @@ public partial class MainWindow : Window
     /// </summary>
     private static void AttachGifPlaybackOverlay(Image image, Uri uri)
     {
-        var adornerLayer = AdornerLayer.GetAdornerLayer(image);
-        if (adornerLayer is null) return;
+        // We always use the inline-wrap approach (Image becomes a child of a
+        // Grid alongside an overlay Panel containing the restart button)
+        // rather than AdornerLayer. AdornerLayer'd controls aren't always
+        // discoverable via the harness's FindControl walk and positioning is
+        // fiddly. Wrapping in a Grid puts everything in the regular visual
+        // tree where named-control lookup works.
+        WrapImageWithRestartButton(image, uri);
+    }
 
-        // Don't double-attach if a previous render already added one.
+    private static readonly AttachedProperty<bool> GifOverlayAttachedProperty =
+        AvaloniaProperty.RegisterAttached<MainWindow, Image, bool>("GifOverlayAttached");
+
+    /// <summary>
+    /// Fallback for when AdornerLayer.GetAdornerLayer returns null (which it
+    /// does for Images inside LiveMarkdown's content tree before the first
+    /// arrange pass on the host TopLevel). Walks up the visual tree to find
+    /// a Panel parent, then replaces the Image with a Grid containing the
+    /// Image plus the restart button overlay. The Grid takes the Image's
+    /// place in the parent's children collection.
+    /// </summary>
+    private static void WrapImageWithRestartButton(Image image, Uri uri)
+    {
+        var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_GIF_DEBUG") == "1";
+
         if (image.GetValue(GifOverlayAttachedProperty) is true) return;
+
+        // Find a Panel ancestor we can replace children of.
+        Visual? current = image;
+        Panel? parent = null;
+        Visual? child = image;
+        while (current != null)
+        {
+            current = Avalonia.VisualTree.VisualExtensions.GetVisualParent(current);
+            if (current is Panel p)
+            {
+                parent = p;
+                break;
+            }
+            if (current is Visual v) child = v;
+        }
+
+        if (debug) Console.WriteLine($"[gif] wrap parent={parent?.GetType().Name ?? "null"} child={child?.GetType().Name}");
+
+        if (parent is null || child is null) return;
+
+        var idx = parent.Children.IndexOf((Control)child);
+        if (idx < 0) return;
+
+        var restartButton = BuildRestartButton(image, uri);
+        var overlay = new Panel
+        {
+            Background = Brushes.Transparent,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch
+        };
+        overlay.Children.Add(restartButton);
+
+        parent.Children.RemoveAt(idx);
+
+        var wrapper = new Grid
+        {
+            HorizontalAlignment = ((Control)child).HorizontalAlignment,
+            VerticalAlignment = ((Control)child).VerticalAlignment,
+        };
+        wrapper.Children.Add((Control)child);
+        wrapper.Children.Add(overlay);
+
+        parent.Children.Insert(idx, wrapper);
         image.SetValue(GifOverlayAttachedProperty, true);
 
-        var restartButton = new Button
+        // Register the button in EVERY NameScope on the way up to the root
+        // so any FindControl<>(name) call finds it regardless of which scope
+        // it walks. The local NameScope of LiveMarkdown's TextBlock template
+        // has its own scope and doesn't propagate up to the Window's scope.
+        var visited = new HashSet<INameScope>();
+        for (Visual? walk = parent; walk != null; walk = Avalonia.VisualTree.VisualExtensions.GetVisualParent(walk))
         {
+            var ns = NameScope.GetNameScope(walk);
+            if (ns != null && visited.Add(ns))
+            {
+                try { ns.Register("GifRestartBtn", restartButton); }
+                catch { /* duplicate name on re-render — fine */ }
+            }
+        }
+
+        if (debug) Console.WriteLine($"[gif] wrap OK, restart button injected, scopes registered={visited.Count}");
+    }
+
+    private static Button BuildRestartButton(Image image, Uri uri)
+    {
+        var btn = new Button
+        {
+            Name = "GifRestartBtn",
             Width = 28,
             Height = 28,
             Padding = new Avalonia.Thickness(4),
@@ -2366,25 +2044,16 @@ public partial class MainWindow : Window
                 Foreground = Brushes.White
             }
         };
-
-        restartButton.Click += (_, _) =>
+        btn.Click += (_, _) =>
         {
-            // The only way to restart with AnimatedImage.Avalonia is to clear
-            // and re-set the AnimatedSource. This jumps the animation back to
-            // frame 0 and respects the file's loop behavior again.
             AnimatedImage.Avalonia.ImageBehavior.SetAnimatedSource(image, null!);
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 AnimatedImage.Avalonia.ImageBehavior.SetAnimatedSource(image, uri);
             });
         };
-
-        adornerLayer.Children.Add(restartButton);
-        AdornerLayer.SetAdornedElement(restartButton, image);
+        return btn;
     }
-
-    private static readonly AttachedProperty<bool> GifOverlayAttachedProperty =
-        AvaloniaProperty.RegisterAttached<MainWindow, Image, bool>("GifOverlayAttached");
 
     /// <summary>
     /// Map a markdown image URL into something <c>AnimatedImageSource</c>'s
@@ -2521,61 +2190,4 @@ public partial class MainWindow : Window
     }
 
     #endregion
-}
-
-public class RelayCommand : ICommand
-{
-    private readonly Action? _execute;
-    private readonly Func<Task>? _executeAsync;
-
-    public RelayCommand(Action execute)
-    {
-        _execute = execute;
-    }
-
-    public RelayCommand(Func<Task> executeAsync)
-    {
-        _executeAsync = executeAsync;
-    }
-
-#pragma warning disable CS0067 // Event is never used - required by ICommand interface
-    public event EventHandler? CanExecuteChanged;
-#pragma warning restore CS0067
-
-    public bool CanExecute(object? parameter)
-    {
-        return true;
-    }
-
-    public async void Execute(object? parameter)
-    {
-        if (_executeAsync != null)
-            await _executeAsync();
-        else
-            _execute?.Invoke();
-    }
-}
-
-public class RelayCommand<T> : ICommand
-{
-    private readonly Action<T?> _execute;
-
-    public RelayCommand(Action<T?> execute)
-    {
-        _execute = execute;
-    }
-
-#pragma warning disable CS0067 // Event is never used - required by ICommand interface
-    public event EventHandler? CanExecuteChanged;
-#pragma warning restore CS0067
-
-    public bool CanExecute(object? parameter)
-    {
-        return true;
-    }
-
-    public void Execute(object? parameter)
-    {
-        _execute((T?)parameter);
-    }
 }

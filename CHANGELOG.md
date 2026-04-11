@@ -4,7 +4,7 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
-## Unreleased
+## v2.3.0 — 2026-04-11
 
 ### Added
 

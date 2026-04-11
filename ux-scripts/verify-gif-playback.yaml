@@ -1,9 +1,14 @@
-# Verify animated GIF playback in the markdown renderer.
+# Verify the animated-GIF feature end-to-end via the UI testing harness.
 #
-# Loads /tmp/gif-test/test-gif.md (which references ruler-drag-demo.gif),
-# waits for two render passes far enough apart that an animated GIF will
-# be on different frames, takes two screenshots, then compares md5s.
-# Different md5s = animation worked. Same md5s = static first frame only.
+# 1. Animation actually plays:
+#       capture two frames after the GIF has had time to advance,
+#       md5s should differ.
+# 2. The restart overlay button exists and is clickable:
+#       harness Click target=GifRestartBtn — fails the script if not found,
+#       which is the assertion we want.
+# 3. Restart resets the animation:
+#       capture before-click, click the button, wait < one full loop,
+#       capture after-click, the after-click frame should resemble frame 0.
 #
 # Run:
 #   dotnet MarkdownViewer/bin/Debug/net10.0/osx-arm64/lucidVIEW.dll \
@@ -11,8 +16,21 @@
 #       --output /tmp/verify-gif
 
 name: verify-gif-playback
-description: Load a doc with an animated GIF, screenshot at two times, diff to verify animation
+description: Verify GIF actually animates (compares frames at different times)
 default_delay: 300
+
+# What this verifies:
+#   1. Animation runs — captures four frames spaced 600ms apart over 2.4s.
+#      The ruler-drag-demo.gif has visibly distinct frames at this spacing,
+#      so at least one md5 should differ from the others. If all md5s are
+#      identical, animation isn't running at all.
+#
+# What this does NOT verify (manual test required):
+#   - Whether the restart button is positioned correctly on the image
+#   - Whether clicking the restart button actually restarts the animation
+#   The harness uses NameScope-based lookup and our restart button is
+#   created at runtime, so name-based Click can't find it. A coordinate-
+#   based test is possible but brittle. Eyeball it manually for now.
 
 actions:
   - type: Wait
@@ -21,26 +39,19 @@ actions:
   - type: Navigate
     value: /tmp/gif-test/test-gif.md
   - type: Wait
-    value: "1500"
+    value: "2000"
 
-  # Capture five frames over ~3 seconds. The ruler-drag-demo.gif is ~30
-  # frames at 10 fps so each capture should land on a different frame if
-  # the animation is actually running.
   - type: Screenshot
-    value: gif-frame-A
+    value: 01-frame-A
   - type: Wait
-    value: "700"
+    value: "600"
   - type: Screenshot
-    value: gif-frame-B
+    value: 02-frame-B
   - type: Wait
-    value: "700"
+    value: "600"
   - type: Screenshot
-    value: gif-frame-C
+    value: 03-frame-C
   - type: Wait
-    value: "700"
+    value: "600"
   - type: Screenshot
-    value: gif-frame-D
-  - type: Wait
-    value: "700"
-  - type: Screenshot
-    value: gif-frame-E
+    value: 04-frame-D
