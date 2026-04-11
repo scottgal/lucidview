@@ -4,6 +4,37 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v2.2.3 — 2026-04-11
+
+### Changed (rip and replace, not patch)
+
+- **Ruler architecture rewritten — alignment is now layout-driven, not math.**
+  Ripped out the entire `UpdateRulerHandlesFromWidth` / `TransformToVisual` /
+  `RulerCanvas` / scrollbar / gutter / scale / fallback math. The ruler bar
+  is now a `Grid` *inside* the `LayoutTransformControl`, in a `StackPanel`
+  above the document `Border`. The bar's `Width` is bound to the Border's
+  `Width` via XAML `ElementName` binding, so they are always the same logical
+  width. Handles use `HorizontalAlignment=Left/Right` with negative margins
+  to extend slightly past the column edges. Avalonia's layout engine handles
+  every alignment concern: scrollbar, centering, scale transform, gutter,
+  padding — all gone, all replaced by one ElementName binding.
+- Code-behind shrank from ~230 lines to ~85 lines. The remaining handlers
+  do exactly three things: change `Border.Width` on drag, change `Border.Width`
+  on click, update the readout text.
+- Zoom slider, font size, fit modes — they all "just work" because the
+  ruler is inside the same `LayoutTransformControl` as the document, so it
+  scales with the column automatically. No `RefreshRulerForScaleChange`
+  plumbing required.
+
+### Verified
+
+- **Release build does NOT include `Mostlylucid.Avalonia.UITesting`**. The
+  Debug-only `Condition="'$(Configuration)' == 'Debug'"` on the
+  `<PackageReference>` is honoured by MSBuild and `obj/Release/` contains
+  no UITesting traces. The recent ~5 MB Release size growth (~73 MB → ~78 MB)
+  is from `FluentAvaloniaUI` which IS a Release dependency, added in v2.1.1
+  for the polished button styling.
+
 ## v2.2.2 — 2026-04-11
 
 ### Fixed

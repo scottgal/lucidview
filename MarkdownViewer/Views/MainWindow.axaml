@@ -382,70 +382,7 @@
                             <DockPanel x:Name="RenderedPanel" IsVisible="True"
                                        Background="{DynamicResource AppBackground}">
 
-                                <!-- Word-style ruler bar (toggled by ToggleRulerBtn). Spans the FULL
-                                     window width, so it must be docked Top BEFORE the left gutter
-                                     claims its 18px. -->
-                                <Border x:Name="RulerBar"
-                                        DockPanel.Dock="Top"
-                                        IsVisible="False"
-                                        Height="22"
-                                        Background="{DynamicResource AppBackgroundSecondary}"
-                                        BorderBrush="{DynamicResource AppBorderSubtle}"
-                                        BorderThickness="0,0,0,1">
-                                    <Canvas x:Name="RulerCanvas" ClipToBounds="True"
-                                            Background="Transparent"
-                                            SizeChanged="OnRulerCanvasSizeChanged"
-                                            PointerPressed="OnRulerCanvasPointerPressed">
-                                        <!-- Active ruler track between the two handles (highlighted) -->
-                                        <Rectangle x:Name="RulerTrack"
-                                                   Canvas.Top="9"
-                                                   Height="4"
-                                                   RadiusX="2" RadiusY="2"
-                                                   Fill="{DynamicResource AppAccent}"
-                                                   Opacity="0.55" />
-                                        <!-- Left handle -->
-                                        <Thumb x:Name="RulerLeftThumb"
-                                               Canvas.Top="2"
-                                               Width="14" Height="18"
-                                               Cursor="SizeWestEast"
-                                               DragDelta="OnRulerHandleDragDelta"
-                                               ToolTip.Tip="Left margin">
-                                            <Thumb.Template>
-                                                <ControlTemplate>
-                                                    <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
-                                                          Fill="{DynamicResource AppAccent}"
-                                                          Stroke="{DynamicResource AppText}"
-                                                          StrokeThickness="1" />
-                                                </ControlTemplate>
-                                            </Thumb.Template>
-                                        </Thumb>
-                                        <!-- Right handle -->
-                                        <Thumb x:Name="RulerRightThumb"
-                                               Canvas.Top="2"
-                                               Width="14" Height="18"
-                                               Cursor="SizeWestEast"
-                                               DragDelta="OnRulerHandleDragDelta"
-                                               ToolTip.Tip="Right margin">
-                                            <Thumb.Template>
-                                                <ControlTemplate>
-                                                    <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
-                                                          Fill="{DynamicResource AppAccent}"
-                                                          Stroke="{DynamicResource AppText}"
-                                                          StrokeThickness="1" />
-                                                </ControlTemplate>
-                                            </Thumb.Template>
-                                        </Thumb>
-                                        <!-- Width readout -->
-                                        <TextBlock x:Name="RulerWidthLabel"
-                                                   Canvas.Top="3"
-                                                   FontSize="10"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource AppTextSecondary}" />
-                                    </Canvas>
-                                </Border>
-
-                                <!-- Left gutter (docked to left edge of window). After the ruler
-                                     so the ruler spans full width. -->
+                                <!-- Left gutter (docked to left edge of window). -->
                                 <Border DockPanel.Dock="Left" Width="18"
                                         Background="{DynamicResource AppBackgroundSecondary}" />
 
@@ -458,9 +395,73 @@
                                                   HorizontalContentAlignment="Center">
                                         <LayoutTransformControl x:Name="MarkdownLayoutTransform"
                                                                 HorizontalAlignment="Center">
+                                            <StackPanel HorizontalAlignment="Center" Orientation="Vertical">
+                                                <!-- Inline ruler bar — same width as the Border below
+                                                     via ElementName binding so handles AUTOMATICALLY
+                                                     align with the column edges. No position math
+                                                     anywhere in code-behind. -->
+                                                <Grid x:Name="InlineRulerBar"
+                                                      Height="22"
+                                                      Margin="0,16,0,0"
+                                                      IsVisible="False"
+                                                      Background="Transparent"
+                                                      Width="{Binding ElementName=MarkdownContentBorder, Path=Width}"
+                                                      PointerPressed="OnRulerCanvasPointerPressed">
+                                                    <!-- Highlighted track fills the bar (= column width) -->
+                                                    <Rectangle Height="4"
+                                                               VerticalAlignment="Center"
+                                                               RadiusX="2" RadiusY="2"
+                                                               Fill="{DynamicResource AppAccent}"
+                                                               Opacity="0.55" />
+                                                    <!-- Width readout in the middle -->
+                                                    <TextBlock x:Name="RulerWidthLabel"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               FontSize="10"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource AppText}" />
+                                                    <!-- Left handle: HA=Left + negative margin so the
+                                                         tip extends slightly past the column edge. -->
+                                                    <Thumb x:Name="RulerLeftThumb"
+                                                           HorizontalAlignment="Left"
+                                                           VerticalAlignment="Top"
+                                                           Width="14" Height="18"
+                                                           Margin="-7,2,0,0"
+                                                           Cursor="SizeWestEast"
+                                                           DragDelta="OnRulerHandleDragDelta"
+                                                           ToolTip.Tip="Left margin">
+                                                        <Thumb.Template>
+                                                            <ControlTemplate>
+                                                                <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
+                                                                      Fill="{DynamicResource AppAccent}"
+                                                                      Stroke="{DynamicResource AppText}"
+                                                                      StrokeThickness="1" />
+                                                            </ControlTemplate>
+                                                        </Thumb.Template>
+                                                    </Thumb>
+                                                    <!-- Right handle: HA=Right + negative margin -->
+                                                    <Thumb x:Name="RulerRightThumb"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Top"
+                                                           Width="14" Height="18"
+                                                           Margin="0,2,-7,0"
+                                                           Cursor="SizeWestEast"
+                                                           DragDelta="OnRulerHandleDragDelta"
+                                                           ToolTip.Tip="Right margin">
+                                                        <Thumb.Template>
+                                                            <ControlTemplate>
+                                                                <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
+                                                                      Fill="{DynamicResource AppAccent}"
+                                                                      Stroke="{DynamicResource AppText}"
+                                                                      StrokeThickness="1" />
+                                                            </ControlTemplate>
+                                                        </Thumb.Template>
+                                                    </Thumb>
+                                                </Grid>
+
                                             <Border x:Name="MarkdownContentBorder"
                                                     Padding="48,40" HorizontalAlignment="Center"
-                                                    Margin="0,16,0,16"
+                                                    Margin="0,8,0,16"
                                                     BorderBrush="{DynamicResource AppBorderSubtle}"
                                                     BorderThickness="1"
                                                     CornerRadius="4"
@@ -488,6 +489,7 @@
                                                 </md:MarkdownRenderer.ContextMenu>
                                             </md:MarkdownRenderer>
                                         </Border>
+                                            </StackPanel>
                                         </LayoutTransformControl>
                                     </ScrollViewer>
 

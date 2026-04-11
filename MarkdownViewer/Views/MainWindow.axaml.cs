@@ -2142,65 +2142,39 @@ public partial class MainWindow : Window
     #endregion
 
     #region Word-style Ruler
+    //
+    // ARCHITECTURE
+    //
+    // The ruler bar is a Grid INSIDE the LayoutTransformControl, in a
+    // StackPanel above the document Border. The bar's Width is bound to the
+    // Border's Width via XAML ElementName binding, so they're always the same
+    // logical width. The handles use HorizontalAlignment=Left/Right with
+    // negative margins so they extend slightly past the column edges.
+    //
+    // Result: alignment is handled entirely by Avalonia's layout engine. There
+    // is NO position math, NO TransformToVisual, NO scrollbar/gutter/padding
+    // accounting, NO scale tracking. The handles automatically follow the
+    // column edges through every transform. Code-behind only handles drag
+    // (changing Border.Width) and click-to-set (clicking the bar).
 
-    // Min and max content widths in DIPs (logical, before any zoom scale).
-    // The ruler clamps to this range so the user can't drag the column shut
-    // or wider than the viewport.
     private const double MinContentWidth = 300;
     private const double MaxContentWidth = 2000;
-
-    // The RulerBar spans the FULL window width, but the document is offset by
-    // the left gutter (18px) and centered within (window - gutter). All ruler
-    // math is in window pixels (the unscaled coordinate space).
-    private const double LeftGutterWidth = 18.0;
-
-    /// <summary>
-    /// Reads the current scale factor applied to the markdown column via
-    /// <c>MarkdownLayoutTransform.LayoutTransform</c>. Font size and zoom both
-    /// drive this. Returns 1.0 if no transform is set.
-    /// </summary>
-    private double GetMarkdownScale()
-    {
-        if (MarkdownLayoutTransform?.LayoutTransform is ScaleTransform st)
-            return st.ScaleX > 0 ? st.ScaleX : 1.0;
-        return 1.0;
-    }
-
-    private bool _rulerLayoutSubscribed;
 
     private void ApplyContentMaxWidth()
     {
         var w = _settings.ContentMaxWidth;
         if (w < MinContentWidth || w > MaxContentWidth) w = 900;
-        // Use Width (not MaxWidth) so the Border is FORCED to this size
-        // regardless of its content. Otherwise HorizontalAlignment="Center"
-        // shrinks the Border to fit the natural text width and the ruler
-        // handles end up sitting on a column much narrower than the user
-        // thinks they're resizing.
+        // Use Width (not MaxWidth). MaxWidth is just a cap and lets
+        // HorizontalAlignment=Center shrink the Border to its content's
+        // natural width — which makes the ruler-bound width WRONG.
         MarkdownContentBorder.Width = w;
-
-        // Subscribe to the Border's bounds — that's the authoritative position
-        // for the handles. Handles will track real layout changes (resize,
-        // zoom, font-size, MaxWidth drag) without us having to remember every
-        // place that triggers them.
-        if (!_rulerLayoutSubscribed)
-        {
-            _rulerLayoutSubscribed = true;
-            MarkdownContentBorder.PropertyChanged += (_, e) =>
-            {
-                if (e.Property == BoundsProperty && _settings.ShowRuler)
-                    UpdateRulerHandlesFromWidth(MarkdownContentBorder.Width);
-            };
-        }
-
-        UpdateRulerHandlesFromWidth(w);
+        UpdateWidthReadout();
     }
 
     private void ApplyRulerVisibility()
     {
-        var visible = _settings.ShowRuler;
-        RulerBar.IsVisible = visible;
-        if (visible) UpdateRulerHandlesFromWidth(MarkdownContentBorder.Width);
+        InlineRulerBar.IsVisible = _settings.ShowRuler;
+        if (_settings.ShowRuler) UpdateWidthReadout();
     }
 
     public void ToggleRuler()
@@ -2216,152 +2190,59 @@ public partial class MainWindow : Window
         if (sender is ToggleButton tb) tb.IsChecked = _settings.ShowRuler;
     }
 
-    private void OnRulerCanvasSizeChanged(object? sender, SizeChangedEventArgs e)
-    {
-        UpdateRulerHandlesFromWidth(MarkdownContentBorder.MaxWidth);
-    }
-
     /// <summary>
-    /// Called from the font-size and zoom paths so the ruler tracks the visible
-    /// column width whenever the LayoutTransform scale changes.
+    /// Called from font-size and zoom paths to keep the readout fresh. Handle
+    /// positions are managed by layout — nothing to update there.
     /// </summary>
-    private void RefreshRulerForScaleChange()
+    private void RefreshRulerForScaleChange() => UpdateWidthReadout();
+
+    private void UpdateWidthReadout()
     {
-        if (_settings.ShowRuler && MarkdownContentBorder != null)
-            UpdateRulerHandlesFromWidth(MarkdownContentBorder.Width);
-    }
-
-    /// <summary>
-    /// Positions the ruler handles, track and width readout exactly on the
-    /// visible Border outline. We don't guess at the layout — we ask Avalonia
-    /// where the Border actually rendered via <see cref="Visual.TransformToVisual"/>.
-    /// That eliminates any drift from scrollbars, centering, ScaleTransform,
-    /// gutters, or padding. If the Border hasn't been arranged yet (TransformToVisual
-    /// returns null), we defer to a math fallback so the first paint isn't blank.
-    /// </summary>
-    private void UpdateRulerHandlesFromWidth(double borderWidth)
-    {
-        if (RulerCanvas is null || RulerCanvas.Bounds.Width <= 0) return;
-        if (MarkdownContentBorder is null) return;
-
-        var renderedWidth = MarkdownContentBorder.Bounds.Width;
-        double visibleLeftX, visibleRightX;
-
-        var transform = MarkdownContentBorder.TransformToVisual(RulerCanvas);
-        if (transform.HasValue && renderedWidth > 0)
-        {
-            // Authoritative path: use the actual rendered geometry. This
-            // accounts for vertical scrollbar width, ScrollViewer centering,
-            // ScaleTransform from font/zoom, the left gutter — everything.
-            var topLeft  = transform.Value.Transform(new Avalonia.Point(0, 0));
-            var topRight = transform.Value.Transform(new Avalonia.Point(renderedWidth, 0));
-            visibleLeftX  = topLeft.X;
-            visibleRightX = topRight.X;
-        }
-        else
-        {
-            // Fallback (used during initial layout before the Border has been
-            // arranged): centre a column of `borderWidth × scale` inside the
-            // post-gutter window area. Approximate, but enough to avoid a
-            // first-frame flash of mis-positioned handles.
-            var scale = GetMarkdownScale();
-            var canvasWidth = RulerCanvas.Bounds.Width;
-            var availableForBorder = Math.Max(MinContentWidth, canvasWidth - LeftGutterWidth);
-            var maxLogical = Math.Min(MaxContentWidth, availableForBorder / scale);
-            var clampedLogical = Math.Clamp(borderWidth, MinContentWidth, maxLogical);
-            var visibleWidth = clampedLogical * scale;
-            visibleLeftX  = LeftGutterWidth + (availableForBorder - visibleWidth) / 2.0;
-            visibleRightX = visibleLeftX + visibleWidth;
-        }
-
-        var visibleWidthPx = Math.Max(0, visibleRightX - visibleLeftX);
-
-        Canvas.SetLeft(RulerLeftThumb,  visibleLeftX  - RulerLeftThumb.Width  / 2);
-        Canvas.SetLeft(RulerRightThumb, visibleRightX - RulerRightThumb.Width / 2);
-        Canvas.SetLeft(RulerTrack, visibleLeftX);
-        RulerTrack.Width = visibleWidthPx;
-
-#if DEBUG
-        // Diagnostic: dump the computed alignment so we can spot drift
-        // between the Border and the handle positions without recording GIFs.
-        if (Environment.GetEnvironmentVariable("LUCIDVIEW_RULER_DEBUG") == "1")
-        {
-            Console.WriteLine($"[ruler] canvas={RulerCanvas.Bounds.Width:F1} " +
-                              $"borderBounds={MarkdownContentBorder.Bounds.Width:F1} " +
-                              $"visibleL={visibleLeftX:F1} visibleR={visibleRightX:F1} " +
-                              $"track={visibleWidthPx:F1} scale={GetMarkdownScale():F2} " +
-                              $"transformOK={transform.HasValue}");
-        }
-#endif
-
-        // Show the LOGICAL width in the readout — the underlying setting value,
-        // not the zoomed pixel width which would change every time the user
-        // bumps the font size.
+        if (RulerWidthLabel is null) return;
         var logical = MarkdownContentBorder.Width;
         if (double.IsNaN(logical) || double.IsInfinity(logical))
-            logical = visibleWidthPx / Math.Max(0.01, GetMarkdownScale());
+            logical = _settings.ContentMaxWidth;
         RulerWidthLabel.Text = $"{(int)logical} px";
-        Canvas.SetLeft(RulerWidthLabel, visibleLeftX + (visibleWidthPx - 50) / 2.0);
     }
 
     private void OnRulerHandleDragDelta(object? sender, VectorEventArgs e)
     {
-        if (RulerCanvas is null || RulerCanvas.Bounds.Width <= 0) return;
-
-        var scale = GetMarkdownScale();
-        var canvasWidth = RulerCanvas.Bounds.Width;
-        var availableForBorder = Math.Max(MinContentWidth, canvasWidth - LeftGutterWidth);
-        var maxLogical = Math.Min(MaxContentWidth, availableForBorder / scale);
-
-        // The user drags handles in window pixels (visible space). The column
-        // is centered so both edges move by deltaX → visible width changes by
-        // 2 × deltaX. Convert to logical units by dividing by the scale.
+        // Both edges move symmetrically so a deltaX on either handle changes
+        // the column by 2×deltaX. The Thumb is inside the LayoutTransformControl
+        // so the delta is in the same coordinate space as the Border's Width
+        // — no scale conversion needed.
         var direction = sender == RulerLeftThumb ? -1.0 : 1.0;
         var current = MarkdownContentBorder.Width;
         if (double.IsNaN(current) || double.IsInfinity(current)) current = _settings.ContentMaxWidth;
 
-        var next = current + direction * e.Vector.X * 2.0 / scale;
-        next = Math.Clamp(next, MinContentWidth, maxLogical);
+        var next = Math.Clamp(current + direction * e.Vector.X * 2.0, MinContentWidth, MaxContentWidth);
 
         MarkdownContentBorder.Width = next;
         _settings.ContentMaxWidth = next;
-        UpdateRulerHandlesFromWidth(next);
-        // Persist on every drag delta — settings.json is tiny and writes are
-        // cheap, so we don't need to debounce. Survives unexpected app exit.
+        UpdateWidthReadout();
+        // Persist on every delta — settings.json is tiny so the write cost is
+        // negligible. Survives unexpected app exit, not just clean close.
         _settings.Save();
     }
 
     /// <summary>
-    /// Click anywhere in the ruler bar (not on a handle) to snap-set the column
-    /// width. Avalonia's Thumb captures pointer events on the handles
-    /// themselves, so this handler only fires for clicks on the empty ruler
-    /// canvas. The clicked X is treated as the new visible edge — symmetrically
-    /// resize so both edges land equidistant from the doc centre.
+    /// Click anywhere on the ruler bar (not on a handle) to snap-set the column
+    /// width. Avalonia's Thumb captures pointer events itself, so this handler
+    /// only fires for clicks on the empty bar background. Distance from the
+    /// bar's centre is half the new column width.
     /// </summary>
     private void OnRulerCanvasPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
-        if (RulerCanvas is null || RulerCanvas.Bounds.Width <= 0) return;
-        if (!e.GetCurrentPoint(RulerCanvas).Properties.IsLeftButtonPressed) return;
+        if (sender is not Control bar) return;
+        if (!e.GetCurrentPoint(bar).Properties.IsLeftButtonPressed) return;
 
-        var scale = GetMarkdownScale();
-        var canvasWidth = RulerCanvas.Bounds.Width;
-        var availableForBorder = Math.Max(MinContentWidth, canvasWidth - LeftGutterWidth);
-        var maxLogical = Math.Min(MaxContentWidth, availableForBorder / scale);
+        var pos = e.GetPosition(bar);
+        var halfWidth = Math.Abs(pos.X - bar.Bounds.Width / 2.0);
+        var next = Math.Clamp(halfWidth * 2.0, MinContentWidth, MaxContentWidth);
 
-        var pos = e.GetPosition(RulerCanvas);
-        var docCenter = LeftGutterWidth + availableForBorder / 2.0;
-
-        // Either side of the centre, the click distance equals half the new
-        // visible width. Doubling gives the new visible column width; dividing
-        // by scale gives the underlying logical MaxWidth.
-        var halfVisible = Math.Abs(pos.X - docCenter);
-        var newVisible = Math.Max(0, halfVisible * 2.0);
-        var newLogical = newVisible / scale;
-        newLogical = Math.Clamp(newLogical, MinContentWidth, maxLogical);
-
-        MarkdownContentBorder.Width = newLogical;
-        _settings.ContentMaxWidth = newLogical;
-        UpdateRulerHandlesFromWidth(newLogical);
+        MarkdownContentBorder.Width = next;
+        _settings.ContentMaxWidth = next;
+        UpdateWidthReadout();
         _settings.Save();
         e.Handled = true;
     }
