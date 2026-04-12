@@ -216,7 +216,6 @@ services.
 | [Mostlylucid.Dagre](https://github.com/scottgal/mostlylucid.dagre) | Graph layout engine |
 | [QuestPDF](https://www.questpdf.com/) + QuestPDF.Markdown | PDF export |
 | [SkiaSharp](https://github.com/mono/SkiaSharp) 3.119 | 2D graphics, mermaid rasterization |
-| [Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia) 3.4 | SVG image support |
 | [Mostlylucid.Avalonia.UITesting](https://github.com/scottgal/lucidRESUME) (Debug only) | UI testing harness — YAML scripts, REPL, MCP server |
 
 ---
