@@ -46,6 +46,7 @@ public static class ThemeColors
         TextMuted = "#8b949e",
         Accent = "#0969da",
         AccentHover = "#0860ca",
+        AccentForeground = "#ffffff", // White on dark blue = readable
         Link = "#0969da",
         Success = "#1a7f37",
         Warning = "#9a6700",
@@ -75,6 +76,7 @@ public static class ThemeColors
         TextMuted = "#6e7681",
         Accent = "#58a6ff",
         AccentHover = "#79b8ff",
+        AccentForeground = "#0d1117", // Dark on light blue = readable
         Link = "#58a6ff",
         Success = "#3fb950",
         Warning = "#d29922",
@@ -104,6 +106,7 @@ public static class ThemeColors
         TextMuted = "#6e7681",
         Accent = "#0078d4",
         AccentHover = "#1484d7",
+        AccentForeground = "#ffffff",
         Link = "#3794ff",
         Success = "#4ec9b0",
         Warning = "#dcdcaa",
@@ -133,6 +136,7 @@ public static class ThemeColors
         TextMuted = "#6e7681",
         Accent = "#f78166",
         AccentHover = "#ffa198",
+        AccentForeground = "#24292f", // Dark on salmon = readable
         Link = "#58a6ff",
         Success = "#3fb950",
         Warning = "#d29922",
@@ -166,6 +170,7 @@ public static class ThemeColors
         TextMuted = "#6c6c8a",
         Accent = "#7c3aed",              // Vibrant purple (primary brand)
         AccentHover = "#8b5cf6",         // Lighter purple on hover
+        AccentForeground = "#ffffff",
         Link = "#60a5fa",                // Blue links
         Success = "#34d399",             // Emerald green
         Warning = "#fbbf24",             // Amber
@@ -199,6 +204,7 @@ public static class ThemeColors
         TextMuted = "#7a7590",
         Accent = "#7c3aed",              // Vibrant purple (primary brand)
         AccentHover = "#6d28d9",         // Darker purple on hover
+        AccentForeground = "#ffffff",
         Link = "#2563eb",                // Blue links
         Success = "#059669",             // Emerald green
         Warning = "#d97706",             // Amber
@@ -232,6 +238,7 @@ public static class ThemeColors
         TextMuted = "#a874a0",
         Accent = "#e02e8c",               // Pink accent (Pride flag pink)
         AccentHover = "#c91978",
+        AccentForeground = "#ffffff",
         Link = "#0066ff",                 // Bright blue (Pride flag blue)
         Success = "#00b15c",              // Pride flag green
         Warning = "#ff8c00",              // Pride flag orange
@@ -279,6 +286,12 @@ public class ThemeDefinition
     public string TextMuted { get; set; } = "";
     public string Accent { get; set; } = "";
     public string AccentHover { get; set; } = "";
+    /// <summary>
+    /// Foreground color that has sufficient contrast against the
+    /// <see cref="Accent"/> background. White for dark accent colors,
+    /// near-black for light accent colors (e.g. dark mode's #58a6ff).
+    /// </summary>
+    public string AccentForeground { get; set; } = "#ffffff";
     public string Link { get; set; } = "";
     public string Success { get; set; } = "";
     public string Warning { get; set; } = "";

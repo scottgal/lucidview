@@ -109,6 +109,19 @@
 
     <Style Selector="ToggleButton.header-btn:checked">
         <Setter Property="Background" Value="{DynamicResource AppAccent}" />
+        <!-- Use the per-theme AccentForeground so the button text/icon has
+             sufficient contrast against the accent background in every
+             theme. Without this, light mode's near-black AppText on dark
+             blue AppAccent is unreadable. Dark mode's near-white AppText
+             on light blue AppAccent is fine, so AccentForeground is set
+             to white for dark accents and dark for light accents. -->
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentForeground}" />
+    </Style>
+
+    <!-- Punch through the explicit Foreground on SymbolIcon children so
+         the icon inherits the checked toggle's AccentForeground. -->
+    <Style Selector="ToggleButton.header-btn:checked ic|SymbolIcon">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentForeground}" />
     </Style>
 
     <Style Selector="RadioButton.header-tab">

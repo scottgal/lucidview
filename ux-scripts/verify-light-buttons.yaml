@@ -1,0 +1,50 @@
+name: verify-light-buttons
+description: Capture every interactive area in light mode so we can see button color contrast issues
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "1500"
+
+  - type: Screenshot
+    value: 01-toolbar-light
+    description: Top toolbar — preview/raw radio, font size A buttons, search, zoom slider
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 02-side-panel-light
+    description: Side panel buttons in light mode
+
+  - type: PressKey
+    value: "Escape"
+  - type: Wait
+    value: "300"
+
+  - type: Click
+    target: SearchButton
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 03-search-panel-light
+    description: Search panel buttons in light mode
+
+  - type: PressKey
+    value: "Escape"
+  - type: Wait
+    value: "300"
+
+  - type: Click
+    target: TocButton
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 04-toc-light
+    description: Table of contents in light mode

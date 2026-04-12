@@ -106,6 +106,7 @@ public class ThemeService
         SetColor(resources, "AppTextMuted", definition.TextMuted);
         SetColor(resources, "AppAccent", definition.Accent);
         SetColor(resources, "AppAccentHover", definition.AccentHover);
+        SetColor(resources, "AppAccentForeground", definition.AccentForeground);
         SetColor(resources, "AppLink", definition.Link);
         SetColor(resources, "AppSuccess", definition.Success);
         SetColor(resources, "AppWarning", definition.Warning);
