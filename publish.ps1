@@ -15,10 +15,12 @@ $outputBase = Join-Path $PSScriptRoot 'publish'
 
 # Runtime identifiers for each platform target
 $runtimes = [ordered]@{
-    'win'       = 'win-x64'
-    'linux'     = 'linux-x64'
-    'osx-x64'   = 'osx-x64'
-    'osx-arm64' = 'osx-arm64'
+    'win'         = 'win-x64'
+    'win-arm64'   = 'win-arm64'
+    'linux'       = 'linux-x64'
+    'linux-arm64' = 'linux-arm64'
+    'osx-x64'    = 'osx-x64'
+    'osx-arm64'  = 'osx-arm64'
 }
 
 # Common publish parameters for compact single-file output

@@ -20,9 +20,17 @@ jobs:
             rid: win-x64
             artifact: lucidVIEW-win-x64
             exe: lucidVIEW.exe
+          - os: windows-latest
+            rid: win-arm64
+            artifact: lucidVIEW-win-arm64
+            exe: lucidVIEW.exe
           - os: ubuntu-latest
             rid: linux-x64
             artifact: lucidVIEW-linux-x64
+            exe: lucidVIEW
+          - os: ubuntu-latest
+            rid: linux-arm64
+            artifact: lucidVIEW-linux-arm64
             exe: lucidVIEW
           - os: macos-latest
             rid: osx-x64
@@ -168,9 +176,11 @@ jobs:
           | Platform | File |
           |---|---|
           | Windows x64 | `lucidVIEW-win-x64.zip` |
-          | macOS Apple Silicon (M1/M2/M3/M4) | `lucidVIEW-osx-arm64.zip` |
+          | Windows ARM64 (Snapdragon / Copilot+ PCs) | `lucidVIEW-win-arm64.zip` |
+          | macOS Apple Silicon (M1/M2/M3/M4/M5) | `lucidVIEW-osx-arm64.zip` |
           | macOS Intel | `lucidVIEW-osx-x64.zip` |
           | Linux x64 | `lucidVIEW-linux-x64.zip` |
+          | Linux ARM64 (Raspberry Pi, Ampere, Graviton) | `lucidVIEW-linux-arm64.zip` |
 
           See the in-app **User Manual** (F1, or side panel → User Manual) for a full
           feature walk-through with screenshots.

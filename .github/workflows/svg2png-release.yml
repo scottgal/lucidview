@@ -20,9 +20,15 @@ jobs:
             rid: win-x64
             artifact: svg2png-win-x64
             exe: svg2png.exe
+          # win-arm64: NativeAOT requires an ARM64 Windows runner which
+          # GitHub Actions doesn't yet provide. Omitted until available.
           - os: ubuntu-latest
             rid: linux-x64
             artifact: svg2png-linux-x64
+            exe: svg2png
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+            artifact: svg2png-linux-arm64
             exe: svg2png
           - os: macos-latest
             rid: osx-x64
@@ -133,6 +139,7 @@ jobs:
           | macOS Apple Silicon | `svg2png-osx-arm64.zip` | ~10 MB |
           | macOS Intel | `svg2png-osx-x64.zip` | ~10 MB |
           | Linux x64 | `svg2png-linux-x64.zip` | ~10 MB |
+          | Linux ARM64 | `svg2png-linux-arm64.zip` | ~10 MB |
 
           ### Usage
 
