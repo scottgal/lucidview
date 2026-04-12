@@ -9,6 +9,12 @@
         <Setter Property="Background" Value="{DynamicResource AppBackground}" />
     </Style>
 
+    <!-- Tooltip delay: 600ms before showing, avoids visual clutter on casual
+         mouse movement while still surfacing help for buttons that need it. -->
+    <Style Selector="ToolTip">
+        <Setter Property="ShowDelay" Value="600" />
+    </Style>
+
     <!-- ==================== MARKDOWN RENDERER FONT OVERRIDES ==================== -->
     <!-- Default: Bundled Raleway for text content, overridable via settings -->
 

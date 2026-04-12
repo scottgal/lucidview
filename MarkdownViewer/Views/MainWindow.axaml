@@ -222,6 +222,7 @@
                         </StackPanel>
                         <!-- mostlylucid Logo (styled as text) -->
                         <Button Classes="link-btn" Click="OnMostlyLucidClick" Cursor="Hand"
+                                ToolTip.Tip="Visit mostlylucid.net"
                                 HorizontalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="by " FontSize="14" Foreground="{DynamicResource AppTextSecondary}"
@@ -247,9 +248,11 @@
                         <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
                             <Button Content="Open File"
                                     Classes="welcome-btn-primary"
+                                    ToolTip.Tip="Open a markdown file"
                                     Command="{Binding OpenFileCommand}" />
                             <Button Content="Open URL"
                                     Classes="welcome-btn"
+                                    ToolTip.Tip="Open a markdown URL"
                                     Command="{Binding OpenUrlCommand}" />
                         </StackPanel>
                     </StackPanel>
@@ -570,7 +573,8 @@
                 <ScrollViewer>
                     <StackPanel Margin="0,8,0,16">
                         <!-- Open File -->
-                        <Button x:Name="MenuOpenFileBtn" Classes="panel-item" Click="OnOpenFile">
+                        <Button x:Name="MenuOpenFileBtn" Classes="panel-item" Click="OnOpenFile"
+                                ToolTip.Tip="Open a markdown file">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="FolderOpen" Classes="panel-icon" />
                                 <TextBlock Text="Open file..." VerticalAlignment="Center" />
@@ -578,7 +582,8 @@
                         </Button>
 
                         <!-- Open URL -->
-                        <Button x:Name="MenuOpenUrlBtn" Classes="panel-item" Click="OnOpenUrl">
+                        <Button x:Name="MenuOpenUrlBtn" Classes="panel-item" Click="OnOpenUrl"
+                                ToolTip.Tip="Open a markdown URL">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="Link" Classes="panel-icon" />
                                 <TextBlock Text="Open URL..." VerticalAlignment="Center" />
@@ -597,7 +602,8 @@
                             </Expander.Header>
                             <UniformGrid Columns="2" Margin="0" HorizontalAlignment="Stretch">
                                 <Button x:Name="ThemeLightCard" Classes="theme-card" Tag="Light"
-                                        Click="OnThemeCardClick">
+                                        Click="OnThemeCardClick"
+                                        ToolTip.Tip="Switch to Light theme">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview theme-preview-light">
                                             <TextBlock Text="A" FontSize="24" FontWeight="Medium"
@@ -607,7 +613,8 @@
                                         <TextBlock Text="Light" HorizontalAlignment="Center" FontSize="12" />
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="ThemeDarkCard" Classes="theme-card" Tag="Dark" Click="OnThemeCardClick">
+                                <Button x:Name="ThemeDarkCard" Classes="theme-card" Tag="Dark" Click="OnThemeCardClick"
+                                        ToolTip.Tip="Switch to Dark theme">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview theme-preview-dark">
                                             <TextBlock Text="A" FontSize="24" FontWeight="Medium"
@@ -618,7 +625,8 @@
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="ThemeVSCodeCard" Classes="theme-card" Tag="VSCode"
-                                        Click="OnThemeCardClick">
+                                        Click="OnThemeCardClick"
+                                        ToolTip.Tip="Switch to VS Code theme">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview theme-preview-vscode">
                                             <TextBlock Text="A" FontSize="24" FontWeight="Medium"
@@ -629,7 +637,8 @@
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="ThemeGitHubCard" Classes="theme-card" Tag="GitHub"
-                                        Click="OnThemeCardClick">
+                                        Click="OnThemeCardClick"
+                                        ToolTip.Tip="Switch to GitHub theme">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview theme-preview-github">
                                             <TextBlock Text="A" FontSize="24" FontWeight="Medium"
@@ -640,7 +649,8 @@
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="ThemeMostlyLucidDarkCard" Classes="theme-card" Tag="MostlyLucidDark"
-                                        Click="OnThemeCardClick">
+                                        Click="OnThemeCardClick"
+                                        ToolTip.Tip="Switch to mostlylucid Dark theme">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview" Background="#0f0f23" CornerRadius="6">
                                             <TextBlock Text="A" FontSize="24" FontWeight="Medium"
@@ -651,7 +661,8 @@
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="ThemeMostlyLucidLightCard" Classes="theme-card" Tag="MostlyLucidLight"
-                                        Click="OnThemeCardClick">
+                                        Click="OnThemeCardClick"
+                                        ToolTip.Tip="Switch to mostlylucid Light theme">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview" Background="#ffffff" BorderBrush="#e0dcf5" BorderThickness="1" CornerRadius="6">
                                             <TextBlock Text="A" FontSize="24" FontWeight="Medium"
@@ -662,7 +673,8 @@
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="ThemePrideCard" Classes="theme-card" Tag="Pride"
-                                        Click="OnThemeCardClick">
+                                        Click="OnThemeCardClick"
+                                        ToolTip.Tip="Switch to Pride theme">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview" CornerRadius="6">
                                             <Border.Background>
@@ -685,6 +697,7 @@
                                 <!-- Custom theme card — only visible when settings.json defines a CustomTheme -->
                                 <Button x:Name="ThemeCustomCard" Classes="theme-card" Tag="Custom"
                                         Click="OnThemeCardClick"
+                                        ToolTip.Tip="Switch to Custom theme"
                                         IsVisible="False">
                                     <StackPanel Spacing="4">
                                         <Border Classes="theme-preview" Background="#222236" BorderBrush="#888" BorderThickness="1" CornerRadius="6">
@@ -723,7 +736,8 @@
                         <Border Classes="panel-separator" />
 
                         <!-- Print to default printer -->
-                        <Button x:Name="MenuPrintBtn" Classes="panel-item" Click="OnPrint">
+                        <Button x:Name="MenuPrintBtn" Classes="panel-item" Click="OnPrint"
+                                ToolTip.Tip="Print to default printer">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="Print" Classes="panel-icon" />
                                 <TextBlock Text="Print (Ctrl+P)" VerticalAlignment="Center" />
@@ -731,7 +745,8 @@
                         </Button>
 
                         <!-- Export PDF to file -->
-                        <Button x:Name="MenuExportPdfBtn" Classes="panel-item" Click="OnExportPdf">
+                        <Button x:Name="MenuExportPdfBtn" Classes="panel-item" Click="OnExportPdf"
+                                ToolTip.Tip="Export document as PDF">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="DocumentPdf" Classes="panel-icon" />
                                 <TextBlock Text="Export PDF... (Ctrl+Shift+P)" VerticalAlignment="Center" />
@@ -739,7 +754,8 @@
                         </Button>
 
                         <!-- Export Mermaid Diagram (was "Render Diagram" — opens save picker, not a render preview) -->
-                        <Button x:Name="MenuRenderMermaidBtn" Classes="panel-item" Click="OnRenderMermaid">
+                        <Button x:Name="MenuRenderMermaidBtn" Classes="panel-item" Click="OnRenderMermaid"
+                                ToolTip.Tip="Export mermaid diagrams as SVG or PNG">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="FlowchartCircle" Classes="panel-icon" />
                                 <TextBlock Text="Export Diagram..." VerticalAlignment="Center" />
@@ -747,7 +763,8 @@
                         </Button>
 
                         <!-- Search -->
-                        <Button x:Name="MenuSearchBtn" Classes="panel-item" Click="OnToggleSearch">
+                        <Button x:Name="MenuSearchBtn" Classes="panel-item" Click="OnToggleSearch"
+                                ToolTip.Tip="Search within document">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="Search" Classes="panel-icon" />
                                 <TextBlock Text="Search (Ctrl+F)" VerticalAlignment="Center" />
@@ -757,7 +774,8 @@
                         <Border Classes="panel-separator" />
 
                         <!-- Settings -->
-                        <Button x:Name="MenuSettingsBtn" Classes="panel-item" Click="OnOpenSettings">
+                        <Button x:Name="MenuSettingsBtn" Classes="panel-item" Click="OnOpenSettings"
+                                ToolTip.Tip="Open settings">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="Settings" Classes="panel-icon" />
                                 <TextBlock Text="Settings" VerticalAlignment="Center" />
@@ -765,7 +783,8 @@
                         </Button>
 
                         <!-- User Manual (in-app, with screenshots) -->
-                        <Button x:Name="MenuUserManualBtn" Classes="panel-item" Click="OnOpenUserManual">
+                        <Button x:Name="MenuUserManualBtn" Classes="panel-item" Click="OnOpenUserManual"
+                                ToolTip.Tip="Open the user manual">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="BookOpen" Classes="panel-icon" />
                                 <TextBlock Text="User Manual (F1)" VerticalAlignment="Center" />
@@ -773,7 +792,8 @@
                         </Button>
 
                         <!-- Help — README -->
-                        <Button x:Name="MenuHelpBtn" Classes="panel-item" Click="OnOpenHelp">
+                        <Button x:Name="MenuHelpBtn" Classes="panel-item" Click="OnOpenHelp"
+                                ToolTip.Tip="View README">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="QuestionCircle" Classes="panel-icon" />
                                 <TextBlock Text="README (Shift+F1)" VerticalAlignment="Center" />
