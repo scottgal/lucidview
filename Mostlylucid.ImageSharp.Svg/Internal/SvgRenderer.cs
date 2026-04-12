@@ -120,6 +120,26 @@ internal sealed class SvgRenderer
             parentTransform);
         var style = parentStyle.Merge(node, _cssRules);
 
+        // If this element has a clip-path attribute, build the clip
+        // geometry from the referenced clipPath def and wrap the actual
+        // draw call in ClipPathExtensions.Clip(). Lets shields render
+        // their rounded corners properly.
+        var clipPathAttr = node.Get("clip-path") ?? Lookup(SvgValueParser.ParseStyle(node.Get("style")), "clip-path");
+        if (!string.IsNullOrEmpty(clipPathAttr))
+        {
+            var clipGeom = TryBuildClipPathGeometry(clipPathAttr, transform);
+            if (clipGeom != null)
+            {
+                ctx.Clip(clipGeom, inner => DrawElementInner(inner, node, transform, style));
+                return;
+            }
+        }
+
+        DrawElementInner(ctx, node, transform, style);
+    }
+
+    private void DrawElementInner(IImageProcessingContext ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
+    {
         switch (node.Name)
         {
             case "g":
@@ -237,6 +257,222 @@ internal sealed class SvgRenderer
         if (string.IsNullOrWhiteSpace(d)) return;
         if (!TryParsePath(d, out var geometry)) return;
         FillAndStroke(ctx, geometry, transform, style, defaultFill: false);
+
+        // Render markers (arrowheads) at the path endpoints. Mermaid edges
+        // rely heavily on these — without them every flowchart edge looks
+        // like a bare line.
+        var markerStartId = ResolveMarkerId(node, "marker-start") ?? ResolveMarkerId(node, "marker");
+        var markerEndId   = ResolveMarkerId(node, "marker-end")   ?? ResolveMarkerId(node, "marker");
+        if (markerStartId == null && markerEndId == null) return;
+
+        var (startEp, endEp) = SvgPathEndpoints.Compute(d);
+        if (markerStartId != null && startEp.HasValue)
+            DrawMarker(ctx, markerStartId, startEp.Value, transform, style);
+        if (markerEndId != null && endEp.HasValue)
+            DrawMarker(ctx, markerEndId, endEp.Value, transform, style);
+    }
+
+    /// <summary>
+    /// Resolve a marker reference from inline attribute, inline style, or
+    /// CSS class. Returns just the id (without the <c>url(#…)</c> wrapper).
+    /// </summary>
+    private string? ResolveMarkerId(SvgNode node, string attribute)
+    {
+        // Inline attribute first.
+        var raw = node.Get(attribute);
+        if (string.IsNullOrEmpty(raw))
+        {
+            // Then inline style="" then CSS classes.
+            var style = SvgValueParser.ParseStyle(node.Get("style"));
+            style.TryGetValue(attribute, out raw);
+            if (string.IsNullOrEmpty(raw))
+            {
+                var classAttr = node.Get("class");
+                if (!string.IsNullOrEmpty(classAttr) && !_cssRules.IsEmpty)
+                {
+                    foreach (var token in classAttr.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var rules = _cssRules.GetClassProperties(token);
+                        if (rules != null && rules.TryGetValue(attribute, out var v))
+                        {
+                            raw = v;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if (string.IsNullOrEmpty(raw)) return null;
+        if (!raw.StartsWith("url(", StringComparison.OrdinalIgnoreCase)) return null;
+        return ExtractUrlId(raw);
+    }
+
+    /// <summary>
+    /// Render a marker definition at a given point + tangent angle. Builds
+    /// the marker-local transform (translate to point, rotate by angle,
+    /// scale by markerWidth/viewBox, translate by -refX/-refY) and walks
+    /// the marker's child elements through the renderer's normal element
+    /// dispatch with the new transform composed onto the parent.
+    /// </summary>
+    private void DrawMarker(
+        IImageProcessingContext ctx,
+        string markerId,
+        SvgPathEndpoints.Endpoint endpoint,
+        Matrix3x2 parentTransform,
+        InheritedStyle parentStyle)
+    {
+        if (!_defs.TryGetValue(markerId, out var marker) || marker.Name != "marker") return;
+
+        // Marker viewBox + size.
+        var (vbX, vbY, vbW, vbH) = ParseViewBoxLocal(marker.Get("viewBox"));
+        var markerW = SvgValueParser.ParseNumber(marker.Get("markerWidth"), 3);
+        var markerH = SvgValueParser.ParseNumber(marker.Get("markerHeight"), 3);
+        var refX    = SvgValueParser.ParseNumber(marker.Get("refX"), 0);
+        var refY    = SvgValueParser.ParseNumber(marker.Get("refY"), 0);
+        var orient  = marker.Get("orient");
+        var unitsAttr = marker.Get("markerUnits") ?? "strokeWidth";
+
+        // For markerUnits="strokeWidth" (the SVG default) the marker scales
+        // with the path's stroke width. For "userSpaceOnUse" the marker
+        // size is in user units directly. Mermaid uses userSpaceOnUse for
+        // its arrow markers, so a constant size on screen.
+        double unitScale = 1d;
+        if (unitsAttr.Equals("strokeWidth", StringComparison.OrdinalIgnoreCase))
+        {
+            unitScale = parentStyle.StrokeWidth ?? 1d;
+        }
+
+        var sx = vbW.HasValue && vbW > 0 ? markerW / vbW.Value : 1d;
+        var sy = vbH.HasValue && vbH > 0 ? markerH / vbH.Value : 1d;
+
+        // Compose: parent transform → translate to endpoint → rotate by
+        // tangent angle → scale by marker units → translate by -refX/-refY.
+        var orientAngle = endpoint.Angle;
+        if (!string.IsNullOrEmpty(orient) &&
+            !orient.Equals("auto", StringComparison.OrdinalIgnoreCase) &&
+            !orient.Equals("auto-start-reverse", StringComparison.OrdinalIgnoreCase))
+        {
+            // Static degree value.
+            if (double.TryParse(orient.Replace("deg", "", StringComparison.OrdinalIgnoreCase),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var deg))
+            {
+                orientAngle = (float)(deg * Math.PI / 180.0);
+            }
+        }
+
+        var markerTransform =
+            Matrix3x2.CreateTranslation((float)-refX, (float)-refY) *
+            Matrix3x2.CreateScale((float)(sx * unitScale), (float)(sy * unitScale)) *
+            Matrix3x2.CreateRotation(orientAngle) *
+            Matrix3x2.CreateTranslation(endpoint.Point.X, endpoint.Point.Y) *
+            parentTransform;
+
+        // Markers establish their own viewport — children inherit a fresh
+        // style context, but stroke colour falls through from the path.
+        var markerStyle = parentStyle;
+        DrawChildren(ctx, marker, markerTransform, markerStyle);
+    }
+
+    private static (double X, double Y, double? W, double? H) ParseViewBoxLocal(string? viewBox)
+    {
+        if (string.IsNullOrWhiteSpace(viewBox)) return (0, 0, null, null);
+        var nums = SvgValueParser.ParseNumberList(viewBox);
+        if (nums.Count < 4) return (0, 0, null, null);
+        return (nums[0], nums[1], nums[2], nums[3]);
+    }
+
+    /// <summary>
+    /// Resolve a <c>clip-path="url(#id)"</c> reference to an
+    /// <see cref="IPath"/> the caller can pass to
+    /// <see cref="ClipPathExtensions.Clip"/>. Walks the <c>&lt;clipPath&gt;</c>
+    /// def's children, builds a path for each shape, and combines them
+    /// (currently just the first shape — most real-world clipPaths only
+    /// have one rect or path).
+    /// </summary>
+    private IPath? TryBuildClipPathGeometry(string clipPathAttr, Matrix3x2 transform)
+    {
+        if (!clipPathAttr.StartsWith("url(", StringComparison.OrdinalIgnoreCase)) return null;
+        var id = ExtractUrlId(clipPathAttr);
+        if (id == null || !_defs.TryGetValue(id, out var clipNode) || clipNode.Name != "clipPath")
+            return null;
+
+        IPath? combined = null;
+        foreach (var child in clipNode.Children)
+        {
+            var shape = BuildShapeFromElement(child);
+            if (shape == null) continue;
+            // Apply the clipPath child's own transform (rare).
+            var childTransform = SvgValueParser.ParseTransform(child.Get("transform"));
+            if (!childTransform.IsIdentity)
+                shape = shape.Transform(childTransform);
+
+            combined = combined == null ? shape : combined; // Phase 1: first shape only.
+        }
+
+        if (combined == null) return null;
+        // Apply the element's own transform so the clip aligns with the
+        // shape we're about to draw.
+        return transform.IsIdentity ? combined : combined.Transform(transform);
+    }
+
+    /// <summary>
+    /// Build an <see cref="IPath"/> from a single SVG shape element. Used
+    /// by clipPath resolution; doesn't handle styling, just geometry.
+    /// </summary>
+    private static IPath? BuildShapeFromElement(SvgNode node)
+    {
+        switch (node.Name)
+        {
+            case "rect":
+            {
+                var x  = (float)SvgValueParser.ParseNumber(node.Get("x"));
+                var y  = (float)SvgValueParser.ParseNumber(node.Get("y"));
+                var w  = (float)SvgValueParser.ParseNumber(node.Get("width"));
+                var h  = (float)SvgValueParser.ParseNumber(node.Get("height"));
+                var rx = (float)SvgValueParser.ParseNumber(node.Get("rx"));
+                var ry = (float)SvgValueParser.ParseNumber(node.Get("ry"));
+                if (w <= 0 || h <= 0) return null;
+                return (rx > 0 || ry > 0)
+                    ? BuildRoundedRect(x, y, w, h, MathF.Max(rx, ry), MathF.Max(ry, rx))
+                    : new RectangularPolygon(x, y, w, h);
+            }
+            case "circle":
+            {
+                var cx = (float)SvgValueParser.ParseNumber(node.Get("cx"));
+                var cy = (float)SvgValueParser.ParseNumber(node.Get("cy"));
+                var r  = (float)SvgValueParser.ParseNumber(node.Get("r"));
+                return r > 0 ? new EllipsePolygon(cx, cy, r) : null;
+            }
+            case "ellipse":
+            {
+                var cx = (float)SvgValueParser.ParseNumber(node.Get("cx"));
+                var cy = (float)SvgValueParser.ParseNumber(node.Get("cy"));
+                var rx = (float)SvgValueParser.ParseNumber(node.Get("rx"));
+                var ry = (float)SvgValueParser.ParseNumber(node.Get("ry"));
+                return rx > 0 && ry > 0 ? new EllipsePolygon(cx, cy, rx, ry) : null;
+            }
+            case "polygon":
+            case "polyline":
+            {
+                var pts = SvgValueParser.ParseNumberList(node.Get("points"));
+                if (pts.Count < 4) return null;
+                var coords = new PointF[pts.Count / 2];
+                for (var i = 0; i + 1 < pts.Count; i += 2)
+                    coords[i / 2] = new PointF((float)pts[i], (float)pts[i + 1]);
+                return node.Name == "polygon"
+                    ? new SixLabors.ImageSharp.Drawing.Polygon(coords)
+                    : BuildOpenPath(coords);
+            }
+            case "path":
+            {
+                var d = node.Get("d");
+                if (string.IsNullOrWhiteSpace(d)) return null;
+                return TryParsePath(d, out var geom) ? geom : null;
+            }
+            default:
+                return null;
+        }
     }
 
     private static bool TryParsePath(string value, out IPath geometry)
@@ -346,26 +582,54 @@ internal sealed class SvgRenderer
         var font = ResolveFont(style.FontFamily, renderSize, style.FontWeight);
 
         // Resolve text colour with full inheritance + opacity merge.
-        var color = ResolvePaintToColor(style.Fill, Color.Black, style.Opacity) ?? Color.Black;
+        var fillAlpha = style.Opacity * style.FillOpacity;
+        var color = SvgValueParser.ParseColor(style.Fill, fillAlpha) ?? SvgValueParser.ApplyOpacity(Color.Black, fillAlpha);
 
         // Position is in user units; transform it to canvas pixels first, then
         // adjust for text-anchor.
         var origin = TransformPoint(transform, new Vector2(x, y));
 
-        var measureOptions = new RichTextOptions(font);
-        var measured = TextMeasurer.MeasureSize(content, measureOptions);
-
-        if (string.Equals(style.TextAnchor, "middle", StringComparison.OrdinalIgnoreCase))
-            origin.X -= measured.Width / 2f;
-        else if (string.Equals(style.TextAnchor, "end", StringComparison.OrdinalIgnoreCase))
-            origin.X -= measured.Width;
+        // Only measure when we actually need an alignment offset — the
+        // common case (text-anchor="start" / unspecified) skips the
+        // measurement entirely. MeasureSize allocates a layout buffer per
+        // call so this is the dominant text-rendering hot path.
+        var anchor = style.TextAnchor;
+        if (string.Equals(anchor, "middle", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(anchor, "end", StringComparison.OrdinalIgnoreCase))
+        {
+            var measured = TextMeasurer.MeasureSize(content, new TextOptions(font));
+            if (string.Equals(anchor, "middle", StringComparison.OrdinalIgnoreCase))
+                origin.X -= measured.Width / 2f;
+            else
+                origin.X -= measured.Width;
+        }
 
         // SVG text Y is the baseline; ImageSharp draws from the top — pull
         // up by the font ascent (~0.8 em is a close approximation).
         origin.Y -= font.Size * 0.8f;
 
-        var drawOptions = new RichTextOptions(font) { Origin = new PointF(origin.X, origin.Y) };
-        ctx.DrawText(drawOptions, content, color);
+        // Convert text → glyph paths via TextBuilder, then fill the paths
+        // as regular shapes. ImageSharp's `ctx.DrawText` runs an internal
+        // text-rendering pipeline that allocates ~250 KB per call (glyph
+        // layout, rasterizer state, scanline buffers). The path-based
+        // route shares the same Fill machinery as our other shapes and is
+        // dramatically lighter on allocations because it skips the
+        // dedicated text rasterizer.
+        try
+        {
+            var textOptions = new TextOptions(font)
+            {
+                Origin = new PointF(origin.X, origin.Y),
+            };
+            var glyphPaths = TextBuilder.GenerateGlyphs(content, textOptions);
+            ctx.Fill(color, glyphPaths);
+        }
+        catch
+        {
+            // Fall back to the heavy path if glyph extraction fails for
+            // any reason (font without outline data, exotic input, etc.).
+            ctx.DrawText(content, font, color, new PointF(origin.X, origin.Y));
+        }
     }
 
     private static string ExtractTextContent(SvgNode node)
@@ -392,55 +656,233 @@ internal sealed class SvgRenderer
     {
         var path = transform.IsIdentity ? shape : shape.Transform(transform);
 
-        var fillColor = ResolvePaintToColor(style.Fill, defaultFill ? Color.Black : (Color?)null, style.Opacity);
-        if (fillColor.HasValue)
-            ctx.Fill(fillColor.Value, path);
+        // Fast path: if both fill and stroke are solid colours (the common
+        // case for almost everything), avoid the brush allocation entirely
+        // and use ImageSharp's Color-typed overloads. This is the dominant
+        // allocation in the render hot path — every Fill via a Brush
+        // instance allocates internal fill state, but Fill via Color uses
+        // a stack-allocated SolidBrush internally.
+        var fillAlpha   = style.Opacity * style.FillOpacity;
+        var strokeAlpha = style.Opacity * style.StrokeOpacity;
 
-        var strokeColor = ResolvePaintToColor(style.Stroke, null, style.Opacity);
-        if (strokeColor.HasValue)
+        // Resolve fill: only build a Brush if the paint is a paint-server
+        // (gradient / pattern). Solid colours collapse to a Color value
+        // and the dedicated overload below.
+        Color? solidFill;
+        Brush? complexFill = null;
+        if (TryResolveSolidPaint(style.Fill, defaultFill ? Color.Black : (Color?)null, fillAlpha, out solidFill))
         {
-            var thickness = (float)Math.Max(0.1, (style.StrokeWidth ?? 1d) * GetApproxScale(transform));
-            ctx.Draw(strokeColor.Value, thickness, path);
+            // Solid path — no brush allocation needed.
         }
+        else
+        {
+            complexFill = ResolvePaintToBrush(style.Fill, null, fillAlpha, path.Bounds);
+        }
+
+        if (solidFill.HasValue)
+            ctx.Fill(solidFill.Value, path);
+        else if (complexFill != null)
+            ctx.Fill(complexFill, path);
+
+        Color? solidStroke;
+        Brush? complexStroke = null;
+        if (TryResolveSolidPaint(style.Stroke, null, strokeAlpha, out solidStroke))
+        {
+            // Solid path
+        }
+        else
+        {
+            complexStroke = ResolvePaintToBrush(style.Stroke, null, strokeAlpha, path.Bounds);
+        }
+
+        var thickness = (float)Math.Max(0.1, (style.StrokeWidth ?? 1d) * GetApproxScale(transform));
+        if (solidStroke.HasValue)
+            ctx.Draw(solidStroke.Value, thickness, path);
+        else if (complexStroke != null)
+            ctx.Draw(complexStroke, thickness, path);
     }
 
-    private Color? ResolvePaintToColor(string? value, Color? fallback, double opacity)
+    /// <summary>
+    /// Try to resolve an SVG paint value to a single solid <see cref="Color"/>
+    /// without allocating a <see cref="Brush"/> wrapper. Returns true and
+    /// sets <paramref name="color"/> on the solid path; returns false when
+    /// the paint references a gradient/pattern that needs a real Brush.
+    /// "none" returns true with <c>color = null</c> so the caller can skip
+    /// the draw call entirely.
+    /// </summary>
+    private static bool TryResolveSolidPaint(string? value, Color? fallback, double opacity, out Color? color)
     {
         if (string.IsNullOrWhiteSpace(value))
-            return fallback.HasValue ? SvgValueParser.ApplyOpacity(fallback.Value, opacity) : null;
+        {
+            color = fallback.HasValue ? SvgValueParser.ApplyOpacity(fallback.Value, opacity) : null;
+            return true;
+        }
+
+        if (value.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            color = null;
+            return true;
+        }
+
+        // url(#…) — defer to the brush builder.
+        if (value.StartsWith("url(", StringComparison.OrdinalIgnoreCase))
+        {
+            color = null;
+            return false;
+        }
+
+        var parsed = SvgValueParser.ParseColor(value, opacity);
+        if (parsed.HasValue)
+        {
+            color = parsed;
+            return true;
+        }
+
+        // Unparseable → fall back.
+        color = fallback.HasValue ? SvgValueParser.ApplyOpacity(fallback.Value, opacity) : null;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolve an SVG paint value (named/hex/rgb/url(#id)) to an ImageSharp
+    /// brush. Solid colors collapse to <see cref="SolidBrush"/>; gradient
+    /// references build a real <see cref="LinearGradientBrush"/> /
+    /// <see cref="RadialGradientBrush"/> using the shape's bounding box for
+    /// objectBoundingBox-units coordinates.
+    /// </summary>
+    private Brush? ResolvePaintToBrush(string? value, Brush? fallback, double opacity, RectangleF shapeBounds)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return ApplyOpacityToBrush(fallback, opacity);
 
         if (value.Equals("none", StringComparison.OrdinalIgnoreCase))
             return null;
 
-        // url(#…) — phase 1 collapses gradients to their middle stop colour
-        // so shields render with a flat fill that approximates the gradient
-        // midpoint. A real linear gradient brush lands in phase 3.
         if (value.StartsWith("url(", StringComparison.OrdinalIgnoreCase))
         {
             var id = ExtractUrlId(value);
             if (id != null && _defs.TryGetValue(id, out var defNode))
             {
-                if (defNode.Name == "linearGradient" || defNode.Name == "radialGradient")
-                {
-                    var stops = CollectGradientStops(defNode);
-                    if (stops.Count > 0)
-                    {
-                        var mid = stops[stops.Count / 2];
-                        return SvgValueParser.ApplyOpacity(mid, opacity);
-                    }
-                }
+                if (defNode.Name == "linearGradient")
+                    return BuildLinearGradientBrush(defNode, shapeBounds, opacity) ?? ApplyOpacityToBrush(fallback, opacity);
+                if (defNode.Name == "radialGradient")
+                    return BuildRadialGradientBrush(defNode, shapeBounds, opacity) ?? ApplyOpacityToBrush(fallback, opacity);
             }
-            return fallback.HasValue ? SvgValueParser.ApplyOpacity(fallback.Value, opacity) : null;
+            return ApplyOpacityToBrush(fallback, opacity);
         }
 
         var parsed = SvgValueParser.ParseColor(value, opacity);
-        return parsed ?? (fallback.HasValue ? SvgValueParser.ApplyOpacity(fallback.Value, opacity) : null);
+        if (parsed.HasValue) return new SolidBrush(parsed.Value);
+        return ApplyOpacityToBrush(fallback, opacity);
     }
 
-    private List<Color> CollectGradientStops(SvgNode gradient)
+    private static Brush? ApplyOpacityToBrush(Brush? brush, double opacity)
+    {
+        if (brush == null || opacity >= 1d) return brush;
+        // Solid brush is the only case we can dim cleanly without rebuilding
+        // the gradient stops. Gradient brushes carry their opacity baked in
+        // (we apply it to each stop's color in BuildLinearGradientBrush).
+        if (brush is SolidBrush solid)
+            return new SolidBrush(SvgValueParser.ApplyOpacity(solid.Color, opacity));
+        return brush;
+    }
+
+    private LinearGradientBrush? BuildLinearGradientBrush(SvgNode gradient, RectangleF bounds, double opacity)
+    {
+        var stops = CollectGradientStops(gradient, opacity);
+        if (stops.Length < 2) return null;
+
+        // Resolve x1/y1/x2/y2 with the SVG defaults: a horizontal vector
+        // from (0%, 0%) to (100%, 0%) over the gradient's coordinate space.
+        var x1 = ParseGradientCoord(gradient, "x1", 0);
+        var y1 = ParseGradientCoord(gradient, "y1", 0);
+        var x2 = ParseGradientCoord(gradient, "x2", 1);
+        var y2 = ParseGradientCoord(gradient, "y2", 0);
+
+        var units = ResolveGradientUnits(gradient);
+        PointF start, end;
+        if (units == "userSpaceOnUse")
+        {
+            start = new PointF((float)x1, (float)y1);
+            end   = new PointF((float)x2, (float)y2);
+        }
+        else
+        {
+            // objectBoundingBox: 0..1 maps onto the shape bounds.
+            start = new PointF(bounds.X + (float)x1 * bounds.Width, bounds.Y + (float)y1 * bounds.Height);
+            end   = new PointF(bounds.X + (float)x2 * bounds.Width, bounds.Y + (float)y2 * bounds.Height);
+        }
+
+        return new LinearGradientBrush(start, end, GradientRepetitionMode.None, stops);
+    }
+
+    private RadialGradientBrush? BuildRadialGradientBrush(SvgNode gradient, RectangleF bounds, double opacity)
+    {
+        var stops = CollectGradientStops(gradient, opacity);
+        if (stops.Length < 2) return null;
+
+        var cx = ParseGradientCoord(gradient, "cx", 0.5);
+        var cy = ParseGradientCoord(gradient, "cy", 0.5);
+        var r  = ParseGradientCoord(gradient, "r",  0.5);
+
+        var units = ResolveGradientUnits(gradient);
+        PointF center;
+        float radius;
+        if (units == "userSpaceOnUse")
+        {
+            center = new PointF((float)cx, (float)cy);
+            radius = (float)r;
+        }
+        else
+        {
+            center = new PointF(bounds.X + (float)cx * bounds.Width, bounds.Y + (float)cy * bounds.Height);
+            radius = (float)r * Math.Max(bounds.Width, bounds.Height);
+        }
+
+        return new RadialGradientBrush(center, radius, GradientRepetitionMode.None, stops);
+    }
+
+    private string ResolveGradientUnits(SvgNode gradient)
+    {
+        // gradientUnits is inheritable through href chains.
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var current = gradient;
+        while (current != null)
+        {
+            var u = current.Get("gradientUnits");
+            if (!string.IsNullOrEmpty(u)) return u;
+            var hrefValue = current.Get("href") ?? current.Get("xlink:href");
+            if (string.IsNullOrEmpty(hrefValue) || hrefValue[0] != '#') break;
+            var refId = hrefValue[1..];
+            if (!visited.Add(refId)) break;
+            current = _defs.TryGetValue(refId, out var next) ? next : null;
+        }
+        return "objectBoundingBox";
+    }
+
+    private static double ParseGradientCoord(SvgNode gradient, string attr, double defaultValue)
+    {
+        var raw = gradient.Get(attr);
+        if (string.IsNullOrWhiteSpace(raw)) return defaultValue;
+        var s = raw.Trim();
+        if (s.EndsWith('%') && double.TryParse(s[..^1],
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var pct))
+        {
+            return pct / 100d;
+        }
+        return SvgValueParser.ParseNumber(s, defaultValue);
+    }
+
+    /// <summary>
+    /// Walk the gradient + its href chain to gather <c>&lt;stop&gt;</c>
+    /// children. Each stop becomes an ImageSharp <see cref="ColorStop"/>
+    /// with the color premultiplied by the parent opacity.
+    /// </summary>
+    private ColorStop[] CollectGradientStops(SvgNode gradient, double opacity)
     {
         var visited = new HashSet<string>(StringComparer.Ordinal);
-        var stops = new List<Color>();
+        var stops = new List<ColorStop>();
         var current = gradient;
         while (current != null)
         {
@@ -451,8 +893,12 @@ internal sealed class SvgRenderer
                 var stopColorStr = child.Get("stop-color") ?? Lookup(style, "stop-color");
                 var stopOpacity = SvgValueParser.ParseNumber(
                     child.Get("stop-opacity") ?? Lookup(style, "stop-opacity"), 1d);
-                var color = SvgValueParser.ParseColor(stopColorStr, stopOpacity);
-                if (color.HasValue) stops.Add(color.Value);
+                // Default stop-color is black per SVG spec.
+                var color = SvgValueParser.ParseColor(stopColorStr ?? "#000", stopOpacity * opacity)
+                            ?? SvgValueParser.ApplyOpacity(Color.Black, stopOpacity * opacity);
+                var offset = (float)Math.Clamp(
+                    ParseGradientCoord(child, "offset", 0), 0d, 1d);
+                stops.Add(new ColorStop(offset, color));
             }
 
             if (stops.Count > 0) break;
@@ -463,7 +909,9 @@ internal sealed class SvgRenderer
             if (!visited.Add(refId)) break;
             current = _defs.TryGetValue(refId, out var next) ? next : null;
         }
-        return stops;
+        // ImageSharp requires stops in offset-ascending order.
+        stops.Sort((a, b) => a.Ratio.CompareTo(b.Ratio));
+        return stops.ToArray();
     }
 
     private static string? ExtractUrlId(string value)
@@ -485,6 +933,20 @@ internal sealed class SvgRenderer
             ? FontStyle.Bold
             : FontStyle.Regular;
 
+        // When ForceBundledFont is true (the default), use the embedded
+        // DejaVu Sans for ALL text. This trades a small fidelity loss for
+        // SVGs that genuinely depend on a specific host font, in exchange
+        // for byte-identical rendering across Windows/macOS/Linux. Most
+        // markdown content (shields, mermaid, icons) renders perceptually
+        // identical or better with DejaVu than with whatever the host has.
+        if (_options.ForceBundledFont && BundledFonts.Fallback is { } bundledFirst)
+            return bundledFirst.CreateFont(size, style);
+
+        // ForceBundledFont = false: walk the cascade.
+        //   1. Each requested family looked up in system fonts.
+        //   2. The bundled DejaVu Sans family.
+        //   3. The configured fallback family (system).
+        //   4. The first installed system font.
         if (!string.IsNullOrEmpty(fontFamily))
         {
             foreach (var part in fontFamily.Split(','))
@@ -495,6 +957,9 @@ internal sealed class SvgRenderer
                     return family.CreateFont(size, style);
             }
         }
+
+        if (BundledFonts.Fallback is { } bundled)
+            return bundled.CreateFont(size, style);
 
         if (SystemFonts.TryGet(_options.FallbackFontFamily, out var fallback))
             return fallback.CreateFont(size, style);

@@ -41,11 +41,25 @@ internal static class SvgValueParser
         return value[..i].Trim();
     }
 
+    private static readonly List<double> EmptyNumberList = new(0);
+
     public static List<double> ParseNumberList(string? value)
     {
-        var result = new List<double>(8);
-        if (string.IsNullOrWhiteSpace(value)) return result;
+        // Allocation fast-path: return a shared empty list when there's
+        // nothing to parse. This is called per <transform> command and per
+        // viewBox / points / dasharray attribute — most elements have no
+        // numbers to parse, so the common case allocates zero.
+        if (string.IsNullOrEmpty(value)) return EmptyNumberList;
         var span = value.AsSpan();
+        // Quick check for any digit before allocating the result list.
+        var hasDigit = false;
+        for (var k = 0; k < span.Length; k++)
+        {
+            if (char.IsDigit(span[k])) { hasDigit = true; break; }
+        }
+        if (!hasDigit) return EmptyNumberList;
+
+        var result = new List<double>(8);
         var i = 0;
         while (i < span.Length)
         {
@@ -74,11 +88,24 @@ internal static class SvgValueParser
         return result;
     }
 
+    private static readonly Dictionary<string, string> EmptyStyleDict =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Parse an inline <c>style="…"</c> attribute into a property dictionary.
+    /// Returns a shared empty dictionary singleton when the input is null or
+    /// empty so the common case (most SVG elements have no inline style) does
+    /// not allocate.
+    /// </summary>
     public static Dictionary<string, string> ParseStyle(string? style)
     {
-        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (string.IsNullOrWhiteSpace(style)) return dict;
+        if (string.IsNullOrEmpty(style)) return EmptyStyleDict;
 
+        // Skim for at least one ':' before allocating. Mermaid emits empty
+        // <style> blocks on some elements; bail out without allocating.
+        if (style.IndexOf(':') < 0) return EmptyStyleDict;
+
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var raw in style.Split(';'))
         {
             var seg = raw.AsSpan().Trim();

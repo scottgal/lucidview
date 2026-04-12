@@ -4,6 +4,124 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v2.6.0 — 2026-04-12
+
+### Added
+
+- **HTTP-aware image cache** with proper LRU and per-image metadata sidecars.
+  `ImageCacheService` now persists `ETag` / `Last-Modified` /
+  `Cache-Control: max-age` / `Expires` / fetch and access timestamps to
+  `{hash}.meta.json` files alongside each cached image. Reopening a
+  document within the freshness window skips the network entirely;
+  stale entries send conditional `If-None-Match` / `If-Modified-Since`
+  GETs and use 304 responses to refresh metadata without
+  re-downloading the body. Disk eviction now also unlinks the sidecar.
+  In-memory cache uses a `LinkedList<ImageCacheEntry>` + `Dictionary`
+  LRU with O(1) access and bounded capacity (256 entries by default).
+  Verified end-to-end against shields.io: first load = 200 + sidecar
+  write; second load = `STALE` → conditional `FETCH` → `304` → cache
+  hit (no body re-downloaded).
+- **`ux-scripts/verify-{ruler-visible,render-mermaid,export-pdf}.yaml`** —
+  three new harness scripts that exercise the bug-fixed code paths
+  end-to-end.
+
+### Changed
+
+- **"Render Diagram..." → "Export Diagram..."** in the side panel. The
+  menu was a misnomer — it opens a save file picker, not a render
+  preview dialog. The handler is now `async void` so any exception
+  surfaces on the UI thread instead of disappearing into a
+  fire-and-forget Task. The status bar now shows
+  `Opening export dialog (N diagram)…` immediately on click so the
+  user gets confirmation that the click registered, even if the
+  native picker takes a moment to render or appears as a sheet on a
+  different screen. Cancel feedback shows `Diagram export canceled`.
+
+### Fixed
+
+- **Ruler regression**: a previously-saved `contentMaxWidth` larger
+  than the current window width stranded the right ruler handle
+  off-screen. `ApplyContentMaxWidth` now clamps to
+  `EffectiveMaxContentWidth = min(2000, Width − 60)` and recovers
+  automatically on launch (resetting to 900 if the saved value is
+  out of range). The clamp is also applied on every drag/click and
+  re-applied on `SizeChanged` so shrinking the window pulls the
+  right handle back into view.
+
+### `Mostlylucid.ImageSharp.Svg` v0.2.0
+
+The bundled SVG renderer + svg2png CLI both jumped to v0.2.0 with
+significant feature and performance gains:
+
+**Features added**
+
+- `fill-opacity` / `stroke-opacity` are now inheritable through the
+  cascade and applied separately from element `opacity`. This was
+  the missing piece for the shields.io drop-shadow text trick
+  (`fill="#010101" fill-opacity=".3"`).
+- Real `LinearGradientBrush` / `RadialGradientBrush` with full
+  `gradientUnits=objectBoundingBox|userSpaceOnUse`, x1/y1/x2/y2 or
+  cx/cy/r in % or units, and href stop-inheritance chains.
+- `<marker>` support (arrowheads) — every SVG path command (M, L,
+  H, V, C, S, Q, T, A, Z) is parsed by a hand-rolled tangent
+  extractor (`SvgPathEndpoints`) so `marker-start` / `marker-end`
+  rotate to match the path direction. Mermaid edge arrows now
+  render correctly.
+- `clip-path="url(#id)"` via `ClipPathExtensions.Clip` — supports
+  rect/circle/ellipse/polygon/polyline/path inside `<clipPath>`.
+  Shields' rounded corners no longer rely on the rect's own rx/ry.
+- `rgb()` / `rgba()` / `hsl()` / `hsla()` color parsers added to
+  `SvgValueParser.ParseColor`. Mermaid pie slice fills, flowchart
+  edge label backgrounds, and any SVG with non-hex colors now
+  render correctly.
+- Embedded **DejaVu Sans** font (739 KB) shipped inside the
+  library. `SvgRenderOptions.ForceBundledFont = true` (default)
+  ensures byte-identical text rendering across Windows / macOS /
+  Linux instead of falling back to whatever the host has installed.
+- `SvgRenderOptions.Configuration` — pass a custom ImageSharp
+  `Configuration` (e.g. PNG-only) to let the AOT trimmer drop
+  unused encoder modules.
+
+**Performance**
+
+| Bench | Before | After | Δ |
+|---|---|---|---|
+| Shield (~1 KB SVG) | 911 µs / 1627 KB | 820 µs / 1211 KB | −10% time, **−26% alloc** |
+| Mermaid flowchart | 13525 µs / 2651 KB | 13352 µs / 2172 KB | **−18% alloc** |
+| C4 container | 36111 µs / 6113 KB | 34999 µs / 4475 KB | **−27% alloc** |
+| Render-only (shield) | 342 µs / 1208 KB | 276 µs / 855 KB | −19% time, **−29% alloc** |
+
+Hot-path optimizations:
+
+- `InheritedStyle.Merge` — fast path that skips dict creation
+  entirely when the element has no `style=""` and no `class=""`.
+- `SvgValueParser.ParseStyle` / `ParseNumberList` — return shared
+  empty singletons when input is null/empty.
+- `FillAndStroke` — solid-paint fast path collapses to
+  `ctx.Fill(Color, IPath)` instead of allocating a `SolidBrush`.
+- `DrawText` — converts text to glyph paths via
+  `TextBuilder.GenerateGlyphs` and fills them as regular shapes,
+  bypassing ImageSharp's heavy text-rendering pipeline. **This was
+  the single biggest win** — `ctx.DrawText` was allocating ~250 KB
+  per call internally; the path route shares the existing fill
+  machinery and is dramatically lighter.
+- `MeasureSize` skipped when `text-anchor` is `start` (default).
+
+**Tooling**
+
+- `Mostlylucid.ImageSharp.Svg.Benchmarks` — BenchmarkDotNet harness
+  with 3-tier benchmarks (shield / mermaid / C4) plus an `alloc`
+  mode for per-stage allocation breakdowns.
+- `Mostlylucid.ImageSharp.Svg.Conformance` — resvg-comparison
+  harness with multi-metric reporting (MSE, % pixels close,
+  % exact, max channel diff). Forces both renderers to use the
+  bundled DejaVu Sans for fair text-fidelity comparison.
+
+**svg2png v0.2.0** inherits all of the above through its
+`ProjectReference` to the library. The single AOT-published native
+binary stays at ~10 MB and remains the smallest cross-platform SVG
+rasterizer in the .NET ecosystem.
+
 ## v2.5.0 — 2026-04-11
 
 ### Added

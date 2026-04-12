@@ -130,6 +130,9 @@ public partial class MainWindow : Window
         ApplyContentMaxWidth();
         ApplyRulerVisibility();
         Closing += OnWindowClosing;
+        // Re-clamp the column width when the window is resized so shrinking
+        // the window doesn't push the right ruler handle off-screen.
+        SizeChanged += (_, _) => ApplyContentMaxWidth();
 
         // Command line argument - load file immediately (terminal launches, Windows Open With)
         var args = Environment.GetCommandLineArgs();
@@ -1224,10 +1227,26 @@ public partial class MainWindow : Window
 
     #region Mermaid Diagram Export
 
-    private void OnRenderMermaid(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// Async-void event handler so exceptions land on the UI thread (and
+    /// flow through Application.Current.UnhandledException) instead of
+    /// silently disappearing into a fire-and-forget Task. The previous
+    /// <c>_ = ShowMermaidExportDialog()</c> pattern hid every failure;
+    /// the user reported "doesn't pop the dialog" — turns out any throw
+    /// from inside the chain (font load, side-panel teardown, etc.) was
+    /// being swallowed.
+    /// </summary>
+    private async void OnRenderMermaid(object? sender, RoutedEventArgs e)
     {
-        CloseSidePanel();
-        _ = ShowMermaidExportDialog();
+        try
+        {
+            CloseSidePanel();
+            await ShowMermaidExportDialog();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Diagram export error: {ex.Message}";
+        }
     }
 
     private async Task ShowMermaidExportDialog()
@@ -1238,6 +1257,11 @@ public partial class MainWindow : Window
             StatusText.Text = "No mermaid diagrams in current document";
             return;
         }
+        // Surface immediate feedback BEFORE opening the picker so the user
+        // sees confirmation that the click registered, even if the picker
+        // takes a moment to render or appears as a sheet on a different
+        // screen. Without this, the click feels like a dead button.
+        StatusText.Text = $"Opening export dialog ({diagrams.Count} diagram{(diagrams.Count == 1 ? "" : "s")})...";
 
         // If only one diagram, export it directly
         if (diagrams.Count == 1)
@@ -1254,7 +1278,11 @@ public partial class MainWindow : Window
 
     private async Task ExportMermaidDiagram(string mermaidCode)
     {
-        if (_filePickerOpen) return;
+        if (_filePickerOpen)
+        {
+            StatusText.Text = "Another file picker is already open";
+            return;
+        }
         _filePickerOpen = true;
         try
         {
@@ -1270,7 +1298,11 @@ public partial class MainWindow : Window
                 ]
             });
 
-            if (file is null) return;
+            if (file is null)
+            {
+                StatusText.Text = "Diagram export canceled";
+                return;
+            }
 
             var outputPath = file.Path.LocalPath;
             try
@@ -2190,11 +2222,37 @@ public partial class MainWindow : Window
 
     private const double MinContentWidth = 300;
     private const double MaxContentWidth = 2000;
+    /// <summary>
+    /// Reserved space for the side menu gutter, scrollbar, and a little
+    /// breathing room — so the column never grows wider than the visible
+    /// window area, which would put the right ruler handle off-screen and
+    /// strand the user with no way to drag it back.
+    /// </summary>
+    private const double WindowChromeReserve = 60;
+
+    /// <summary>
+    /// Effective max content width: the smaller of MaxContentWidth and the
+    /// available window width minus chrome reserve. This is the value every
+    /// drag/click/initial-load path must clamp to so the right handle is
+    /// always reachable inside the window.
+    /// </summary>
+    private double EffectiveMaxContentWidth =>
+        Math.Max(MinContentWidth, Math.Min(MaxContentWidth, Width - WindowChromeReserve));
 
     private void ApplyContentMaxWidth()
     {
         var w = _settings.ContentMaxWidth;
-        if (w < MinContentWidth || w > MaxContentWidth) w = 900;
+        // Recover from a previously-saved width that's wider than the
+        // current window — clamp to the effective max so the column fits
+        // and the right handle stays grabbable. Also persist the recovery
+        // so the next launch starts in a sensible state.
+        var maxAllowed = EffectiveMaxContentWidth;
+        if (w < MinContentWidth || w > maxAllowed)
+        {
+            w = Math.Min(900, maxAllowed);
+            _settings.ContentMaxWidth = w;
+            _settings.Save();
+        }
         // Use Width (not MaxWidth). MaxWidth is just a cap and lets
         // HorizontalAlignment=Center shrink the Border to its content's
         // natural width — which makes the ruler-bound width WRONG.
@@ -2246,7 +2304,8 @@ public partial class MainWindow : Window
         var current = MarkdownContentBorder.Width;
         if (double.IsNaN(current) || double.IsInfinity(current)) current = _settings.ContentMaxWidth;
 
-        var next = Math.Clamp(current + direction * e.Vector.X * 2.0, MinContentWidth, MaxContentWidth);
+        var next = Math.Clamp(current + direction * e.Vector.X * 2.0,
+            MinContentWidth, EffectiveMaxContentWidth);
 
         MarkdownContentBorder.Width = next;
         _settings.ContentMaxWidth = next;
@@ -2269,7 +2328,7 @@ public partial class MainWindow : Window
 
         var pos = e.GetPosition(bar);
         var halfWidth = Math.Abs(pos.X - bar.Bounds.Width / 2.0);
-        var next = Math.Clamp(halfWidth * 2.0, MinContentWidth, MaxContentWidth);
+        var next = Math.Clamp(halfWidth * 2.0, MinContentWidth, EffectiveMaxContentWidth);
 
         MarkdownContentBorder.Width = next;
         _settings.ContentMaxWidth = next;

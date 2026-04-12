@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Mostlylucid.ImageSharp.Svg.Benchmarks</RootNamespace>
+
+    <!-- BenchmarkDotNet wants Release-optimized output for accurate
+         measurements. The benchmark host always builds Release internally,
+         but our explicit Debug build of the benchmark project still needs
+         to compile. -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.4" />
+    <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
+  </ItemGroup>
+
+</Project>

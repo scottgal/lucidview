@@ -1,0 +1,15 @@
+name: verify-ruler-visible
+description: Load a document with the ruler enabled, capture; verify the ruler bar + handles render at the correct column edges
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "1200"
+
+  - type: Screenshot
+    value: ruler-visible

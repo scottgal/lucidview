@@ -1,0 +1,43 @@
+name: verify-render-mermaid
+description: Load a document with a mermaid diagram, click the Render Diagram menu item, capture
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: test-flowchart.md
+  - type: Wait
+    value: "2500"
+
+  - type: Screenshot
+    value: 01-loaded
+    description: Document loaded with mermaid diagram
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+
+  - type: Screenshot
+    value: 02-side-panel
+    description: Side panel open showing menu items
+
+  - type: Click
+    target: MenuRenderMermaidBtn
+  - type: Wait
+    value: "5000"
+
+  - type: Screenshot
+    value: 03-after-click
+    description: After clicking Render Diagram — should show file picker or status
+
+  - type: PressKey
+    value: "Escape"
+  - type: Wait
+    value: "1000"
+
+  - type: Screenshot
+    value: 04-after-escape
+    description: After pressing Escape — picker should be dismissed

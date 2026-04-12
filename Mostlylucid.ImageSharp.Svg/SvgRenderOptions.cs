@@ -28,6 +28,20 @@ public sealed class SvgRenderOptions
     public string FallbackFontFamily { get; set; } = "DejaVu Sans";
 
     /// <summary>
+    /// When true (the default) the renderer uses the embedded DejaVu Sans
+    /// font for ALL text, regardless of what the SVG's <c>font-family</c>
+    /// attribute requests. This is the only way to get byte-identical text
+    /// rendering across Windows / macOS / Linux — the alternative is each
+    /// host falling back to whatever it has installed (Helvetica on macOS,
+    /// Arial on Windows, DejaVu on Linux), and the rasterized glyphs vary.
+    ///
+    /// Set to false if you want the renderer to honour the SVG's font
+    /// request first and fall back to bundled DejaVu only when none of the
+    /// requested families are installed.
+    /// </summary>
+    public bool ForceBundledFont { get; set; } = true;
+
+    /// <summary>
     /// Optional ImageSharp <see cref="Configuration"/> override. Pass a
     /// minimal PNG-only configuration in AOT/trimmed builds to let the
     /// trimmer drop the JPEG/WebP/TIFF/BMP/GIF/PBM/QOI encoder + decoder

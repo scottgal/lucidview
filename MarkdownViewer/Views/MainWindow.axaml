@@ -738,11 +738,11 @@
                             </StackPanel>
                         </Button>
 
-                        <!-- Render Mermaid Diagram -->
+                        <!-- Export Mermaid Diagram (was "Render Diagram" — opens save picker, not a render preview) -->
                         <Button x:Name="MenuRenderMermaidBtn" Classes="panel-item" Click="OnRenderMermaid">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="FlowchartCircle" Classes="panel-icon" />
-                                <TextBlock Text="Render Diagram..." VerticalAlignment="Center" />
+                                <TextBlock Text="Export Diagram..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 

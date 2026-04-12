@@ -23,11 +23,27 @@
     <RepositoryUrl>https://github.com/scottgal/lucidview</RepositoryUrl>
     <PackageProjectUrl>https://github.com/scottgal/lucidview</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Mostlylucid.ImageSharp.Svg.Benchmarks" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="Fonts\DejaVu-LICENSE.txt" Pack="true" PackagePath="\Fonts\" />
+  </ItemGroup>
+
+  <!-- Embed DejaVu Sans as the universal fallback font so text rendering
+       is byte-identical across platforms (matches what resvg + most Linux
+       desktops use). License: bitstream-vera + Public Domain. The font
+       adds ~739 KB to the IL DLL and ~250 KB to the AOT binary after
+       compression — accepted because text fidelity is the dominant
+       conformance gap and bundling is the only way to be platform-
+       independent without falling back to unpredictable system fonts. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\DejaVuSans.ttf" />
   </ItemGroup>
 
   <ItemGroup>

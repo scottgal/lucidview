@@ -1,0 +1,25 @@
+name: verify-export-pdf
+description: Test if Export PDF opens its file picker (the same SaveFilePickerAsync flow Render Diagram uses)
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: test-flowchart.md
+  - type: Wait
+    value: "2000"
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+
+  - type: Click
+    target: MenuExportPdfBtn
+  - type: Wait
+    value: "3000"
+
+  - type: Screenshot
+    value: after-export-pdf-click
