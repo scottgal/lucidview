@@ -38,6 +38,86 @@ ambiguity needed). Layout left → right:
 - "Open in Browser ↗" — explicit handoff to system default
 - `⋮` — menu: Save as `.md`, View source HTML, Reader settings for this domain
 
+### Being a smart browser
+
+Browsing the modern web means meeting servers halfway. A few low-cost moves
+that make lucidVIEW behave like a polite, identifiable, and persistent
+markdown client:
+
+**1. Branded User-Agent.** Send a UA that identifies the app and a project
+URL, following the bot-style "+URL" convention so site operators can see
+who's hitting them:
+
+```
+lucidVIEW/2.6.3 (Markdown Browser; +https://www.mostlylucid.net/lucidview)
+```
+
+This already ships. Sites that recognise the UA (mostlylucid.net,
+hypothetically others) can return markdown directly.
+
+**2. Markdown-first Accept header.** Send `text/markdown` before `text/html`
+in the Accept chain so any server that can produce markdown does. Already
+in `DownloadWebPageAsync`. Servers known to honour this:
+
+- `mostlylucid.net` (the user's own blog)
+- Cloudflare URL→Markdown rewriting (when configured upstream)
+- Jina Reader (`r.jina.ai/<original-url>`) returns markdown for any URL
+
+**3. Smart-fallback chain when extraction is sparse.** A real-world test:
+`https://www.bbc.com/news` returns 30 KB of Next.js HTML with `__NEXT_DATA__`
+JSON and no static `<main>` content — StyloExtract produces ~1 character.
+A BBC article URL (`/news/articles/<id>`) returns full `<main>`/`<article>`
+markup and works fine. The lesson: when the heuristic comes up empty, try
+again before giving up — using only local fetches against the same origin.
+
+Proposed fallback chain (each step only fires when the prior produces
+less than ~200 characters of content), in order:
+
+  1. Direct fetch with `Accept: text/markdown` → use if MIME is markdown
+  2. Direct fetch with `Accept: text/html` → StyloExtract → use if dense
+  3. Check the HTML head for `<link rel="amphtml">` → re-fetch the AMP
+     variant against the same origin (cleaner static HTML, no hydration)
+  4. Check for a site-known text/lite endpoint pattern derived from the
+     hostname (`text.npr.org`, `lite.cnn.com`, etc. — see the
+     reader-friendly-sites table) → rewrite the URL and re-fetch
+  5. Try parsing `__NEXT_DATA__` / `__INITIAL_STATE__` / `__APOLLO_STATE__`
+     JSON blobs from the response — many SSR-with-hydration frameworks
+     stash the full article payload there, and we already have the HTML
+  6. Synthesize a minimal stub from page metadata (`og:title` +
+     `og:description` + canonical link + author + publish date) so the
+     user at least sees what the page is about
+  7. Show "this page needs JavaScript to render — open in browser?" with
+     a one-click handoff
+
+**StyloExtract is the converter, period.** Every step above either feeds
+StyloExtract a *different fetch* against the same origin (AMP variant,
+text-mirror URL) or parses an embedded payload (SSR JSON, metadata) and
+hands the resulting text to StyloExtract for shaping. The chain is about
+finding *better input* for our converter, not switching to a different
+one. Falling back to Jina/Trafilatura/Outline/Pocket/etc. is explicitly
+not on the table: (a) those services see every URL the user visits,
+which defeats the privacy framing, and (b) StyloExtract beats them at
+the conversion job anyway. If the answer to "this page didn't convert
+well" is ever "try a different converter", that's a StyloExtract
+improvement waiting to happen, not a routing change here.
+
+**4. Reader-friendly sites menu (future).** A curated short-list of sites
+that are markdown-natively friendly, pinned as quick-access bookmarks:
+
+- `text.npr.org` — NPR text-only mirror
+- `lite.cnn.com` — CNN text-only
+- `68k.news` — Hacker News-style aggregator that links to reader-mode
+  versions of articles
+- `apnews.com/hub/ap-top-news` — AP wire feed, mostly static
+- `news.ycombinator.com` — already pretty plain
+- Wikipedia (works great today)
+- BBC `/news/articles/<id>` URLs — when they're not Next.js
+
+Source list: <https://greycoder.com/a-list-of-text-only-new-sites/>.
+
+The menu could surface under "Reader-Friendly Sites" in the side panel,
+or as a dropdown next to the address bar.
+
 ### Link routing
 
 Every `http(s)` link in rendered markdown changes behaviour. Today they open

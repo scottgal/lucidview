@@ -76,10 +76,10 @@
              (Ctrl+Shift+W) when a server returns text/html instead of
              text/markdown. AOT-clean; AngleSharp is the only transitive
              native-free addition. -->
-        <PackageReference Include="Mostlylucid.StyloExtract.Abstractions" Version="1.6.1" />
-        <PackageReference Include="Mostlylucid.StyloExtract.Html" Version="1.6.1" />
-        <PackageReference Include="Mostlylucid.StyloExtract.Heuristics" Version="1.6.1" />
-        <PackageReference Include="Mostlylucid.StyloExtract.Markdown" Version="1.6.1" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Abstractions" Version="1.7.0" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Html" Version="1.7.0" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Heuristics" Version="1.7.0" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Markdown" Version="1.7.0" />
 
         <!-- Diagnostics (debug only) -->
         <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12" Condition="'$(Configuration)' == 'Debug'" />

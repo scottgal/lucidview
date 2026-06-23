@@ -754,15 +754,17 @@ public partial class MainWindow : Window
             }
         };
 
-        // Inline code (`backtick` spans) renders as a Run inside a regular
-        // TextBlock; LiveMarkdown sets an "Inline" Classes entry on the host
-        // we can hook off, but the safest path is a Classes("code") match
-        // that LiveMarkdown applies to the run.
-        var inlineCodeStyle = new Style(x => x.OfType<Run>().Class("code"))
+        // Inline code (`backtick`) is wrapped in InlineUIContainer { Classes
+        // = { "Code" } } → Border → MarkdownTextBlock. Avalonia matches the
+        // OfType<T> selector EXACTLY (not by inheritance) so we have to
+        // target MarkdownTextBlock by its concrete type, not SelectableTextBlock.
+        var inlineCodeStyle = new Style(x => x
+            .OfType<InlineUIContainer>().Class("Code")
+            .Descendant().OfType<MarkdownTextBlock>())
         {
             Setters =
             {
-                new Setter(Run.FontFamilyProperty, codeFont)
+                new Setter(MarkdownTextBlock.FontFamilyProperty, codeFont)
             }
         };
 
