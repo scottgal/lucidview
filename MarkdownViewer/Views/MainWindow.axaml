@@ -18,7 +18,14 @@
 
     <Window.KeyBindings>
         <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenFileCommand}" />
-        <KeyBinding Gesture="Ctrl+Shift+O" Command="{Binding OpenUrlCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+O" Command="{Binding OpenWebPageCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding OpenWebPageCommand}" />
+        <KeyBinding Gesture="Ctrl+L" Command="{Binding FocusAddressBarCommand}" />
+        <KeyBinding Gesture="Alt+Left" Command="{Binding GoBackCommand}" />
+        <KeyBinding Gesture="Alt+Right" Command="{Binding GoForwardCommand}" />
+        <KeyBinding Gesture="F5" Command="{Binding ReloadCommand}" />
+        <KeyBinding Gesture="Ctrl+R" Command="{Binding ReloadCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding OpenInExternalBrowserCommand}" />
         <KeyBinding Gesture="F11" Command="{Binding ToggleFullScreenCommand}" />
         <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidePanelCommand}" />
         <KeyBinding Gesture="Ctrl+F" Command="{Binding ToggleSearchCommand}" />
@@ -38,9 +45,9 @@
         <DockPanel>
             <!-- Clean Header Bar -->
             <Border DockPanel.Dock="Top" Classes="header-bar">
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
                     <!-- Reserve space for system caption buttons (min/max/close) on the right -->
-                    <Border Grid.Column="6" Width="138" />
+                    <Border Grid.Column="10" Width="138" />
                     <!-- Left: Hamburger Menu -->
                     <Button x:Name="MenuButton"
                             Grid.Column="0"
@@ -62,11 +69,48 @@
                                        Foreground="{DynamicResource AppText}" />
                     </Button>
 
-                    <!-- Center: Zoom Controls -->
+                    <!-- Navigation: Back / Forward / Reload -->
+                    <Button x:Name="BackButton"
+                            Grid.Column="2"
+                            Classes="header-btn"
+                            Click="OnGoBack"
+                            IsEnabled="False"
+                            ToolTip.Tip="Back (Alt+Left)">
+                        <ic:SymbolIcon Symbol="ArrowLeft" FontSize="18"
+                                       Foreground="{DynamicResource AppText}" />
+                    </Button>
+                    <Button x:Name="ForwardButton"
+                            Grid.Column="3"
+                            Classes="header-btn"
+                            Click="OnGoForward"
+                            IsEnabled="False"
+                            ToolTip.Tip="Forward (Alt+Right)">
+                        <ic:SymbolIcon Symbol="ArrowRight" FontSize="18"
+                                       Foreground="{DynamicResource AppText}" />
+                    </Button>
+                    <Button x:Name="ReloadButton"
+                            Grid.Column="4"
+                            Classes="header-btn"
+                            Click="OnReload"
+                            IsEnabled="False"
+                            ToolTip.Tip="Reload (F5)">
+                        <ic:SymbolIcon Symbol="ArrowClockwise" FontSize="18"
+                                       Foreground="{DynamicResource AppText}" />
+                    </Button>
+
+                    <!-- Address bar (URL or file path) -->
+                    <TextBox x:Name="AddressBar"
+                             Grid.Column="5"
+                             Classes="address-bar"
+                             Watermark="Type a URL or path — Enter to load"
+                             VerticalAlignment="Center"
+                             Margin="8,0"
+                             KeyDown="OnAddressBarKeyDown" />
+
+                    <!-- Zoom Controls -->
                     <StackPanel x:Name="ZoomControlsPanel"
-                                Grid.Column="2"
+                                Grid.Column="6"
                                 Orientation="Horizontal"
-                                HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 IsEnabled="False"
                                 Spacing="6">
@@ -115,7 +159,7 @@
                     </StackPanel>
 
                     <!-- Preview/Raw Toggle -->
-                    <StackPanel x:Name="ViewTabsPanel" Grid.Column="3" Orientation="Horizontal" Spacing="0" Margin="8,0" IsEnabled="False">
+                    <StackPanel x:Name="ViewTabsPanel" Grid.Column="7" Orientation="Horizontal" Spacing="0" Margin="8,0" IsEnabled="False">
                         <RadioButton x:Name="PreviewTab"
                                      Content="Preview"
                                      GroupName="ViewTabs"
@@ -131,7 +175,7 @@
 
                     <!-- Search Button -->
                     <Button x:Name="SearchButton"
-                            Grid.Column="4"
+                            Grid.Column="8"
                             Classes="header-btn"
                             Click="OnToggleSearch"
                             IsEnabled="False"
@@ -140,8 +184,8 @@
                                        Foreground="{DynamicResource AppText}" />
                     </Button>
 
-                    <!-- Right: Font Size Controls (grouped pill, with spacing from the system caption buttons via the Width=138 spacer in column 6) -->
-                    <Border Grid.Column="5"
+                    <!-- Right: Font Size Controls (grouped pill, with spacing from the system caption buttons via the Width=138 spacer in column 10) -->
+                    <Border Grid.Column="9"
                             Classes="control-pill"
                             Margin="8,0,12,0">
                         <StackPanel Orientation="Horizontal" Spacing="2">
@@ -581,9 +625,10 @@
                             </StackPanel>
                         </Button>
 
-                        <!-- Open URL -->
-                        <Button x:Name="MenuOpenUrlBtn" Classes="panel-item" Click="OnOpenUrl"
-                                ToolTip.Tip="Open a markdown URL">
+                        <!-- Open URL: accepts both markdown URLs (passed through) and
+                             HTML pages (converted via StyloExtract). -->
+                        <Button x:Name="MenuOpenUrlBtn" Classes="panel-item" Click="OnOpenWebPage"
+                                ToolTip.Tip="Open a URL — markdown passes through, HTML pages are converted">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="Link" Classes="panel-icon" />
                                 <TextBlock Text="Open URL..." VerticalAlignment="Center" />

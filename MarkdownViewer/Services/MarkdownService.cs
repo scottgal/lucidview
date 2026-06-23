@@ -23,7 +23,6 @@ public partial class MarkdownService
     private string? _themeSubgraphFill;
     private string? _themeSubgraphStroke;
     private ImageCacheService? _imageCacheService;
-    private MermaidCacheService? _mermaidCache;
 
     private int _mermaidCounter;
     private CancellationTokenSource? _renderCts;
@@ -53,23 +52,6 @@ public partial class MarkdownService
     /// </summary>
     public IReadOnlyDictionary<string, string> MermaidDiagrams => _mermaidSourceMap;
 
-    /// <summary>
-    /// Look up mermaid source code by image path (handles path separator differences).
-    /// </summary>
-    public string? GetMermaidSourceByImagePath(string imagePath)
-    {
-        var normalized = imagePath.Replace("/", "\\");
-        foreach (var (key, value) in _mermaidSourceMap)
-        {
-            if (key.Replace("/", "\\").Equals(normalized, StringComparison.OrdinalIgnoreCase))
-                return value;
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// Get all flowchart layouts for native rendering (placeholder key → layout).
-    /// </summary>
     public IReadOnlyDictionary<string, FlowchartLayoutResult> FlowchartLayouts => _flowchartLayouts;
 
     /// <summary>
@@ -96,7 +78,6 @@ public partial class MarkdownService
     {
         TempDirectory = Path.Combine(Path.GetTempPath(), "lucidview-mermaid");
         Directory.CreateDirectory(TempDirectory);
-        _mermaidCache = new MermaidCacheService();
     }
 
     public string TempDirectory { get; }
@@ -109,26 +90,6 @@ public partial class MarkdownService
         _imageCacheService = cacheService;
     }
 
-    public void SetDarkMode(bool isDark)
-    {
-        _isDarkMode = isDark;
-        // Use default colors for backwards compatibility
-        _themeTextColor = isDark ? "#e6edf3" : "#333333";
-        _themeBackgroundColor = isDark ? "#0d1117" : "#ffffff";
-        var dt = isDark ? DiagramTheme.Dark : DiagramTheme.Light;
-        _themeNodeFill = dt.PrimaryFill;
-        _themeNodeStroke = dt.PrimaryStroke;
-        _themeEdgeStroke = dt.AxisLine;
-        _themeEdgeLabelBackground = dt.LabelBackground;
-        _themeSubgraphFill = null;
-        _themeSubgraphStroke = null;
-    }
-
-    /// <summary>
-    /// Set theme colors for accurate Mermaid diagram rendering.
-    /// Uses the full ThemeDefinition to derive diagram-specific colors (node fill, stroke, etc.)
-    /// so diagrams visually match the active lucidVIEW theme.
-    /// </summary>
     public void SetThemeColors(ThemeDefinition themeDef)
     {
         var isDark = IsDarkColor(themeDef.Background, true);
@@ -143,23 +104,6 @@ public partial class MarkdownService
             : HexToRgba(themeDef.Background, 0.85);
         _themeSubgraphFill = HexToRgba(themeDef.BackgroundTertiary, 0.5);
         _themeSubgraphStroke = themeDef.Border;
-    }
-
-    /// <summary>
-    /// Legacy overload for callers that only have basic color info.
-    /// </summary>
-    public void SetThemeColors(bool isDark, string textColor, string backgroundColor)
-    {
-        _isDarkMode = IsDarkColor(backgroundColor, isDark);
-        _themeTextColor = textColor;
-        _themeBackgroundColor = backgroundColor;
-        var dt = _isDarkMode ? DiagramTheme.Dark : DiagramTheme.Light;
-        _themeNodeFill = dt.PrimaryFill;
-        _themeNodeStroke = dt.PrimaryStroke;
-        _themeEdgeStroke = dt.AxisLine;
-        _themeEdgeLabelBackground = dt.LabelBackground;
-        _themeSubgraphFill = null;
-        _themeSubgraphStroke = null;
     }
 
     static string HexToRgba(string hex, double alpha)
@@ -274,36 +218,6 @@ public partial class MarkdownService
         return (processed.Trim(), pending);
     }
 
-    /// <summary>
-    /// Legacy synchronous API - renders everything inline. Used by print path.
-    /// </summary>
-    public string ProcessMarkdown(string content)
-    {
-        var (fast, pending) = ProcessMarkdownFast(content);
-
-        // Render any uncached diagrams synchronously
-        foreach (var item in pending)
-        {
-            try
-            {
-                var pngPath = RenderMermaidToPng(item.MermaidCode);
-                _mermaidSourceMap[pngPath] = item.MermaidCode;
-                var markdownPath = pngPath.Replace("\\", "/");
-                fast = fast.Replace(item.Placeholder, $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
-            }
-            catch (Exception ex)
-            {
-                fast = fast.Replace(item.Placeholder, FormatMermaidError(item.MermaidCode, ex));
-            }
-        }
-
-        return fast;
-    }
-
-    /// <summary>
-    /// Phase 2: Render uncached mermaid diagrams in parallel on background threads.
-    /// Returns a map of placeholder → markdown replacement.
-    /// </summary>
     public async Task<Dictionary<string, string>> RenderPendingDiagramsAsync(
         List<MermaidWorkItem> pending, CancellationToken ct)
     {
@@ -349,9 +263,6 @@ public partial class MarkdownService
         return results;
     }
 
-    /// <summary>
-    /// Cancel any in-flight background diagram renders.
-    /// </summary>
     public CancellationToken BeginNewRenderBatch()
     {
         _renderCts?.Cancel();
@@ -359,18 +270,6 @@ public partial class MarkdownService
         return _renderCts.Token;
     }
 
-    /// <summary>
-    /// Invalidate mermaid cache (e.g. on theme change).
-    /// </summary>
-    public void InvalidateMermaidCache()
-    {
-        _mermaidCache?.InvalidateAll();
-    }
-
-    /// <summary>
-    /// Extract all image URLs from markdown content for pre-caching.
-    /// Resolves relative paths to absolute URLs when base URL is set.
-    /// </summary>
     public List<string> ExtractImageUrls(string content)
     {
         var urls = new List<string>();

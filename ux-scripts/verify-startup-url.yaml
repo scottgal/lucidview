@@ -1,0 +1,19 @@
+# Verify launching lucidVIEW with an http(s) URL on the command line.
+# Used end-to-end with the URL passed as args[1]:
+#
+#   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -c Debug -- \
+#       https://example.com \
+#       --ux-test --script ux-scripts/verify-startup-url.yaml \
+#       --output ux-results/startup-url
+#
+# The Wait at the top covers HTTP fetch + StyloExtract conversion + render.
+
+name: verify-startup-url
+description: Screenshot the rendered URL passed on the command line
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "8000"
+  - type: Screenshot
+    value: rendered-url

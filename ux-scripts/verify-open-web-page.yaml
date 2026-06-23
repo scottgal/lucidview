@@ -1,0 +1,39 @@
+# Verify the unified "Open URL..." command (Ctrl+Shift+O or Ctrl+Shift+W).
+# Both keybindings + the menu button route to OpenWebPageCommand, which
+# accepts markdown (passes through) and HTML (converts via StyloExtract).
+#
+# Run:
+#   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -- \
+#       --ux-test --script ux-scripts/verify-open-web-page.yaml \
+#       --output ux-results/open-web-page
+
+name: verify-open-web-page
+description: Open URL menu item + InputDialog smoke test
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "800"
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: side-panel-open-url
+
+  - type: Click
+    target: MenuOpenUrlBtn
+  - type: Wait
+    value: "700"
+  - type: Screenshot
+    value: open-url-dialog
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "400"

@@ -10,10 +10,12 @@ public partial class InputDialog : Window
         InitializeComponent();
     }
 
-    public InputDialog(string title, string prompt) : this()
+    public InputDialog(string title, string prompt, string? watermark = null) : this()
     {
         Title = title;
         PromptText.Text = prompt;
+        if (watermark is not null)
+            InputBox.Watermark = watermark;
     }
 
     private void OnOk(object? sender, RoutedEventArgs e)

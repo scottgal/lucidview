@@ -148,31 +148,31 @@ public partial class SettingsDialog : Window
     private const string RalewayDisplayName = "Raleway (bundled)";
     private const string RalewayFamilyValue = "avares://lucidVIEW/Assets/Raleway-Regular.ttf#Raleway, Segoe UI, Inter, Arial, sans-serif";
 
-    private void LoadFontFamilies()
+    private async void LoadFontFamilies()
     {
+        _fontNames.Clear();
+        _fontNames.Add(RalewayDisplayName);
+        FontFamilyComboBox.ItemsSource = _fontNames;
+        CodeFontComboBox.ItemsSource = _fontNames;
+
+        List<string> names;
         try
         {
-            var fonts = FontManager.Current.SystemFonts;
-            var names = fonts
+            names = await Task.Run(() => FontManager.Current.SystemFonts
                 .Select(font => font.Name)
                 .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            _fontNames.Clear();
-            // Bundled fonts first
-            _fontNames.Add(RalewayDisplayName);
-            foreach (var name in names)
-                _fontNames.Add(name);
+                .ToList());
         }
-        catch
+        catch (Exception ex)
         {
-            _fontNames.Clear();
-            _fontNames.Add(RalewayDisplayName);
+            Console.Error.WriteLine($"[SettingsDialog] SystemFonts enumeration failed: {ex.GetType().Name}: {ex.Message}");
+            return;
         }
 
-        FontFamilyComboBox.ItemsSource = _fontNames;
-        CodeFontComboBox.ItemsSource = _fontNames;
+        foreach (var name in names)
+            _fontNames.Add(name);
     }
 
     /// <summary>

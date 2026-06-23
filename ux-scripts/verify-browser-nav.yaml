@@ -1,0 +1,44 @@
+# Verify back/forward navigation across two local files.
+#
+# Load fixture A → load fixture B → screenshot (address shows B)
+# → click Back → screenshot (address shows A) → click Forward → screenshot.
+
+name: verify-browser-nav
+description: Back/Forward navigation between two local files
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  # First doc → pushes history entry 1
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "1000"
+  - type: Screenshot
+    value: 01-first-doc
+
+  # Second doc → pushes history entry 2
+  - type: Navigate
+    value: README.md
+  - type: Wait
+    value: "1000"
+  - type: Screenshot
+    value: 02-second-doc
+
+  # Back → should restore first doc
+  - type: Click
+    target: BackButton
+  - type: Wait
+    value: "1000"
+  - type: Screenshot
+    value: 03-after-back
+
+  # Forward → should restore second doc
+  - type: Click
+    target: ForwardButton
+  - type: Wait
+    value: "1000"
+  - type: Screenshot
+    value: 04-after-forward

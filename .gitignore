@@ -916,3 +916,6 @@ Naiad/src/Naiad.Wasm.Npm.Mermaid/dist/
 # Local project reference (junction to E:\source\mostlylucid.dagre)
 Naiad/lib/
 
+
+# UI testing harness output
+ux-results/

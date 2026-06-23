@@ -1,0 +1,19 @@
+# Visual check for code-block font. test-document.md has a csharp and a
+# python fenced block; both should render in a clean monospace family
+# (Consolas / Cascadia Code / JetBrains Mono / Menlo / Monaco / monospace
+# fallback), with the language label rendering in the sans-serif label font.
+
+name: verify-code-fonts
+description: Screenshot the code-block rendering for visual font review
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "1200"
+  - type: Screenshot
+    value: code-blocks-default-theme

@@ -17,21 +17,25 @@ public class RelayCommand : ICommand
         _executeAsync = executeAsync;
     }
 
-#pragma warning disable CS0067 // Event is never used - required by ICommand interface
-    public event EventHandler? CanExecuteChanged;
-#pragma warning restore CS0067
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
 
-    public bool CanExecute(object? parameter)
-    {
-        return true;
-    }
+    public bool CanExecute(object? parameter) => true;
 
     public async void Execute(object? parameter)
     {
-        if (_executeAsync != null)
-            await _executeAsync();
-        else
-            _execute?.Invoke();
+        try
+        {
+            if (_executeAsync != null)
+                await _executeAsync();
+            else
+                _execute?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            // Avoids async-void exceptions crashing the process via the
+            // SynchronizationContext when a command body throws.
+            Console.Error.WriteLine($"[RelayCommand] {ex.GetType().Name}: {ex.Message}");
+        }
     }
 }
 
@@ -44,17 +48,9 @@ public class RelayCommand<T> : ICommand
         _execute = execute;
     }
 
-#pragma warning disable CS0067 // Event is never used - required by ICommand interface
-    public event EventHandler? CanExecuteChanged;
-#pragma warning restore CS0067
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
 
-    public bool CanExecute(object? parameter)
-    {
-        return true;
-    }
+    public bool CanExecute(object? parameter) => true;
 
-    public void Execute(object? parameter)
-    {
-        _execute((T?)parameter);
-    }
+    public void Execute(object? parameter) => _execute((T?)parameter);
 }

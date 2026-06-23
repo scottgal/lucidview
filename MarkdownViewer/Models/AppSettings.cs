@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MarkdownViewer.Services;
 
 namespace MarkdownViewer.Models;
 
@@ -105,5 +106,13 @@ public class RecentFile
 [JsonSerializable(typeof(AppSettings))]
 [JsonSerializable(typeof(ThemeDefinition))]
 internal partial class AppSettingsContext : JsonSerializerContext
+{
+}
+
+[JsonSourceGenerationOptions(
+    WriteIndented = false,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(ImageCacheEntry))]
+internal partial class ImageCacheJsonContext : JsonSerializerContext
 {
 }

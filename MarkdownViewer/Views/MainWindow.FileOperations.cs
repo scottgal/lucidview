@@ -1,28 +1,37 @@
 using System.Diagnostics;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using LiveMarkdown.Avalonia;
+using MarkdownViewer.Services;
 
 namespace MarkdownViewer.Views;
 
 public partial class MainWindow
 {
-    private const int MaxRemoteMarkdownBytes = 2 * 1024 * 1024; // 2 MB
+    private const int MaxRemoteMarkdownBytes = 2 * 1024 * 1024;
     private static readonly HttpClient RemoteMarkdownClient = new()
     {
         Timeout = TimeSpan.FromSeconds(20)
     };
 
-    // Re-entry guard. macOS sometimes fires Click + IActivatableLifetime in
-    // the same flow which used to open two stacked file pickers (the second
-    // underneath the first, unclickable). The guard makes the dialog one-at-
-    // a-time regardless of which path triggered it.
+    // Re-entry guard for overlapping picker triggers (Click + IActivatableLifetime).
     private bool _filePickerOpen;
-    private int _openFileEnterCount;
-    private int _openFileBlockedCount;
+
+    private static readonly HashSet<string> ExecutableExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".exe", ".bat", ".cmd", ".com", ".ps1", ".vbs", ".js", ".jse", ".wsf", ".wsh",
+        ".sh", ".bash", ".zsh", ".fish",
+        ".app", ".pkg", ".dmg", ".scpt", ".command", ".tool",
+        ".scr", ".msi", ".jar"
+    };
+
+    private static readonly HashSet<string> MarkdownExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".md", ".markdown", ".mdown", ".mkd", ".txt"
+    };
 
     private void OnOpenFile(object? sender, RoutedEventArgs e)
     {
@@ -30,10 +39,10 @@ public partial class MainWindow
         _ = OpenFile();
     }
 
-    private void OnOpenUrl(object? sender, RoutedEventArgs e)
+    private void OnOpenWebPage(object? sender, RoutedEventArgs e)
     {
         CloseSidePanel();
-        _ = OpenUrl();
+        _ = OpenWebPage();
     }
 
     private void OnMostlyLucidClick(object? sender, RoutedEventArgs e)
@@ -49,68 +58,66 @@ public partial class MainWindow
         var url = href.ToString();
         if (string.IsNullOrWhiteSpace(url)) return;
 
-        // Anchor links: scroll within document
         if (url.StartsWith('#'))
         {
-            var anchorText = Uri.UnescapeDataString(url[1..]).Replace("-", " ");
-            var heading = _headings
-                .SelectMany(h => FlattenHeadings([h]))
-                .FirstOrDefault(h => h.Text.Equals(anchorText, StringComparison.OrdinalIgnoreCase)
-                    || h.Text.Replace(" ", "-").Equals(url[1..], StringComparison.OrdinalIgnoreCase));
+            var slug = url[1..];
+            var heading = FlattenHeadings(_headings).FirstOrDefault(h =>
+                h.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
             if (heading != null)
-            {
                 ScrollToHeading(heading);
-            }
             e.Handled = true;
             return;
         }
 
-        // HTTP(S) links: open in default browser
         if (href.IsAbsoluteUri && href.Scheme is "http" or "https")
         {
-            OpenBrowserUrl(href.AbsoluteUri);
+            _ = LoadWebPage(href.AbsoluteUri);
             e.Handled = true;
             return;
         }
 
         if (Uri.TryCreate(url, UriKind.Absolute, out var httpUri) && httpUri.Scheme is "http" or "https")
         {
-            OpenBrowserUrl(httpUri.AbsoluteUri);
+            _ = LoadWebPage(httpUri.AbsoluteUri);
             e.Handled = true;
             return;
         }
 
-        // Resolve relative paths against current file's directory
         var resolvedPath = TryResolveLocalPath(url);
         if (resolvedPath != null)
         {
-            var ext = Path.GetExtension(resolvedPath).ToLowerInvariant();
-            if (ext is ".md" or ".markdown" or ".mdown" or ".mkd" or ".txt")
+            var ext = Path.GetExtension(resolvedPath);
+            if (MarkdownExtensions.Contains(ext))
             {
                 _ = LoadFile(resolvedPath);
                 e.Handled = true;
                 return;
             }
 
-            // Other local files: open with default app
+            if (ExecutableExtensions.Contains(ext))
+            {
+                StatusText.Text = "Blocked executable link target";
+                e.Handled = true;
+                return;
+            }
+
             OpenBrowserUrl(resolvedPath);
             e.Handled = true;
             return;
         }
 
-        // file:// URIs
         if (href.IsAbsoluteUri && href.Scheme == "file")
         {
             var localPath = href.LocalPath;
-            var ext = Path.GetExtension(localPath).ToLowerInvariant();
-            if (ext is ".md" or ".markdown" or ".mdown" or ".mkd" or ".txt")
+            var ext = Path.GetExtension(localPath);
+            if (MarkdownExtensions.Contains(ext))
             {
                 _ = LoadFile(localPath);
                 e.Handled = true;
                 return;
             }
 
-            if (File.Exists(localPath))
+            if (!ExecutableExtensions.Contains(ext) && File.Exists(localPath))
             {
                 OpenBrowserUrl(localPath);
                 e.Handled = true;
@@ -127,10 +134,18 @@ public partial class MainWindow
         if (_currentFilePath == null) return null;
 
         var dir = Path.GetDirectoryName(_currentFilePath);
-        if (dir == null) return null;
+        if (string.IsNullOrEmpty(dir)) return null;
 
-        // Handle relative paths like ./other.md or ../other.md or other.md
         var candidate = Path.GetFullPath(Path.Combine(dir, relativePath));
+
+        // Containment: resolved path MUST stay under the document directory to
+        // prevent malicious markdown linking to ../../../usr/bin/open and friends.
+        var dirWithSep = dir.EndsWith(Path.DirectorySeparatorChar)
+            ? dir
+            : dir + Path.DirectorySeparatorChar;
+        if (!candidate.StartsWith(dirWithSep, StringComparison.OrdinalIgnoreCase))
+            return null;
+
         return File.Exists(candidate) ? candidate : null;
     }
 
@@ -157,23 +172,14 @@ public partial class MainWindow
                 UseShellExecute = true
             });
         }
-        catch
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
         }
     }
 
     private async Task OpenFile()
     {
-        Interlocked.Increment(ref _openFileEnterCount);
-        if (Environment.GetEnvironmentVariable("LUCIDVIEW_FILE_DEBUG") == "1")
-            Console.WriteLine($"[file] OpenFile enter#{_openFileEnterCount} pickerOpen={_filePickerOpen}");
-        if (_filePickerOpen)
-        {
-            Interlocked.Increment(ref _openFileBlockedCount);
-            if (Environment.GetEnvironmentVariable("LUCIDVIEW_FILE_DEBUG") == "1")
-                Console.WriteLine($"[file] OpenFile BLOCKED (re-entry) blocked#{_openFileBlockedCount}");
-            return;
-        }
+        if (_filePickerOpen) return;
         _filePickerOpen = true;
         try
         {
@@ -203,16 +209,12 @@ public partial class MainWindow
         {
             StatusText.Text = $"Loading {Path.GetFileName(path)}...";
 
-            // Drop the in-memory image cache so dynamic shields (build status,
-            // latest version, downloads) re-fetch on every document open.
-            // The on-disk file remains as a fallback but new fetches overwrite.
             _imageCacheService.InvalidateInMemoryCache();
 
             var content = await File.ReadAllTextAsync(path);
             var basePath = Path.GetDirectoryName(path);
             _markdownService.SetBasePath(basePath);
 
-            // Display content immediately for fast response
             await DisplayMarkdown(content);
 
             _settings.AddRecentFile(path);
@@ -227,15 +229,12 @@ public partial class MainWindow
                 fileDateText: fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm"),
                 fileInfoText: $"{fileInfo.Length:N0} bytes");
 
+            PushHistory(path, Path.GetFileName(path));
             QueueImageCaching(content);
         }
         catch (Exception ex) when (!IsIgnorableError(ex))
         {
             StatusText.Text = $"Error: {ex.Message}";
-        }
-        catch
-        {
-            // Ignore known library errors (e.g., StaticBinding from Markdown.Avalonia)
         }
     }
 
@@ -251,20 +250,20 @@ public partial class MainWindow
         catch (Exception ex) when (IsIgnorableError(ex))
         {
         }
-        catch
-        {
-        }
     }
 
-    private async Task OpenUrl()
+    private async Task OpenWebPage()
     {
-        var dialog = new InputDialog("Open URL", "Enter the URL of a markdown file:");
+        var dialog = new InputDialog(
+            "Open URL",
+            "Enter a URL — markdown is preferred, HTML pages are converted:",
+            watermark: "https://example.com");
         var result = await dialog.ShowDialog<string?>(this);
 
-        if (!string.IsNullOrWhiteSpace(result)) await LoadFromUrl(result);
+        if (!string.IsNullOrWhiteSpace(result)) await LoadWebPage(result);
     }
 
-    private async Task LoadFromUrl(string url)
+    private async Task LoadWebPage(string url)
     {
         try
         {
@@ -273,54 +272,215 @@ public partial class MainWindow
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
                 throw new InvalidOperationException("Only http:// and https:// URLs are supported.");
 
-            var content = await DownloadMarkdownAsync(uri);
-            var baseUrl = $"{uri.Scheme}://{uri.Host}{string.Join("", uri.Segments.Take(uri.Segments.Length - 1))}";
+            var (body, isHtml) = await DownloadWebPageAsync(uri);
+            string content;
+            if (isHtml)
+            {
+                StatusText.Text = "Converting page...";
+                content = _htmlToMarkdownService.Convert(body, uri);
+            }
+            else
+            {
+                content = body;
+            }
+
+            var baseUrl = uri.GetLeftPart(UriPartial.Authority)
+                + string.Join("", uri.Segments.Take(uri.Segments.Length - 1));
             _markdownService.SetBaseUrl(baseUrl);
 
             await DisplayMarkdown(content);
 
+            _settings.AddRecentFile(url, displayName: uri.Host);
+            UpdateRecentFiles();
+
+            var title = uri.Segments.LastOrDefault()?.TrimEnd('/') ?? uri.Host;
             ApplyLoadedDocumentState(
                 sourcePath: url,
-                displayTitle: uri.Segments.LastOrDefault()?.TrimEnd('/') ?? "Remote",
+                displayTitle: title,
                 content: content,
-                statusText: url,
+                statusText: isHtml ? $"{url} (converted from HTML)" : url,
                 fileDateText: "Remote",
                 fileInfoText: $"{content.Length:N0} chars");
 
+            PushHistory(url, title);
             QueueImageCaching(content);
         }
         catch (Exception ex) when (!IsIgnorableError(ex))
         {
             StatusText.Text = $"Error: {ex.Message}";
         }
-        catch
+    }
+
+    private void PushHistory(string url, string title)
+    {
+        if (_suppressHistoryPush) return;
+        _sessionHistory.Push(new NavigationEntry(url, title));
+        UpdateNavigationButtonState();
+    }
+
+    private void UpdateNavigationButtonState()
+    {
+        BackButton.IsEnabled = _sessionHistory.CanGoBack;
+        ForwardButton.IsEnabled = _sessionHistory.CanGoForward;
+        ReloadButton.IsEnabled = _sessionHistory.Current is not null;
+
+        if (AddressBar is not null && _sessionHistory.Current is { } entry)
+            AddressBar.Text = entry.Url;
+    }
+
+    private void OnGoBack(object? sender, RoutedEventArgs e) => _ = GoBack();
+    private void OnGoForward(object? sender, RoutedEventArgs e) => _ = GoForward();
+    private void OnReload(object? sender, RoutedEventArgs e) => _ = Reload();
+
+    private async Task GoBack()
+    {
+        var entry = _sessionHistory.Back();
+        if (entry is null) return;
+        UpdateNavigationButtonState();
+        await NavigateToHistoryEntry(entry);
+    }
+
+    private async Task GoForward()
+    {
+        var entry = _sessionHistory.Forward();
+        if (entry is null) return;
+        UpdateNavigationButtonState();
+        await NavigateToHistoryEntry(entry);
+    }
+
+    private async Task Reload()
+    {
+        var entry = _sessionHistory.Current;
+        if (entry is null) return;
+        await NavigateToHistoryEntry(entry);
+    }
+
+    private async Task NavigateToHistoryEntry(NavigationEntry entry)
+    {
+        _suppressHistoryPush = true;
+        try
         {
+            if (Uri.TryCreate(entry.Url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
+                await LoadWebPage(entry.Url);
+            else if (File.Exists(entry.Url))
+                await LoadFile(entry.Url);
+        }
+        finally
+        {
+            _suppressHistoryPush = false;
         }
     }
 
-    private static async Task<string> DownloadMarkdownAsync(Uri uri)
+    private void FocusAddressBar()
+    {
+        AddressBar.Focus();
+        AddressBar.SelectAll();
+    }
+
+    private void OpenCurrentInExternalBrowser()
+    {
+        var url = _sessionHistory.Current?.Url ?? _currentFilePath;
+        if (string.IsNullOrEmpty(url)) return;
+        OpenBrowserUrl(url);
+    }
+
+    private void OnAddressBarKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter && e.Key != Key.Return) return;
+        e.Handled = true;
+        var raw = AddressBar.Text?.Trim();
+        if (string.IsNullOrEmpty(raw)) return;
+
+        _ = NavigateFromAddressBar(raw);
+    }
+
+    private async Task NavigateFromAddressBar(string raw)
+    {
+        if (Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+        {
+            if (uri.Scheme is "http" or "https")
+            {
+                await LoadWebPage(raw);
+                return;
+            }
+            if (uri.Scheme == "file" && File.Exists(uri.LocalPath))
+            {
+                await LoadFile(uri.LocalPath);
+                return;
+            }
+        }
+
+        // Bare host like "wikipedia.org/wiki/Markdown" → treat as https.
+        if (!raw.Contains(' ') && raw.Contains('.') && !File.Exists(raw)
+            && !raw.StartsWith('/') && !raw.StartsWith('~'))
+        {
+            await LoadWebPage("https://" + raw);
+            return;
+        }
+
+        var expanded = raw.StartsWith('~')
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), raw[1..].TrimStart('/', '\\'))
+            : raw;
+
+        if (File.Exists(expanded))
+        {
+            await LoadFile(expanded);
+            return;
+        }
+
+        StatusText.Text = $"Couldn't resolve: {raw}";
+    }
+
+    private static async Task<(string Body, bool IsHtml)> DownloadWebPageAsync(Uri uri)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        request.Headers.UserAgent.ParseAdd("lucidVIEW/2.2");
+        request.Headers.UserAgent.ParseAdd(UserAgent.Value);
+        // Prefer markdown so servers that already produce markdown
+        // (mostlylucid.net, Cloudflare URL→markdown, Jina Reader) bypass
+        // the StyloExtract conversion entirely.
         request.Headers.Accept.ParseAdd("text/markdown");
         request.Headers.Accept.ParseAdd("text/x-markdown;q=0.95");
-        request.Headers.Accept.ParseAdd("text/plain;q=0.9");
-        request.Headers.Accept.ParseAdd("text/*;q=0.8");
+        request.Headers.Accept.ParseAdd("text/html;q=0.85");
+        request.Headers.Accept.ParseAdd("application/xhtml+xml;q=0.85");
+        request.Headers.Accept.ParseAdd("text/plain;q=0.7");
         request.Headers.Accept.ParseAdd("*/*;q=0.5");
 
         using var response = await RemoteMarkdownClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
         if (response.Content.Headers.ContentLength is > MaxRemoteMarkdownBytes)
-            throw new InvalidOperationException("Remote markdown exceeds size limit.");
+            throw new InvalidOperationException("Remote page exceeds size limit.");
 
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        using var reader = new StreamReader(stream);
-        var content = await reader.ReadToEndAsync();
-        if (content.Length > MaxRemoteMarkdownBytes)
-            throw new InvalidOperationException("Remote markdown exceeds size limit.");
+        var mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
 
-        return content;
+        var bytes = await ReadBodyWithLimitAsync(response.Content, MaxRemoteMarkdownBytes);
+        var body = System.Text.Encoding.UTF8.GetString(bytes);
+
+        var isMarkdown = mediaType.Contains("markdown", StringComparison.OrdinalIgnoreCase);
+        var isHtml = !isMarkdown
+            && (mediaType.Contains("html", StringComparison.OrdinalIgnoreCase)
+                || mediaType.Contains("xhtml", StringComparison.OrdinalIgnoreCase)
+                || HtmlToMarkdownService.LooksLikeHtml(body));
+
+        return (body, isHtml);
+    }
+
+    private static async Task<byte[]> ReadBodyWithLimitAsync(HttpContent content, long maxBytes)
+    {
+        await using var stream = await content.ReadAsStreamAsync();
+        using var buffer = new MemoryStream();
+        var chunk = new byte[16 * 1024];
+        long total = 0;
+        while (true)
+        {
+            var read = await stream.ReadAsync(chunk);
+            if (read == 0) break;
+            total += read;
+            if (total > maxBytes)
+                throw new InvalidOperationException("Remote page exceeds size limit.");
+            buffer.Write(chunk, 0, read);
+        }
+        return buffer.ToArray();
     }
 
     private void ApplyLoadedDocumentState(

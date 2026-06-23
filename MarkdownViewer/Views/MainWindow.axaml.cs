@@ -24,15 +24,15 @@ namespace MarkdownViewer.Views;
 
 public partial class MainWindow : Window
 {
-    private readonly ObservableStringBuilder _markdownBuilder = new();
     private readonly ImageCacheService _imageCacheService;
     private readonly MarkdownService _markdownService;
-    private readonly NavigationService _navigationService;
-    private readonly PaginationService _paginationService;
-    private readonly SearchService _searchService;
+    private readonly HtmlToMarkdownService _htmlToMarkdownService = new();
     private readonly AppSettings _settings;
     private readonly ThemeService _themeService;
     private readonly DiagramRendererPluginHost _diagramPluginHost;
+    private readonly SessionHistory _sessionHistory = new();
+    private bool _suppressHistoryPush;
+    private IActivatableLifetime? _activatableLifetime;
     private string? _currentFilePath;
     private int _currentSearchIndex = -1;
     private int _fontSize = 16;
@@ -47,9 +47,9 @@ public partial class MainWindow : Window
     private int _diagramReplacementAttempts;
     private const int MaxDiagramReplacementAttempts = 8;
 
-    /// <summary>
-    /// Known harmless errors from third-party libraries that should not be shown to users
-    /// </summary>
+    // Markdown.Avalonia's StaticBinding/IBinding implementation throws these
+    // at runtime; they reach our catch blocks as plain Exception so we filter
+    // by message rather than type.
     private static readonly string[] IgnorableErrors =
     [
         "Unsupported IBinding implementation",
@@ -57,9 +57,6 @@ public partial class MainWindow : Window
         "Markdown.Avalonia.Extensions"
     ];
 
-    /// <summary>
-    /// Check if an exception is a known harmless library error
-    /// </summary>
     private static bool IsIgnorableError(Exception ex)
     {
         var message = ex.Message;
@@ -81,19 +78,12 @@ public partial class MainWindow : Window
         _imageCacheService = new ImageCacheService();
         _markdownService.SetImageCacheService(_imageCacheService);
 
-        // Initialize LiveMarkdown renderer.
-        // ImageBasePath is the security boundary for file:// images. We
-        // write cached SVGs (rendered to PNG) to a sibling temp folder, so
-        // point at the PARENT temp dir to cover both subdirectories:
-        //   {tmp}/lucidview-mermaid  ← diagrams
-        //   {tmp}/lucidview-images   ← cached remote images (incl. shields)
-        MdViewer.MarkdownBuilder = _markdownBuilder;
+        // ImageBasePath = temp root so file:// images cover both diagram
+        // (lucidview-mermaid) and cache (lucidview-images) subdirectories.
+        MdViewer.MarkdownBuilder = new ObservableStringBuilder();
         MdViewer.ImageBasePath = Path.GetTempPath();
         MdViewer.LinkClick += OnLinkClick;
-        _navigationService = new NavigationService();
         _themeService = new ThemeService(Application.Current!) { CustomTheme = _settings.CustomTheme };
-        _searchService = new SearchService();
-        _paginationService = new PaginationService();
         _diagramPluginHost = new DiagramRendererPluginHost(
         [
             new AvaloniaNativeDiagramRendererPlugin(
@@ -134,17 +124,35 @@ public partial class MainWindow : Window
         // the window doesn't push the right ruler handle off-screen.
         SizeChanged += (_, _) => ApplyContentMaxWidth();
 
-        // Command line argument - load file immediately (terminal launches, Windows Open With)
+        // Accepts a positional arg:
+        //   lucidVIEW path/to/document.md → LoadFile
+        //   lucidVIEW file:///abs/path.md → LoadFile via Uri.LocalPath
+        //   lucidVIEW https://example.com → LoadWebPage (markdown passes through, HTML converts)
         var args = Environment.GetCommandLineArgs();
-        if (args.Length > 1 && File.Exists(args[1])) _ = LoadFile(args[1]);
+        if (args.Length > 1)
+        {
+            var arg = args[1];
+            if (Uri.TryCreate(arg, UriKind.Absolute, out var argUri))
+            {
+                if (argUri.Scheme is "http" or "https")
+                    _ = LoadWebPage(arg);
+                else if (argUri.Scheme == "file" && File.Exists(argUri.LocalPath))
+                    _ = LoadFile(argUri.LocalPath);
+                else if (File.Exists(arg))
+                    _ = LoadFile(arg);
+            }
+            else if (File.Exists(arg))
+            {
+                _ = LoadFile(arg);
+            }
+        }
 
-        // macOS / iOS / Android: file paths arrive via Apple Events / intents,
-        // delivered through IActivatableLifetime.Activated. This handles both
-        // launch-with-file ("Open With...") and runtime open events while the
-        // app is already running. Without this, double-clicking a .md in Finder
-        // launches lucidVIEW but never loads the file.
+        // macOS Apple Events / Finder Open-With activations arrive via the
+        // application lifetime, which outlives the window — caching the
+        // reference here lets OnWindowClosing unsubscribe cleanly.
         if (Application.Current?.TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
         {
+            _activatableLifetime = activatable;
             activatable.Activated += OnActivated;
         }
 
@@ -188,6 +196,19 @@ public partial class MainWindow : Window
     {
         if (Application.Current is not null)
             Application.Current.PropertyChanged -= OnApplicationPropertyChanged;
+
+        if (_activatableLifetime is not null)
+        {
+            _activatableLifetime.Activated -= OnActivated;
+            _activatableLifetime = null;
+        }
+
+        if (_diagramReplacementTimer is not null)
+        {
+            _diagramReplacementTimer.Stop();
+            _diagramReplacementTimer.Tick -= OnDiagramReplacementTick;
+            _diagramReplacementTimer = null;
+        }
 
         _settings.WindowWidth = (int)Width;
         _settings.WindowHeight = (int)Height;
@@ -259,7 +280,12 @@ public partial class MainWindow : Window
     #region Commands
 
     private ICommand? _openFileCommand;
-    private ICommand? _openUrlCommand;
+    private ICommand? _openWebPageCommand;
+    private ICommand? _focusAddressBarCommand;
+    private ICommand? _goBackCommand;
+    private ICommand? _goForwardCommand;
+    private ICommand? _reloadCommand;
+    private ICommand? _openInExternalBrowserCommand;
     private ICommand? _openSettingsCommand;
     private ICommand? _toggleFullScreenCommand;
     private ICommand? _toggleSidePanelCommand;
@@ -276,7 +302,12 @@ public partial class MainWindow : Window
     private ICommand? _navigateCommand;
 
     public ICommand OpenFileCommand => _openFileCommand ??= new RelayCommand(async () => await OpenFile());
-    public ICommand OpenUrlCommand => _openUrlCommand ??= new RelayCommand(async () => await OpenUrl());
+    public ICommand OpenWebPageCommand => _openWebPageCommand ??= new RelayCommand(async () => await OpenWebPage());
+    public ICommand FocusAddressBarCommand => _focusAddressBarCommand ??= new RelayCommand(FocusAddressBar);
+    public ICommand GoBackCommand => _goBackCommand ??= new RelayCommand(async () => await GoBack());
+    public ICommand GoForwardCommand => _goForwardCommand ??= new RelayCommand(async () => await GoForward());
+    public ICommand ReloadCommand => _reloadCommand ??= new RelayCommand(async () => await Reload());
+    public ICommand OpenInExternalBrowserCommand => _openInExternalBrowserCommand ??= new RelayCommand(OpenCurrentInExternalBrowser);
     public ICommand OpenSettingsCommand => _openSettingsCommand ??= new RelayCommand(async () => await OpenSettings());
     public ICommand ToggleFullScreenCommand => _toggleFullScreenCommand ??= new RelayCommand(ToggleFullScreen);
     public ICommand ToggleSidePanelCommand => _toggleSidePanelCommand ??= new RelayCommand(ToggleSidePanel);
@@ -291,11 +322,7 @@ public partial class MainWindow : Window
     public ICommand DebugScreenshotCommand => _debugScreenshotCommand ??= new RelayCommand(async () => await DebugScreenshot());
     public ICommand ExitCommand => _exitCommand ??= new RelayCommand(() => Close());
 
-    /// <summary>
-    /// NavigateCommand exists so the UITesting harness can load fixture markdown files
-    /// from YAML scripts via the standard <c>Navigate</c> action. Picked up by reflection
-    /// in <c>Mostlylucid.Avalonia.UITesting.UITestingStartup</c>. Not bound to any UI.
-    /// </summary>
+    // Reflected at runtime by Mostlylucid.Avalonia.UITesting; do not remove.
     public ICommand NavigateCommand => _navigateCommand ??= new RelayCommand<string>(path =>
     {
         if (!string.IsNullOrEmpty(path) && File.Exists(path))
@@ -378,9 +405,6 @@ public partial class MainWindow : Window
         PreviewTab.IsChecked = true;
         RenderedPanel.IsVisible = true;
         RawScroller.IsVisible = false;
-
-        var estimatedHeight = content.Split('\n').Length * 24.0;
-        _paginationService.CalculatePages(estimatedHeight);
 
         // Replace marker text with native diagram controls once the visual tree is ready.
         ScheduleDiagramMarkerReplacement();
@@ -488,13 +512,20 @@ public partial class MainWindow : Window
 
     private async void OnRecentFileClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.Tag is string path)
+        try
         {
-            CloseSidePanel();
-            if (path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                await LoadFromUrl(path);
-            else
-                await LoadFile(path);
+            if (sender is Button btn && btn.Tag is string path)
+            {
+                CloseSidePanel();
+                if (path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    await LoadWebPage(path);
+                else
+                    await LoadFile(path);
+            }
+        }
+        catch (Exception ex) when (!IsIgnorableError(ex))
+        {
+            StatusText.Text = $"Error: {ex.Message}";
         }
     }
 
@@ -513,12 +544,8 @@ public partial class MainWindow : Window
     {
         UpdatePanelOverlay(effectiveTheme);
 
-        // Update markdown service with full theme definition for theme-aware diagram rendering
         var themeDefinition = ThemeColors.GetTheme(effectiveTheme);
         _markdownService.SetThemeColors(themeDefinition);
-
-        // Invalidate mermaid cache since theme colors changed
-        _markdownService.InvalidateMermaidCache();
 
         UpdateThemeCardSelection(effectiveTheme);
 
@@ -673,31 +700,23 @@ public partial class MainWindow : Window
         _fontSize = _settings.FontSize > 0 ? (int)_settings.FontSize : 16;
         ApplyFontSize();
 
-        // Force content refresh if we have content loaded
         if (!string.IsNullOrEmpty(_rawContent))
-        {
-            // Clear and re-append to trigger re-render with new font
-            var content = _rawContent;
-            _markdownBuilder.Clear();
-            var processed = _markdownService.ProcessMarkdown(content);
-            _markdownBuilder.Append(processed);
-        }
+            _ = DisplayMarkdown(_rawContent);
     }
 
     private void ApplyCodeBlockStyle(FontFamily codeFont, double codeFontSize)
     {
-        // Remove existing styles
         foreach (var style in _codeBlockStyles)
-        {
             MdViewer.Styles.Remove(style);
-        }
         _codeBlockStyles.Clear();
 
-        // Use a simpler monospace font for language labels (sans-serif style)
         var labelFont = new FontFamily("Segoe UI, Arial, sans-serif");
 
-        // Style 1: CodeBlock container
-        var codeBlockStyle = new Style(x => x.OfType<CodeBlock>())
+        // LiveMarkdown.Avalonia renders fenced code as a nested MarkdownTextBlock
+        // whose template part is named PART_CodeTextBlock; the language tag is
+        // PART_LanguageTextBlock. Set FontFamily/FontSize on the parts directly —
+        // selecting by name reaches them regardless of parent control type.
+        var codeBlockStyle = new Style(x => x.Name("PART_CodeTextBlock"))
         {
             Setters =
             {
@@ -706,8 +725,7 @@ public partial class MainWindow : Window
             }
         };
 
-        // Style 2: ALL TextBlocks inside CodeBlock - covers language label AND code
-        var textBlockInCodeStyle = new Style(x => x.OfType<CodeBlock>().Descendant().OfType<TextBlock>())
+        var codeTextBlockStyle = new Style(x => x.Name("PART_CodeTextBlock").Descendant().OfType<TextBlock>())
         {
             Setters =
             {
@@ -716,8 +734,7 @@ public partial class MainWindow : Window
             }
         };
 
-        // Style 3: SelectableTextBlock inside CodeBlock (for selectable code)
-        var selectableInCodeStyle = new Style(x => x.OfType<CodeBlock>().Descendant().OfType<SelectableTextBlock>())
+        var codeSelectableStyle = new Style(x => x.Name("PART_CodeTextBlock").Descendant().OfType<SelectableTextBlock>())
         {
             Setters =
             {
@@ -726,8 +743,7 @@ public partial class MainWindow : Window
             }
         };
 
-        // Style 4: Border child TextBlock (language label) - use sans-serif not monospace
-        var languageLabelStyle = new Style(x => x.OfType<CodeBlock>().Child().OfType<Border>().Descendant().OfType<TextBlock>())
+        var languageLabelStyle = new Style(x => x.Name("PART_LanguageTextBlock"))
         {
             Setters =
             {
@@ -738,26 +754,26 @@ public partial class MainWindow : Window
             }
         };
 
-        // Style 5: InlineUIContainer for inline code (`code`)
-        var inlineContainerStyle = new Style(x => x.OfType<InlineUIContainer>().Descendant().OfType<TextBlock>())
+        // Inline code (`backtick` spans) renders as a Run inside a regular
+        // TextBlock; LiveMarkdown sets an "Inline" Classes entry on the host
+        // we can hook off, but the safest path is a Classes("code") match
+        // that LiveMarkdown applies to the run.
+        var inlineCodeStyle = new Style(x => x.OfType<Run>().Class("code"))
         {
             Setters =
             {
-                new Setter(TextBlock.FontFamilyProperty, codeFont)
+                new Setter(Run.FontFamilyProperty, codeFont)
             }
         };
 
-        // Add all styles and track them - ORDER MATTERS for specificity
         _codeBlockStyles.Add(codeBlockStyle);
-        _codeBlockStyles.Add(textBlockInCodeStyle);
-        _codeBlockStyles.Add(selectableInCodeStyle);
-        _codeBlockStyles.Add(languageLabelStyle);  // More specific, added last
-        _codeBlockStyles.Add(inlineContainerStyle);
+        _codeBlockStyles.Add(codeTextBlockStyle);
+        _codeBlockStyles.Add(codeSelectableStyle);
+        _codeBlockStyles.Add(languageLabelStyle);
+        _codeBlockStyles.Add(inlineCodeStyle);
 
-        foreach (var style in _codeBlockStyles)
-        {
-            MdViewer.Styles.Add(style);
-        }
+        foreach (var s in _codeBlockStyles)
+            MdViewer.Styles.Add(s);
     }
 
     #endregion
@@ -808,26 +824,6 @@ public partial class MainWindow : Window
 
 
     #endregion
-
-    #region Page Navigation
-
-    private void OnPreviousPage(object? sender, RoutedEventArgs e)
-    {
-        if (_paginationService.PreviousPage()) ScrollToCurrentPage();
-        // Pagination removed
-    }
-
-    private void OnNextPage(object? sender, RoutedEventArgs e)
-    {
-        if (_paginationService.NextPage()) ScrollToCurrentPage();
-        // Pagination removed
-    }
-
-    private void ScrollToCurrentPage()
-    {
-        var offset = _paginationService.GetScrollOffsetForPage(_paginationService.CurrentPage);
-        RenderedScroller.Offset = new Vector(0, offset);
-    }
 
     private void UpdateToc()
     {
@@ -932,8 +928,6 @@ public partial class MainWindow : Window
         if (ZoomPercentText != null) ZoomPercentText.Text = $"{(int)ZoomSlider.Value}%";
     }
 
-    #endregion
-
     #region Context Menu & Clipboard
 
     private async void OnCopyText(object? sender, RoutedEventArgs e)
@@ -943,8 +937,9 @@ public partial class MainWindow : Window
             var clipboard = GetTopLevel(this)?.Clipboard;
             if (clipboard != null && !string.IsNullOrEmpty(_rawContent)) await clipboard.SetTextAsync(_rawContent);
         }
-        catch
+        catch (Exception ex) when (!IsIgnorableError(ex))
         {
+            StatusText.Text = $"Error: {ex.Message}";
         }
     }
 
@@ -968,8 +963,9 @@ public partial class MainWindow : Window
                 await clipboard.SetTextAsync(html);
             }
         }
-        catch
+        catch (Exception ex) when (!IsIgnorableError(ex))
         {
+            StatusText.Text = $"Error: {ex.Message}";
         }
     }
 
@@ -1227,15 +1223,6 @@ public partial class MainWindow : Window
 
     #region Mermaid Diagram Export
 
-    /// <summary>
-    /// Async-void event handler so exceptions land on the UI thread (and
-    /// flow through Application.Current.UnhandledException) instead of
-    /// silently disappearing into a fire-and-forget Task. The previous
-    /// <c>_ = ShowMermaidExportDialog()</c> pattern hid every failure;
-    /// the user reported "doesn't pop the dialog" — turns out any throw
-    /// from inside the chain (font load, side-panel teardown, etc.) was
-    /// being swallowed.
-    /// </summary>
     private async void OnRenderMermaid(object? sender, RoutedEventArgs e)
     {
         try
@@ -1371,9 +1358,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Save a specific mermaid diagram by its image path (called from right-click context).
-    /// </summary>
     private async Task SaveDiagramAs(string mermaidCode, string format)
     {
         if (_filePickerOpen) return;
@@ -1422,9 +1406,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Open a diagram in a popup viewer window at full size.
-    /// </summary>
     private void ShowDiagramPopup(string imagePath, string? mermaidCode)
     {
         var popup = new Window
@@ -1625,9 +1606,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Scroll to a diagram by its key (e.g. "diagram-1") for C4 zoom navigation.
-    /// </summary>
     private void ScrollToDiagram(string diagramKey)
     {
         if (!_markdownService.DiagramDocuments.TryGetValue(diagramKey, out var targetDoc))
@@ -1672,10 +1650,6 @@ public partial class MainWindow : Window
     private static bool IsLightTheme(AppTheme theme) =>
         theme == AppTheme.Light || theme == AppTheme.MostlyLucidLight;
 
-    /// <summary>
-    /// Debug: Capture a screenshot of the window + dump the visual tree to files.
-    /// Triggered by Ctrl+F12. Files saved to AppData/MarkdownViewer/debug/.
-    /// </summary>
     private async Task DebugScreenshot()
     {
         try
@@ -1763,17 +1737,13 @@ public partial class MainWindow : Window
 
     private static Control? FindHeadingElement(Visual parent, string headingText)
     {
-        // Search for TextBlock containing the heading text
-        // Use contains check since LiveMarkdown may format headings differently
         foreach (var child in VisualExtensions.GetVisualChildren(parent))
         {
             if (child is TextBlock textBlock)
             {
                 var text = textBlock.Text?.Trim() ?? "";
-                // Check for exact match or if text contains the heading (for formatted headings)
                 if (!string.IsNullOrEmpty(text) &&
-                    (text.Equals(headingText, StringComparison.OrdinalIgnoreCase) ||
-                     text.Contains(headingText, StringComparison.OrdinalIgnoreCase)))
+                    text.Equals(headingText, StringComparison.OrdinalIgnoreCase))
                     return textBlock;
             }
 
@@ -1806,16 +1776,20 @@ public partial class MainWindow : Window
     private async void OnDrop(object? sender, DragEventArgs e)
     {
         DropOverlay.IsVisible = false;
-
-        if (e.Data.Contains(DataFormats.Files))
+        try
         {
+            if (!e.Data.Contains(DataFormats.Files)) return;
+
             var files = e.Data.GetFiles()?.ToList();
-            if (files?.Count > 0)
-            {
-                var path = files[0].Path.LocalPath;
-                var ext = Path.GetExtension(path).ToLowerInvariant();
-                if (ext is ".md" or ".markdown" or ".mdown" or ".mkd" or ".txt") await LoadFile(path);
-            }
+            if (files is null || files.Count == 0) return;
+
+            var path = files[0].Path.LocalPath;
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            if (ext is ".md" or ".markdown" or ".mdown" or ".mkd" or ".txt") await LoadFile(path);
+        }
+        catch (Exception ex) when (!IsIgnorableError(ex))
+        {
+            StatusText.Text = $"Error: {ex.Message}";
         }
     }
 #pragma warning restore CS0618
@@ -1824,25 +1798,18 @@ public partial class MainWindow : Window
 
     #region File Activation (macOS / Linux Open With)
 
-    /// <summary>
-    /// Handles file open events delivered via Apple Events on macOS or comparable
-    /// activation paths on other platforms. Avalonia normalizes these into
-    /// <see cref="IActivatableLifetime.Activated"/>; without this hook,
-    /// double-clicking a .md file in Finder launches lucidVIEW but never loads it.
-    /// </summary>
     private void OnActivated(object? sender, ActivatedEventArgs e)
     {
-        if (e is FileActivatedEventArgs fileArgs && fileArgs.Files != null)
+        if (!IsLoaded) return;
+        if (e is not FileActivatedEventArgs fileArgs || fileArgs.Files is null) return;
+
+        foreach (var storageFile in fileArgs.Files)
         {
-            foreach (var storageFile in fileArgs.Files)
+            var path = storageFile?.Path?.LocalPath;
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
             {
-                var path = storageFile?.Path?.LocalPath;
-                if (!string.IsNullOrEmpty(path) && File.Exists(path))
-                {
-                    // Marshal back to the UI thread (Activated may fire from a non-UI thread).
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = LoadFile(path));
-                    break;
-                }
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = LoadFile(path));
+                break;
             }
         }
     }
@@ -1857,17 +1824,9 @@ public partial class MainWindow : Window
         new(@"!\[[^\]]*\]\(([^)\s]+\.(?:gif|webp|apng)(?:\?[^)\s]*)?)\)",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    /// <summary>
-    /// Schedule a visual-tree walk that promotes animated image URLs to
-    /// <see cref="AnimatedImage.Avalonia.ImageBehavior.AnimatedSourceProperty"/>.
-    /// LiveMarkdown.Avalonia uses Avalonia's static <c>Bitmap</c> for images,
-    /// which only decodes the first frame. After LiveMarkdown finishes
-    /// building the visual tree, we walk it, find <see cref="Image"/> controls
-    /// in document order, and pair them up with the markdown's animated
-    /// image URLs (in source order). For each match we set the AnimatedSource
-    /// attached property — that triggers AnimatedImage's frame loop and
-    /// clears the static Source.
-    /// </summary>
+    // LiveMarkdown.Avalonia decodes Images via static Bitmap (first frame
+    // only); we walk its post-render tree and swap the static Source for
+    // AnimatedImage's AnimatedSource to actually play GIF/WebP/APNG.
     private void SchedulePromoteAnimatedImages(string markdown)
     {
         if (string.IsNullOrEmpty(markdown)) return;
@@ -1881,15 +1840,9 @@ public partial class MainWindow : Window
         _ = PromoteAnimatedImagesWithRetry(animatedUrls);
     }
 
-    /// <summary>
-    /// LiveMarkdown loads cached PNGs at their physical pixel dimensions and
-    /// uses those as DIPs. We render SVGs (shields, badges) at 2× for
-    /// hi-DPI crispness, so the on-screen result is double-sized. Walk the
-    /// rendered visual tree, pair each <see cref="Image"/> with its
-    /// corresponding cached path in document order, look up the natural 1×
-    /// display size, and assign Width/Height. Avalonia downscales the extra
-    /// pixels at composite time so the bitmap stays crisp.
-    /// </summary>
+    // Cached SVG→PNG is rasterized at 2× for hi-DPI; without this the
+    // on-screen size doubles because LiveMarkdown treats physical pixels
+    // as DIPs.
     private void ScheduleConstrainCachedImages(string processedMarkdown)
     {
         if (string.IsNullOrEmpty(processedMarkdown)) return;
@@ -1921,23 +1874,18 @@ public partial class MainWindow : Window
 
     private void ApplyCachedImageConstraints(List<Image> images, List<string> markdownImageUrls)
     {
-        var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_IMG_DEBUG") == "1";
-        if (debug) Console.WriteLine($"[constrain] images={images.Count} urls={markdownImageUrls.Count}");
-
         for (int i = 0; i < images.Count && i < markdownImageUrls.Count; i++)
         {
-            var url = markdownImageUrls[i];
-            // url is whatever is in the rewritten markdown — for cached
-            // remote images this is the absolute local file path. Look up
-            // its natural display size in the cache.
-            var size = _imageCacheService.GetCachedDisplaySizeByLocalPath(url);
+            // markdownImageUrls holds rewritten paths (absolute local file
+            // paths for cached remote images); look up natural display size
+            // by that local path.
+            var size = _imageCacheService.GetCachedDisplaySizeByLocalPath(markdownImageUrls[i]);
             if (size == null) continue;
 
             var img = images[i];
             img.Width = size.Value.Width;
             img.Height = size.Value.Height;
             img.Stretch = Avalonia.Media.Stretch.Uniform;
-            if (debug) Console.WriteLine($"[constrain] image[{i}] {url} → {size.Value.Width}x{size.Value.Height}");
         }
     }
 
@@ -1986,98 +1934,54 @@ public partial class MainWindow : Window
     private void PromoteAnimatedImages(List<string> animatedUrls)
     {
         if (MdViewer is null) return;
-        var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_GIF_DEBUG") == "1";
-        if (debug) Console.WriteLine($"[gif] promote called animated={animatedUrls.Count}");
 
-        // Walk the rendered visual tree to find Image controls in document
-        // order. LiveMarkdown emits images in markdown source order so we
-        // can pair them up by index — we step through the tree's Images and
-        // promote ones whose corresponding markdown reference is animated.
-        // We assume EVERY markdown image becomes an Image control (LiveMarkdown
-        // doesn't drop any), so the i-th Image corresponds to the i-th
-        // markdown image. The animatedUrls list is in source order too.
-
+        // LiveMarkdown emits markdown images as Image controls in source order
+        // and drops none, so the i-th Image maps 1-to-1 with the i-th markdown
+        // image reference; we walk both in lockstep and promote where the URL
+        // is animated.
         var images = Avalonia.VisualTree.VisualExtensions
             .GetVisualDescendants(MdViewer)
             .OfType<Image>()
             .ToList();
 
-        if (debug) Console.WriteLine($"[gif] images found in tree: {images.Count}");
         if (images.Count == 0) return;
 
-        // Re-extract ALL image URLs (animated and static) from the markdown
-        // in order, so we can map index → URL and pick out the animated ones.
         var allMarkdownImageUrls = new List<string>();
         foreach (Match m in Regex.Matches(_rawContent, @"!\[[^\]]*\]\(([^)\s]+)(?:\s+""[^""]*"")?\)"))
-        {
             allMarkdownImageUrls.Add(m.Groups[1].Value);
-        }
 
         var animatedSet = new HashSet<string>(animatedUrls, StringComparer.OrdinalIgnoreCase);
-
-        if (debug) Console.WriteLine($"[gif] markdown image URLs: {allMarkdownImageUrls.Count} animatedSet={animatedSet.Count}");
-
-        if (debug) Console.WriteLine($"[gif] markdown image URLs: {allMarkdownImageUrls.Count} animatedSet={animatedSet.Count}");
 
         for (int i = 0; i < images.Count && i < allMarkdownImageUrls.Count; i++)
         {
             var url = allMarkdownImageUrls[i];
-            if (!animatedSet.Contains(url))
-            {
-                if (debug) Console.WriteLine($"[gif] skip[{i}] url={url} (not animated)");
-                continue;
-            }
+            if (!animatedSet.Contains(url)) continue;
 
             try
             {
                 var resolvedUri = ResolveImageUriForAnimation(url);
-                if (debug) Console.WriteLine($"[gif] promote[{i}] url={url} resolved={resolvedUri}");
                 if (resolvedUri is null) continue;
 
                 AnimatedImage.Avalonia.ImageBehavior.SetAnimatedSource(images[i], resolvedUri);
                 AttachGifPlaybackOverlay(images[i], resolvedUri);
-                if (debug) Console.WriteLine($"[gif] SetAnimatedSource OK on image[{i}]");
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or UriFormatException)
             {
-                if (debug) Console.WriteLine($"[gif] ERROR promoting image[{i}]: {ex.Message}");
             }
         }
     }
 
-    /// <summary>
-    /// Attaches a small "restart" button overlay to an animated image via the
-    /// AdornerLayer. Click → clears AnimatedSource and immediately re-sets it,
-    /// which restarts the animation from frame 0. This is the only "playback
-    /// control" we can offer cleanly because AnimatedImage.Avalonia doesn't
-    /// expose a public pause/resume API — pausing would just blank the image.
-    /// </summary>
+    // Restart-only overlay — AnimatedImage.Avalonia has no public pause/resume,
+    // and AdornerLayer is unreliable for Images inside LiveMarkdown's content
+    // tree before the first arrange, so wrap inline instead.
     private static void AttachGifPlaybackOverlay(Image image, Uri uri)
-    {
-        // We always use the inline-wrap approach (Image becomes a child of a
-        // Grid alongside an overlay Panel containing the restart button)
-        // rather than AdornerLayer. AdornerLayer'd controls aren't always
-        // discoverable via the harness's FindControl walk and positioning is
-        // fiddly. Wrapping in a Grid puts everything in the regular visual
-        // tree where named-control lookup works.
-        WrapImageWithRestartButton(image, uri);
-    }
+        => WrapImageWithRestartButton(image, uri);
 
     private static readonly AttachedProperty<bool> GifOverlayAttachedProperty =
         AvaloniaProperty.RegisterAttached<MainWindow, Image, bool>("GifOverlayAttached");
 
-    /// <summary>
-    /// Fallback for when AdornerLayer.GetAdornerLayer returns null (which it
-    /// does for Images inside LiveMarkdown's content tree before the first
-    /// arrange pass on the host TopLevel). Walks up the visual tree to find
-    /// a Panel parent, then replaces the Image with a Grid containing the
-    /// Image plus the restart button overlay. The Grid takes the Image's
-    /// place in the parent's children collection.
-    /// </summary>
     private static void WrapImageWithRestartButton(Image image, Uri uri)
     {
-        var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_GIF_DEBUG") == "1";
-
         if (image.GetValue(GifOverlayAttachedProperty) is true) return;
 
         // Find a Panel ancestor we can replace children of.
@@ -2094,8 +1998,6 @@ public partial class MainWindow : Window
             }
             if (current is Visual v) child = v;
         }
-
-        if (debug) Console.WriteLine($"[gif] wrap parent={parent?.GetType().Name ?? "null"} child={child?.GetType().Name}");
 
         if (parent is null || child is null) return;
 
@@ -2134,12 +2036,11 @@ public partial class MainWindow : Window
             var ns = NameScope.GetNameScope(walk);
             if (ns != null && visited.Add(ns))
             {
+                // Duplicate-name on re-render is expected and benign.
                 try { ns.Register("GifRestartBtn", restartButton); }
-                catch { /* duplicate name on re-render — fine */ }
+                catch (ArgumentException) { }
             }
         }
-
-        if (debug) Console.WriteLine($"[gif] wrap OK, restart button injected, scopes registered={visited.Count}");
     }
 
     private static Button BuildRestartButton(Image image, Uri uri)
@@ -2176,11 +2077,6 @@ public partial class MainWindow : Window
         return btn;
     }
 
-    /// <summary>
-    /// Map a markdown image URL into something <c>AnimatedImageSource</c>'s
-    /// implicit Uri conversion can open. Handles http(s), absolute file
-    /// paths, and document-relative paths.
-    /// </summary>
     private Uri? ResolveImageUriForAnimation(string url)
     {
         if (Uri.TryCreate(url, UriKind.Absolute, out var absolute))
@@ -2205,37 +2101,16 @@ public partial class MainWindow : Window
     #endregion
 
     #region Word-style Ruler
-    //
-    // ARCHITECTURE
-    //
-    // The ruler bar is a Grid INSIDE the LayoutTransformControl, in a
-    // StackPanel above the document Border. The bar's Width is bound to the
-    // Border's Width via XAML ElementName binding, so they're always the same
-    // logical width. The handles use HorizontalAlignment=Left/Right with
-    // negative margins so they extend slightly past the column edges.
-    //
-    // Result: alignment is handled entirely by Avalonia's layout engine. There
-    // is NO position math, NO TransformToVisual, NO scrollbar/gutter/padding
-    // accounting, NO scale tracking. The handles automatically follow the
-    // column edges through every transform. Code-behind only handles drag
-    // (changing Border.Width) and click-to-set (clicking the bar).
+
+    // Bar Width is ElementName-bound to the document Border so layout keeps
+    // the handles aligned through every transform. Code-behind only handles
+    // drag (mutating Border.Width) and click-to-set.
 
     private const double MinContentWidth = 300;
     private const double MaxContentWidth = 2000;
-    /// <summary>
-    /// Reserved space for the side menu gutter, scrollbar, and a little
-    /// breathing room — so the column never grows wider than the visible
-    /// window area, which would put the right ruler handle off-screen and
-    /// strand the user with no way to drag it back.
-    /// </summary>
+    // Keeps the right ruler handle inside the window so it stays draggable.
     private const double WindowChromeReserve = 60;
 
-    /// <summary>
-    /// Effective max content width: the smaller of MaxContentWidth and the
-    /// available window width minus chrome reserve. This is the value every
-    /// drag/click/initial-load path must clamp to so the right handle is
-    /// always reachable inside the window.
-    /// </summary>
     private double EffectiveMaxContentWidth =>
         Math.Max(MinContentWidth, Math.Min(MaxContentWidth, Width - WindowChromeReserve));
 
@@ -2279,10 +2154,6 @@ public partial class MainWindow : Window
         if (sender is ToggleButton tb) tb.IsChecked = _settings.ShowRuler;
     }
 
-    /// <summary>
-    /// Called from font-size and zoom paths to keep the readout fresh. Handle
-    /// positions are managed by layout — nothing to update there.
-    /// </summary>
     private void RefreshRulerForScaleChange() => UpdateWidthReadout();
 
     private void UpdateWidthReadout()
@@ -2315,12 +2186,8 @@ public partial class MainWindow : Window
         _settings.Save();
     }
 
-    /// <summary>
-    /// Click anywhere on the ruler bar (not on a handle) to snap-set the column
-    /// width. Avalonia's Thumb captures pointer events itself, so this handler
-    /// only fires for clicks on the empty bar background. Distance from the
-    /// bar's centre is half the new column width.
-    /// </summary>
+    // Fires only on empty bar background — Thumb captures its own pointer
+    // events. Snap-sets column width to twice the distance from bar centre.
     private void OnRulerCanvasPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
         if (sender is not Control bar) return;

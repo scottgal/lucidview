@@ -17,17 +17,11 @@
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
         <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
 
-        <!-- No trimming - Markdown.Avalonia uses custom IBinding -->
+        <!-- Markdown.Avalonia uses custom IBinding / StaticBinding reflection.
+             PublishTrimmed and PublishReadyToRunComposite must stay off. -->
         <PublishTrimmed>false</PublishTrimmed>
-
-        <!-- ReadyToRun for faster startup (pre-compiles IL to native) -->
-        <!-- Composite disabled - breaks Markdown.Avalonia's StaticBinding reflection -->
         <PublishReadyToRun>true</PublishReadyToRun>
         <PublishReadyToRunComposite>false</PublishReadyToRunComposite>
-
-        <!-- Preserve all assemblies for dynamic binding resolution -->
-        <TrimMode>partial</TrimMode>
-        <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
 
         <!-- Optimize for size -->
         <OptimizationPreference>Size</OptimizationPreference>
@@ -78,9 +72,17 @@
              previous Svg.Skia 3.4.1 reference, which was non-AOT-friendly. -->
         <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
 
+        <!-- HTML → Markdown via StyloExtract. Powers "Open Web Page..."
+             (Ctrl+Shift+W) when a server returns text/html instead of
+             text/markdown. AOT-clean; AngleSharp is the only transitive
+             native-free addition. -->
+        <PackageReference Include="Mostlylucid.StyloExtract.Abstractions" Version="1.6.1" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Html" Version="1.6.1" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Heuristics" Version="1.6.1" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Markdown" Version="1.6.1" />
+
         <!-- Diagnostics (debug only) -->
         <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12" Condition="'$(Configuration)' == 'Debug'" />
-        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.3" />
 
         <!-- Override transitive Tmds.DBus.Protocol 0.21.2 (GHSA-xrw6-gwf8-vvr9). Avalonia 11.3.x pulls 0.21.2. -->
         <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using MarkdownViewer.Models;
 using Mostlylucid.ImageSharp.Svg;
 using SkiaSharp;
 
@@ -39,16 +40,10 @@ public class ImageCacheService : IDisposable
         new(StringComparer.Ordinal);
     private readonly LinkedList<ImageCacheEntry> _lru = new();
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = false,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-    };
-
     public ImageCacheService()
     {
         _httpClient = new HttpClient();
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("lucidVIEW/2.5 (Markdown Viewer)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent.Value);
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
 
         _cacheDir = Path.Combine(Path.GetTempPath(), "lucidview-images");
@@ -76,33 +71,22 @@ public class ImageCacheService : IDisposable
     /// </summary>
     public async Task<string> CacheRemoteImageAsync(string url)
     {
-        var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_IMG_DEBUG") == "1";
         if (string.IsNullOrWhiteSpace(url))
             return url;
 
-        // Step 1: in-memory hit?
-        if (TryGetEntry(url, out var entry) && File.Exists(entry.LocalPath))
+        if (TryGetEntry(url, out var entry) && File.Exists(entry.LocalPath) && entry.IsFresh)
         {
-            if (entry.IsFresh)
-            {
-                Touch(entry);
-                if (debug) Console.WriteLine($"[cache] FRESH-HIT {url}");
-                return entry.LocalPath;
-            }
-            // Stale → fall through to revalidate.
-            if (debug) Console.WriteLine($"[cache] STALE {url} (revalidating)");
+            Touch(entry);
+            return entry.LocalPath;
         }
 
         await _downloadLimiter.WaitAsync();
         try
         {
-            return await FetchOrRevalidateAsync(url, entry, debug);
+            return await FetchOrRevalidateAsync(url, entry);
         }
-        catch
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
         {
-            // On any error, return the cached file (if we have one) so the
-            // viewer at least shows the previous version, otherwise return
-            // the original URL so the renderer can take its own crack.
             if (entry != null && File.Exists(entry.LocalPath))
                 return entry.LocalPath;
             return url;
@@ -144,7 +128,6 @@ public class ImageCacheService : IDisposable
     /// </summary>
     public string? CacheLocalSvg(string absolutePath)
     {
-        var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_IMG_DEBUG") == "1";
         if (string.IsNullOrWhiteSpace(absolutePath) || !File.Exists(absolutePath))
             return null;
 
@@ -154,7 +137,6 @@ public class ImageCacheService : IDisposable
         if (TryGetEntry(cacheKey, out var existing) && File.Exists(existing.LocalPath))
         {
             Touch(existing);
-            if (debug) Console.WriteLine($"[cache] LOCAL-HIT {absolutePath}");
             return existing.LocalPath;
         }
 
@@ -164,16 +146,14 @@ public class ImageCacheService : IDisposable
             var hash = ComputeUrlHash(cacheKey);
             var pngPath = Path.Combine(_cacheDir, $"{hash}.png");
 
-            var result = SvgImage.LoadAsPng(
-                svgContent,
-                new SvgRenderOptions { Scale = 2f });
+            var result = SvgImage.LoadAsPng(svgContent, new SvgRenderOptions { Scale = 2f });
             if (result.Bytes.Length == 0 || result.NaturalWidth <= 0 || result.NaturalHeight <= 0)
                 return null;
 
             File.WriteAllBytes(pngPath, result.Bytes);
 
-            // Local SVGs are "fresh forever" until the source file mtime
-            // changes (which produces a new cache key).
+            // Mtime is baked into the cache key so a source-file edit produces a
+            // new key; this entry can stay fresh effectively forever.
             var entry = new ImageCacheEntry
             {
                 Url = cacheKey,
@@ -188,12 +168,10 @@ public class ImageCacheService : IDisposable
             InsertOrUpdate(entry);
             WriteSidecar(entry, hash);
 
-            if (debug) Console.WriteLine($"[cache] LOCAL-SVG→PNG {absolutePath} → {pngPath} ({result.NaturalWidth}x{result.NaturalHeight})");
             return pngPath;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            if (debug) Console.WriteLine($"[cache] LOCAL-SVG ERROR {absolutePath}: {ex.Message}");
             return null;
         }
     }
@@ -267,10 +245,8 @@ public class ImageCacheService : IDisposable
     // HTTP fetch + revalidation
     // ────────────────────────────────────────────────────────────────────
 
-    private async Task<string> FetchOrRevalidateAsync(string url, ImageCacheEntry? existingEntry, bool debug)
+    private async Task<string> FetchOrRevalidateAsync(string url, ImageCacheEntry? existingEntry)
     {
-        if (debug) Console.WriteLine($"[cache] FETCH {url}{(existingEntry != null ? " (conditional)" : "")}");
-
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         if (existingEntry != null && File.Exists(existingEntry.LocalPath))
         {
@@ -289,10 +265,8 @@ public class ImageCacheService : IDisposable
             existingEntry.ForceRevalidate = false;
             existingEntry.FreshUntilUtc = ComputeFreshUntil(response.Headers, response.Content?.Headers);
             existingEntry.LastAccessUtc = DateTime.UtcNow;
-            // Update ETag/Last-Modified if the server sent new ones.
             UpdateValidators(existingEntry, response);
             WriteSidecar(existingEntry, ComputeUrlHash(url));
-            if (debug) Console.WriteLine($"[cache] 304 {url}");
             return existingEntry.LocalPath;
         }
 
@@ -321,7 +295,6 @@ public class ImageCacheService : IDisposable
         {
             var svgContent = Encoding.UTF8.GetString(bytes);
             var conv = ConvertSvgToPng(svgContent);
-            if (debug) Console.WriteLine($"[cache] svg→png {url} bytes={conv?.Bytes.Length ?? -1} natural={conv?.NaturalWidth}x{conv?.NaturalHeight}");
             if (conv == null) return url;
             await File.WriteAllBytesAsync(localPath, conv.Value.Bytes);
             naturalWidth = conv.Value.NaturalWidth;
@@ -455,13 +428,11 @@ public class ImageCacheService : IDisposable
         try
         {
             var path = Path.Combine(_cacheDir, $"{hash}.meta.json");
-            var json = JsonSerializer.Serialize(entry, JsonOptions);
+            var json = JsonSerializer.Serialize(entry, ImageCacheJsonContext.Default.ImageCacheEntry);
             File.WriteAllText(path, json);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Sidecar write failures are not fatal — the cached body is
-            // still usable, we just lose the freshness metadata.
         }
     }
 
@@ -481,7 +452,7 @@ public class ImageCacheService : IDisposable
                 try
                 {
                     var json = File.ReadAllText(sidecar);
-                    var entry = JsonSerializer.Deserialize<ImageCacheEntry>(json, JsonOptions);
+                    var entry = JsonSerializer.Deserialize(json, ImageCacheJsonContext.Default.ImageCacheEntry);
                     if (entry == null) continue;
                     if (string.IsNullOrEmpty(entry.LocalPath) || !File.Exists(entry.LocalPath))
                         continue;

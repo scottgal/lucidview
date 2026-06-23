@@ -1,0 +1,18 @@
+# Verify the new browser chrome (back/forward/reload + address bar) is
+# rendered in the top bar and that loading a local file populates the
+# address bar with the file path.
+
+name: verify-browser-chrome
+description: Screenshot the new top-bar nav chrome with a doc loaded
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "1000"
+  - type: Screenshot
+    value: top-bar-with-address

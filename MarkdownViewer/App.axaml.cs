@@ -30,16 +30,7 @@ public class App : Application
         // This prevents "Index was out of range" errors
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
             desktop.MainWindow = new MainWindow();
-
-            // Subscribe to dispatcher exceptions
-            if (Avalonia.Threading.Dispatcher.UIThread != null)
-            {
-                // Note: Avalonia doesn't have DispatcherUnhandledException like WPF
-                // Unhandled exceptions are caught in Program.cs
-            }
-        }
 
         base.OnFrameworkInitializationCompleted();
     }
