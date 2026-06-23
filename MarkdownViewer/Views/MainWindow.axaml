@@ -26,6 +26,7 @@
         <KeyBinding Gesture="F5" Command="{Binding ReloadCommand}" />
         <KeyBinding Gesture="Ctrl+R" Command="{Binding ReloadCommand}" />
         <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding OpenInExternalBrowserCommand}" />
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveAsMarkdownCommand}" />
         <KeyBinding Gesture="F11" Command="{Binding ToggleFullScreenCommand}" />
         <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidePanelCommand}" />
         <KeyBinding Gesture="Ctrl+F" Command="{Binding ToggleSearchCommand}" />
@@ -645,6 +646,17 @@
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <ic:SymbolIcon Symbol="Link" Classes="panel-icon" />
                                 <TextBlock Text="Open URL..." VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Save markdown: writes the current document to disk.
+                             URL-loaded content gets a YAML frontmatter block
+                             with source / fetched / converter metadata. -->
+                        <Button x:Name="MenuSaveAsMarkdownBtn" Classes="panel-item" Click="OnSaveAsMarkdown"
+                                ToolTip.Tip="Save the current document as a .md file (Ctrl+S)">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <ic:SymbolIcon Symbol="Save" Classes="panel-icon" />
+                                <TextBlock Text="Save as Markdown..." VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 

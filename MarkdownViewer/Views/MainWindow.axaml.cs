@@ -286,6 +286,7 @@ public partial class MainWindow : Window
     private ICommand? _goForwardCommand;
     private ICommand? _reloadCommand;
     private ICommand? _openInExternalBrowserCommand;
+    private ICommand? _saveAsMarkdownCommand;
     private ICommand? _openSettingsCommand;
     private ICommand? _toggleFullScreenCommand;
     private ICommand? _toggleSidePanelCommand;
@@ -308,6 +309,7 @@ public partial class MainWindow : Window
     public ICommand GoForwardCommand => _goForwardCommand ??= new RelayCommand(async () => await GoForward());
     public ICommand ReloadCommand => _reloadCommand ??= new RelayCommand(async () => await Reload());
     public ICommand OpenInExternalBrowserCommand => _openInExternalBrowserCommand ??= new RelayCommand(OpenCurrentInExternalBrowser);
+    public ICommand SaveAsMarkdownCommand => _saveAsMarkdownCommand ??= new RelayCommand(async () => await SaveAsMarkdown());
     public ICommand OpenSettingsCommand => _openSettingsCommand ??= new RelayCommand(async () => await OpenSettings());
     public ICommand ToggleFullScreenCommand => _toggleFullScreenCommand ??= new RelayCommand(ToggleFullScreen);
     public ICommand ToggleSidePanelCommand => _toggleSidePanelCommand ??= new RelayCommand(ToggleSidePanel);

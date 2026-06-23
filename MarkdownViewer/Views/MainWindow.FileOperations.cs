@@ -45,6 +45,12 @@ public partial class MainWindow
         _ = OpenWebPage();
     }
 
+    private void OnSaveAsMarkdown(object? sender, RoutedEventArgs e)
+    {
+        CloseSidePanel();
+        _ = SaveAsMarkdown();
+    }
+
     private void OnMostlyLucidClick(object? sender, RoutedEventArgs e)
     {
         OpenBrowserUrl("https://www.mostlylucid.net");
@@ -446,6 +452,120 @@ public partial class MainWindow
         }
 
         StatusText.Text = $"Couldn't resolve: {raw}";
+    }
+
+    private async Task SaveAsMarkdown()
+    {
+        if (string.IsNullOrEmpty(_rawContent))
+        {
+            StatusText.Text = "Nothing to save";
+            return;
+        }
+        if (_filePickerOpen) return;
+        _filePickerOpen = true;
+        try
+        {
+            var isUrl = !string.IsNullOrEmpty(_currentFilePath)
+                && Uri.TryCreate(_currentFilePath, UriKind.Absolute, out var sourceUri)
+                && sourceUri.Scheme is "http" or "https";
+
+            string suggestedName;
+            if (isUrl && Uri.TryCreate(_currentFilePath, UriKind.Absolute, out var uri))
+            {
+                var lastSegment = uri.Segments.LastOrDefault()?.TrimEnd('/');
+                suggestedName = string.IsNullOrEmpty(lastSegment) ? uri.Host : lastSegment;
+                if (suggestedName.Contains('.'))
+                    suggestedName = Path.GetFileNameWithoutExtension(suggestedName);
+            }
+            else
+            {
+                suggestedName = Path.GetFileNameWithoutExtension(_currentFilePath ?? "document");
+            }
+
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Save markdown",
+                SuggestedFileName = $"{suggestedName}.md",
+                DefaultExtension = "md",
+                FileTypeChoices =
+                [
+                    new FilePickerFileType("Markdown") { Patterns = ["*.md", "*.markdown"] },
+                    new FilePickerFileType("Plain text") { Patterns = ["*.txt"] }
+                ]
+            });
+
+            if (file is null)
+            {
+                StatusText.Text = "Save canceled";
+                return;
+            }
+
+            var path = file.Path.LocalPath;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                StatusText.Text = "Unable to resolve save path";
+                return;
+            }
+
+            // URL-loaded markdown gets a frontmatter snapshot so the saved
+            // file records where it came from and which converter version
+            // produced it. Local-file copies stay verbatim — the user
+            // already has the source path.
+            string output;
+            if (isUrl && Uri.TryCreate(_currentFilePath, UriKind.Absolute, out var fmUri))
+                output = BuildSavedMarkdown(fmUri, _rawContent);
+            else
+                output = _rawContent;
+
+            await File.WriteAllTextAsync(path, output);
+            StatusText.Text = $"Saved {Path.GetFileName(path)}";
+        }
+        catch (Exception ex) when (!IsIgnorableError(ex))
+        {
+            StatusText.Text = $"Save failed: {ex.Message}";
+        }
+        finally
+        {
+            _filePickerOpen = false;
+        }
+    }
+
+    private static string BuildSavedMarkdown(Uri sourceUri, string content)
+    {
+        var styloVersion = typeof(StyloExtract.Heuristics.HeuristicBlockClassifier).Assembly
+            .GetName().Version?.ToString(3) ?? "unknown";
+        var lucidVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "unknown";
+        var fetched = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        var title = ExtractFirstHeading(content) ?? sourceUri.Host;
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("---\n");
+        sb.Append("source: ").Append(sourceUri).Append('\n');
+        sb.Append("title: ").Append(YamlEscape(title)).Append('\n');
+        sb.Append("fetched: ").Append(fetched).Append('\n');
+        sb.Append("converter: Mostlylucid.StyloExtract ").Append(styloVersion).Append('\n');
+        sb.Append("client: lucidVIEW ").Append(lucidVersion).Append('\n');
+        sb.Append("---\n\n");
+        sb.Append(content);
+        return sb.ToString();
+    }
+
+    private static string? ExtractFirstHeading(string content)
+    {
+        foreach (var rawLine in content.Split('\n', 30))
+        {
+            var line = rawLine.TrimEnd('\r').TrimStart();
+            if (line.StartsWith("# "))
+                return line[2..].Trim();
+        }
+        return null;
+    }
+
+    private static string YamlEscape(string s)
+    {
+        // Quoted scalar; escape backslash and double-quote.
+        var escaped = s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        return $"\"{escaped}\"";
     }
 
     private static async Task<(string Body, bool IsHtml)> DownloadWebPageAsync(Uri uri)
