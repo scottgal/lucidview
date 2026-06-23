@@ -1,0 +1,52 @@
+# Validates that the harness can drive the InputDialog (a secondary
+# Avalonia Window) using the per-action `windowId` field already supported
+# by Mostlylucid.Avalonia.UITesting.UIScript. The InputDialog's IsDefault
+# OK + IsCancel Cancel buttons mean Enter submits and Escape dismisses
+# without needing to find/click the buttons themselves.
+
+name: verify-dialog-drive
+description: Drive InputDialog by windowId (type, screenshot, submit)
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "800"
+
+  # Open the InputDialog via the side-panel "Open URL..." menu item.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: MenuOpenUrlBtn
+  - type: Wait
+    value: "700"
+
+  # Type into the InputBox INSIDE the dialog (windowId routes the action).
+  - type: TypeText
+    target: InputBox
+    value: "https://en.wikipedia.org/wiki/Markdown"
+    window_id: InputDialog
+
+  # Screenshot the dialog itself, not the main window.
+  - type: Screenshot
+    value: 01-dialog-typed
+    window_id: InputDialog
+
+  # Submit via Enter — IsDefault="True" on the OK button picks it up.
+  - type: PressKey
+    value: Enter
+    window_id: InputDialog
+
+  # Wait for the page to load + render.
+  - type: Wait
+    value: "10000"
+
+  # Confirm navigation happened.
+  - type: Screenshot
+    value: 02-loaded-from-dialog

@@ -1,0 +1,42 @@
+# Composite-screenshot proof: open the InputDialog over the main window
+# and capture both layered into a single PNG using the new `composite: true`
+# screenshot flag added in Mostlylucid.Avalonia.UITesting 1.4.2.
+
+name: verify-composite
+description: Modal stack capture — InputDialog floating over MainWindow
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "800"
+
+  # Open the InputDialog via the side-panel "Open URL..." entry.
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: MenuOpenUrlBtn
+  - type: Wait
+    value: "700"
+
+  # Type a URL into the dialog so the screenshot shows real content.
+  - type: TypeText
+    target: InputBox
+    value: "https://example.com"
+    window_id: InputDialog
+
+  # Composite shot: every visible Avalonia Window stacked into one PNG.
+  - type: Screenshot
+    value: composite-main-and-dialog
+    composite: true
+
+  # Dismiss.
+  - type: PressKey
+    value: Escape
+    window_id: InputDialog

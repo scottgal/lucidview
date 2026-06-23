@@ -309,8 +309,8 @@
                                     Command="{Binding OpenFileCommand}" />
                             <Button Content="Open URL"
                                     Classes="welcome-btn"
-                                    ToolTip.Tip="Open a markdown URL"
-                                    Command="{Binding OpenUrlCommand}" />
+                                    ToolTip.Tip="Open a URL — markdown or HTML (converted)"
+                                    Command="{Binding OpenWebPageCommand}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
