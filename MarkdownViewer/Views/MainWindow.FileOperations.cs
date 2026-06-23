@@ -230,6 +230,7 @@ public partial class MainWindow
                 fileInfoText: $"{fileInfo.Length:N0} bytes");
 
             PushHistory(path, Path.GetFileName(path));
+            SetSourceMode(SourceMode.LocalFile);
             QueueImageCaching(content);
         }
         catch (Exception ex) when (!IsIgnorableError(ex))
@@ -303,6 +304,7 @@ public partial class MainWindow
                 fileInfoText: $"{content.Length:N0} chars");
 
             PushHistory(url, title);
+            SetSourceMode(isHtml ? SourceMode.ConvertedFromHtml : SourceMode.DirectMarkdown);
             QueueImageCaching(content);
         }
         catch (Exception ex) when (!IsIgnorableError(ex))
@@ -483,6 +485,13 @@ public partial class MainWindow
         return buffer.ToArray();
     }
 
+    private enum SourceMode
+    {
+        LocalFile,
+        DirectMarkdown,
+        ConvertedFromHtml
+    }
+
     private void ApplyLoadedDocumentState(
         string sourcePath,
         string displayTitle,
@@ -499,6 +508,26 @@ public partial class MainWindow
         FileDateText.Text = fileDateText;
         WordCountText.Text = $"{CountWords(content):N0} words";
         FileInfoText.Text = fileInfoText;
+    }
+
+    private void SetSourceMode(SourceMode mode)
+    {
+        SourceModeIcon.IsVisible = true;
+        switch (mode)
+        {
+            case SourceMode.LocalFile:
+                SourceModeIcon.Symbol = FluentIcons.Common.Symbol.Document;
+                ToolTip.SetTip(SourceModeIcon, "Local markdown file");
+                break;
+            case SourceMode.DirectMarkdown:
+                SourceModeIcon.Symbol = FluentIcons.Common.Symbol.Globe;
+                ToolTip.SetTip(SourceModeIcon, "Direct markdown from URL (no conversion)");
+                break;
+            case SourceMode.ConvertedFromHtml:
+                SourceModeIcon.Symbol = FluentIcons.Common.Symbol.ArrowSync;
+                ToolTip.SetTip(SourceModeIcon, "Converted from HTML via StyloExtract");
+                break;
+        }
     }
 
     private void QueueImageCaching(string content)

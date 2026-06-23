@@ -214,16 +214,28 @@
 
             <!-- Status Bar -->
             <Border DockPanel.Dock="Bottom" Classes="status-panel">
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-                    <TextBlock x:Name="StatusText" Text="Ready" Classes="status-text" VerticalAlignment="Center"
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                    <!-- Source mode icon: shows whether the current doc is a
+                         local file, native markdown from a URL, or converted
+                         from HTML by StyloExtract. Hover for detail. -->
+                    <ic:SymbolIcon x:Name="SourceModeIcon"
+                                   Grid.Column="0"
+                                   Symbol="Document"
+                                   FontSize="14"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,8,0"
+                                   IsVisible="False"
+                                   Foreground="{DynamicResource AppTextSecondary}"
+                                   ToolTip.Tip="Source mode" />
+                    <TextBlock Grid.Column="1" x:Name="StatusText" Text="Ready" Classes="status-text" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="1" x:Name="FileDateText" Classes="status-text" Margin="16,0"
+                    <TextBlock Grid.Column="2" x:Name="FileDateText" Classes="status-text" Margin="16,0"
                                VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="2" x:Name="WordCountText" Classes="status-text" Margin="16,0"
+                    <TextBlock Grid.Column="3" x:Name="WordCountText" Classes="status-text" Margin="16,0"
                                VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="3" x:Name="FileInfoText" Classes="status-text" Margin="16,0"
+                    <TextBlock Grid.Column="4" x:Name="FileInfoText" Classes="status-text" Margin="16,0"
                                VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="4" x:Name="FontSizeText" Text="16px" Classes="status-text"
+                    <TextBlock Grid.Column="5" x:Name="FontSizeText" Text="16px" Classes="status-text"
                                VerticalAlignment="Center" Margin="16,0,0,0" />
                 </Grid>
             </Border>
