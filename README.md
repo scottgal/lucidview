@@ -80,16 +80,36 @@ info** → **Run anyway**.
 
 ### 🍎 macOS
 
+One-liner — downloads the latest release for your CPU architecture, clears
+the Gatekeeper quarantine attribute, drops the bundle into `/Applications`
+and opens it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/scottgal/lucidview/main/Scripts/install-macos.sh | bash
+```
+
+Inspect [`Scripts/install-macos.sh`](Scripts/install-macos.sh) first if you
+prefer — it only runs `curl`, `unzip`, `xattr -dr com.apple.quarantine`,
+and `mv` against the lucidVIEW bundle.
+
+If you'd rather drive it by hand:
+
 ```bash
 cd ~/Downloads
 unzip -o lucidVIEW-osx-arm64.zip            # or osx-x64 on Intel
+xattr -dr com.apple.quarantine lucidVIEW.app
 mv lucidVIEW.app /Applications/
-xattr -dr com.apple.quarantine /Applications/lucidVIEW.app
 open /Applications/lucidVIEW.app
 ```
 
-The `xattr` step is required because the bundle is ad-hoc codesigned (not
-notarized). Without it, Gatekeeper refuses to launch the first time.
+**Why the `xattr` step is necessary.** The release bundle is ad-hoc
+codesigned (`codesign --sign -`) but not Apple Developer ID-signed and not
+notarized. Without the quarantine-clear, the first launch hits Gatekeeper
+and shows *"lucidVIEW is damaged and can't be opened"* — that message is
+misleading; the binary is fine, macOS just doesn't trust unsigned code from
+the internet. Removing `com.apple.quarantine` tells the OS the user has
+made an explicit decision to run it. (Proper notarization would skip this
+step but needs a paid Apple Developer account.)
 
 ### 🐧 Linux
 

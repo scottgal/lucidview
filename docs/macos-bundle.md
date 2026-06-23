@@ -76,9 +76,13 @@ If you publish from Windows or Linux for macOS:
 - The `.app` is still assembled correctly, but the `lucidVIEW` binary will be
   missing the `+x` bit. The recipient needs to run
   `chmod +x lucidVIEW.app/Contents/MacOS/lucidVIEW` once.
-- Ad-hoc codesigning is skipped because `codesign` is macOS-only. Recipients may
-  see Gatekeeper warnings until they remove the quarantine attribute:
+- Ad-hoc codesigning is skipped because `codesign` is macOS-only. Recipients
+  hit a Gatekeeper "lucidVIEW is damaged and can't be opened" message until
+  they remove the quarantine attribute:
   `xattr -dr com.apple.quarantine lucidVIEW.app`.
+- The release-page installer (`Scripts/install-macos.sh`) handles all of this
+  in one shot; cross-OS publishers should point users at the curl-pipe line
+  in the README rather than the raw zip workflow.
 
 ## Distribution signing (out of scope here)
 
