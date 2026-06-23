@@ -1,0 +1,60 @@
+# Screenshot the document border in three themes to confirm whether the
+# content "card" reads consistently or fades into the page background.
+
+name: verify-theme-padding
+description: Theme-by-theme margin/padding consistency check
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "1000"
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeLightCard
+  - type: Wait
+    value: "600"
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-light
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeDarkCard
+  - type: Wait
+    value: "600"
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-dark
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: ThemeVsCodeCard
+  - type: Wait
+    value: "600"
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: theme-vscode

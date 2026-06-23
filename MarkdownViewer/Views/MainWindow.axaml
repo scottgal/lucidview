@@ -521,6 +521,7 @@
                                             <Border x:Name="MarkdownContentBorder"
                                                     Padding="48,40" HorizontalAlignment="Center"
                                                     Margin="0,8,0,16"
+                                                    Background="{DynamicResource AppBackgroundSecondary}"
                                                     BorderBrush="{DynamicResource AppBorderSubtle}"
                                                     BorderThickness="1"
                                                     CornerRadius="4"

@@ -275,10 +275,19 @@ public partial class MainWindow
 
             var (body, isHtml) = await DownloadWebPageAsync(uri);
             string content;
+            var mode = isHtml ? SourceMode.ConvertedFromHtml : SourceMode.DirectMarkdown;
+
             if (isHtml)
             {
                 StatusText.Text = "Converting page...";
                 content = _htmlToMarkdownService.Convert(body, uri);
+
+                if (content.Trim().Length < SparseExtractionThreshold && SpaDetection.LooksLikeSpa(body))
+                {
+                    var framework = SpaDetection.DetectFramework(body);
+                    content = SpaDetection.BuildStubMarkdown(url, framework);
+                    mode = SourceMode.ClientSideRendered;
+                }
             }
             else
             {
@@ -295,16 +304,22 @@ public partial class MainWindow
             UpdateRecentFiles();
 
             var title = uri.Segments.LastOrDefault()?.TrimEnd('/') ?? uri.Host;
+            var status = mode switch
+            {
+                SourceMode.ConvertedFromHtml => $"{url} (converted from HTML)",
+                SourceMode.ClientSideRendered => $"{url} (client-side rendered — no conversion possible)",
+                _ => url
+            };
             ApplyLoadedDocumentState(
                 sourcePath: url,
                 displayTitle: title,
                 content: content,
-                statusText: isHtml ? $"{url} (converted from HTML)" : url,
+                statusText: status,
                 fileDateText: "Remote",
                 fileInfoText: $"{content.Length:N0} chars");
 
             PushHistory(url, title);
-            SetSourceMode(isHtml ? SourceMode.ConvertedFromHtml : SourceMode.DirectMarkdown);
+            SetSourceMode(mode);
             QueueImageCaching(content);
         }
         catch (Exception ex) when (!IsIgnorableError(ex))
@@ -489,8 +504,11 @@ public partial class MainWindow
     {
         LocalFile,
         DirectMarkdown,
-        ConvertedFromHtml
+        ConvertedFromHtml,
+        ClientSideRendered
     }
+
+    private const int SparseExtractionThreshold = 200;
 
     private void ApplyLoadedDocumentState(
         string sourcePath,
@@ -526,6 +544,10 @@ public partial class MainWindow
             case SourceMode.ConvertedFromHtml:
                 SourceModeIcon.Symbol = FluentIcons.Common.Symbol.ArrowSync;
                 ToolTip.SetTip(SourceModeIcon, "Converted from HTML via StyloExtract");
+                break;
+            case SourceMode.ClientSideRendered:
+                SourceModeIcon.Symbol = FluentIcons.Common.Symbol.Warning;
+                ToolTip.SetTip(SourceModeIcon, "Client-side rendered — JavaScript required, lucidVIEW can't run it");
                 break;
         }
     }
