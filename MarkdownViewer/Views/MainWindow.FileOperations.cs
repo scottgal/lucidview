@@ -89,6 +89,17 @@ public partial class MainWindow
             return;
         }
 
+        // Source loaded from a URL: resolve relative hrefs (/blog/foo, ../bar)
+        // against the current page URL instead of treating them as local paths.
+        if (TryGetCurrentRemoteBase(out var remoteBase)
+            && Uri.TryCreate(remoteBase, url, out var combined)
+            && combined.Scheme is "http" or "https")
+        {
+            _ = LoadWebPage(combined.AbsoluteUri);
+            e.Handled = true;
+            return;
+        }
+
         var resolvedPath = TryResolveLocalPath(url);
         if (resolvedPath != null)
         {
@@ -133,6 +144,16 @@ public partial class MainWindow
 
         StatusText.Text = "Blocked unsupported link target";
         e.Handled = true;
+    }
+
+    private bool TryGetCurrentRemoteBase(out Uri baseUri)
+    {
+        baseUri = null!;
+        if (string.IsNullOrEmpty(_currentFilePath)) return false;
+        if (!Uri.TryCreate(_currentFilePath, UriKind.Absolute, out var uri)) return false;
+        if (uri.Scheme is not "http" and not "https") return false;
+        baseUri = uri;
+        return true;
     }
 
     private string? TryResolveLocalPath(string relativePath)

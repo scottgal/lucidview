@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private int _currentSearchIndex = -1;
     private int _fontSize = 16;
     private List<Style> _codeBlockStyles = [];
+    private List<Style> _lineMetricsStyles = [];
     private Style? _fontStyle;
     private List<HeadingItem> _headings = [];
     private bool _isSidePanelOpen;
@@ -694,6 +695,8 @@ public partial class MainWindow : Window
         };
         MdViewer.Styles.Add(_fontStyle);
 
+        ApplyLineMetricsStyles();
+
         var codeFont = new FontFamily(_settings.CodeFontFamily);
         RawTextBlock.FontFamily = codeFont;
         RawTextBlock.FontSize = _settings.CodeFontSize;
@@ -777,6 +780,42 @@ public partial class MainWindow : Window
         _codeBlockStyles.Add(inlineCodeStyle);
 
         foreach (var s in _codeBlockStyles)
+            MdViewer.Styles.Add(s);
+    }
+
+    private void ApplyLineMetricsStyles()
+    {
+        foreach (var style in _lineMetricsStyles)
+            MdViewer.Styles.Remove(style);
+        _lineMetricsStyles.Clear();
+
+        // LineHeight is a multiplier of the resolved font size. A value <= 1.0
+        // means "use the font's natural line metrics" (don't fight the typeface).
+        // Letter spacing is in DIPs added between glyphs; 0 = natural kerning.
+        var lineHeight = _settings.LineHeight;
+        var letterSpacing = _settings.LetterSpacing;
+        var hasLineHeight = lineHeight > 1.0;
+        var hasLetterSpacing = Math.Abs(letterSpacing) > 0.01;
+        if (!hasLineHeight && !hasLetterSpacing) return;
+
+        // LiveMarkdown emits paragraphs as MarkdownTextBlock (subclasses TextBlock)
+        // and selectable runs as SelectableTextBlock. Avalonia's OfType<T> matches
+        // exactly, not subclasses, so we have to enumerate all three. Code blocks
+        // re-set their own font via PART_CodeTextBlock styles after this — that's
+        // fine; we don't want body line-height bleeding into code anyway.
+        void AddStyle(Func<Selector?, Selector> selector)
+        {
+            var style = new Style(selector);
+            if (hasLineHeight) style.Setters.Add(new Setter(TextBlock.LineHeightProperty, _settings.FontSize * lineHeight));
+            if (hasLetterSpacing) style.Setters.Add(new Setter(TextBlock.LetterSpacingProperty, letterSpacing));
+            _lineMetricsStyles.Add(style);
+        }
+
+        AddStyle(x => x.OfType<LiveMarkdown.Avalonia.MarkdownRenderer>().Descendant().OfType<TextBlock>());
+        AddStyle(x => x.OfType<LiveMarkdown.Avalonia.MarkdownRenderer>().Descendant().OfType<SelectableTextBlock>());
+        AddStyle(x => x.OfType<LiveMarkdown.Avalonia.MarkdownRenderer>().Descendant().OfType<MarkdownTextBlock>());
+
+        foreach (var s in _lineMetricsStyles)
             MdViewer.Styles.Add(s);
     }
 

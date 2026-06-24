@@ -1,0 +1,24 @@
+name: verify-settings-typography
+description: Open Settings dialog, capture the Typography section with new Line/Letter spacing fields
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2000"
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+  - type: Wait
+    value: "800"
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "400"
+  - type: Click
+    target: MenuSettingsBtn
+  - type: Wait
+    value: "800"
+  - type: Screenshot
+    value: settings-dialog
+    window_id: SettingsDialog

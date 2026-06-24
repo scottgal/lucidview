@@ -36,6 +36,8 @@ public partial class SettingsDialog : Window
         ThemeComboBox.SelectionChanged += OnSettingChanged;
         FontFamilyComboBox.SelectionChanged += OnSettingChanged;
         FontSizeBox.ValueChanged += OnSettingChanged;
+        LineHeightBox.ValueChanged += OnSettingChanged;
+        LetterSpacingBox.ValueChanged += OnSettingChanged;
         CodeFontComboBox.SelectionChanged += OnSettingChanged;
     }
 
@@ -55,6 +57,8 @@ public partial class SettingsDialog : Window
         _settings.FontFamily = ReadComboValue(FontFamilyComboBox,
             "Inter, Segoe UI, -apple-system, sans-serif");
         _settings.FontSize = (double)(FontSizeBox.Value ?? 15);
+        _settings.LineHeight = (double)(LineHeightBox.Value ?? 1.0m);
+        _settings.LetterSpacing = (double)(LetterSpacingBox.Value ?? 0m);
         _settings.CodeFontFamily = ReadComboValue(CodeFontComboBox,
             "Cascadia Code, JetBrains Mono, Consolas, monospace");
 
@@ -79,6 +83,8 @@ public partial class SettingsDialog : Window
         // Typography
         SelectFontFamily(FontFamilyComboBox, _settings.FontFamily);
         FontSizeBox.Value = (decimal)_settings.FontSize;
+        LineHeightBox.Value = (decimal)_settings.LineHeight;
+        LetterSpacingBox.Value = (decimal)_settings.LetterSpacing;
         SelectFontFamily(CodeFontComboBox, _settings.CodeFontFamily);
 
         // Layout
@@ -97,6 +103,8 @@ public partial class SettingsDialog : Window
         _settings.FontFamily = ReadComboValue(FontFamilyComboBox,
             "Inter, Segoe UI, -apple-system, sans-serif");
         _settings.FontSize = (double)(FontSizeBox.Value ?? 15);
+        _settings.LineHeight = (double)(LineHeightBox.Value ?? 1.0m);
+        _settings.LetterSpacing = (double)(LetterSpacingBox.Value ?? 0m);
         _settings.CodeFontFamily = ReadComboValue(CodeFontComboBox,
             "Cascadia Code, JetBrains Mono, Consolas, monospace");
 
@@ -120,6 +128,8 @@ public partial class SettingsDialog : Window
         _settings.Theme = original.Theme;
         _settings.FontFamily = original.FontFamily;
         _settings.FontSize = original.FontSize;
+        _settings.LineHeight = original.LineHeight;
+        _settings.LetterSpacing = original.LetterSpacing;
         _settings.CodeFontFamily = original.CodeFontFamily;
         SettingsChanged?.Invoke();
         Close();
@@ -133,6 +143,8 @@ public partial class SettingsDialog : Window
         ThemeComboBox.SelectedIndex = 0; // Auto (system)
         SelectFontFamily(FontFamilyComboBox, defaults.FontFamily);
         FontSizeBox.Value = (decimal)defaults.FontSize;
+        LineHeightBox.Value = (decimal)defaults.LineHeight;
+        LetterSpacingBox.Value = (decimal)defaults.LetterSpacing;
         SelectFontFamily(CodeFontComboBox, defaults.CodeFontFamily);
         WordWrapCheckBox.IsChecked = defaults.WordWrap;
         NavPanelCheckBox.IsChecked = defaults.ShowNavigationPanel;

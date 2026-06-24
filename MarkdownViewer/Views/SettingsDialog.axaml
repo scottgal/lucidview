@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="MarkdownViewer.Views.SettingsDialog"
         Title="Preferences"
-        Width="450" Height="420"
+        Width="450" Height="500"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         ShowInTaskbar="False"
@@ -33,7 +33,7 @@
                     <TextBlock Text="Typography" FontWeight="SemiBold" FontSize="14"
                                Foreground="{DynamicResource AppText}" />
 
-                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto" Margin="0,4,0,0">
+                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4,0,0">
                         <TextBlock Grid.Row="0" Grid.Column="0"
                                    Text="Font family:"
                                    VerticalAlignment="Center"
@@ -76,10 +76,32 @@
                                        Margin="0,0,0,8" />
 
                         <TextBlock Grid.Row="2" Grid.Column="0"
+                                   Text="Line spacing:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppTextSecondary}" />
+                        <NumericUpDown Grid.Row="2" Grid.Column="1" x:Name="LineHeightBox"
+                                       Minimum="0.8" Maximum="3.0" Increment="0.1"
+                                       FormatString="0.0"
+                                       Width="120"
+                                       HorizontalAlignment="Left"
+                                       Margin="0,0,0,8" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0"
+                                   Text="Letter spacing:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppTextSecondary}" />
+                        <NumericUpDown Grid.Row="3" Grid.Column="1" x:Name="LetterSpacingBox"
+                                       Minimum="-2" Maximum="6" Increment="0.1"
+                                       FormatString="0.0"
+                                       Width="120"
+                                       HorizontalAlignment="Left"
+                                       Margin="0,0,0,8" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0"
                                    Text="Code font:"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource AppTextSecondary}" />
-                        <ComboBox Grid.Row="2" Grid.Column="1"
+                        <ComboBox Grid.Row="4" Grid.Column="1"
                                   x:Name="CodeFontComboBox"
                                   MinWidth="240"
                                   HorizontalAlignment="Stretch"
