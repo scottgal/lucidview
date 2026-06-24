@@ -49,7 +49,7 @@ URL, following the bot-style "+URL" convention so site operators can see
 who's hitting them:
 
 ```
-lucidVIEW/2.6.3 (Markdown Browser; +https://www.mostlylucid.net/lucidview)
+lucidVIEW/2.8.0 (Markdown Browser; +https://www.mostlylucid.net/lucidview)
 ```
 
 This already ships. Sites that recognise the UA (mostlylucid.net,

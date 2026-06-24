@@ -4,6 +4,47 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v2.8.0 — 2026-06-24
+
+### Fixed
+
+- **Relative links on converted pages now work.** `OnLinkClick` was
+  treating `_currentFilePath` as a local file path even when the
+  document was loaded from a URL, so links like `/blog/foo` fell
+  through every branch and hit "Blocked unsupported link target".
+  The handler now detects when the source is an `http`/`https` URL
+  and resolves relative hrefs against it before navigating.
+- **HTMX-only anchors survive HTML→Markdown conversion.** Sites like
+  mostlylucid.net put navigation URLs in `hx-get` (and `hx-post`) and
+  omit `href` entirely — 133 of 193 anchors on the homepage were
+  href-less. `HtmlToMarkdownService` now preprocesses the parsed DOM
+  and copies `hx-get` / `hx-post` to `href` when no `href` is set,
+  so those links round-trip into the rendered markdown as real
+  clickable links.
+- **`<pre class="mermaid">` blocks render as diagrams, not source
+  text.** StyloExtract's walker only tags fenced code with a language
+  when the inner `<code>` carries `language-X`. Without it, mermaid
+  blocks came out as plain ``` fences and the `MermaidBlockRegex`
+  (which requires the `mermaid` tag) skipped them. `HtmlToMarkdownService`
+  now wraps the `<pre class="mermaid">` content in
+  `<code class="language-mermaid">` before classification, so the
+  existing Naiad render path picks them up.
+
+### Added
+
+- **Line spacing + letter spacing in the Settings dialog.**
+  `AppSettings.LineHeight` was already in the JSON schema but never
+  wired into rendering — the body text was always using the font's
+  natural line metrics, which felt cramped. A new `LetterSpacing`
+  field joins it, both surface as `NumericUpDown` controls in the
+  Typography section, and `ApplyLineMetricsStyles` in `MainWindow`
+  applies them via styles targeting `TextBlock`, `SelectableTextBlock`
+  and `MarkdownTextBlock` descendants of the `MarkdownRenderer`
+  (Avalonia's `OfType` is exact, not subclass-matching — using just
+  `OfType<TextBlock>()` would silently miss everything LiveMarkdown
+  actually emits). Default line spacing is `1.5` (visibly comfortable
+  on Inter/Raleway); `≤ 1.0` leaves the font's natural metrics alone.
+
 ## v2.6.0 — 2026-04-12
 
 ### Added
