@@ -26,7 +26,7 @@ public partial class MainWindow : Window
 {
     private readonly ImageCacheService _imageCacheService;
     private readonly MarkdownService _markdownService;
-    private readonly HtmlToMarkdownService _htmlToMarkdownService = new();
+    private readonly IHtmlToMarkdownService _htmlToMarkdownService = new HtmlToMarkdownService();
     private readonly AppSettings _settings;
     private readonly ThemeService _themeService;
     private readonly DiagramRendererPluginHost _diagramPluginHost;

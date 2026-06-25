@@ -7,7 +7,7 @@ using StyloExtract.Markdown;
 
 namespace MarkdownViewer.Services;
 
-public sealed class HtmlToMarkdownService
+public sealed class HtmlToMarkdownService : IHtmlToMarkdownService
 {
     private readonly IHtmlDomParser _parser = new AngleSharpHtmlDomParser();
     private readonly IDomCleaner _cleaner = new DomCleaner();
@@ -24,6 +24,9 @@ public sealed class HtmlToMarkdownService
         var blocks = _classifier.Classify(_segmenter.Segment(doc));
         return _renderer.Render(blocks, ExtractionProfile.RagFull);
     }
+
+    public Task<string> ConvertAsync(string html, Uri? sourceUri, CancellationToken ct = default)
+        => Task.FromResult(Convert(html, sourceUri));
 
     public static bool LooksLikeHtml(string body)
     {

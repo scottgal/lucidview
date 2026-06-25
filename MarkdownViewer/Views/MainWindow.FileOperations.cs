@@ -307,7 +307,7 @@ public partial class MainWindow
             if (isHtml)
             {
                 StatusText.Text = "Converting page...";
-                content = _htmlToMarkdownService.Convert(body, uri);
+                content = await _htmlToMarkdownService.ConvertAsync(body, uri);
 
                 if (content.Trim().Length < SparseExtractionThreshold && SpaDetection.LooksLikeSpa(body))
                 {
