@@ -16,6 +16,10 @@ internal static class AppPaths
 
     private static string ResolveLocalState()
     {
+        var envOverride = Environment.GetEnvironmentVariable("LUCIDVIEW_STATE_DIR");
+        if (!string.IsNullOrEmpty(envOverride))
+            return envOverride;
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
