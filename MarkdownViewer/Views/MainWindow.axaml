@@ -870,6 +870,32 @@
                             </StackPanel>
                         </Button>
 
+                        <!-- FULL Diagnostics — hidden in lean, shown via #if FULL in ctor -->
+                        <Border x:Name="FullDiagnosticsSeparator" Classes="panel-separator" IsVisible="False" />
+                        <StackPanel x:Name="FullDiagnosticsMenu" IsVisible="False">
+                            <Button x:Name="ReDownloadModelMenuItem" Classes="panel-item" Click="OnReDownloadModel"
+                                    ToolTip.Tip="Re-download the LLM model">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <ic:SymbolIcon Symbol="ArrowDownload" Classes="panel-icon" />
+                                    <TextBlock Text="Re-download model" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ReinstallBrowsersMenuItem" Classes="panel-item" Click="OnReinstallBrowsers"
+                                    ToolTip.Tip="Reinstall Playwright Chromium browsers">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <ic:SymbolIcon Symbol="CloudArrowDown" Classes="panel-icon" />
+                                    <TextBlock Text="Reinstall Playwright browsers" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ShowDoctorMenuItem" Classes="panel-item" Click="OnShowDoctor"
+                                    ToolTip.Tip="Show FULL diagnostics report">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <ic:SymbolIcon Symbol="Stethoscope" Classes="panel-icon" />
+                                    <TextBlock Text="Show doctor report" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
                         <Border Classes="panel-separator" />
 
                         <!-- Exit -->

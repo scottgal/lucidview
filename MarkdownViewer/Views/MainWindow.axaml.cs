@@ -168,6 +168,18 @@ public partial class MainWindow : Window
             SetWindowIcon();
             ApplyTypography();
         }, Avalonia.Threading.DispatcherPriority.Background);
+
+#if FULL
+        this.Title = "lucidVIEW-FULL";  // Override lean default so identity is visible
+        FullDiagnosticsSeparator.IsVisible = true;
+        FullDiagnosticsMenu.IsVisible = true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+        {
+            var settings = MarkdownViewer.Models.AppSettingsFull.Load();
+            if (!settings.HasRunBefore)
+                await new MarkdownViewer.Views.FirstRunBootstrapDialog().ShowDialog(this);
+        }, Avalonia.Threading.DispatcherPriority.Background);
+#endif
     }
 
     #region Mouse Wheel Zoom & Scroll
@@ -1209,6 +1221,47 @@ public partial class MainWindow : Window
             RawScroller.Offset = new Vector(0, Math.Max(0, scrollOffset - 100));
         }
     }
+
+    #endregion
+
+    #region FULL Diagnostics
+
+#if FULL
+    private async void OnReDownloadModel(object? sender, RoutedEventArgs e)
+    {
+        StatusText.Text = "Downloading model…";
+        await MarkdownViewer.Services.ModelBootstrap.EnsureModelAsync(null, CancellationToken.None);
+        StatusText.Text = "Model ready.";
+    }
+
+    private async void OnReinstallBrowsers(object? sender, RoutedEventArgs e)
+    {
+        StatusText.Text = "Installing browsers…";
+        await MarkdownViewer.Services.ModelBootstrap.EnsureBrowsersAsync(null, CancellationToken.None);
+        StatusText.Text = "Browsers ready.";
+    }
+
+    private async void OnShowDoctor(object? sender, RoutedEventArgs e)
+    {
+        var report = MarkdownViewer.Services.ModelBootstrap.Doctor();
+        var content = $"""
+            Model: {report.ModelPath}
+            Present: {report.ModelPresent} ({report.ModelSizeBytes / 1024 / 1024} MB)
+
+            Browsers: {report.BrowsersPath}
+            Present: {report.BrowsersPresent}
+
+            Ready: {report.Ready}
+            """;
+        await new MarkdownViewer.Views.InputDialog(
+            "lucidVIEW-FULL — doctor", content)
+            .ShowDialog(this);
+    }
+#else
+    private void OnReDownloadModel(object? sender, RoutedEventArgs e) { }
+    private void OnReinstallBrowsers(object? sender, RoutedEventArgs e) { }
+    private void OnShowDoctor(object? sender, RoutedEventArgs e) { }
+#endif
 
     #endregion
 

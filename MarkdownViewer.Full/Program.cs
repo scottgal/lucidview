@@ -27,6 +27,20 @@ internal static class FullProgram
         };
 
         // CLI verbs.
+        if (args.Contains("--doctor"))
+        {
+            var report = ModelBootstrap.Doctor();
+            Console.WriteLine($"Model path:     {report.ModelPath}");
+            Console.WriteLine($"Model present:  {report.ModelPresent} ({report.ModelSizeBytes / 1024 / 1024} MB)");
+            Console.WriteLine($"Browsers path:  {report.BrowsersPath}");
+            Console.WriteLine($"Browsers present: {report.BrowsersPresent}");
+            Console.WriteLine();
+            Console.WriteLine(report.Ready
+                ? "Ready to extract."
+                : "Not ready — run --download-model and/or --install-browsers.");
+            return report.Ready ? 0 : 1;
+        }
+
         if (args.Contains("--install-browsers"))
         {
             Console.WriteLine("Installing Playwright Chromium...");
