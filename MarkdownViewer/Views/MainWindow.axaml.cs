@@ -1281,7 +1281,7 @@ public partial class MainWindow : Window
     {
         var host = info.Source?.Host ?? "(local)";
         var llmPart = info.LlmInductionFired ? $" · LLM {info.LlmDuration.TotalMilliseconds:F0} ms" : "";
-        return $"{host} {info.MatchStatus} v{info.TemplateVersion} · {info.Fetcher} · {info.FetchDuration.TotalMilliseconds:F0} ms · {info.BlockCount} blocks{llmPart}";
+        return $"{host} {info.MatchStatus} v{info.TemplateVersion} · {info.Fetcher} · {info.TotalDuration.TotalMilliseconds:F0} ms · {info.BlockCount} blocks{llmPart}";
     }
 
     private void OnExtractionStatusClicked(object? sender, Avalonia.Input.PointerPressedEventArgs e)

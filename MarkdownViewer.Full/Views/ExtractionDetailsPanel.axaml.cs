@@ -22,7 +22,7 @@ public partial class ExtractionDetailsPanel : Window
             ? $"""
                 Source: {info.Source}
                 Match: {info.MatchStatus} (template {info.TemplateId} v{info.TemplateVersion})
-                Fetcher: {info.Fetcher} · {info.FetchDuration.TotalMilliseconds:F0} ms
+                Fetcher: {info.Fetcher} · {info.TotalDuration.TotalMilliseconds:F0} ms
                 LLM induction: {info.LlmInductionFired} ({info.LlmDuration.TotalMilliseconds:F0} ms)
                 Blocks: {info.BlockCount} · Output: {info.OutputCharacterCount} chars
                 """

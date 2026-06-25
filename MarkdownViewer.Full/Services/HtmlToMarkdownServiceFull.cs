@@ -93,7 +93,7 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
             TemplateId: result.Match?.TemplateId ?? Guid.Empty,
             TemplateVersion: result.Match?.TemplateVersion ?? 0,
             Fetcher: fetcher,
-            FetchDuration: sw.Elapsed,
+            TotalDuration: sw.Elapsed,
             LlmInductionFired: llmFired,
             LlmDuration: llmDuration,
             BlockCount: result.Blocks.Count,

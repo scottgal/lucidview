@@ -10,7 +10,7 @@ public sealed record LastExtractionInfo(
     Guid TemplateId,
     int TemplateVersion,
     string Fetcher,
-    TimeSpan FetchDuration,
+    TimeSpan TotalDuration,
     bool LlmInductionFired,
     TimeSpan LlmDuration,
     int BlockCount,

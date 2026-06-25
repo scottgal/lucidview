@@ -51,9 +51,10 @@ internal static class FullProgram
 
         if (args.Length > 0 && args[0] == "--download-model")
         {
+            var settings = AppSettingsFull.Load();
             var hfId = args.Length > 1
                 ? args[1]
-                : AppSettingsFull.Load().LlmModelPath;
+                : settings.LlmModelPath;
 
             Console.WriteLine($"Pre-downloading model: {hfId}");
             Console.WriteLine($"Cache dir: {AppPaths.ModelCacheDir}");
@@ -67,6 +68,16 @@ internal static class FullProgram
             else
             {
                 Console.WriteLine($"Model already cached at: {resolvedPath}");
+            }
+
+            if (!settings.LlmEnabled)
+            {
+                // LLM is disabled — DI does not register a provider. The GGUF has
+                // been downloaded above; skip the EnsureLoaded verify to avoid an
+                // InvalidOperationException from the missing DI registration.
+                Console.WriteLine("Model downloaded. LLM is currently disabled in settings —");
+                Console.WriteLine("re-enable LlmEnabled in settings.json to use it.");
+                return 0;
             }
 
             // Verify by loading weights via the provider.

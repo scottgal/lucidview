@@ -2,6 +2,14 @@ using System.Text.Json;
 
 namespace MarkdownViewer.Models;
 
+/// <summary>
+/// FULL-only persistent settings (LLM + Playwright + first-run state).
+/// Deliberately uses runtime <see cref="JsonSerializer"/> reflection instead of
+/// lean's source-generated <c>AppSettingsContext</c> — FULL is permitted to be
+/// non-AOT (it pulls Microsoft.Playwright and LLamaSharp which are themselves
+/// reflection-heavy), so the AOT-safe serializer pattern is unnecessary
+/// ceremony here. See lean's <c>AppSettings.cs</c> for the AOT pattern.
+/// </summary>
 public sealed class AppSettingsFull
 {
     private static readonly JsonSerializerOptions _writeOptions =
