@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading;
 using StyloExtract.Abstractions;
 using StyloExtract.Core;
@@ -14,6 +15,10 @@ namespace MarkdownViewer.Services;
 ///
 /// Task 5 extension: when the first-pass extraction returns too little content or
 /// SPA markers are detected, automatically retries via a Playwright-rendered fetch.
+///
+/// Task 8 extension: wraps each conversion with Stopwatch timing and pushes a
+/// <see cref="LastExtractionInfo"/> record to <see cref="ExtractionTelemetry"/> so
+/// the status bar and F2 details panel have live dogfood signal.
 /// </summary>
 public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
 {
@@ -36,15 +41,26 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
 
     private readonly ILayoutExtractor _extractor;
     private readonly IRenderedHtmlFetcher _renderedFetcher;
+    private readonly ExtractionTelemetry _telemetry;
 
-    public HtmlToMarkdownServiceFull(ILayoutExtractor extractor, IRenderedHtmlFetcher renderedFetcher)
+    public HtmlToMarkdownServiceFull(
+        ILayoutExtractor extractor,
+        IRenderedHtmlFetcher renderedFetcher,
+        ExtractionTelemetry telemetry)
     {
         _extractor = extractor;
         _renderedFetcher = renderedFetcher;
+        _telemetry = telemetry;
     }
 
     public async Task<string> ConvertAsync(string html, Uri? sourceUri, CancellationToken ct = default)
     {
+        var sw = Stopwatch.StartNew();
+        var fetcher = "Http";
+        var llmDuration = TimeSpan.Zero;
+        // TODO upstream: expose LlmInductionFired on ExtractionResult (not present in 1.8.0-alpha.6)
+        var llmFired = false;
+
         // Apply shared pre-processing (HTMX link promotion, mermaid <pre> wrapping)
         // before handing the HTML to the layout extractor.
         var pre = HtmlPreProcessor.Apply(html);
@@ -52,17 +68,36 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         var md = result.Markdown;
 
         // Auto-retry via Playwright when first-pass extraction looks empty or SPA-detected.
-        // Note: PlaywrightInstaller.EnsureBrowsersInstalledAsync does not exist in the
-        // preview package — only the sync EnsureBrowsersInstalled is available.
-        // We wrap it in Task.Run so this path stays awaitable.
+        // Note: EnsureBrowsersOnceAsync wraps the sync PlaywrightInstaller.EnsureBrowsersInstalled
+        // in Task.Run so this path stays awaitable (async version not available in preview package).
         if (sourceUri is not null && RenderedFetchPolicy.ShouldRetry(html, md))
         {
             await EnsureBrowsersOnceAsync(ct);
             var rendered = await _renderedFetcher.FetchAsync(sourceUri, new RenderOptions(), ct);
             var renderedPre = HtmlPreProcessor.Apply(rendered.Html);
+            var lsw = Stopwatch.StartNew();
             var renderedResult = await _extractor.ExtractAsync(renderedPre, rendered.FinalUri, cancellationToken: ct);
+            llmDuration = lsw.Elapsed;
+            // TODO upstream: expose LlmInductionFired on ExtractionResult (not present in 1.8.0-alpha.6)
+            llmFired = false;
             md = renderedResult.Markdown;
+            fetcher = "Playwright";
+            result = renderedResult;
         }
+
+        sw.Stop();
+        _telemetry.Record(new LastExtractionInfo(
+            When: DateTime.UtcNow,
+            Source: sourceUri,
+            MatchStatus: result.Match?.Status.ToString() ?? "Unknown",
+            TemplateId: result.Match?.TemplateId ?? Guid.Empty,
+            TemplateVersion: result.Match?.TemplateVersion ?? 0,
+            Fetcher: fetcher,
+            FetchDuration: sw.Elapsed,
+            LlmInductionFired: llmFired,
+            LlmDuration: llmDuration,
+            BlockCount: result.Blocks.Count,
+            OutputCharacterCount: md.Length));
 
         return md;
     }

@@ -179,6 +179,15 @@ public partial class MainWindow : Window
             if (!settings.HasRunBefore)
                 await new MarkdownViewer.Views.FirstRunBootstrapDialog().ShowDialog(this);
         }, Avalonia.Threading.DispatcherPriority.Background);
+
+        ExtractionStatusText.IsVisible = true;
+        var telemetry = MarkdownViewer.Services.FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+        telemetry.Recorded += info => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            ExtractionStatusText.Text = FormatExtractionInfo(info));
+        KeyDown += (s, e) =>
+        {
+            if (e.Key == Avalonia.Input.Key.F2) ShowExtractionDetails();
+        };
 #endif
     }
 
@@ -1261,6 +1270,27 @@ public partial class MainWindow : Window
     private void OnReDownloadModel(object? sender, RoutedEventArgs e) { }
     private void OnReinstallBrowsers(object? sender, RoutedEventArgs e) { }
     private void OnShowDoctor(object? sender, RoutedEventArgs e) { }
+#endif
+
+    #endregion
+
+    #region FULL Extraction Telemetry
+
+#if FULL
+    private static string FormatExtractionInfo(MarkdownViewer.Services.LastExtractionInfo info)
+    {
+        var host = info.Source?.Host ?? "(local)";
+        var llmPart = info.LlmInductionFired ? $" · LLM {info.LlmDuration.TotalMilliseconds:F0} ms" : "";
+        return $"{host} {info.MatchStatus} v{info.TemplateVersion} · {info.Fetcher} · {info.FetchDuration.TotalMilliseconds:F0} ms · {info.BlockCount} blocks{llmPart}";
+    }
+
+    private void OnExtractionStatusClicked(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+        => ShowExtractionDetails();
+
+    private void ShowExtractionDetails()
+        => _ = new MarkdownViewer.Views.ExtractionDetailsPanel().ShowDialog(this);
+#else
+    private void OnExtractionStatusClicked(object? sender, Avalonia.Input.PointerPressedEventArgs e) { }
 #endif
 
     #endregion

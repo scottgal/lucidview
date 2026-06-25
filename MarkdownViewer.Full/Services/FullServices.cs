@@ -50,6 +50,9 @@ internal static class FullServices
         // Task 5: register the Playwright rendered-DOM fetcher.
         services.AddSingleton<IRenderedHtmlFetcher>(_ => new PlaywrightHtmlFetcher());
 
+        // Task 8: telemetry sink — must be registered before HtmlToMarkdownServiceFull.
+        services.AddSingleton<ExtractionTelemetry>();
+
         services.AddSingleton<IHtmlToMarkdownService, HtmlToMarkdownServiceFull>();
 
         // Task 6: register LlamaSharp as ILlmTextProvider + wire template inducer.
