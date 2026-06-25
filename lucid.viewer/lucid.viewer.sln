@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Naiad", "..\Naiad\src\Naiad
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mostlylucid.ImageSharp.Svg", "..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj", "{A1A90530-3990-445E-96A7-82954CA7790E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarkdownViewer.Full.Tests", "..\MarkdownViewer.Full.Tests\MarkdownViewer.Full.Tests.csproj", "{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -75,6 +77,18 @@ Global
 		{A1A90530-3990-445E-96A7-82954CA7790E}.Release|x64.Build.0 = Release|Any CPU
 		{A1A90530-3990-445E-96A7-82954CA7790E}.Release|x86.ActiveCfg = Release|Any CPU
 		{A1A90530-3990-445E-96A7-82954CA7790E}.Release|x86.Build.0 = Release|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Debug|x64.Build.0 = Debug|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Debug|x86.Build.0 = Debug|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Release|x64.ActiveCfg = Release|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Release|x64.Build.0 = Release|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Release|x86.ActiveCfg = Release|Any CPU
+		{315AC9F9-E58E-464F-AB5C-27E6AF7AE5CA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
