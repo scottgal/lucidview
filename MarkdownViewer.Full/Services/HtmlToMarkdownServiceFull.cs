@@ -58,7 +58,6 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         var sw = Stopwatch.StartNew();
         var fetcher = "Http";
         var llmDuration = TimeSpan.Zero;
-        // TODO upstream: expose LlmInductionFired on ExtractionResult (not present in 1.8.0-alpha.6)
         var llmFired = false;
 
         // Apply shared pre-processing (HTMX link promotion, mermaid <pre> wrapping)
@@ -66,6 +65,7 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         var pre = HtmlPreProcessor.Apply(html);
         var result = await _extractor.ExtractAsync(pre, sourceUri, cancellationToken: ct);
         var md = result.Markdown;
+        llmFired = result.LlmInductionFired;
 
         // Auto-retry via Playwright when first-pass extraction looks empty or SPA-detected.
         // Note: EnsureBrowsersOnceAsync wraps the sync PlaywrightInstaller.EnsureBrowsersInstalled
@@ -78,8 +78,7 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
             var lsw = Stopwatch.StartNew();
             var renderedResult = await _extractor.ExtractAsync(renderedPre, rendered.FinalUri, cancellationToken: ct);
             llmDuration = lsw.Elapsed;
-            // TODO upstream: expose LlmInductionFired on ExtractionResult (not present in 1.8.0-alpha.6)
-            llmFired = false;
+            llmFired = renderedResult.LlmInductionFired;
             md = renderedResult.Markdown;
             fetcher = "Playwright";
             result = renderedResult;

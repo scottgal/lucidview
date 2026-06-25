@@ -24,7 +24,7 @@ These apply to every task. Pulled verbatim from the spec.
 - **Settings & state files** live under `AppPaths.LocalState` (FULL-only helper), never colliding with lean's `MarkdownViewer/` settings folder. Per-platform: `%LOCALAPPDATA%\lucidVIEW-FULL\` (Windows), `~/Library/Application Support/lucidVIEW-FULL/` (macOS), `${XDG_STATE_HOME:-~/.local/state}/lucidview-full/` (Linux).
 - **Stylobot model-bootstrap pattern** is the reference: lazy auto-download on first call, single `SemaphoreSlim`-serialised init + inference, HF identifier OR local `.gguf` path accepted in `ModelPath`. Pattern source: `stylobot/src/Mostlylucid.BotDetection.Llm.LlamaSharp/LlamaSharpProviderOptions.cs` + `LlamaSharpLlmProvider.cs`.
 - **CLI verbs exit without opening the UI.** Parsed in `Program.cs` before Avalonia starts.
-- **Preview package versions pinned at `1.8.0-alpha.6`** (resolved during execution — the upstream split that moves `AddStyloExtract` out of AspNetCore landed in stylobot-extract commit `e5abb09`). Use that exact version everywhere a preview StyloExtract package is referenced. Consumed via a local NuGet feed at `/tmp/styloextract-local-feed/` — add a `NuGet.Config` at the FULL csproj level (or repo root) pointing at that path. LLamaSharp 0.27.0, Microsoft.Playwright 1.60.0.
+- **Preview packages pinned at `1.8.0-alpha.9` on NuGet.org.** Earlier alphas (5, 6, 7) were never published to NuGet.org. The upstream split that moves `AddStyloExtract` out of AspNetCore into Core is in alpha.8 (stylobot-extract commit `e5abb09`). Use that exact version everywhere a preview StyloExtract package is referenced. The `/tmp/styloextract-local-feed/` local NuGet feed was used during development to test pre-publish packages but is no longer needed — the repo-root `NuGet.Config` now points only at `nuget.org`. LLamaSharp 0.27.0, Microsoft.Playwright 1.60.0.
 - **Cut a new StyloExtract alpha if the preview API doesn't fit.** The sibling `stylobot-extract` repo is under our control. If a task hits a missing public API or a wrong shape (e.g. an extension method we need to register a service, an `ExtractionResult` property we need to read), pop a new alpha from `stylobot-extract`, bump the version in FULL's csproj, and continue. Do not work around the upstream by reflecting into internals from FULL.
 - **Tests for LLM/Playwright** are off CI initially. Use `[Trait("Category", "RequiresLlm")]` / `[Trait("Category", "RequiresPlaywright")]` and filter via `dotnet test --filter "Category!=RequiresLlm&Category!=RequiresPlaywright"`.
 - **No release builds for FULL** until explicitly approved. Debug-only artifacts on CI.
@@ -576,27 +576,26 @@ Replace the Task 2 delegating stub with a real implementation using `Mostlylucid
 
 - [ ] **Step 1: Wire the local NuGet feed**
 
-Create `/Users/scottgalloway/RiderProjects/lucidview/NuGet.Config` (repo root, NOT inside MarkdownViewer.Full) so the local preview feed applies to every project in the repo:
+Create `/Users/scottgalloway/RiderProjects/lucidview/NuGet.Config` (repo root, NOT inside MarkdownViewer.Full) so every project in the repo resolves from `nuget.org`. The local `/tmp/styloextract-local-feed/` feed was used during development before alpha.8 was published; it is no longer needed:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-    <add key="styloextract-local" value="/tmp/styloextract-local-feed" />
   </packageSources>
 </configuration>
 ```
 
-If lean's `MarkdownViewer.csproj` already restores cleanly without this file, the local feed addition is additive — lean continues to resolve everything from nuget.org. Verify by running `dotnet restore MarkdownViewer/MarkdownViewer.csproj` after adding the config — expect no version change in lean.
+Verify by running `dotnet restore MarkdownViewer/MarkdownViewer.csproj` — expect no version change in lean.
 
 - [ ] **Step 2: Add packages to FULL csproj**
 
 Edit `MarkdownViewer.Full/MarkdownViewer.Full.csproj`. Drop the four `1.7.1` `StyloExtract.*` package refs (they come transitively via `Core`). Add:
 
 ```xml
-<PackageReference Include="Mostlylucid.StyloExtract.Core" Version="1.8.0-alpha.6" />
-<PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="1.8.0-alpha.6" />
+<PackageReference Include="Mostlylucid.StyloExtract.Core" Version="1.8.0-alpha.9" />
+<PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="1.8.0-alpha.9" />
 <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
 <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
 ```
@@ -889,7 +888,7 @@ When the plain `HttpClient` fetch returns empty / SPA-marker HTML / fewer than 3
 Edit `MarkdownViewer.Full/MarkdownViewer.Full.csproj`. Add:
 
 ```xml
-<PackageReference Include="Mostlylucid.StyloExtract.Playwright" Version="1.8.0-alpha.6" />
+<PackageReference Include="Mostlylucid.StyloExtract.Playwright" Version="1.8.0-alpha.9" />
 <PackageReference Include="Microsoft.Playwright" Version="1.60.0" />
 ```
 
@@ -1129,7 +1128,7 @@ Wire `LlamaSharpTextProvider` as the `ILlmTextProvider` for the StyloExtract LLM
 Edit `MarkdownViewer.Full/MarkdownViewer.Full.csproj`. Add:
 
 ```xml
-<PackageReference Include="Mostlylucid.StyloExtract.Llm.LlamaSharp" Version="1.8.0-alpha.6" />
+<PackageReference Include="Mostlylucid.StyloExtract.Llm.LlamaSharp" Version="1.8.0-alpha.9" />
 <PackageReference Include="LLamaSharp" Version="0.27.0" />
 <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
 ```
@@ -2233,7 +2232,7 @@ git commit -m "build(full): publish.ps1 -Edition flag + CI build matrix"
 | Tests (with `RequiresLlm` / `RequiresPlaywright` traits) | 3, 4, 5, 6, 7, 8 |
 | Interface extraction (prep) | 1 |
 
-**Placeholder scan** — searched for "TBD", "TODO", "implement later", "add appropriate error handling", "write tests for the above". No remaining placeholders — all preview package versions are pinned at `1.8.0-alpha.6` (resolved during execution from the upstream split in `stylobot-extract` commit `e5abb09`, packed locally to `/tmp/styloextract-local-feed/`).
+**Placeholder scan** — searched for "TBD", "TODO", "implement later", "add appropriate error handling", "write tests for the above". No remaining placeholders — all preview package versions are pinned at `1.8.0-alpha.9` (resolved from `nuget.org`; the local `/tmp/styloextract-local-feed/` feed was used during development but is no longer referenced).
 
 **Type consistency** —
 - `IHtmlToMarkdownService.ConvertAsync(string, Uri?, CancellationToken)` defined Task 1, consumed Tasks 2–4 ✓
