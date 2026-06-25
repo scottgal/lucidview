@@ -54,7 +54,7 @@ public sealed class ExtractionTelemetry
     {
         var sb = new StringBuilder();
         foreach (var info in Recent)
-            sb.AppendLine(JsonSerializer.Serialize(info));
+            sb.Append(JsonSerializer.Serialize(info)).Append('\n');
         return sb.ToString();
     }
 }
