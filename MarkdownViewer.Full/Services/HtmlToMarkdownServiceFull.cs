@@ -1,3 +1,4 @@
+using System.Threading;
 using StyloExtract.Abstractions;
 using StyloExtract.Core;
 using StyloExtract.Playwright;
@@ -16,6 +17,23 @@ namespace MarkdownViewer.Services;
 /// </summary>
 public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
 {
+    private static int _browsersEnsured;  // 0 = not yet, 1 = done
+
+    private static async Task EnsureBrowsersOnceAsync(CancellationToken ct)
+    {
+        if (Interlocked.Exchange(ref _browsersEnsured, 1) == 1) return;
+        try
+        {
+            await Task.Run(() => PlaywrightInstaller.EnsureBrowsersInstalled("chromium"), ct);
+        }
+        catch
+        {
+            // Reset so a future call can retry after a transient failure.
+            Interlocked.Exchange(ref _browsersEnsured, 0);
+            throw;
+        }
+    }
+
     private readonly ILayoutExtractor _extractor;
     private readonly IRenderedHtmlFetcher _renderedFetcher;
 
@@ -39,7 +57,7 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         // We wrap it in Task.Run so this path stays awaitable.
         if (sourceUri is not null && RenderedFetchPolicy.ShouldRetry(html, md))
         {
-            await Task.Run(() => PlaywrightInstaller.EnsureBrowsersInstalled("chromium"), ct);
+            await EnsureBrowsersOnceAsync(ct);
             var rendered = await _renderedFetcher.FetchAsync(sourceUri, new RenderOptions(), ct);
             var renderedPre = HtmlPreProcessor.Apply(rendered.Html);
             var renderedResult = await _extractor.ExtractAsync(renderedPre, rendered.FinalUri, cancellationToken: ct);
