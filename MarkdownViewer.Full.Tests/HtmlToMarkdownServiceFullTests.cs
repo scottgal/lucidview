@@ -71,29 +71,22 @@ public class HtmlToMarkdownServiceFullTests : IClassFixture<FullServicesFixture>
     public async Task ConvertAsync_PopulatesTemplateStore()
     {
         var storePath = Path.Combine(_fixture.TempDir, "styloextract-templates.db");
-        var svc = FullServices.Get<IHtmlToMarkdownService>();
 
-        await svc.ConvertAsync(
-            """
-            <!doctype html>
-            <html lang="en">
-            <head><title>A</title></head>
-            <body>
-            <header><nav><a href="/">Home</a></nav></header>
-            <main>
-              <article>
-                <h1>A</h1>
-                <p>B paragraph with enough text to pass the extraction threshold in the RagFull renderer profile for StyloExtract.</p>
-              </article>
-            </main>
-            <footer><p>Footer</p></footer>
-            </body>
-            </html>
-            """,
-            new Uri("https://example.com/a"),
-            CancellationToken.None);
+        // Capture pre-call size — the IClassFixture-shared store may already exist
+        // from the prior test. The assertion below verifies THIS call grew it.
+        long preCallLength = File.Exists(storePath) ? new FileInfo(storePath).Length : 0;
+
+        var svc = FullServices.Get<IHtmlToMarkdownService>();
+        var html = "<!doctype html><html><head><title>Distinct</title></head>"
+                 + "<body><header><h1>Distinct H1</h1></header>"
+                 + "<main><article><p>" + new string('x', 300) + "</p></article></main>"
+                 + "<footer>f</footer></body></html>";
+
+        await svc.ConvertAsync(html, new Uri("https://distinct-host-task4-fix.invalid/page"), CancellationToken.None);
 
         Assert.True(File.Exists(storePath), $"Template store should exist at {storePath}");
-        Assert.True(new FileInfo(storePath).Length > 0, "Template store should not be empty after first extraction");
+        long postCallLength = new FileInfo(storePath).Length;
+        Assert.True(postCallLength > preCallLength,
+            $"Template store size should grow after this extraction (pre={preCallLength}, post={postCallLength}).");
     }
 }
