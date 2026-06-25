@@ -20,6 +20,7 @@ These apply to every task. Pulled verbatim from the spec.
   - Any task that would add a non-`#if FULL` code path to lean that runs in Release is a defect — escalate, don't ship.
 - **FULL is allowed to be fat and non-AOT.** `PublishSingleFile=false`, `PublishReadyToRun=false`, `PublishTrimmed=false`. LlamaSharp and Playwright packages are explicitly `IsAotCompatible=false`.
 - **`RootNamespace=MarkdownViewer`** in FULL csproj so shared file-linked source resolves the same namespaces.
+- **AssemblyName stays `lucidVIEW`** (NOT `lucidVIEW-FULL`). Lean's `App.axaml` (lines 49, 59), `MainWindow.axaml` (line 529), and `AppSettings.cs` (line 21) hardcode `avares://lucidVIEW/...` URIs which Avalonia compiles against AssemblyName at build time. Renaming would require shadowing those three lean files with FULL-only copies, defeating the file-link model. FULL identity surfaces at runtime via `<Product>lucidVIEW-FULL</Product>`, a `this.Title = "lucidVIEW-FULL"` line in the MainWindow ctor under `#if FULL` (added in Task 7), the first-run dialog text, and the status-bar line. The two editions live in different bin/publish directories so on-disk collision is moot.
 - **Settings & state files** live under `AppPaths.LocalState` (FULL-only helper), never colliding with lean's `MarkdownViewer/` settings folder. Per-platform: `%LOCALAPPDATA%\lucidVIEW-FULL\` (Windows), `~/Library/Application Support/lucidVIEW-FULL/` (macOS), `${XDG_STATE_HOME:-~/.local/state}/lucidview-full/` (Linux).
 - **Stylobot model-bootstrap pattern** is the reference: lazy auto-download on first call, single `SemaphoreSlim`-serialised init + inference, HF identifier OR local `.gguf` path accepted in `ModelPath`. Pattern source: `stylobot/src/Mostlylucid.BotDetection.Llm.LlamaSharp/LlamaSharpProviderOptions.cs` + `LlamaSharpLlmProvider.cs`.
 - **CLI verbs exit without opening the UI.** Parsed in `Program.cs` before Avalonia starts.
@@ -189,7 +190,9 @@ Create `MarkdownViewer.Full/MarkdownViewer.Full.csproj`:
 
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
 
-    <AssemblyName>lucidVIEW-FULL</AssemblyName>
+    <!-- AssemblyName must stay 'lucidVIEW' — see Global Constraints. Renaming
+         breaks avares:// URI resolution in linked lean XAML/source. -->
+    <AssemblyName>lucidVIEW</AssemblyName>
     <RootNamespace>MarkdownViewer</RootNamespace>
     <Version>0.1.0</Version>
     <Product>lucidVIEW-FULL</Product>
@@ -663,23 +666,7 @@ public class HtmlToMarkdownServiceFullTests : IDisposable
 
 Note: `LUCIDVIEW_STATE_DIR` is a test-only override. Add support in `AppPaths`.
 
-- [ ] **Step 5: Add LUCIDVIEW_STATE_DIR override to AppPaths**
-
-Edit `MarkdownViewer.Full/AppPaths.cs` — change `ResolveLocalState`:
-
-```csharp
-private static string ResolveLocalState()
-{
-    var overrideDir = Environment.GetEnvironmentVariable("LUCIDVIEW_STATE_DIR");
-    if (!string.IsNullOrEmpty(overrideDir))
-        return overrideDir;
-
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            AppFolder);
-    // ... rest unchanged
-```
+- [ ] **Step 5: (Removed — `LUCIDVIEW_STATE_DIR` override landed in Task 2's fix-up commit a5beddc.)**
 
 - [ ] **Step 6: Implement FullServices DI bootstrap**
 
@@ -1570,12 +1557,13 @@ public partial class FirstRunBootstrapDialog : Window
 }
 ```
 
-- [ ] **Step 6: Show dialog on first run from MainWindow**
+- [ ] **Step 6: Show dialog on first run from MainWindow + set FULL window title**
 
-This needs a `#if FULL` join point. Edit `MarkdownViewer/Views/MainWindow.axaml.cs` — locate the constructor or `OnAttachedToVisualTree` (whichever runs once after the window is up). Add:
+This needs a `#if FULL` join point. Edit `MarkdownViewer/Views/MainWindow.axaml.cs` — locate the constructor or `OnAttachedToVisualTree` (whichever runs once after the window is up). Add at the end of the constructor:
 
 ```csharp
 #if FULL
+    this.Title = "lucidVIEW-FULL";  // Override the lean default so identity is visible
     Dispatcher.UIThread.Post(async () =>
     {
         var settings = MarkdownViewer.Models.AppSettingsFull.Load();
@@ -1585,7 +1573,7 @@ This needs a `#if FULL` join point. Edit `MarkdownViewer/Views/MainWindow.axaml.
 #endif
 ```
 
-Place it near the end of the MainWindow constructor, after the existing init runs.
+The `Title` override matters because AssemblyName stays `lucidVIEW` (see Global Constraints) — the window title is one of the runtime surfaces that distinguishes FULL from lean.
 
 - [ ] **Step 7: Run the FULL app from a fresh state**
 

@@ -150,8 +150,13 @@ with zero observable difference vs. before these changes.
 
   <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
 
-  <!-- Independent product identity & version. FULL evolves separately. -->
-  <AssemblyName>lucidVIEW-FULL</AssemblyName>
+  <!-- AssemblyName MUST stay 'lucidVIEW' — lean's App.axaml, MainWindow.axaml,
+       and AppSettings.cs hardcode avares://lucidVIEW/... URIs which Avalonia
+       compiles against AssemblyName. Renaming requires shadowing those three
+       files in FULL, which defeats the file-link model. Identity is surfaced
+       at runtime via Product, MainWindow.Title (set under #if FULL), and the
+       first-run dialog / status-bar text. -->
+  <AssemblyName>lucidVIEW</AssemblyName>
   <RootNamespace>MarkdownViewer</RootNamespace>  <!-- match lean for shared source -->
   <Version>0.1.0</Version>
   <Product>lucidVIEW-FULL</Product>
