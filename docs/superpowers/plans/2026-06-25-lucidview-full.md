@@ -1114,7 +1114,7 @@ Wire `LlamaSharpTextProvider` as the `ILlmTextProvider` for the StyloExtract LLM
       public string LlmModelPath { get; set; } = "Qwen/Qwen2.5-0.5B-Instruct-GGUF/qwen2.5-0.5b-instruct-q4_k_m.gguf";
       public bool LlmEnabled { get; set; } = true;
       public bool PlaywrightEnabled { get; set; } = true;
-      public int LlmContextSize { get; set; } = 512;
+      public int LlmContextSize { get; set; } = 8192;
       public int LlmThreads { get; set; } = Environment.ProcessorCount;
       public int LlmGpuLayerCount { get; set; } = -1;
       public bool HasRunBefore { get; set; }
@@ -1153,7 +1153,7 @@ public sealed class AppSettingsFull
         "Qwen/Qwen2.5-0.5B-Instruct-GGUF/qwen2.5-0.5b-instruct-q4_k_m.gguf";
     public bool LlmEnabled { get; set; } = true;
     public bool PlaywrightEnabled { get; set; } = true;
-    public int LlmContextSize { get; set; } = 512;
+    public int LlmContextSize { get; set; } = 8192;
     public int LlmThreads { get; set; } = Environment.ProcessorCount;
     public int LlmGpuLayerCount { get; set; } = -1;
     public bool HasRunBefore { get; set; }

@@ -204,12 +204,12 @@ Pattern source: `stylobot/src/Mostlylucid.BotDetection.Llm.LlamaSharp/LlamaSharp
 
 | Setting | Default | Notes |
 |---|---|---|
-| `LlmModelPath` | `Qwen/Qwen2.5-0.5B-Instruct-GGUF/qwen2.5-0.5b-instruct-q4_k_m.gguf` | Local `.gguf` path OR HF identifier. Matches stylobot default — ~400 MB, viable on CPU. |
+| `LlmModelPath` | `unsloth/Qwen3.5-4B-GGUF/Qwen3.5-4B-Q4_K_M.gguf` | Local `.gguf` path OR HF identifier. Production default per `stylobot-extract/tests/StyloExtract.Llm.Benchmark/README.md` (qwen3.5:4b — best F1 0.805 for template induction). Q4_K_M is ~2.5 GB. |
 | `LlmModelCacheDir` | `AppPaths.LocalState/models` | Env override: `LUCIDVIEW_MODEL_CACHE`. |
 | `LlmEnabled` | `true` | Toggle in settings; OFF → heuristic-only StyloExtract. |
 | `PlaywrightEnabled` | `true` | OFF → HTTP-only fetch (same as lean). |
 | `PlaywrightBrowsersDir` | Playwright default (`%USERPROFILE%/AppData/Local/ms-playwright` etc.) | Env override: `PLAYWRIGHT_BROWSERS_PATH` (Playwright's own). |
-| `LlmContextSize` | `512` | Matches stylobot default. |
+| `LlmContextSize` | `8192` | Matches the stylobot-extract LlamaSharp README example. 512 (the old stylobot bot-detection prompt budget) silently truncates serious template-induction prompts. |
 | `LlmThreads` | `Environment.ProcessorCount` | |
 | `LlmGpuLayerCount` | `-1` | Full offload on Metal/CUDA where available; CPU otherwise. |
 

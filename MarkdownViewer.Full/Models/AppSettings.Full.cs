@@ -15,11 +15,18 @@ public sealed class AppSettingsFull
     private static readonly JsonSerializerOptions _writeOptions =
         new JsonSerializerOptions { WriteIndented = true };
 
+    // Production default per stylobot-extract's bench:
+    // tests/StyloExtract.Llm.Benchmark/README.md ranks qwen3.5:4b as best
+    // F1 (0.805) for template induction. unsloth's GGUF reupload is the
+    // canonical HuggingFace home; Q4_K_M is ~2.5 GB.
     public string LlmModelPath { get; set; } =
-        "Qwen/Qwen2.5-0.5B-Instruct-GGUF/qwen2.5-0.5b-instruct-q4_k_m.gguf";
+        "unsloth/Qwen3.5-4B-GGUF/Qwen3.5-4B-Q4_K_M.gguf";
     public bool LlmEnabled { get; set; } = true;
     public bool PlaywrightEnabled { get; set; } = true;
-    public int LlmContextSize { get; set; } = 512;
+    // 8192 matches the LlamaSharp README example in stylobot-extract.
+    // Template induction needs the bigger window — 512 was the old stylobot
+    // bot-detection prompt budget and silently truncates serious prompts.
+    public int LlmContextSize { get; set; } = 8192;
     public int LlmThreads { get; set; } = Environment.ProcessorCount;
     public int LlmGpuLayerCount { get; set; } = -1;
     public bool HasRunBefore { get; set; }
