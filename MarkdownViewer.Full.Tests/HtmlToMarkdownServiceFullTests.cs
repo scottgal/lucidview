@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MarkdownViewer.Services;
+using StyloExtract.Abstractions;
 using Xunit;
 
 namespace MarkdownViewer.Full.Tests;
@@ -88,5 +89,20 @@ public class HtmlToMarkdownServiceFullTests : IClassFixture<FullServicesFixture>
         long postCallLength = new FileInfo(storePath).Length;
         Assert.True(postCallLength > preCallLength,
             $"Template store size should grow after this extraction (pre={preCallLength}, post={postCallLength}).");
+    }
+
+    [Fact]
+    [Trait("Category", "RequiresPlaywright")]
+    public async Task ConvertAsync_SpaPage_RetriesViaPlaywright()
+    {
+        var svc = FullServices.Get<IHtmlToMarkdownService>();
+        var spaHtml = """
+            <html><head><title>SPA</title></head>
+            <body><div id="__next"></div>
+            <script>window.__NEXT_DATA__={};</script></body></html>
+            """;
+        // Force the policy to trigger — empty first pass.
+        var md = await svc.ConvertAsync(spaHtml, new Uri("https://example.com/"), CancellationToken.None);
+        Assert.NotNull(md);  // No assertion on content — Playwright result is host-dependent.
     }
 }

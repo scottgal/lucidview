@@ -78,6 +78,9 @@
     <!-- FULL preview StyloExtract stack (Task 4). Core brings Abstractions/Html/Heuristics/Markdown transitively. -->
     <PackageReference Include="Mostlylucid.StyloExtract.Core" Version="1.8.0-alpha.6" />
     <PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="1.8.0-alpha.6" />
+    <!-- Task 5: Playwright rendered-DOM fetcher + browser runtime. -->
+    <PackageReference Include="Mostlylucid.StyloExtract.Playwright" Version="1.8.0-alpha.6" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.60.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />

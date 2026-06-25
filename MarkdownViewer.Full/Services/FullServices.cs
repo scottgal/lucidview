@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StyloExtract.Abstractions;
 using StyloExtract.Core;
+using StyloExtract.Playwright;
 
 namespace MarkdownViewer.Services;
 
@@ -23,6 +24,9 @@ internal static class FullServices
             o.StorePath = AppPaths.TemplateStorePath;
             o.DefaultProfile = ExtractionProfile.RagFull;
         });
+
+        // Task 5: register the Playwright rendered-DOM fetcher.
+        services.AddSingleton<IRenderedHtmlFetcher>(_ => new PlaywrightHtmlFetcher());
 
         services.AddSingleton<IHtmlToMarkdownService, HtmlToMarkdownServiceFull>();
 

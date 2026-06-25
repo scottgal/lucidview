@@ -23,8 +23,14 @@ internal static class FullProgram
             e.SetObserved();
         };
 
-        // CLI verbs land here in later tasks (--download-model, --install-browsers,
-        // --doctor). For now no verbs — start the UI.
+        // CLI verbs.
+        if (args.Contains("--install-browsers"))
+        {
+            Console.WriteLine("Installing Playwright Chromium...");
+            StyloExtract.Playwright.PlaywrightInstaller.EnsureBrowsersInstalled("chromium");
+            Console.WriteLine("Done.");
+            return 0;
+        }
 
         try
         {
