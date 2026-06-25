@@ -26,7 +26,12 @@ public partial class MainWindow : Window
 {
     private readonly ImageCacheService _imageCacheService;
     private readonly MarkdownService _markdownService;
-    private readonly IHtmlToMarkdownService _htmlToMarkdownService = new HtmlToMarkdownService();
+    private readonly IHtmlToMarkdownService _htmlToMarkdownService =
+#if FULL
+        MarkdownViewer.Services.FullServices.Get<IHtmlToMarkdownService>();
+#else
+        new MarkdownViewer.Services.HtmlToMarkdownService();
+#endif
     private readonly AppSettings _settings;
     private readonly ThemeService _themeService;
     private readonly DiagramRendererPluginHost _diagramPluginHost;

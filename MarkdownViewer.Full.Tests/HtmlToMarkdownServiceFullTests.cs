@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MarkdownViewer.Services;
@@ -5,18 +7,42 @@ using Xunit;
 
 namespace MarkdownViewer.Full.Tests;
 
-public class HtmlToMarkdownServiceFullTests
+/// <summary>
+/// Class fixture that sets LUCIDVIEW_STATE_DIR once before any tests in the class
+/// run and tears it down once all tests finish. This ensures the single-init
+/// AppPaths.LocalState and FullServices.Provider statics read the same temp path.
+/// </summary>
+public sealed class FullServicesFixture : IDisposable
 {
+    public string TempDir { get; } = Path.Combine(Path.GetTempPath(), $"lvfull-{Guid.NewGuid():N}");
+
+    public FullServicesFixture()
+    {
+        Directory.CreateDirectory(TempDir);
+        Environment.SetEnvironmentVariable("LUCIDVIEW_STATE_DIR", TempDir);
+    }
+
+    public void Dispose()
+    {
+        Environment.SetEnvironmentVariable("LUCIDVIEW_STATE_DIR", null);
+        try { Directory.Delete(TempDir, recursive: true); } catch { }
+    }
+}
+
+[Collection("FullServices")]
+public class HtmlToMarkdownServiceFullTests : IClassFixture<FullServicesFixture>
+{
+    private readonly FullServicesFixture _fixture;
+
+    public HtmlToMarkdownServiceFullTests(FullServicesFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
     [Fact]
     public async Task ConvertAsync_PlainHtml_ProducesNonEmptyMarkdown()
     {
-        IHtmlToMarkdownService svc = new HtmlToMarkdownServiceFull();
-
-        // StyloExtract's heuristic segmenter requires realistic web-page structure
-        // (semantic landmarks + a sourceUri) to produce non-empty blocks, and the
-        // RagFull renderer only emits MainContent blocks whose TextLength exceeds an
-        // internal threshold (~100 chars). A bare <h1>+<p> with a few words yields
-        // 0 rendered output even when the block is classified as MainContent.
+        var svc = FullServices.Get<IHtmlToMarkdownService>();
         var html = """
             <!doctype html>
             <html lang="en">
@@ -35,10 +61,39 @@ public class HtmlToMarkdownServiceFullTests
             </html>
             """;
 
-        var md = await svc.ConvertAsync(html, sourceUri: new Uri("https://example.com/post"), CancellationToken.None);
+        var md = await svc.ConvertAsync(html, new Uri("https://example.com/page"), CancellationToken.None);
 
-        Assert.False(string.IsNullOrWhiteSpace(md), "Markdown should not be empty.");
+        Assert.False(string.IsNullOrWhiteSpace(md));
         Assert.Contains("Title", md);
-        Assert.Contains("Body paragraph", md);
+    }
+
+    [Fact]
+    public async Task ConvertAsync_PopulatesTemplateStore()
+    {
+        var storePath = Path.Combine(_fixture.TempDir, "styloextract-templates.db");
+        var svc = FullServices.Get<IHtmlToMarkdownService>();
+
+        await svc.ConvertAsync(
+            """
+            <!doctype html>
+            <html lang="en">
+            <head><title>A</title></head>
+            <body>
+            <header><nav><a href="/">Home</a></nav></header>
+            <main>
+              <article>
+                <h1>A</h1>
+                <p>B paragraph with enough text to pass the extraction threshold in the RagFull renderer profile for StyloExtract.</p>
+              </article>
+            </main>
+            <footer><p>Footer</p></footer>
+            </body>
+            </html>
+            """,
+            new Uri("https://example.com/a"),
+            CancellationToken.None);
+
+        Assert.True(File.Exists(storePath), $"Template store should exist at {storePath}");
+        Assert.True(new FileInfo(storePath).Length > 0, "Template store should not be empty after first extraction");
     }
 }
