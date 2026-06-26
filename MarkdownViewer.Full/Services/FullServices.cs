@@ -49,6 +49,14 @@ internal static class FullServices
             o.DefaultProfile = ExtractionProfile.RagFull;
         });
 
+        // Wires the operator-template YAML store + the deterministic-template
+        // YAML sink (alpha.11+). LayoutExtractor picks up the sink as an
+        // optional dep and writes <host>-deterministic.yaml after each
+        // heuristic induction so the templates dir gets a YAML for every
+        // induced extractor, not just LLM-induced ones.
+        services.AddStyloExtractOperatorTemplates(
+            Path.Combine(AppPaths.LocalState, "templates"));
+
         // Task 5: register the Playwright rendered-DOM fetcher.
         services.AddSingleton<IRenderedHtmlFetcher>(_ => new PlaywrightHtmlFetcher());
 
@@ -88,31 +96,35 @@ internal static class FullServices
             _ = hosted.StartAsync(CancellationToken.None);
 
         // Pipeline-stage indicator: watch the templates dir for new YAMLs so the
-        // status bar can light up "LLM" when the background inducer finishes.
-        if (settings.LlmEnabled)
+        // status bar's "llm" segment can light up when either:
+        //   - LLM background inducer writes <host>.yaml (alpha.9+)
+        //   - Heuristic deterministic inducer writes <host>-deterministic.yaml (alpha.11+)
+        // Both fire independent of LlmEnabled because deterministic YAML lands
+        // even when LLM is off.
+        try
         {
-            try
+            var templatesDir = Path.Combine(AppPaths.LocalState, "templates");
+            Directory.CreateDirectory(templatesDir);
+            var telemetry = provider.GetRequiredService<ExtractionTelemetry>();
+            var watcher = new FileSystemWatcher(templatesDir, "*.yaml")
             {
-                var templatesDir = Path.Combine(AppPaths.LocalState, "templates");
-                Directory.CreateDirectory(templatesDir);
-                var telemetry = provider.GetRequiredService<ExtractionTelemetry>();
-                var watcher = new FileSystemWatcher(templatesDir, "*.yaml")
-                {
-                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
-                    EnableRaisingEvents = true,
-                };
-                FileSystemEventHandler hit = (_, e) =>
-                {
-                    var host = Path.GetFileNameWithoutExtension(e.Name);
-                    telemetry.EmitStage(ExtractionStage.Llm, started: false, detail: host);
-                };
-                watcher.Changed += hit;
-                watcher.Created += hit;
-                // Anchor the watcher so it isn't GC'd.
-                _watcher = watcher;
-            }
-            catch { /* watcher is nice-to-have; don't break startup */ }
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
+                EnableRaisingEvents = true,
+            };
+            FileSystemEventHandler hit = (_, e) =>
+            {
+                var name = Path.GetFileNameWithoutExtension(e.Name) ?? "";
+                var isDeterministic = name.EndsWith("-deterministic", StringComparison.Ordinal);
+                var host = isDeterministic ? name[..^"-deterministic".Length] : name;
+                var detail = isDeterministic ? $"{host} (det)" : host;
+                telemetry.EmitStage(ExtractionStage.Llm, started: false, detail: detail);
+            };
+            watcher.Changed += hit;
+            watcher.Created += hit;
+            // Anchor the watcher so it isn't GC'd.
+            _watcher = watcher;
         }
+        catch { /* watcher is nice-to-have; don't break startup */ }
 
         return provider;
     }
