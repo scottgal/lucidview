@@ -720,25 +720,27 @@ public partial class MainWindow
 
 #if FULL
     /// <summary>
-    /// alpha.17: chunk-aware streaming-scan body reader. Reads response chunks
-    /// into an accumulating buffer (same byte-budget contract as the lean
-    /// reader). Every <see cref="StreamingScanThresholdBytes"/> bytes received
-    /// — and once again on stream-end — re-invokes
-    /// <see cref="StyloExtract.Streaming.StreamingPathSelector.ScanByHost"/>
-    /// against the accumulated prefix and exits early on Captured / Bailout.
+    /// alpha.18: true chunked streaming-scan body reader. Replaces alpha.17's
+    /// 64 KB-threshold whole-buffer re-scan with a per-chunk feed via the new
+    /// <see cref="StyloExtract.Streaming.IncrementalFenceScanner"/>. As bytes
+    /// arrive from HttpClient we feed them straight into the incremental
+    /// tokenizer + scanner, which holds a partial-tag buffer across chunk
+    /// boundaries and emits a running verdict as soon as enough tags have
+    /// passed for the structural fences to match.
     ///
-    /// The "real streaming win" — feeding individual TagEvents through
-    /// FenceScanner.Tick as bytes arrive — requires MinimalHtmlTokenizer to
-    /// support resumable tokenization across chunk boundaries, which it
-    /// currently doesn't (the tokenizer takes the whole input span). The
-    /// threshold-driven re-scan is the alpha.17 compromise: it still produces
-    /// a real verdict on real bytes, lets chrome-heavy pages bail before the
-    /// full body downloads, and matches the intended consumer behaviour the
-    /// inducer needs to feed.
-    ///
-    /// True chunked tokenizer-resume is queued as an upstream follow-up.
+    /// Behavioural difference vs alpha.17:
+    /// <list type="bullet">
+    ///   <item><description>Captured can land on chunk 2 or 3 — well before the
+    ///   whole body has been buffered — instead of waiting for a 64 KB
+    ///   threshold tick.</description></item>
+    ///   <item><description>No O(N) re-scan-from-start cost on each threshold
+    ///   tick; tokenization is amortised across the bytes seen so far.</description></item>
+    ///   <item><description>Same byte-budget contract; same fallback behaviour
+    ///   when the host has no warmed template (scanner is null, alpha.17
+    ///   auto-induction path still fires from the buffered bytes after
+    ///   stream-end).</description></item>
+    /// </list>
     /// </summary>
-    private const int StreamingScanThresholdBytes = 64 * 1024;
     private static async Task<(byte[] Bytes, StyloExtract.Streaming.ScanVerdict LastVerdict)> ReadBodyWithLimitAndScanAsync(
         HttpContent content,
         long maxBytes,
@@ -749,8 +751,22 @@ public partial class MainWindow
         using var buffer = new MemoryStream();
         var chunk = new byte[16 * 1024];
         long total = 0;
-        long sinceLastScan = 0;
-        var lastVerdict = StyloExtract.Streaming.ScanVerdict.Continue;
+
+        // Look up the host-keyed template (hot cache only; the caller fires
+        // WarmByHostAsync upstream so by now the warm should have landed in
+        // the hot tier). Null template -> no incremental scan; we still drain
+        // the body so auto-induction can run on full bytes after stream end.
+        var store = MarkdownViewer.Services.FullServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
+        var template = store.TryGetHotByHost(host);
+        StyloExtract.Streaming.IncrementalFenceScanner? scanner = template is not null
+            ? StyloExtract.Streaming.IncrementalFenceScanner.Create(template)
+            : null;
+
+        var lastVerdict = template is null
+            ? StyloExtract.Streaming.ScanVerdict.NoTemplate
+            : StyloExtract.Streaming.ScanVerdict.Continue;
+        int chunkIndex = 0;
+        bool earlyTerminal = false;
 
         while (true)
         {
@@ -760,38 +776,52 @@ public partial class MainWindow
             if (total > maxBytes)
                 throw new InvalidOperationException("Remote page exceeds size limit.");
             buffer.Write(chunk, 0, read);
-            sinceLastScan += read;
+            chunkIndex++;
 
-            if (sinceLastScan >= StreamingScanThresholdBytes)
+            if (scanner is not null && !earlyTerminal)
             {
-                sinceLastScan = 0;
-                // Snapshot the accumulated prefix and re-run ScanByHost. Re-scan
-                // is full-input (not incremental) — see method-level remark. We
-                // exit early on a terminal verdict so chrome-only Bailouts skip
-                // the rest of the body.
-                lastVerdict = selector.ScanByHost(host, buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
-                if (lastVerdict == StyloExtract.Streaming.ScanVerdict.Captured
-                    || lastVerdict == StyloExtract.Streaming.ScanVerdict.Bailout)
+                var v = scanner.Feed(chunk.AsSpan(0, read));
+                Console.WriteLine($"[streaming] chunk {chunkIndex} ({read} bytes): {v}");
+                if (v is StyloExtract.Streaming.ScanVerdict.Captured
+                    or StyloExtract.Streaming.ScanVerdict.Bailout)
                 {
-                    // Drain rest of the body (we still need full bytes for the
-                    // markdown converter downstream) but don't re-scan.
-                    while (true)
-                    {
-                        var more = await stream.ReadAsync(chunk);
-                        if (more == 0) break;
-                        total += more;
-                        if (total > maxBytes)
-                            throw new InvalidOperationException("Remote page exceeds size limit.");
-                        buffer.Write(chunk, 0, more);
-                    }
-                    break;
+                    lastVerdict = v;
+                    earlyTerminal = true;
+                    // Keep draining the body — the markdown converter downstream
+                    // still needs the full bytes — but the verdict is now latched.
+                }
+                else
+                {
+                    lastVerdict = v;
                 }
             }
         }
 
-        // Final scan on stream-end — guarantees a verdict even if the body
-        // never crossed the chunk threshold (small pages).
-        lastVerdict = selector.ScanByHost(host, buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+        if (scanner is not null && !earlyTerminal)
+            lastVerdict = scanner.Flush();
+
+        // alpha.18: kick the refit orchestrator off-hot-path on captured scans.
+        // The orchestrator handles its own gating (cadence + EWMA drift) and
+        // fires the version sink when a refit fires.
+        if (scanner is not null
+            && lastVerdict == StyloExtract.Streaming.ScanVerdict.Captured)
+        {
+            var bytesCopy = buffer.ToArray();
+            try
+            {
+                var orchestrator = MarkdownViewer.Services.FullServices.Get<StyloExtract.Streaming.StreamingRefitOrchestrator>();
+                orchestrator.RecordCaptured(
+                    host,
+                    scanner.CaptureStartByte,
+                    scanner.CaptureEndByte,
+                    bytesCopy);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[streaming-refit] record-captured failed: {ex.Message}");
+            }
+        }
+
         return (buffer.ToArray(), lastVerdict);
     }
 #endif

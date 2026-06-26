@@ -80,6 +80,12 @@ internal static class FullServices
         services.AddSingleton<StreamingPathSelector>();
         services.AddSingleton<StreamingTemplateInducer>();
 
+        // alpha.18: streaming-template refit + versioning. Sink surfaces refit
+        // events via the existing ExtractionTelemetry "llm" status-bar segment
+        // so the user sees "<host> (refit v2)" when drift triggers a refit.
+        services.AddSingleton<IStreamingTemplateVersionSink, RefitTelemetrySink>();
+        services.AddSingleton<StreamingRefitOrchestrator>();
+
         // Task 8: telemetry sink — must be registered before HtmlToMarkdownServiceFull.
         services.AddSingleton<ExtractionTelemetry>();
 
