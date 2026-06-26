@@ -240,6 +240,44 @@ services.
 
 ---
 
+## lucidVIEW-FULL — the dogfood sibling
+
+Alongside the lean `MarkdownViewer/` project there's a second exe,
+`MarkdownViewer.Full/`. It is **not shipped in releases** — it exists as a
+tight feedback loop against the preview
+[`Mostlylucid.StyloExtract`](https://github.com/scottgal/stylobot-extract)
+1.8.0-alpha train, so the upstream library can iterate against real-world
+web pages without the lean release path ever changing.
+
+What FULL adds on top of lean (currently pinned at alpha.19):
+
+- `Mostlylucid.StyloExtract.Core` + `.Templates` + `.Playwright` + `.Streaming` + `.Llm.LlamaSharp`
+- `LLamaSharp` 0.27.0 — in-process LLM (CPU) for template induction
+- `Microsoft.Playwright` 1.60.0 — rendered-DOM auto-retry for SPA pages
+- A local fork of `LiveMarkdown.Avalonia` (1.9.2-local-imgfix2) with the
+  HTML `<img width=H height=W>` renderer needed for proper image dims
+- Streaming gateway scanner wired into the HTTP byte stream
+- F2 Extraction Details panel with NDJSON export
+- Pipeline stage indicator in the status bar (`fetch · match · llm · render`)
+- First-run bootstrap dialog (model + browser install)
+- Read/Scan mode toggle (RagFull vs Sitemap extraction profile)
+- CLI verbs: `--doctor` / `--install-browsers` / `--download-model` /
+  `--shot <url> <out.png>`
+
+Run it:
+
+```bash
+dotnet run --project MarkdownViewer.Full/MarkdownViewer.Full.csproj -c Debug
+```
+
+**Lean Release output is unaffected.** Every lean source touch that supports
+FULL is guarded by `#if FULL` and runtime-neutral when the constant is not
+defined. See [`docs/full-edition.md`](docs/full-edition.md) for the full
+guide — what FULL does, the dogfood pipeline step-by-step, CLI reference,
+settings layout, and the rules this branch lives under.
+
+---
+
 ## License
 
 [The Unlicense](https://unlicense.org/) — do whatever you want.
