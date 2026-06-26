@@ -483,10 +483,25 @@ public partial class MarkdownService
         var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_IMG_DEBUG") == "1";
         var cachedPath = _imageCacheService?.GetCachedPath(url);
         if (debug) Console.WriteLine($"[md-img] {url} → {(cachedPath ?? "MISS")}");
-        if (cachedPath != null)
-            return $"![{alt}]({cachedPath})";
+        if (cachedPath == null)
+            return $"![{alt}]({url})";
 
-        return $"![{alt}]({url})";
+        // When we know the cached image's natural dimensions, emit raw
+        // <img width=W height=H> so LiveMarkdown.Avalonia's HtmlInline/
+        // HtmlBlock renderer (1.9.2-local-imgfix1 fork) sizes the Image
+        // control deterministically — async-load measure-invalidation was
+        // collapsing content images to a single text line otherwise.
+        // Shields/badges (<200px wide) stay as ![alt](path) markdown so the
+        // existing shield-pinning style continues to constrain them crisply.
+        var size = _imageCacheService?.GetCachedDisplaySize(url);
+        if (size is { Width: > 200 } dims)
+        {
+            var escapedAlt = System.Net.WebUtility.HtmlEncode(alt);
+            var escapedSrc = System.Net.WebUtility.HtmlEncode(cachedPath);
+            return $"<img src=\"{escapedSrc}\" alt=\"{escapedAlt}\" width=\"{dims.Width}\" height=\"{dims.Height}\" />";
+        }
+
+        return $"![{alt}]({cachedPath})";
     }
 
     /// <summary>
