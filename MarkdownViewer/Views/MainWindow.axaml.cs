@@ -180,10 +180,24 @@ public partial class MainWindow : Window
                 await new MarkdownViewer.Views.FirstRunBootstrapDialog().ShowDialog(this);
         }, Avalonia.Threading.DispatcherPriority.Background);
 
-        ExtractionStatusText.IsVisible = true;
+        // FULL is busier than lean — hide the redundant fit/1:1 buttons so the
+        // scale slider has room next to the pipeline indicator. Lean keeps them.
+        FitWidthToggle.IsVisible = false;
+        FitHeightToggle.IsVisible = false;
+        ResetZoomBtn.IsVisible = false;
+
+        // Pipeline-stage indicator (replaces the single-text ExtractionStatusText).
+        ExtractionStagesPanel.IsVisible = true;
         var telemetry = MarkdownViewer.Services.FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+        telemetry.StageChanged += evt => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            ApplyStageEvent(evt));
         telemetry.Recorded += info => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-            ExtractionStatusText.Text = FormatExtractionInfo(info));
+        {
+            // The final Record fires after extraction completes — render is
+            // about to happen, so light up the Render segment.
+            StageRenderText.Text = $"render {info.BlockCount} blocks · {info.OutputCharacterCount / 1024}K";
+            StageRenderText.Opacity = 1.0;
+        });
         KeyDown += (s, e) =>
         {
             if (e.Key == Avalonia.Input.Key.F2) ShowExtractionDetails();
@@ -1277,11 +1291,42 @@ public partial class MainWindow : Window
     #region FULL Extraction Telemetry
 
 #if FULL
-    private static string FormatExtractionInfo(MarkdownViewer.Services.LastExtractionInfo info)
+    /// <summary>
+    /// Pipeline-stage indicator. Each segment lives in the status bar at 0.4
+    /// opacity until its stage fires. When a stage starts (Started=true) the
+    /// segment goes italic + 1.0 opacity; when it completes (Started=false)
+    /// the text updates with the detail value and stays at 1.0.
+    ///
+    /// Triggered by <c>ExtractionTelemetry.StageChanged</c> which is emitted
+    /// by <c>HtmlToMarkdownServiceFull.ConvertAsync</c> for Fetch+Match and
+    /// by <c>FullServices</c>'s templates-dir FileSystemWatcher for Llm.
+    /// Render fires from the existing <c>Recorded</c> handler.
+    /// </summary>
+    private void ApplyStageEvent(MarkdownViewer.Services.StageEvent evt)
     {
-        var host = info.Source?.Host ?? "(local)";
-        var llmPart = info.LlmInductionFired ? $" · LLM {info.LlmDuration.TotalMilliseconds:F0} ms" : "";
-        return $"{host} {info.MatchStatus} v{info.TemplateVersion} · {info.Fetcher} · {info.TotalDuration.TotalMilliseconds:F0} ms · {info.BlockCount} blocks{llmPart}";
+        var (block, baseLabel) = evt.Stage switch
+        {
+            MarkdownViewer.Services.ExtractionStage.Fetch  => (StageFetchText,  "fetch"),
+            MarkdownViewer.Services.ExtractionStage.Match  => (StageMatchText,  "match"),
+            MarkdownViewer.Services.ExtractionStage.Llm    => (StageLlmText,    "llm"),
+            MarkdownViewer.Services.ExtractionStage.Render => (StageRenderText, "render"),
+            _ => ((Avalonia.Controls.TextBlock?)null, "")
+        };
+        if (block is null) return;
+
+        block.Opacity = 1.0;
+        if (evt.Started)
+        {
+            block.FontStyle = Avalonia.Media.FontStyle.Italic;
+            block.Text = baseLabel + (evt.Detail is null ? "…" : $" {evt.Detail}…");
+        }
+        else
+        {
+            block.FontStyle = Avalonia.Media.FontStyle.Normal;
+            var ms = evt.Duration.TotalMilliseconds;
+            var msPart = ms > 0 ? $" · {ms:F0}ms" : "";
+            block.Text = $"{baseLabel} {evt.Detail ?? "ok"}{msPart}";
+        }
     }
 
     private void OnExtractionStatusClicked(object? sender, Avalonia.Input.PointerPressedEventArgs e)

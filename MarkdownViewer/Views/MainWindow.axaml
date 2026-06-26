@@ -245,6 +245,25 @@
                                Foreground="{DynamicResource ThemeAccentBrush}"
                                Cursor="Hand"
                                PointerPressed="OnExtractionStatusClicked" />
+                    <!-- FULL-only pipeline stage indicator: each segment starts dim (0.4)
+                         and lights up to 1.0 as ConvertAsync emits StageChanged. Stays
+                         IsVisible="False" in lean (runtime-neutral). -->
+                    <StackPanel Grid.Column="6" x:Name="ExtractionStagesPanel"
+                                IsVisible="False"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Margin="12,0,0,0"
+                                Spacing="6"
+                                Cursor="Hand"
+                                PointerPressed="OnExtractionStatusClicked">
+                        <TextBlock x:Name="StageFetchText"  Text="fetch"  Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageMatchText"  Text="match"  Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageLlmText"    Text="llm"    Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageRenderText" Text="render" Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
+                    </StackPanel>
                 </Grid>
             </Border>
 

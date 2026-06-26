@@ -16,6 +16,30 @@ public sealed record LastExtractionInfo(
     int BlockCount,
     int OutputCharacterCount);
 
+/// <summary>
+/// Discrete stages of a single extraction request, shown in the status bar
+/// as a horizontal sequence with active/done stages at 1.0 opacity and
+/// upcoming stages at 0.5.
+/// </summary>
+public enum ExtractionStage
+{
+    Idle,
+    Fetch,     // HTTP fetch (and optional Playwright rendered-DOM retry)
+    Match,     // StyloExtract pipeline: parse → fingerprint → match → render
+    Llm,       // Background LLM template induction (when it fires)
+    Render,    // Markdown handed to LiveMarkdown; image cache + UI paint
+}
+
+public sealed class StageEvent
+{
+    public ExtractionStage Stage { get; init; }
+    /// <summary>True when the stage just started; false when it completed.</summary>
+    public bool Started { get; init; }
+    /// <summary>Sub-state label, e.g. "Http" / "Playwright" for Fetch, "Novel" / "FastPathHit" for Match.</summary>
+    public string? Detail { get; init; }
+    public TimeSpan Duration { get; init; }
+}
+
 public sealed class ExtractionTelemetry
 {
     private const int Capacity = 50;
@@ -33,6 +57,21 @@ public sealed class ExtractionTelemetry
     }
 
     public event Action<LastExtractionInfo>? Recorded;
+
+    /// <summary>Fires for each stage start and completion so the UI can light
+    /// up the matching segment.</summary>
+    public event Action<StageEvent>? StageChanged;
+
+    public void EmitStage(ExtractionStage stage, bool started, string? detail = null, TimeSpan duration = default)
+    {
+        StageChanged?.Invoke(new StageEvent
+        {
+            Stage = stage,
+            Started = started,
+            Detail = detail,
+            Duration = duration,
+        });
+    }
 
     public void Record(LastExtractionInfo info)
     {

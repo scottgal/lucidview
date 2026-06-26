@@ -12,6 +12,7 @@ namespace MarkdownViewer.Services;
 internal static class FullServices
 {
     private static readonly Lazy<IServiceProvider> _lazy = new(Build);
+    private static FileSystemWatcher? _watcher;
 
     public static IServiceProvider Provider => _lazy.Value;
     public static T Get<T>() where T : notnull => Provider.GetRequiredService<T>();
@@ -85,6 +86,33 @@ internal static class FullServices
         // with the LlamaSharp provider wired in.
         foreach (var hosted in provider.GetServices<IHostedService>())
             _ = hosted.StartAsync(CancellationToken.None);
+
+        // Pipeline-stage indicator: watch the templates dir for new YAMLs so the
+        // status bar can light up "LLM" when the background inducer finishes.
+        if (settings.LlmEnabled)
+        {
+            try
+            {
+                var templatesDir = Path.Combine(AppPaths.LocalState, "templates");
+                Directory.CreateDirectory(templatesDir);
+                var telemetry = provider.GetRequiredService<ExtractionTelemetry>();
+                var watcher = new FileSystemWatcher(templatesDir, "*.yaml")
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
+                    EnableRaisingEvents = true,
+                };
+                FileSystemEventHandler hit = (_, e) =>
+                {
+                    var host = Path.GetFileNameWithoutExtension(e.Name);
+                    telemetry.EmitStage(ExtractionStage.Llm, started: false, detail: host);
+                };
+                watcher.Changed += hit;
+                watcher.Created += hit;
+                // Anchor the watcher so it isn't GC'd.
+                _watcher = watcher;
+            }
+            catch { /* watcher is nice-to-have; don't break startup */ }
+        }
 
         return provider;
     }

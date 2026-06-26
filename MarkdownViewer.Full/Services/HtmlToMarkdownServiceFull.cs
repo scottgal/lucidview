@@ -60,12 +60,20 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         var llmDuration = TimeSpan.Zero;
         var llmFired = false;
 
-        // Apply shared pre-processing (HTMX link promotion, mermaid <pre> wrapping)
-        // before handing the HTML to the layout extractor.
+        // Stage 1: Fetch — the caller (LoadWebPage in MainWindow) already did
+        // the HTTP fetch before calling us. Mark Fetch as completed with the
+        // static-Http variant. We may upgrade to Playwright below.
+        _telemetry.EmitStage(ExtractionStage.Fetch, started: false, detail: "Http", duration: TimeSpan.Zero);
+
+        // Stage 2: Match — pre-process + extract.
+        _telemetry.EmitStage(ExtractionStage.Match, started: true);
+        var matchSw = Stopwatch.StartNew();
         var pre = HtmlPreProcessor.Apply(html);
         var result = await _extractor.ExtractAsync(pre, sourceUri, cancellationToken: ct);
         var md = result.Markdown;
         llmFired = result.LlmInductionFired;
+        _telemetry.EmitStage(ExtractionStage.Match, started: false,
+            detail: result.Match?.Status.ToString() ?? "Unknown", duration: matchSw.Elapsed);
 
         // Auto-retry via Playwright when:
         //  (a) the static fetch looks empty / SPA-shell / sparse-blocks, OR
@@ -82,16 +90,26 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
                 || matchStatus == "Novel");
         if (shouldRetry)
         {
+            // Re-enter the Fetch stage for the Playwright pass.
+            _telemetry.EmitStage(ExtractionStage.Fetch, started: true, detail: "Playwright");
+            var pwSw = Stopwatch.StartNew();
             await EnsureBrowsersOnceAsync(ct);
-            var rendered = await _renderedFetcher.FetchAsync(sourceUri, new RenderOptions(), ct);
+            var rendered = await _renderedFetcher.FetchAsync(sourceUri!, new RenderOptions(), ct);
+            _telemetry.EmitStage(ExtractionStage.Fetch, started: false,
+                detail: "Playwright", duration: pwSw.Elapsed);
+
+            // Re-enter Match against the rendered DOM.
+            _telemetry.EmitStage(ExtractionStage.Match, started: true);
+            var matchSw2 = Stopwatch.StartNew();
             var renderedPre = HtmlPreProcessor.Apply(rendered.Html);
-            var lsw = Stopwatch.StartNew();
             var renderedResult = await _extractor.ExtractAsync(renderedPre, rendered.FinalUri, cancellationToken: ct);
-            llmDuration = lsw.Elapsed;
+            llmDuration = matchSw2.Elapsed;
             llmFired = renderedResult.LlmInductionFired;
             md = renderedResult.Markdown;
             fetcher = "Playwright";
             result = renderedResult;
+            _telemetry.EmitStage(ExtractionStage.Match, started: false,
+                detail: renderedResult.Match?.Status.ToString() ?? "Unknown", duration: matchSw2.Elapsed);
         }
 
         // StyloExtract concatenates link + image markdown without separation:
