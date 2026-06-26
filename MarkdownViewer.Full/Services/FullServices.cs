@@ -1,5 +1,3 @@
-using System.IO.Hashing;
-using System.Text;
 using MarkdownViewer.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,15 +14,6 @@ internal static class FullServices
 {
     private static readonly Lazy<IServiceProvider> _lazy = new(Build);
     private static FileSystemWatcher? _watcher;
-
-    /// <summary>
-    /// Hand-built streaming template id for mostlylucid.net pages. Seeded into the
-    /// in-memory store at startup so the gateway scanner has something to match
-    /// against the HttpClient byte stream on the dogfood path. Other hosts get a
-    /// NoTemplate verdict — auto-induction of streaming templates is a follow-up.
-    /// </summary>
-    internal static readonly Guid MostlyLucidStreamingTemplateId =
-        Guid.Parse("11111111-2222-3333-4444-555555555555");
 
     public static IServiceProvider Provider => _lazy.Value;
     public static T Get<T>() where T : notnull => Provider.GetRequiredService<T>();
@@ -72,15 +61,24 @@ internal static class FullServices
         // Task 5: register the Playwright rendered-DOM fetcher.
         services.AddSingleton<IRenderedHtmlFetcher>(_ => new PlaywrightHtmlFetcher());
 
-        // alpha.16: streaming gateway scanner. Pairs with the existing extraction
-        // pipeline — runs the byte stream through structural fences to emit a
-        // verdict (Captured / Bailout / NoTemplate / Continue) BEFORE the full
+        // alpha.17: streaming gateway scanner with host-keyed templates +
+        // auto-induction. Pairs with the existing extraction pipeline — runs
+        // the byte stream through structural fences to emit a verdict
+        // (Captured / Bailout / NoTemplate / Continue) BEFORE the full
         // LayoutExtractor materialises the DOM. lucidview wires it into
-        // DownloadWebPageAsync to show the verdict in the status bar.
-        // InMemoryStreamingTemplateStore is fine for the dogfood demo — durable
-        // Sqlite variant is overkill until host-keyed auto-induction exists.
-        services.AddSingleton<IStreamingTemplateStore, InMemoryStreamingTemplateStore>();
+        // DownloadWebPageAsync to show the verdict in the status bar and to
+        // upsert an induced template back to the store on NoTemplate.
+        //
+        // SqliteStreamingTemplateStore persists across runs so the dogfood
+        // cycle works in two separate `dotnet run` invocations:
+        //   visit 1: NoTemplate -> induce + upsert -> persisted to disk
+        //   visit 2: ScanByHost hot-cache miss -> WarmByHostAsync hits sqlite
+        //            -> real Captured / Bailout verdict
+        var streamingDbPath = Path.Combine(AppPaths.LocalState, "streaming-templates.db");
+        services.AddSingleton<IStreamingTemplateStore>(_ =>
+            new SqliteStreamingTemplateStore($"Data Source={streamingDbPath}"));
         services.AddSingleton<StreamingPathSelector>();
+        services.AddSingleton<StreamingTemplateInducer>();
 
         // Task 8: telemetry sink — must be registered before HtmlToMarkdownServiceFull.
         services.AddSingleton<ExtractionTelemetry>();
@@ -107,12 +105,6 @@ internal static class FullServices
         }
 
         var provider = services.BuildServiceProvider();
-
-        // alpha.16: seed the hand-built mostlylucid streaming template into the
-        // hot cache so the gateway scanner has something to match on first load.
-        // Fire-and-forget — InMemoryStreamingTemplateStore.RegisterAsync is sync
-        // under the hood so this completes essentially instantly.
-        _ = SeedStreamingTemplatesAsync(provider);
 
         // StyloExtract.Core registers TemplateEnrichmentCoordinator (BackgroundService)
         // as an IHostedService. In a standard .NET host, IHost.StartAsync() wakes them.
@@ -157,66 +149,4 @@ internal static class FullServices
         return provider;
     }
 
-    /// <summary>
-    /// alpha.16: registers one hand-built streaming template covering generic
-    /// mostlylucid-style markup (header/nav prefix, paragraph-pair content-start,
-    /// footer/body content-end). Lifted from the streaming bench's TagEvents
-    /// helper. Real-world auto-induction of host-keyed streaming templates is a
-    /// follow-up — for the dogfood demo this single template is enough to prove
-    /// the scanner runs against the real byte stream.
-    /// </summary>
-    private static async Task SeedStreamingTemplatesAsync(IServiceProvider sp)
-    {
-        try
-        {
-            var store = sp.GetRequiredService<IStreamingTemplateStore>();
-            var template = new StreamingTemplate
-            {
-                TemplateId = MostlyLucidStreamingTemplateId,
-                PrefixFence = TemplateFence.BuildFromEvents(
-                    StreamingTagEvents("<header>", "</header>", "<nav>", "</nav>"),
-                    requiredDepth: 0),
-                ContentStartFence = TemplateFence.BuildFromEvents(
-                    StreamingTagEvents("<p>", "</p>", "<p>", "</p>"),
-                    requiredDepth: 0),
-                ContentEndFence = TemplateFence.BuildFromEvents(
-                    StreamingTagEvents("<footer>", "</footer>", "</body>", "</html>"),
-                    requiredDepth: 0),
-                MinContentDepth = 0,
-                BailoutBytes = 5_000_000,
-                MaxCaptureBytes = 5_000_000,
-                WindowSize = 4,
-                MaxEventsWithoutTransition = 256,
-            };
-            await store.RegisterAsync(template);
-            Console.WriteLine($"[streaming] seeded template {MostlyLucidStreamingTemplateId} (mostlylucid generic-blog fences)");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[streaming] seed failed: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Mirrors bench/StyloExtract.Streaming.Benchmarks/ExtractionComparisonBench.TagEvents:
-    /// hashes "&lt;name&gt;" / "&lt;/name&gt;" tag strings into (tagHash, classHash) tuples
-    /// suitable for TemplateFence.BuildFromEvents. Class hash stays 0 — the bench
-    /// doesn't differentiate by class for these structural fences either.
-    /// </summary>
-    private static (ulong tagHash, ulong classHash)[] StreamingTagEvents(params string[] tags)
-    {
-        var result = new (ulong, ulong)[tags.Length];
-        Span<byte> buf = stackalloc byte[64];
-        for (int i = 0; i < tags.Length; i++)
-        {
-            var t = tags[i];
-            var isClose = t.StartsWith("</", StringComparison.Ordinal);
-            var nameStart = isClose ? 2 : 1;
-            var nameEnd = t.IndexOf('>', nameStart);
-            var name = t.AsSpan(nameStart, nameEnd - nameStart);
-            var n = Encoding.UTF8.GetBytes(name, buf);
-            result[i] = (XxHash3.HashToUInt64(buf[..n]), 0UL);
-        }
-        return result;
-    }
 }

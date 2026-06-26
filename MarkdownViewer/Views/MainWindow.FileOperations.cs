@@ -605,7 +605,16 @@ public partial class MainWindow
 
 #if FULL
         var fetchSw = Stopwatch.StartNew();
+        // alpha.17: warm any persisted streaming template for this host into
+        // the hot cache BEFORE the response body arrives so ScanByHost on the
+        // first chunk-threshold tick (or stream-end) hits the host template
+        // instead of bouncing on NoTemplate. Fire-and-forget warm — by the
+        // time the body finishes reading the lookup has completed.
+        var streamingHost = uri.Host;
+        var warmSelector = FullServices.Get<StyloExtract.Streaming.StreamingPathSelector>();
+        _ = warmSelector.WarmByHostAsync(streamingHost).AsTask();
 #endif
+
         using var response = await RemoteMarkdownClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
@@ -614,7 +623,12 @@ public partial class MainWindow
 
         var mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
 
+#if FULL
+        var (bytes, lastVerdict) = await ReadBodyWithLimitAndScanAsync(
+            response.Content, MaxRemoteMarkdownBytes, streamingHost, warmSelector);
+#else
         var bytes = await ReadBodyWithLimitAsync(response.Content, MaxRemoteMarkdownBytes);
+#endif
         var body = System.Text.Encoding.UTF8.GetString(bytes);
 
         var isMarkdown = mediaType.Contains("markdown", StringComparison.OrdinalIgnoreCase);
@@ -625,17 +639,51 @@ public partial class MainWindow
 
 #if FULL
         fetchSw.Stop();
-        // alpha.16: dogfood the streaming gateway scanner. The hand-built mostlylucid
-        // template was seeded into the in-memory store at startup (FullServices.SeedStreamingTemplatesAsync).
-        // Surface the verdict in the status bar's Fetch segment so we can prove
-        // the scanner actually ran against real response bytes — and not just
-        // synthetic fixtures. Non-mostlylucid hosts will land on NoTemplate
-        // until host-keyed streaming-template auto-induction lands.
+        // alpha.17: chunk-aware streaming-scan flow.
+        //   - ReadBodyWithLimitAndScanAsync already invoked ScanByHost on a
+        //     64KB-threshold cadence + once on stream-end, so lastVerdict holds
+        //     the final verdict the scanner produced over the accumulating buffer.
+        //   - When verdict is NoTemplate AND the body looks HTML-shaped, kick
+        //     StreamingTemplateInducer.Induce to build + upsert a host-keyed
+        //     template so the NEXT visit to this host gets a real verdict.
+        //     The induced template persists via SqliteStreamingTemplateStore.
+        //   - Status-bar fetch segment shows the verdict the scanner WOULD have
+        //     emitted for this fetch: Http+NoTemplate on first visit, then
+        //     Http+Captured (or +Bailout) once the inducer has primed the store.
         try
         {
-            var selector = FullServices.Get<StyloExtract.Streaming.StreamingPathSelector>();
-            var verdict = selector.Scan(FullServices.MostlyLucidStreamingTemplateId, bytes);
+            var verdict = lastVerdict;
             Console.WriteLine($"[streaming] scanned {bytes.Length} bytes from {uri.Host}: verdict={verdict}");
+
+            if (verdict == StyloExtract.Streaming.ScanVerdict.NoTemplate && isHtml)
+            {
+                var inducer = FullServices.Get<StyloExtract.Streaming.StreamingTemplateInducer>();
+                var summary = inducer.Describe(bytes);
+                var induced = inducer.Induce(streamingHost, bytes);
+                if (induced is not null)
+                {
+                    var store = FullServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
+                    await store.UpsertAsync(induced, CancellationToken.None);
+                    Console.WriteLine(
+                        $"[streaming] induced template for {streamingHost} " +
+                        $"(prefix={summary?.PrefixMarker}, content={summary?.ContentStartMarker}, end={summary?.ContentEndMarker})");
+
+                    // Re-use the LLM telemetry channel — same status-bar segment that
+                    // lights up for deterministic / LLM template induction. Tagged
+                    // (streaming) so the user can tell streaming-induced templates
+                    // apart from heuristic / LLM ones.
+                    var telemetryInd = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+                    telemetryInd.EmitStage(
+                        MarkdownViewer.Services.ExtractionStage.Llm,
+                        started: false,
+                        detail: $"{streamingHost} (streaming)");
+                }
+                else
+                {
+                    Console.WriteLine($"[streaming] inducer returned null for {streamingHost} — no plausible fences");
+                }
+            }
+
             var telemetry = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
             telemetry.EmitStage(
                 MarkdownViewer.Services.ExtractionStage.Fetch,
@@ -645,7 +693,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[streaming] scan failed: {ex.Message}");
+            Console.WriteLine($"[streaming] scan/induction failed: {ex.Message}");
         }
 #endif
 
@@ -669,6 +717,84 @@ public partial class MainWindow
         }
         return buffer.ToArray();
     }
+
+#if FULL
+    /// <summary>
+    /// alpha.17: chunk-aware streaming-scan body reader. Reads response chunks
+    /// into an accumulating buffer (same byte-budget contract as the lean
+    /// reader). Every <see cref="StreamingScanThresholdBytes"/> bytes received
+    /// — and once again on stream-end — re-invokes
+    /// <see cref="StyloExtract.Streaming.StreamingPathSelector.ScanByHost"/>
+    /// against the accumulated prefix and exits early on Captured / Bailout.
+    ///
+    /// The "real streaming win" — feeding individual TagEvents through
+    /// FenceScanner.Tick as bytes arrive — requires MinimalHtmlTokenizer to
+    /// support resumable tokenization across chunk boundaries, which it
+    /// currently doesn't (the tokenizer takes the whole input span). The
+    /// threshold-driven re-scan is the alpha.17 compromise: it still produces
+    /// a real verdict on real bytes, lets chrome-heavy pages bail before the
+    /// full body downloads, and matches the intended consumer behaviour the
+    /// inducer needs to feed.
+    ///
+    /// True chunked tokenizer-resume is queued as an upstream follow-up.
+    /// </summary>
+    private const int StreamingScanThresholdBytes = 64 * 1024;
+    private static async Task<(byte[] Bytes, StyloExtract.Streaming.ScanVerdict LastVerdict)> ReadBodyWithLimitAndScanAsync(
+        HttpContent content,
+        long maxBytes,
+        string host,
+        StyloExtract.Streaming.StreamingPathSelector selector)
+    {
+        await using var stream = await content.ReadAsStreamAsync();
+        using var buffer = new MemoryStream();
+        var chunk = new byte[16 * 1024];
+        long total = 0;
+        long sinceLastScan = 0;
+        var lastVerdict = StyloExtract.Streaming.ScanVerdict.Continue;
+
+        while (true)
+        {
+            var read = await stream.ReadAsync(chunk);
+            if (read == 0) break;
+            total += read;
+            if (total > maxBytes)
+                throw new InvalidOperationException("Remote page exceeds size limit.");
+            buffer.Write(chunk, 0, read);
+            sinceLastScan += read;
+
+            if (sinceLastScan >= StreamingScanThresholdBytes)
+            {
+                sinceLastScan = 0;
+                // Snapshot the accumulated prefix and re-run ScanByHost. Re-scan
+                // is full-input (not incremental) — see method-level remark. We
+                // exit early on a terminal verdict so chrome-only Bailouts skip
+                // the rest of the body.
+                lastVerdict = selector.ScanByHost(host, buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+                if (lastVerdict == StyloExtract.Streaming.ScanVerdict.Captured
+                    || lastVerdict == StyloExtract.Streaming.ScanVerdict.Bailout)
+                {
+                    // Drain rest of the body (we still need full bytes for the
+                    // markdown converter downstream) but don't re-scan.
+                    while (true)
+                    {
+                        var more = await stream.ReadAsync(chunk);
+                        if (more == 0) break;
+                        total += more;
+                        if (total > maxBytes)
+                            throw new InvalidOperationException("Remote page exceeds size limit.");
+                        buffer.Write(chunk, 0, more);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Final scan on stream-end — guarantees a verdict even if the body
+        // never crossed the chunk threshold (small pages).
+        lastVerdict = selector.ScanByHost(host, buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+        return (buffer.ToArray(), lastVerdict);
+    }
+#endif
 
     private enum SourceMode
     {
