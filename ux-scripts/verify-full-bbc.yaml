@@ -1,0 +1,83 @@
+# lucidVIEW-FULL smoke against BBC News home page.
+#
+# Goal: visually confirm the full dogfood stack is operating end-to-end —
+# Ctrl+Shift+W path through StyloExtract Core, Playwright auto-retry for the
+# SPA, LlamaSharp inducer + LlmInductionFired flag, status bar updates,
+# F2 details panel, NDJSON-shaped Recent buffer.
+#
+# Pre-conditions:
+#  - AppPaths.LocalState/settings.json has HasRunBefore=true (no first-run
+#    dialog blocking the harness)
+#  - Playwright Chromium installed (run `--install-browsers` once if not)
+#  - LLM model downloaded (run `--download-model` once if not — ~400 MB)
+
+name: verify-full-bbc
+description: End-to-end smoke of lucidVIEW-FULL against BBC News
+default_delay: 400
+
+actions:
+  # 1. Boot + initial main-window screenshot
+  - type: Wait
+    value: "3500"
+  - type: Screenshot
+    value: 01-boot
+
+  # 2. Open URL via side panel
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+  - type: Click
+    target: MenuOpenUrlBtn
+  - type: Wait
+    value: "700"
+  - type: Screenshot
+    value: 02-url-dialog
+    window_id: InputDialog
+
+  # 3. Type BBC News URL into the InputDialog (.co.uk — .com aggressively
+  #    redirects to iPlayer promos depending on geo/cookies)
+  - type: TypeText
+    target: InputBox
+    value: "https://www.bbc.co.uk/news"
+    window_id: InputDialog
+  - type: Wait
+    value: "400"
+  - type: Screenshot
+    value: 03-url-typed
+    window_id: InputDialog
+  - type: Click
+    target: OkButton
+    window_id: InputDialog
+
+  # 4. Wait for fetch + extraction. BBC is heavy: HTTP fetch (1-3s),
+  #    SPA-detection check (immediate), Playwright retry (~10-20s warm-up
+  #    + 5-10s render), second extract + maybe LLM inducer (~1-5s).
+  - type: Wait
+    value: "45000"
+  - type: Screenshot
+    value: 04-bbc-loaded-with-status-bar
+
+  # 5. Open extraction-details panel via F2 (harness PressKey patched in
+  #    Mostlylucid.Avalonia.UITesting 1.4.3-local-fix1 to set Source on
+  #    the synthesized KeyEventArgs)
+  - type: PressKey
+    value: F2
+  - type: Wait
+    value: "1500"
+  - type: Screenshot
+    value: 05-details-panel
+    window_id: ExtractionDetailsPanel
+
+  # 6. Composite shot — panel floating over main window
+  - type: Screenshot
+    value: 06-details-panel-composite
+
+  # 7. Dismiss the panel
+  - type: PressKey
+    value: Escape
+    window_id: ExtractionDetailsPanel
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 07-after-panel-closed
