@@ -74,9 +74,11 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         var llmFired = false;
 
         // Stage 1: Fetch — the caller (LoadWebPage in MainWindow) already did
-        // the HTTP fetch before calling us. Mark Fetch as completed with the
-        // static-Http variant. We may upgrade to Playwright below.
-        _telemetry.EmitStage(ExtractionStage.Fetch, started: false, detail: "Http", duration: TimeSpan.Zero);
+        // the HTTP fetch before calling us. As of alpha.16, DownloadWebPageAsync
+        // emits its own Fetch+Http+<streaming-verdict> stage with the real fetch
+        // duration, so we DO NOT overwrite it here — that would clobber the
+        // streaming gateway verdict in the status bar. The Playwright retry
+        // path below still emits its own Fetch stage explicitly.
 
         // Stage 2: Match — pre-process + extract under the current Mode's profile.
         var profile = CurrentMode == Mode.Scan

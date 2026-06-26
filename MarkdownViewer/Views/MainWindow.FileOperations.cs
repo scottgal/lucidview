@@ -603,6 +603,9 @@ public partial class MainWindow
         request.Headers.Accept.ParseAdd("text/plain;q=0.7");
         request.Headers.Accept.ParseAdd("*/*;q=0.5");
 
+#if FULL
+        var fetchSw = Stopwatch.StartNew();
+#endif
         using var response = await RemoteMarkdownClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
@@ -619,6 +622,32 @@ public partial class MainWindow
             && (mediaType.Contains("html", StringComparison.OrdinalIgnoreCase)
                 || mediaType.Contains("xhtml", StringComparison.OrdinalIgnoreCase)
                 || HtmlToMarkdownService.LooksLikeHtml(body));
+
+#if FULL
+        fetchSw.Stop();
+        // alpha.16: dogfood the streaming gateway scanner. The hand-built mostlylucid
+        // template was seeded into the in-memory store at startup (FullServices.SeedStreamingTemplatesAsync).
+        // Surface the verdict in the status bar's Fetch segment so we can prove
+        // the scanner actually ran against real response bytes — and not just
+        // synthetic fixtures. Non-mostlylucid hosts will land on NoTemplate
+        // until host-keyed streaming-template auto-induction lands.
+        try
+        {
+            var selector = FullServices.Get<StyloExtract.Streaming.StreamingPathSelector>();
+            var verdict = selector.Scan(FullServices.MostlyLucidStreamingTemplateId, bytes);
+            Console.WriteLine($"[streaming] scanned {bytes.Length} bytes from {uri.Host}: verdict={verdict}");
+            var telemetry = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+            telemetry.EmitStage(
+                MarkdownViewer.Services.ExtractionStage.Fetch,
+                started: false,
+                detail: $"Http+{verdict}",
+                duration: fetchSw.Elapsed);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[streaming] scan failed: {ex.Message}");
+        }
+#endif
 
         return (body, isHtml);
     }
