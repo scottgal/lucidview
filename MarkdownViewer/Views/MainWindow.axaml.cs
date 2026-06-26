@@ -210,6 +210,11 @@ public partial class MainWindow : Window
         FitHeightToggle.IsVisible = false;
         ResetZoomBtn.IsVisible = false;
 
+        // Scan-mode toggle (RagFull ↔ Sitemap). Lean leaves the button hidden;
+        // FULL surfaces it because the Sitemap profile is a dogfood feature for
+        // the browser-mode use case (title + nav + breadcrumb extraction).
+        ScanModeToggleBtn.IsVisible = true;
+
         // Pipeline-stage indicator (replaces the single-text ExtractionStatusText).
         ExtractionStagesPanel.IsVisible = true;
         var telemetry = MarkdownViewer.Services.FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
@@ -1304,10 +1309,33 @@ public partial class MainWindow : Window
             "lucidVIEW-FULL — doctor", content)
             .ShowDialog(this);
     }
+    /// <summary>
+    /// Toggle FULL's extraction mode (Read=RagFull, Scan=Sitemap) and re-load
+    /// the current URL so the new profile takes effect.
+    /// </summary>
+    private async void OnToggleScanMode(object? sender, RoutedEventArgs e)
+    {
+        MarkdownViewer.Services.HtmlToMarkdownServiceFull.CurrentMode =
+            ScanModeToggleBtn.IsChecked == true
+                ? MarkdownViewer.Services.HtmlToMarkdownServiceFull.Mode.Scan
+                : MarkdownViewer.Services.HtmlToMarkdownServiceFull.Mode.Read;
+
+        // Re-load the current page so the new mode is applied. If no URL was
+        // loaded (e.g. local file), this is a no-op.
+        if (_currentFilePath is { } current
+            && Uri.TryCreate(current, UriKind.Absolute, out var uri)
+            && uri.Scheme is "http" or "https")
+        {
+            _suppressHistoryPush = true;
+            try { await LoadWebPage(current); }
+            finally { _suppressHistoryPush = false; }
+        }
+    }
 #else
     private void OnReDownloadModel(object? sender, RoutedEventArgs e) { }
     private void OnReinstallBrowsers(object? sender, RoutedEventArgs e) { }
     private void OnShowDoctor(object? sender, RoutedEventArgs e) { }
+    private void OnToggleScanMode(object? sender, RoutedEventArgs e) { }
 #endif
 
     #endregion

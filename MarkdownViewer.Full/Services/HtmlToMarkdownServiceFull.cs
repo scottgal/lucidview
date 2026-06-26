@@ -22,6 +22,19 @@ namespace MarkdownViewer.Services;
 /// </summary>
 public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
 {
+    /// <summary>
+    /// User-toggleable extraction mode. Read = RagFull (article body, captions,
+    /// related links). Scan = Sitemap (title + nav + breadcrumb only — for
+    /// browser-mode navigation across a site).
+    /// </summary>
+    public enum Mode { Read, Scan }
+
+    /// <summary>
+    /// Process-wide current mode. Toggle from the FULL header UI. Re-loading
+    /// the current URL applies the new mode at the next ExtractAsync.
+    /// </summary>
+    public static Mode CurrentMode { get; set; } = Mode.Read;
+
     private static int _browsersEnsured;  // 0 = not yet, 1 = done
 
     private static async Task EnsureBrowsersOnceAsync(CancellationToken ct)
@@ -65,11 +78,15 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         // static-Http variant. We may upgrade to Playwright below.
         _telemetry.EmitStage(ExtractionStage.Fetch, started: false, detail: "Http", duration: TimeSpan.Zero);
 
-        // Stage 2: Match — pre-process + extract.
-        _telemetry.EmitStage(ExtractionStage.Match, started: true);
+        // Stage 2: Match — pre-process + extract under the current Mode's profile.
+        var profile = CurrentMode == Mode.Scan
+            ? ExtractionProfile.Sitemap
+            : ExtractionProfile.RagFull;
+        var extractOpts = new ExtractionOptions { Profile = profile };
+        _telemetry.EmitStage(ExtractionStage.Match, started: true, detail: profile.ToString());
         var matchSw = Stopwatch.StartNew();
         var pre = HtmlPreProcessor.Apply(html);
-        var result = await _extractor.ExtractAsync(pre, sourceUri, cancellationToken: ct);
+        var result = await _extractor.ExtractAsync(pre, sourceUri, extractOpts, cancellationToken: ct);
         var md = result.Markdown;
         llmFired = result.LlmInductionFired;
         _telemetry.EmitStage(ExtractionStage.Match, started: false,
@@ -111,7 +128,7 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
             _telemetry.EmitStage(ExtractionStage.Match, started: true);
             var matchSw2 = Stopwatch.StartNew();
             var renderedPre = HtmlPreProcessor.Apply(rendered.Html);
-            var renderedResult = await _extractor.ExtractAsync(renderedPre, rendered.FinalUri, cancellationToken: ct);
+            var renderedResult = await _extractor.ExtractAsync(renderedPre, rendered.FinalUri, extractOpts, cancellationToken: ct);
             llmDuration = matchSw2.Elapsed;
             llmFired = renderedResult.LlmInductionFired;
             md = renderedResult.Markdown;

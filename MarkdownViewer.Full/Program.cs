@@ -103,9 +103,14 @@ internal static class FullProgram
             AutoShotUrl = args[1];
             AutoShotOutput = args[2];
             for (int i = 3; i < args.Length - 1; i++)
+            {
                 if (args[i] == "--wait" && int.TryParse(args[i + 1], out var ms))
                     AutoShotWaitMs = ms;
-            Console.WriteLine($"shot: {AutoShotUrl} → {AutoShotOutput} (wait {AutoShotWaitMs}ms)");
+                else if (args[i] == "--mode" && Enum.TryParse<MarkdownViewer.Services.HtmlToMarkdownServiceFull.Mode>(
+                    args[i + 1], ignoreCase: true, out var mode))
+                    MarkdownViewer.Services.HtmlToMarkdownServiceFull.CurrentMode = mode;
+            }
+            Console.WriteLine($"shot: {AutoShotUrl} → {AutoShotOutput} (wait {AutoShotWaitMs}ms, mode {MarkdownViewer.Services.HtmlToMarkdownServiceFull.CurrentMode})");
         }
 
         try

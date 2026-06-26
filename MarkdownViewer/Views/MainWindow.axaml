@@ -157,6 +157,16 @@
                             <ic:SymbolIcon Symbol="Ruler" FontSize="16"
                                            Foreground="{DynamicResource AppText}" />
                         </ToggleButton>
+                        <!-- FULL-only Scan-mode toggle. IsVisible flipped in MainWindow ctor #if FULL.
+                             Toggles ExtractionProfile RagFull ↔ Sitemap and re-loads the current URL. -->
+                        <ToggleButton x:Name="ScanModeToggleBtn"
+                                      Classes="header-btn"
+                                      IsVisible="False"
+                                      Click="OnToggleScanMode"
+                                      ToolTip.Tip="Toggle scan mode (Sitemap: title + nav + breadcrumb only)">
+                            <ic:SymbolIcon Symbol="DocumentSearch" FontSize="16"
+                                           Foreground="{DynamicResource AppText}" />
+                        </ToggleButton>
                     </StackPanel>
 
                     <!-- Preview/Raw Toggle -->
