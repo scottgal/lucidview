@@ -84,10 +84,13 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         //      instead of the often-wrong static-HTML "first guess".
         // EnsureBrowsersOnceAsync wraps the sync PlaywrightInstaller.EnsureBrowsersInstalled
         // in Task.Run (no async overload in preview package).
-        var matchStatus = result.Match?.Status.ToString() ?? "Unknown";
+        // Deterministic-first: only retry under Playwright when the static
+        // extraction looks genuinely broken (empty / SPA / sparse). Forcing
+        // Playwright on every Novel match poisons quality on server-rendered
+        // sites (blogs, docs, mostlylucid) where the heuristic does fine work
+        // and the JS-rendered DOM has extra bloat that confuses the inducer.
         var shouldRetry = sourceUri is not null
-            && (RenderedFetchPolicy.ShouldRetry(html, md, result.Blocks.Count)
-                || matchStatus == "Novel");
+            && RenderedFetchPolicy.ShouldRetry(html, md, result.Blocks.Count);
         if (shouldRetry)
         {
             // Re-enter the Fetch stage for the Playwright pass.

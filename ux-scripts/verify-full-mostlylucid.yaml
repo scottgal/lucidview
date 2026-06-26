@@ -1,9 +1,7 @@
-# Wikipedia Avalonia (framework) page — static HTML, well-structured, lots of
-# images + infobox. Baseline for "does the extraction pipeline work on a
-# server-rendered site?".
+# mostlylucid.net — known site, simpler markdown-friendly layout, custom-built.
 
-name: verify-full-wikipedia
-description: Wikipedia smoke — Markdown_language article (no parens to URL-encode)
+name: verify-full-mostlylucid
+description: mostlylucid.net home
 default_delay: 400
 
 actions:
@@ -23,7 +21,7 @@ actions:
 
   - type: TypeText
     target: InputBox
-    value: "https://en.wikipedia.org/wiki/Markdown"
+    value: "https://www.mostlylucid.net"
     window_id: InputDialog
   - type: Wait
     value: "300"
@@ -32,6 +30,6 @@ actions:
     window_id: InputDialog
 
   - type: Wait
-    value: "25000"
+    value: "30000"
   - type: Screenshot
-    value: 02-wikipedia-loaded
+    value: 02-mostlylucid-loaded

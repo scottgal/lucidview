@@ -21,8 +21,8 @@ public sealed class FullServicesFixture : IDisposable
     {
         Directory.CreateDirectory(TempDir);
         Environment.SetEnvironmentVariable("LUCIDVIEW_STATE_DIR", TempDir);
-        // Test fixtures are short by design; the prod policy thresholds (5000
-        // chars, 10 blocks) would trip Playwright retry against a fake URL.
+        // Test fixtures are short by design; the prod policy thresholds (500
+        // chars, 3 blocks) would trip Playwright retry against a fake URL.
         // Lower for the duration of these tests to match the heuristic-only
         // expectations.
         RenderedFetchPolicy.MinMarkdownLength = 50;

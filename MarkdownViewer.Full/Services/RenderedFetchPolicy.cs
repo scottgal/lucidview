@@ -7,18 +7,20 @@ namespace MarkdownViewer.Services;
 /// </summary>
 internal static class RenderedFetchPolicy
 {
-    // Minimum markdown length we consider "extraction found enough content".
-    // 200 was too lenient — any single substantive block on a JS-rendered news
-    // aggregator (BBC News, NYT, theGuardian) passed it, hiding the carousel
-    // content from extraction. 5000 chars (~750 words) is a reasonable floor
-    // for "a real article or aggregator page worth of content".
+    // Minimum markdown length we consider "extraction found enough content"
+    // to skip Playwright retry. Set conservatively — 500 chars (~75 words)
+    // catches genuinely-empty extractions without forcing Playwright on every
+    // article-size page. Bumping further hurts server-rendered sites where
+    // the heuristic does fine work (mostlylucid.net, blogs, docs) — the
+    // Playwright DOM has JS-executed bloat that confuses the inducer.
     // Internal-settable so unit tests with small fixtures can lower it.
-    internal static int MinMarkdownLength { get; set; } = 5000;
+    internal static int MinMarkdownLength { get; set; } = 500;
 
-    // Aggregator pages tend to have lots of short blocks; if the static fetch
-    // produced too few blocks we assume the headlines are JS-rendered and
-    // retry under Playwright. Internal-settable for tests.
-    internal static int MinBlockCount { get; set; } = 10;
+    // Block-count signal: many real article/aggregator pages have ≥3 blocks
+    // (heading + a paragraph + at least one figure or list). Anything below
+    // suggests the static fetch returned nav-only chrome and needs JS render.
+    // Internal-settable for tests.
+    internal static int MinBlockCount { get; set; } = 3;
 
     public static bool ShouldRetry(string firstPassHtml, string firstPassMarkdown)
     {
