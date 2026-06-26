@@ -1,0 +1,38 @@
+# Wikipedia smoke against a well-structured article with sidebar + infobox +
+# multiple images. Wikipedia uses static server-side rendering so this is a
+# baseline test isolating "does StyloExtract emit images + does LiveMarkdown
+# render them" from the BBC News SPA-specific issues.
+
+name: verify-full-wikipedia
+description: Wikipedia Avalonia article — rich images, infobox, sidebar
+default_delay: 400
+
+actions:
+  - type: Wait
+    value: "3500"
+  - type: Screenshot
+    value: 01-boot
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+  - type: Click
+    target: MenuOpenUrlBtn
+  - type: Wait
+    value: "700"
+
+  - type: TypeText
+    target: InputBox
+    value: "https://en.wikipedia.org/wiki/Avalonia_(framework)"
+    window_id: InputDialog
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: OkButton
+    window_id: InputDialog
+
+  - type: Wait
+    value: "30000"
+  - type: Screenshot
+    value: 02-wikipedia-loaded

@@ -121,6 +121,18 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         md = System.Text.RegularExpressions.Regex.Replace(md, @"(?<!\n)!\[", "\n\n![");
 
         sw.Stop();
+
+        // Dogfood debug: dump latest markdown to disk for inspection.
+        try
+        {
+            var dumpDir = Path.Combine(AppPaths.LocalState, "extractions");
+            Directory.CreateDirectory(dumpDir);
+            var safeHost = sourceUri?.Host ?? "local";
+            var stamp = DateTime.UtcNow.ToString("HHmmss");
+            File.WriteAllText(Path.Combine(dumpDir, $"{safeHost}-{stamp}.md"), md);
+        }
+        catch { }
+
         _telemetry.Record(new LastExtractionInfo(
             When: DateTime.UtcNow,
             Source: sourceUri,
