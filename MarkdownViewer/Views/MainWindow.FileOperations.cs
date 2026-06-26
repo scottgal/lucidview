@@ -624,7 +624,7 @@ public partial class MainWindow
         var mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
 
 #if FULL
-        var (bytes, lastVerdict) = await ReadBodyWithLimitAndScanAsync(
+        var (bytes, lastVerdict, peakBufferedBytes) = await ReadBodyWithLimitAndScanAsync(
             response.Content, MaxRemoteMarkdownBytes, streamingHost, warmSelector);
 #else
         var bytes = await ReadBodyWithLimitAsync(response.Content, MaxRemoteMarkdownBytes);
@@ -685,11 +685,24 @@ public partial class MainWindow
             }
 
             var telemetry = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+            // alpha.19: surface the sliding-window memory cap as a status-bar
+            // metric. peakBufferedBytes is the high-watermark of the tokenizer's
+            // in-flight byte buffer across the whole feed — under the alpha.19
+            // contract this stays O(longest tag) regardless of response size,
+            // so a 200 KB response with peak ~8 KB is the headline proof the
+            // streaming scan held bounded memory. Falls back to "peak0B" when
+            // we never built a scanner (NoTemplate path).
+            var peakDetail = peakBufferedBytes > 0
+                ? $"Http+{verdict}+peak{peakBufferedBytes}B/{bytes.Length}B"
+                : $"Http+{verdict}";
             telemetry.EmitStage(
                 MarkdownViewer.Services.ExtractionStage.Fetch,
                 started: false,
-                detail: $"Http+{verdict}",
+                detail: peakDetail,
                 duration: fetchSw.Elapsed);
+            Console.WriteLine(
+                $"[streaming] peak buffered={peakBufferedBytes:N0} B vs response={bytes.Length:N0} B " +
+                $"(ratio={(bytes.Length > 0 ? (peakBufferedBytes * 100.0 / bytes.Length).ToString("F2") : "n/a")}%)");
         }
         catch (Exception ex)
         {
@@ -741,7 +754,7 @@ public partial class MainWindow
     ///   stream-end).</description></item>
     /// </list>
     /// </summary>
-    private static async Task<(byte[] Bytes, StyloExtract.Streaming.ScanVerdict LastVerdict)> ReadBodyWithLimitAndScanAsync(
+    private static async Task<(byte[] Bytes, StyloExtract.Streaming.ScanVerdict LastVerdict, int PeakBufferedBytes)> ReadBodyWithLimitAndScanAsync(
         HttpContent content,
         long maxBytes,
         string host,
@@ -822,7 +835,12 @@ public partial class MainWindow
             }
         }
 
-        return (buffer.ToArray(), lastVerdict);
+        // alpha.19: scanner exposes the tokenizer's high-watermark; surface it
+        // so callers can render the bounded-memory property in telemetry. Null
+        // scanner (no template) reports 0 — we never built the partial-tag
+        // buffer at all, so "peak 0 B" is the honest answer.
+        var peakBuffered = scanner?.PeakBufferedBytes ?? 0;
+        return (buffer.ToArray(), lastVerdict, peakBuffered);
     }
 #endif
 
