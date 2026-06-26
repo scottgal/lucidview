@@ -13,6 +13,13 @@ internal static class FullProgram
 {
     private static readonly string CrashLogPath = Path.Combine(AppPaths.LocalState, "crash.log");
 
+    /// <summary>URL to auto-load + screenshot. Set by the `--shot` CLI verb;
+    /// read from the MainWindow ctor's #if FULL block to drive a non-focus-
+    /// stealing one-shot screenshot capture and process exit.</summary>
+    internal static string? AutoShotUrl { get; private set; }
+    internal static string? AutoShotOutput { get; private set; }
+    internal static int AutoShotWaitMs { get; private set; } = 30000;
+
     [STAThread]
     public static async Task<int> Main(string[] args)
     {
@@ -86,6 +93,19 @@ internal static class FullProgram
             provider.EnsureLoaded();
             Console.WriteLine("Model ready.");
             return 0;
+        }
+
+        // `--shot URL OUTPUT.png [--wait MS]` — headless-ish one-shot screenshot.
+        // Opens lucidVIEW-FULL without stealing focus, auto-navigates, waits for
+        // image cache to populate + re-render, captures, and exits.
+        if (args.Length >= 3 && args[0] == "--shot")
+        {
+            AutoShotUrl = args[1];
+            AutoShotOutput = args[2];
+            for (int i = 3; i < args.Length - 1; i++)
+                if (args[i] == "--wait" && int.TryParse(args[i + 1], out var ms))
+                    AutoShotWaitMs = ms;
+            Console.WriteLine($"shot: {AutoShotUrl} → {AutoShotOutput} (wait {AutoShotWaitMs}ms)");
         }
 
         try

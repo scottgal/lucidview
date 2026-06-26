@@ -173,12 +173,36 @@ public partial class MainWindow : Window
         this.Title = "lucidVIEW-FULL";  // Override lean default so identity is visible
         FullDiagnosticsSeparator.IsVisible = true;
         FullDiagnosticsMenu.IsVisible = true;
-        Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+
+        // `--shot URL OUTPUT.png` mode: don't grab focus, don't show first-run
+        // dialog, auto-navigate, wait, screenshot, exit. Detected by FullProgram
+        // before Avalonia init and stashed on static fields.
+        if (MarkdownViewer.FullProgram.AutoShotUrl is { } shotUrl
+            && MarkdownViewer.FullProgram.AutoShotOutput is { } shotOut)
         {
-            var settings = MarkdownViewer.Models.AppSettingsFull.Load();
-            if (!settings.HasRunBefore)
-                await new MarkdownViewer.Views.FirstRunBootstrapDialog().ShowDialog(this);
-        }, Avalonia.Threading.DispatcherPriority.Background);
+            ShowActivated = false;
+            ShowInTaskbar = false;
+            // Sizing must be set BEFORE Open so the visual tree lays out at the
+            // requested DIPs. macOS clamps off-screen Positions on the visible
+            // monitor edge — moving the window after Open is the only reliable
+            // way to keep it out of the way.
+            Width = 1470;
+            Height = 900;
+            Opened += async (_, _) =>
+            {
+                Position = new Avalonia.PixelPoint(-3000, -3000);
+                await RunAutoShotAsync(shotUrl, shotOut);
+            };
+        }
+        else
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+            {
+                var settings = MarkdownViewer.Models.AppSettingsFull.Load();
+                if (!settings.HasRunBefore)
+                    await new MarkdownViewer.Views.FirstRunBootstrapDialog().ShowDialog(this);
+            }, Avalonia.Threading.DispatcherPriority.Background);
+        }
 
         // FULL is busier than lean — hide the redundant fit/1:1 buttons so the
         // scale slider has room next to the pipeline indicator. Lean keeps them.
@@ -1331,6 +1355,34 @@ public partial class MainWindow : Window
 
     private void OnExtractionStatusClicked(object? sender, Avalonia.Input.PointerPressedEventArgs e)
         => ShowExtractionDetails();
+
+    /// <summary>
+    /// `--shot URL OUTPUT.png` flow: load the URL via the existing LoadWebPage
+    /// path, wait the configured ms (default 30 s) for image cache + re-render,
+    /// capture the window via the same harness API the UI tests use, then
+    /// Shutdown. The window is positioned off-screen + ShowActivated=false so
+    /// it never steals focus on the user's actual workspace.
+    /// </summary>
+    private async Task RunAutoShotAsync(string url, string outPath)
+    {
+        try
+        {
+            await LoadWebPage(url);
+            await Task.Delay(MarkdownViewer.FullProgram.AutoShotWaitMs);
+            await Mostlylucid.Avalonia.UITesting.Players.ScreenshotCapture.CaptureWindowAsync(this, outPath);
+            Console.WriteLine($"shot saved: {outPath}");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"shot failed: {ex.GetType().Name}: {ex.Message}");
+        }
+        finally
+        {
+            if (Application.Current?.ApplicationLifetime
+                is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                desktop.Shutdown();
+        }
+    }
 
     private void ShowExtractionDetails()
     {
