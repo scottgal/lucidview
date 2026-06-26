@@ -97,7 +97,13 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
             _telemetry.EmitStage(ExtractionStage.Fetch, started: true, detail: "Playwright");
             var pwSw = Stopwatch.StartNew();
             await EnsureBrowsersOnceAsync(ct);
-            var rendered = await _renderedFetcher.FetchAsync(sourceUri!, new RenderOptions(), ct);
+            var rendered = await _renderedFetcher.FetchAsync(sourceUri!, new RenderOptions
+            {
+                // Capture the initial DOM before client-side JS routers fire — BBC
+                // News auto-navigates /news → /articles/<id> on NetworkIdle, which
+                // hides the page the user requested.
+                WaitUntil = PlaywrightWaitUntil.Load,
+            }, ct);
             _telemetry.EmitStage(ExtractionStage.Fetch, started: false,
                 detail: "Playwright", duration: pwSw.Elapsed);
 
