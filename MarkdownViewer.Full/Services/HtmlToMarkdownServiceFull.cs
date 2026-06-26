@@ -67,10 +67,20 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
         var md = result.Markdown;
         llmFired = result.LlmInductionFired;
 
-        // Auto-retry via Playwright when first-pass extraction looks empty or SPA-detected.
-        // Note: EnsureBrowsersOnceAsync wraps the sync PlaywrightInstaller.EnsureBrowsersInstalled
-        // in Task.Run so this path stays awaitable (async version not available in preview package).
-        if (sourceUri is not null && RenderedFetchPolicy.ShouldRetry(html, md))
+        // Auto-retry via Playwright when:
+        //  (a) the static fetch looks empty / SPA-shell / sparse-blocks, OR
+        //  (b) StyloExtract just inducted a Novel template — the LLM template
+        //      trainer will get a much better skeleton from the JS-rendered DOM
+        //      than from the static HTML's nav-heavy markup, AND the first
+        //      user-visible extraction will already use the Playwright result
+        //      instead of the often-wrong static-HTML "first guess".
+        // EnsureBrowsersOnceAsync wraps the sync PlaywrightInstaller.EnsureBrowsersInstalled
+        // in Task.Run (no async overload in preview package).
+        var matchStatus = result.Match?.Status.ToString() ?? "Unknown";
+        var shouldRetry = sourceUri is not null
+            && (RenderedFetchPolicy.ShouldRetry(html, md, result.Blocks.Count)
+                || matchStatus == "Novel");
+        if (shouldRetry)
         {
             await EnsureBrowsersOnceAsync(ct);
             var rendered = await _renderedFetcher.FetchAsync(sourceUri, new RenderOptions(), ct);
@@ -83,6 +93,14 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
             fetcher = "Playwright";
             result = renderedResult;
         }
+
+        // StyloExtract concatenates link + image markdown without separation:
+        //   - [Headline](/news/articles/xxx)![alt](https://image.jpg)
+        //   - [Other](/x)Attribution[Business](/news)Posted2h![alt](url)
+        // LiveMarkdown renders inline images at text-line height (~16 px) → thin
+        // colored strips. Move every non-line-start `![` onto its own block by
+        // inserting a blank line before it.
+        md = System.Text.RegularExpressions.Regex.Replace(md, @"(?<!\n)!\[", "\n\n![");
 
         sw.Stop();
         _telemetry.Record(new LastExtractionInfo(

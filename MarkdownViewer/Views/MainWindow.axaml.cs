@@ -1288,7 +1288,19 @@ public partial class MainWindow : Window
         => ShowExtractionDetails();
 
     private void ShowExtractionDetails()
-        => _ = new MarkdownViewer.Views.ExtractionDetailsPanel().ShowDialog(this);
+    {
+        try
+        {
+            _ = new MarkdownViewer.Views.ExtractionDetailsPanel().ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            var crashPath = Path.Combine(MarkdownViewer.AppPaths.LocalState, "crash.log");
+            File.AppendAllText(crashPath,
+                $"[{DateTime.Now:O}] ShowExtractionDetails NRE: {ex.GetType().FullName}: {ex.Message}\n{ex.StackTrace}\n\n");
+            throw;
+        }
+    }
 #else
     private void OnExtractionStatusClicked(object? sender, Avalonia.Input.PointerPressedEventArgs e) { }
 #endif

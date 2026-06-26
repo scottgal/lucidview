@@ -1,5 +1,6 @@
 using MarkdownViewer.Models;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StyloExtract.Abstractions;
 using StyloExtract.Core;
@@ -74,6 +75,17 @@ internal static class FullServices
                 Path.Combine(AppPaths.LocalState, "templates"));
         }
 
-        return services.BuildServiceProvider();
+        var provider = services.BuildServiceProvider();
+
+        // StyloExtract.Core registers TemplateEnrichmentCoordinator (BackgroundService)
+        // as an IHostedService. In a standard .NET host, IHost.StartAsync() wakes them.
+        // FULL uses StartWithClassicDesktopLifetime (no IHost), so we kick the
+        // hosted services manually — otherwise the LLM template inducer queues work
+        // but nothing ever processes it, and we get heuristic-only extraction even
+        // with the LlamaSharp provider wired in.
+        foreach (var hosted in provider.GetServices<IHostedService>())
+            _ = hosted.StartAsync(CancellationToken.None);
+
+        return provider;
     }
 }

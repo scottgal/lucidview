@@ -36,25 +36,14 @@
        HtmlToMarkdownServiceFull class alongside it; MainWindow chooses via #if FULL
        (see Task 4). bin/obj excluded recursively. -->
   <ItemGroup>
-    <Compile Include="..\MarkdownViewer\**\*.cs"
-             Exclude="..\MarkdownViewer\bin\**;..\MarkdownViewer\obj\**;..\MarkdownViewer\Program.cs"
-             Link="%(RecursiveDir)%(Filename)%(Extension)" />
-    <AvaloniaXaml Include="..\MarkdownViewer\**\*.axaml"
-                  Exclude="..\MarkdownViewer\bin\**;..\MarkdownViewer\obj\**"
-                  Link="%(RecursiveDir)%(Filename)%(Extension)" />
-    <AvaloniaResource Include="..\MarkdownViewer\Assets\*.svg"
-                      Link="Assets\%(Filename)%(Extension)" />
-    <AvaloniaResource Include="..\MarkdownViewer\Assets\Raleway-*.ttf"
-                      Link="Assets\%(Filename)%(Extension)" />
-    <Content Include="..\MarkdownViewer\Assets\manual\user-manual.md"
-             Link="manual\user-manual.md"
-             CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\MarkdownViewer\Assets\manual\screenshots\*.png"
-             Link="manual\screenshots\%(Filename)%(Extension)"
-             CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="..\MarkdownViewer\**\*.cs" Exclude="..\MarkdownViewer\bin\**;..\MarkdownViewer\obj\**;..\MarkdownViewer\Program.cs" Link="%(RecursiveDir)%(Filename)%(Extension)" />
+    <AvaloniaXaml Include="..\MarkdownViewer\**\*.axaml" Exclude="..\MarkdownViewer\bin\**;..\MarkdownViewer\obj\**" Link="%(RecursiveDir)%(Filename)%(Extension)" />
+    <AvaloniaResource Include="..\MarkdownViewer\Assets\*.svg" Link="Assets\%(Filename)%(Extension)" />
+    <AvaloniaResource Include="..\MarkdownViewer\Assets\Raleway-*.ttf" Link="Assets\%(Filename)%(Extension)" />
+    <Content Include="..\MarkdownViewer\Assets\manual\user-manual.md" Link="manual\user-manual.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\MarkdownViewer\Assets\manual\screenshots\*.png" Link="manual\screenshots\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\MarkdownViewer\default-settings.json"
-             Link="default-settings.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\MarkdownViewer\default-settings.json" Link="default-settings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Same package set as lean. We add preview StyloExtract / LlamaSharp / Playwright in later tasks. -->
@@ -66,6 +55,7 @@
     <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="2.0.321" />
     <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
     <PackageReference Include="LiveMarkdown.Avalonia" Version="1.9.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
     <PackageReference Include="QuestPDF" Version="2026.2.1" />
     <PackageReference Include="QuestPDF.Markdown" Version="1.47.0" />
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
@@ -99,7 +89,7 @@
 
   <!-- Same Debug-only UI testing harness as lean. -->
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-    <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.4.2" />
+    <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.4.3-local-fix1" />
   </ItemGroup>
 
 </Project>
