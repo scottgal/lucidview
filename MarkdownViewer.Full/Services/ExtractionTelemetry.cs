@@ -25,8 +25,10 @@ public enum ExtractionStage
 {
     Idle,
     Fetch,     // HTTP fetch (and optional Playwright rendered-DOM retry)
+    Stream,    // StyloExtract.Streaming fence-scanner skip-path verdict during fetch
     Match,     // StyloExtract pipeline: parse → fingerprint → match → render
-    Llm,       // Background LLM template induction (when it fires)
+    Induce,    // Heuristic deterministic inducer wrote a <host>-deterministic.yaml
+    Llm,       // LLM template inducer wrote a <host>.yaml (LlmEnabled path)
     Render,    // Markdown handed to LiveMarkdown; image cache + UI paint
 }
 

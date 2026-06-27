@@ -1359,7 +1359,9 @@ public partial class MainWindow : Window
         var (block, baseLabel) = evt.Stage switch
         {
             MarkdownViewer.Services.ExtractionStage.Fetch  => (StageFetchText,  "fetch"),
+            MarkdownViewer.Services.ExtractionStage.Stream => (StageStreamText, "stream"),
             MarkdownViewer.Services.ExtractionStage.Match  => (StageMatchText,  "match"),
+            MarkdownViewer.Services.ExtractionStage.Induce => (StageInduceText, "induce"),
             MarkdownViewer.Services.ExtractionStage.Llm    => (StageLlmText,    "llm"),
             MarkdownViewer.Services.ExtractionStage.Render => (StageRenderText, "render"),
             _ => ((Avalonia.Controls.TextBlock?)null, "")

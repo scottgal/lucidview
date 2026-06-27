@@ -120,9 +120,9 @@ internal static class FullServices
             _ = hosted.StartAsync(CancellationToken.None);
 
         // Pipeline-stage indicator: watch the templates dir for new YAMLs so the
-        // status bar's "llm" segment can light up when either:
-        //   - LLM background inducer writes <host>.yaml (alpha.9+)
-        //   - Heuristic deterministic inducer writes <host>-deterministic.yaml (alpha.11+)
+        // status bar lights up the correct inducer segment when one fires:
+        //   - Heuristic deterministic inducer writes <host>-deterministic.yaml → "induce"
+        //   - LLM background inducer writes <host>.yaml (LlmEnabled path)       → "llm"
         // Both fire independent of LlmEnabled because deterministic YAML lands
         // even when LLM is off.
         try
@@ -140,8 +140,8 @@ internal static class FullServices
                 var name = Path.GetFileNameWithoutExtension(e.Name) ?? "";
                 var isDeterministic = name.EndsWith("-deterministic", StringComparison.Ordinal);
                 var host = isDeterministic ? name[..^"-deterministic".Length] : name;
-                var detail = isDeterministic ? $"{host} (det)" : host;
-                telemetry.EmitStage(ExtractionStage.Llm, started: false, detail: detail);
+                var stage = isDeterministic ? ExtractionStage.Induce : ExtractionStage.Llm;
+                telemetry.EmitStage(stage, started: false, detail: host);
             };
             watcher.Changed += hit;
             watcher.Created += hit;

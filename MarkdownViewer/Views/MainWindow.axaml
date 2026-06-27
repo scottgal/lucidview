@@ -268,7 +268,11 @@
                                 PointerPressed="OnExtractionStatusClicked">
                         <TextBlock x:Name="StageFetchText"  Text="fetch"  Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
                         <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageStreamText" Text="stream" Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
                         <TextBlock x:Name="StageMatchText"  Text="match"  Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageInduceText" Text="induce" Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
                         <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
                         <TextBlock x:Name="StageLlmText"    Text="llm"    Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
                         <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />

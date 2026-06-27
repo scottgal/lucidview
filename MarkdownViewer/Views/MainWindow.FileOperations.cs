@@ -295,7 +295,10 @@ public partial class MainWindow
     {
         try
         {
+#if !FULL
+            // Lean has no stages panel — keep the legacy progress text.
             StatusText.Text = "Downloading...";
+#endif
 
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
                 throw new InvalidOperationException("Only http:// and https:// URLs are supported.");
@@ -306,7 +309,9 @@ public partial class MainWindow
 
             if (isHtml)
             {
+#if !FULL
                 StatusText.Text = "Converting page...";
+#endif
                 content = await _htmlToMarkdownService.ConvertAsync(body, uri);
 
                 if (content.Trim().Length < SparseExtractionThreshold && SpaDetection.LooksLikeSpa(body))
@@ -668,13 +673,12 @@ public partial class MainWindow
                         $"[streaming] induced template for {streamingHost} " +
                         $"(prefix={summary?.PrefixMarker}, content={summary?.ContentStartMarker}, end={summary?.ContentEndMarker})");
 
-                    // Re-use the LLM telemetry channel — same status-bar segment that
-                    // lights up for deterministic / LLM template induction. Tagged
-                    // (streaming) so the user can tell streaming-induced templates
-                    // apart from heuristic / LLM ones.
+                    // Light up the Induce segment — streaming-induced templates are
+                    // a third inducer kind alongside heuristic-deterministic and LLM,
+                    // tagged (streaming) so the user can tell them apart at a glance.
                     var telemetryInd = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
                     telemetryInd.EmitStage(
-                        MarkdownViewer.Services.ExtractionStage.Llm,
+                        MarkdownViewer.Services.ExtractionStage.Induce,
                         started: false,
                         detail: $"{streamingHost} (streaming)");
                 }
@@ -685,20 +689,24 @@ public partial class MainWindow
             }
 
             var telemetry = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
-            // alpha.19: surface the sliding-window memory cap as a status-bar
-            // metric. peakBufferedBytes is the high-watermark of the tokenizer's
-            // in-flight byte buffer across the whole feed — under the alpha.19
-            // contract this stays O(longest tag) regardless of response size,
-            // so a 200 KB response with peak ~8 KB is the headline proof the
-            // streaming scan held bounded memory. Falls back to "peak0B" when
-            // we never built a scanner (NoTemplate path).
-            var peakDetail = peakBufferedBytes > 0
-                ? $"Http+{verdict}+peak{peakBufferedBytes}B/{bytes.Length}B"
-                : $"Http+{verdict}";
+            // Stream segment: the streaming-scanner verdict + peak-buffered headline.
+            // peakBufferedBytes is the high-watermark of the tokenizer's in-flight
+            // byte buffer — under the alpha.19+ contract this stays O(longest tag)
+            // regardless of response size, so a 200 KB response with peak ~8 KB is
+            // the proof the streaming scan held bounded memory.
+            var streamDetail = peakBufferedBytes > 0
+                ? $"{verdict} peak{peakBufferedBytes}B/{bytes.Length}B"
+                : verdict.ToString();
+            telemetry.EmitStage(
+                MarkdownViewer.Services.ExtractionStage.Stream,
+                started: false,
+                detail: streamDetail);
+
+            // Fetch segment: just the HTTP transport timing.
             telemetry.EmitStage(
                 MarkdownViewer.Services.ExtractionStage.Fetch,
                 started: false,
-                detail: peakDetail,
+                detail: $"Http {bytes.Length / 1024}K",
                 duration: fetchSw.Elapsed);
             Console.WriteLine(
                 $"[streaming] peak buffered={peakBufferedBytes:N0} B vs response={bytes.Length:N0} B " +
