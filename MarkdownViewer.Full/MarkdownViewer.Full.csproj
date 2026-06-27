@@ -95,15 +95,14 @@
     <ProjectReference Include="..\external\LiveMarkdown.Avalonia\src\LiveMarkdown.Avalonia\LiveMarkdown.Avalonia.csproj" />
   </ItemGroup>
 
-  <!-- UI testing harness (Debug-only). Consumes the public 1.4.2 NuGet
-       package from scottgal/lucidRESUME. The 1.4.3-local-fix1 patch
-       (PressKey + KeyEventArgs.Source/KeyUp) is pending — needs a public
-       NuGet publish from lucidRESUME's CI before we can wire it back.
-       Submoduling lucidRESUME directly to ProjectReference UITesting
-       surfaces CA1822/CA1869/CA1823 analyzer errors in net10.0 that the
-       upstream codebase hasn't fixed yet. -->
+  <!-- UI testing harness (Debug-only). Consumed via the external/lucidRESUME
+       submodule pointing at scottgal/lucidRESUME, ProjectReference into
+       its src/Mostlylucid.Avalonia.UITesting/ subproject. This picks up
+       the PressKey + KeyEventArgs.Source/KeyUp fix (previously shipped
+       as the 1.4.3-local-fix1 local-NuGet-feed package) directly from
+       the source. -->
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-    <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.4.2" />
+    <ProjectReference Include="..\external\lucidRESUME\src\Mostlylucid.Avalonia.UITesting\Mostlylucid.Avalonia.UITesting.csproj" />
   </ItemGroup>
 
 </Project>
