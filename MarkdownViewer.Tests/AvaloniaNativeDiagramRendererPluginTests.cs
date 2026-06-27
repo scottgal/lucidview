@@ -11,7 +11,7 @@ public class AvaloniaNativeDiagramRendererPluginTests
     public void ReplaceDiagramMarkers_ReplacesFlowchartMarkerInPanel()
     {
         var service = new MarkdownService();
-        service.ProcessMarkdown("""
+        _ = service.ProcessMarkdownFast("""
                                ```mermaid
                                flowchart TD
                                    A --> B
@@ -31,7 +31,7 @@ public class AvaloniaNativeDiagramRendererPluginTests
     public void ReplaceDiagramMarkers_ReplacesDiagramMarkerInPanel()
     {
         var service = new MarkdownService();
-        service.ProcessMarkdown("""
+        _ = service.ProcessMarkdownFast("""
                                ```mermaid
                                sequenceDiagram
                                    participant A
@@ -53,7 +53,7 @@ public class AvaloniaNativeDiagramRendererPluginTests
     public void SequenceDiagram_DocumentContainsTextElements()
     {
         var service = new MarkdownService();
-        service.ProcessMarkdown("""
+        _ = service.ProcessMarkdownFast("""
                                ```mermaid
                                sequenceDiagram
                                    participant Alice
@@ -93,7 +93,7 @@ public class AvaloniaNativeDiagramRendererPluginTests
         // Verify sequence diagrams go through TryRenderToDocument → DiagramCanvas,
         // NOT through SVG file → image control
         var service = new MarkdownService();
-        service.ProcessMarkdown("""
+        _ = service.ProcessMarkdownFast("""
                                ```mermaid
                                sequenceDiagram
                                    participant Alice
@@ -138,7 +138,7 @@ public class AvaloniaNativeDiagramRendererPluginTests
     public void LlmVerificationFlow_RendersWithAltBlocks()
     {
         var service = new MarkdownService();
-        service.ProcessMarkdown("""
+        _ = service.ProcessMarkdownFast("""
                                ```mermaid
                                sequenceDiagram
                                    participant Engine as Mapping Engine
@@ -188,7 +188,7 @@ public class AvaloniaNativeDiagramRendererPluginTests
     public void LearningSystemFlow_NoteBoxesSizedForContent()
     {
         var service = new MarkdownService();
-        service.ProcessMarkdown("""
+        _ = service.ProcessMarkdownFast("""
                                ```mermaid
                                sequenceDiagram
                                    participant User as User (Browser)
@@ -255,7 +255,7 @@ public class AvaloniaNativeDiagramRendererPluginTests
     public void SequenceDiagram_TextContentNotEmpty()
     {
         var service = new MarkdownService();
-        service.ProcessMarkdown("""
+        _ = service.ProcessMarkdownFast("""
                                ```mermaid
                                sequenceDiagram
                                    participant Alice
