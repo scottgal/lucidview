@@ -103,10 +103,10 @@ PublishTrimmed is **false** (required by Markdown.Avalonia). PublishReadyToRun a
 
 `MarkdownViewer.Full/` is a sibling exe that file-links lean source and adds the preview StyloExtract LLM + Playwright stack on top. Dogfood only — **not shipped in releases**, Debug-only CI artefact.
 
-What FULL pulls in beyond lean (currently pinned at `1.8.0-alpha.19`):
+What FULL pulls in beyond lean (currently pinned at `1.8.0-alpha.21`):
 
 - `Mostlylucid.StyloExtract.Core` + `.Templates` — full extraction pipeline with the SQLite layout-template store
-- `Mostlylucid.StyloExtract.Streaming` — alpha.19 sliding-window byte-stream fence scanner with bounded memory
+- `Mostlylucid.StyloExtract.Streaming` — alpha.21 sliding-window byte-stream fence scanner with bounded memory
 - `Mostlylucid.StyloExtract.Playwright` + `Microsoft.Playwright` 1.60.0 — rendered-DOM auto-retry for SPA/empty pages
 - `Mostlylucid.StyloExtract.Llm.LlamaSharp` + `LLamaSharp` 0.27.0 (CPU backend) — in-process LLM template induction; qwen3.5:4b default, lazy HF download under `AppPaths.ModelCacheDir`
 - `LiveMarkdown.Avalonia 1.9.2-local-imgfix2` — local fork with the HTML `<img width=H height=W>` renderer needed for proper image dims

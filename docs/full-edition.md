@@ -129,7 +129,7 @@ Trace what happens on a **first visit** to <https://www.mostlylucid.net>.
 4. **Status-bar fetch segment** updates with the verdict + peak bytes —
    e.g. `fetch Http+NoTemplate · 227ms` on first visit. On a primed
    second visit: `fetch Http+Captured+peak16473B/199506B · 227ms`
-   (measured on mostlylucid.net, alpha.19 smoke).
+   (measured on mostlylucid.net, alpha.21 smoke).
 5. **Auto-induce on `NoTemplate`.** When the verdict is `NoTemplate` and
    the body looks HTML-shaped, `StreamingTemplateInducer.Induce(host, fullBytes)`
    runs against the buffered body. If it returns a template, that's
@@ -167,7 +167,7 @@ Trace what happens on a **first visit** to <https://www.mostlylucid.net>.
 
 1. `WarmByHostAsync(host)` pulls the streaming template from SQLite into
    the hot cache before the body arrives.
-2. `ScanByHost` returns `Captured` mid-stream (alpha.19 sliding window).
+2. `ScanByHost` returns `Captured` mid-stream (alpha.21 sliding window).
 3. Subsequent extracts hit the cached SQLite layout template via the
    StyloExtract fast path.
 4. Status bar shows
@@ -195,7 +195,7 @@ Avalonia starts; they exit when done.
 
 The `--shot` verb is the key dogfood tool — it lets you visually verify
 an extraction across a corpus of test URLs without focus theft, and is
-how the alpha.19 smoke comparison screenshots were captured
+how the alpha.21 smoke comparison screenshots were captured
 (`/tmp/lvshot-alpha19-v1.png` NoTemplate vs `/tmp/lvshot-alpha19-v2.png`
 Captured). `--mode Scan` exercises the Sitemap profile end-to-end.
 
@@ -236,7 +236,7 @@ The status bar shows up to four segments separated by ` · `, in
 fixed order: **fetch · match · llm · render**. Each segment surfaces the
 last emit from `ExtractionTelemetry.EmitStage(stage, started, detail, duration)`.
 
-Real examples captured on the alpha.19 smoke (mostlylucid.net,
+Real examples captured on the alpha.21 smoke (mostlylucid.net,
 ~200 KB response):
 
 | Segment | Example | What it shows |
@@ -252,10 +252,10 @@ A successful warm second-visit looks like:
 fetch Http+Captured+peak16473B/199506B · 227ms · match FastPathHit · 79ms · llm www.mostlylucid.net (det) · render 17 blocks · 27K
 ```
 
-The headline of the alpha.19 streaming work is that `peakNB` stays bounded
+The headline of the alpha.21 streaming work is that `peakNB` stays bounded
 (O(chunk + longest tag), ~16 KiB on real input from HttpClient's
 16 KiB chunks) regardless of response size — 8.26% ratio on a 200 KB body.
-Pre-alpha.19 the in-flight buffer was capped at 1 MiB and grew
+Pre-alpha.21 the in-flight buffer was capped at 1 MiB and grew
 monotonically (would have been ~200 KB for the same scan).
 
 Press **F2** (or click the status-bar segment) to open the full
@@ -307,7 +307,7 @@ Anything that violates these is a defect, not a feature.
 - **CLI verbs exit without opening the UI.** Parsed in `Program.cs`
   before Avalonia starts.
 - **Preview StyloExtract packages pinned at a tagged alpha** (currently
-  `1.8.0-alpha.19`). When upstream cuts a new alpha, bump deliberately
+  `1.8.0-alpha.21`). When upstream cuts a new alpha, bump deliberately
   and smoke against the standard test pages (mostlylucid.net, BBC News).
 - **Cut a new StyloExtract alpha if the preview API doesn't fit.** The
   sibling `stylobot-extract` repo is under our control. If a task hits a
@@ -339,4 +339,4 @@ Anything that violates these is a defect, not a feature.
 - `MarkdownViewer/Views/MainWindow.FileOperations.cs` — `DownloadWebPageAsync` with the `#if FULL` chunked-feed integration (`ReadBodyWithLimitAndScanAsync`).
 - `MarkdownViewer.Full/Program.cs` — CLI verb parsing + `--shot` AutoShot state.
 - `docs/streaming.md` in the `stylobot-extract` repo — streaming-mode reference (verdicts, sliding-window mechanics).
-- `.superpowers/sdd/alpha19-streaming-report.md` — alpha.19 smoke metrics this guide cites.
+- `.superpowers/sdd/alpha19-streaming-report.md` — alpha.21 smoke metrics this guide cites.

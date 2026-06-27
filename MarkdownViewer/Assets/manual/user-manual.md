@@ -262,6 +262,106 @@ On Linux, `~/.config/MarkdownViewer/`.
 
 ---
 
+## 20. FULL edition (dogfood only)
+
+lucidVIEW ships in two editions. **Lean** is the public release described in
+sections 1-19 above. **FULL** is a sibling build that wires in the preview
+StyloExtract pipeline + Playwright + an in-process LLM for template induction —
+not shipped in releases, Debug-only CI artefact, used to dogfood the upstream
+extractor before each `Mostlylucid.StyloExtract.*` release.
+
+If you're reading this in lean you can skip this section — none of these
+features are reachable. If you're running FULL (`MarkdownViewer.Full`), the
+status bar gives you a real-time view of how every web page becomes markdown.
+
+### 20.1 The pipeline-stage indicator
+
+Open any URL via `Ctrl+Shift+O`. The bottom-right corner of the status bar
+shows six segments separated by `·`:
+
+```
+fetch · stream · match · induce · llm · render
+```
+
+![FULL pipeline stage indicator](screenshots/20-full-stage-indicator.png)
+
+Each segment starts dim (0.4 opacity). As an extraction phase completes, the
+matching segment lights up to full opacity and shows what happened:
+
+| Segment | What lights it up | Detail format |
+|---|---|---|
+| **`fetch`** | HTTP request returned | `Http <KB>` + duration in ms |
+| **`stream`** | StyloExtract.Streaming fence scanner ran over the response body | `<verdict> peak<N>B/<total>B` — the verdict plus the streaming peak-buffered headline |
+| **`match`** | StyloExtract.Core parsed, fingerprinted, and matched a template | The match status (`FastPathHit` / `Novel` / `OperatorOverride` / etc.) + duration |
+| **`induce`** | Heuristic deterministic inducer or streaming inducer wrote a host template | The host name (+ `(streaming)` if it came from the byte-stream inducer) |
+| **`llm`** | LLM template inducer wrote a host template (`LlmEnabled` only) | The host name |
+| **`render`** | Markdown handed to LiveMarkdown for paint | `<block count> blocks · <KB>` of output |
+
+Click anywhere on the indicator (or press `F2`) to open the **Extraction
+Details** dialog, which shows the most recent extraction plus the last 50 in
+a ring buffer so you can scrub backwards through what each visit did.
+
+### 20.2 Streaming — alpha.21 zero-allocation byte-stream fence scanner
+
+The `stream` segment shows the verdict from `StyloExtract.Streaming` — a
+sliding-window fence scanner that runs over the HTTP response body as it
+arrives. It is **zero-allocation in steady state**: a ref-struct rolling
+MinHash + stack-allocated window + ArrayPool rentals only. On a 200 KB page
+the scanner peaks at well under 1 KB of in-flight bytes:
+
+![FULL on a blog post — peak ~195 B for a 66 KB body](screenshots/21-full-blog-loaded.png)
+
+The verdict values you'll see:
+
+- **`Continue`** — scanner is still running (you saw this if you read mid-fetch). Should be terminal-stable by the time the indicator lights up.
+- **`Captured`** — scanner matched a known template's content fences and identified the content region. The next visit to this host hits the same skip-path.
+- **`Bailout`** — the rolling MinHash drifted too far without a state transition (default 256 events). The template is wrong for this page — falls back to the full slow-path extractor.
+- **`NoTemplate`** — no streaming template registered for this host yet. The slow-path extractor runs, and if the page looks HTML-shaped, `StreamingTemplateInducer` writes one so the next visit short-circuits.
+
+### 20.3 Template induction — three kinds
+
+Three different inducers can light up the `induce` and `llm` segments. They
+write YAML files into the templates directory and the indicator watches that
+directory:
+
+| Inducer | File | Segment | Detail |
+|---|---|---|---|
+| Heuristic deterministic | `<host>-deterministic.yaml` | `induce` | host name |
+| Streaming (byte-stream fences) | written via `IStreamingTemplateStore.UpsertAsync` | `induce` | `host (streaming)` |
+| LLM (LlamaSharp, qwen3.5:4b) | `<host>.yaml` | `llm` | host name |
+
+The heuristic inducer fires on every novel host. The LLM inducer fires only
+when `LlmEnabled` is on AND the model is downloaded (`--doctor` will tell you
+if it isn't). The streaming inducer fires when a `NoTemplate` verdict is
+paired with an HTML-shaped body.
+
+### 20.4 Source mode indicator
+
+In FULL, the status bar's first column shows the source mode icon — a tiny
+glyph that tells you how the current document got here:
+
+- **Direct markdown** — the URL returned `text/markdown` (no conversion needed)
+- **Converted from HTML** — the URL returned HTML and StyloExtract converted it
+- **Client-side rendered** — the URL looked like an SPA shell with no static content; conversion is impossible
+
+Hover the icon for a tooltip with the same labels.
+
+### 20.5 CLI verbs (FULL only)
+
+FULL exits before Avalonia starts when given any of these:
+
+```bash
+MarkdownViewer.Full --doctor                            # health check (model present? browsers installed?)
+MarkdownViewer.Full --install-browsers                  # download the Playwright Chromium snapshot
+MarkdownViewer.Full --download-model                    # pull the LLM model from HuggingFace
+MarkdownViewer.Full --shot URL OUT.png --wait 10000     # load URL, wait N ms, capture PNG, exit
+```
+
+The `--shot` verb is how this manual's FULL screenshots were captured — it
+runs the app off-screen so it never steals focus on your real workspace.
+
+---
+
 ![lucidVIEW](screenshots/99-final.png)
 
 That's everything. lucidVIEW stays small and fast on purpose — if you need a
