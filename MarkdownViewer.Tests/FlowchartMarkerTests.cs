@@ -24,7 +24,7 @@ public class FlowchartMarkerTests(ITestOutputHelper output)
             After diagram.
             """;
 
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         output.WriteLine("=== Processed markdown ===");
         output.WriteLine(processed);

@@ -112,7 +112,7 @@ Just plain markdown here.";
 Body content here.";
 
         // Act
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         // Assert
         Assert.DoesNotContain("<!--category--", processed);
@@ -135,7 +135,7 @@ flowchart TD
 After diagram.";
 
         // Act
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         // Assert — flowchart mermaid blocks are replaced with native rendering markers
         Assert.Contains("FLOWCHART:flowchart-0", processed);
@@ -159,7 +159,7 @@ console.log('hello');
 ```";
 
         // Act
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         // Assert
         Assert.Contains("```csharp", processed);
@@ -187,7 +187,7 @@ sequenceDiagram
 ```";
 
         // Act
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         // Assert — mermaid blocks should be replaced with native markers or images
         Assert.DoesNotContain("```mermaid", processed);
@@ -213,7 +213,7 @@ sequenceDiagram
 ```";
 
         // Act
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         // Assert
         Assert.DoesNotContain("```mermaid", processed);
@@ -246,7 +246,7 @@ sequenceDiagram
                       """;
 
         // Act
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         // Assert
         Assert.DoesNotContain("Mermaid parse error", processed, StringComparison.OrdinalIgnoreCase);
@@ -265,7 +265,7 @@ sequenceDiagram
 ### Heading 3";
 
         // Act
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         // Assert
         Assert.Contains("# Heading 1", processed);
@@ -284,7 +284,7 @@ sequenceDiagram
 2. List";
 
         // Act
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         // Assert
         Assert.Contains("- Item 1", processed);
@@ -301,7 +301,7 @@ sequenceDiagram
 | Data 1   | Data 2   |";
 
         // Act
-        var processed = _service.ProcessMarkdown(content);
+        var (processed, _) = _service.ProcessMarkdownFast(content);
 
         // Assert
         Assert.Contains("| Column 1 |", processed);

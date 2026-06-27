@@ -1,0 +1,6 @@
+# External submodule code (LiveMarkdown.Avalonia, lucidRESUME, ...) should
+# NOT inherit lucidview's strict analyzer settings — those repos have their
+# own style. root = true stops .editorconfig walk-up here so the parent
+# lucidview/.editorconfig (which elevates ~48 CA rules to errors) doesn't
+# apply, and each submodule uses its own analyzer defaults.
+root = true

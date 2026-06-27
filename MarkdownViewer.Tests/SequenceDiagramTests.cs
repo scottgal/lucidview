@@ -142,7 +142,7 @@ public class SequenceDiagramTests
     public void ProcessMarkdown_SequenceBlock_ProducesDiagramMarker()
     {
         var service = new MarkdownService();
-        var processed = service.ProcessMarkdown("""
+        var (processed, _) = service.ProcessMarkdownFast("""
             # Test
 
             ```mermaid
@@ -163,7 +163,7 @@ public class SequenceDiagramTests
     public void ProcessMarkdown_MultipleSequenceDiagrams_AllGetMarkers()
     {
         var service = new MarkdownService();
-        var processed = service.ProcessMarkdown("""
+        var (processed, _) = service.ProcessMarkdownFast("""
             ```mermaid
             sequenceDiagram
                 A->>B: First

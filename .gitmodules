@@ -1,0 +1,7 @@
+[submodule "external/LiveMarkdown.Avalonia"]
+	path = external/LiveMarkdown.Avalonia
+	url = https://github.com/scottgal/LiveMarkdown.Avalonia.git
+	branch = feat/html-img-renderer
+[submodule "external/lucidRESUME"]
+	path = external/lucidRESUME
+	url = https://github.com/scottgal/lucidRESUME.git

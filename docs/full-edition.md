@@ -126,10 +126,12 @@ Trace what happens on a **first visit** to <https://www.mostlylucid.net>.
    O(chunk_size + longest_tag). First visit has no template → scanner is
    null and verdict stays `NoTemplate`; bytes still drain into a
    `MemoryStream` for the full extraction pipeline.
-4. **Status-bar fetch segment** updates with the verdict + peak bytes —
-   e.g. `fetch Http+NoTemplate · 227ms` on first visit. On a primed
-   second visit: `fetch Http+Captured+peak16473B/199506B · 227ms`
-   (measured on mostlylucid.net, alpha.21 smoke).
+4. **Status-bar fetch + stream segments** update separately. On a primed
+   second visit to mostlylucid.net you'll see:
+   `fetch Http 194K · 227ms · stream Captured peak1117B/199506B`. The
+   `fetch` segment carries the HTTP transport timing; the new `stream`
+   segment carries the StyloExtract.Streaming verdict + the peak-buffered
+   headline.
 5. **Auto-induce on `NoTemplate`.** When the verdict is `NoTemplate` and
    the body looks HTML-shaped, `StreamingTemplateInducer.Induce(host, fullBytes)`
    runs against the buffered body. If it returns a template, that's
@@ -194,10 +196,10 @@ Avalonia starts; they exit when done.
 | `--shot <url> <out.png> [--wait MS] [--mode Read\|Scan]` | Open without focus theft, auto-navigate to the URL, wait for image cache + re-render, capture a window screenshot to PNG, exit. Defaults: `--wait 30000`, `--mode Read`. | `dotnet run --project MarkdownViewer.Full -- --shot https://www.mostlylucid.net /tmp/lvshot.png --wait 8000` |
 
 The `--shot` verb is the key dogfood tool — it lets you visually verify
-an extraction across a corpus of test URLs without focus theft, and is
-how the alpha.21 smoke comparison screenshots were captured
-(`/tmp/lvshot-alpha19-v1.png` NoTemplate vs `/tmp/lvshot-alpha19-v2.png`
-Captured). `--mode Scan` exercises the Sitemap profile end-to-end.
+an extraction across a corpus of test URLs without focus theft. Use it
+to capture before/after screenshots when iterating on streaming-template
+induction; the lucidVIEW user manual §20 was captured this way. `--mode
+Scan` exercises the Sitemap profile end-to-end.
 
 ---
 
@@ -246,11 +248,16 @@ Real examples captured on the alpha.21 smoke (mostlylucid.net,
 | **llm** | `llm www.mostlylucid.net (det)` | Template YAML write detected by the `FileSystemWatcher` on the templates dir. `(det)` suffix when the write came from the heuristic deterministic sink; no suffix when LLM-induced; `(streaming)` when the streaming inducer wrote it; `(refit v2)` when alpha.18 streaming-template refit fires on drift. |
 | **render** | `render 17 blocks · 27K` | Final block count + output markdown character count (rounded to K). |
 
-A successful warm second-visit looks like:
+A successful warm second-visit looks like (six segments separated by `·`):
 
 ```
-fetch Http+Captured+peak16473B/199506B · 227ms · match FastPathHit · 79ms · llm www.mostlylucid.net (det) · render 17 blocks · 27K
+fetch Http 194K · 660ms · stream Captured peak1117B/199506B · match FastPathHit · 79ms · induce www.mostlylucid.net (streaming) · llm · render 17 blocks · 27K
 ```
+
+`fetch` carries HTTP transport timing only. `stream` carries the streaming
+scanner verdict + peak-buffered headline. `induce` lights for heuristic
+deterministic and streaming inducers; `llm` lights only for the LLM
+template inducer.
 
 The headline of the alpha.21 streaming work is that `peakNB` stays bounded
 (O(chunk + longest tag), ~16 KiB on real input from HttpClient's
