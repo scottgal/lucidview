@@ -52,6 +52,23 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Strip local NuGet feeds for CI
+      shell: bash
+      run: |
+        # NuGet.Config carries developer-only /tmp/*-local-feed entries for
+        # in-flight package patches consumed by MarkdownViewer.Full. The lean
+        # release built here only needs nuget.org. Filter out the local feeds
+        # so dotnet restore doesn't NU1301 on missing /tmp directories.
+        python3 - <<'PY'
+        import re, pathlib
+        p = pathlib.Path("NuGet.Config")
+        s = p.read_text()
+        s = re.sub(r'    <!-- Local feed for [^>]*?-->\n', '', s, flags=re.DOTALL)
+        s = re.sub(r'    <add key="(uitest-local|livemarkdown-local)" value="/tmp/[^"]+" />\n', '', s)
+        p.write_text(s)
+        print(s)
+        PY
+
     - name: Publish
       shell: bash
       run: |
