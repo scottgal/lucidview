@@ -65,19 +65,70 @@ public partial class MainWindow
 
     private void ApplyCachedImageConstraints(List<Image> images, List<string> markdownImageUrls)
     {
+        // Match the i-th Image control with the i-th markdown URL. This pairing
+        // can drift when LiveMarkdown emits extra Image controls (inline icons,
+        // list decorations) but on most pages the alignment holds. Mitigation:
+        // if the Image's Source already exposes a natural-size matching the
+        // cached entry, we trust the pairing; otherwise skip to avoid pinning
+        // a content image to a shield's tiny dimensions.
         for (int i = 0; i < images.Count && i < markdownImageUrls.Count; i++)
         {
-            // markdownImageUrls holds rewritten paths (absolute local file
-            // paths for cached remote images); look up natural display size
-            // by that local path.
             var size = _imageCacheService.GetCachedDisplaySizeByLocalPath(markdownImageUrls[i]);
             if (size == null) continue;
 
             var img = images[i];
+
+            // Defence against the mis-alignment bug: if the Image already has a
+            // Source loaded and its bitmap dimensions don't match the looked-up
+            // cache entry, skip (different image — pairing is off). Let
+            // AppStyles' Stretch=Uniform DownOnly handle it from the Source.
+            if (img.Source is Avalonia.Media.Imaging.Bitmap bmp
+                && (Math.Abs(bmp.PixelSize.Width - size.Value.Width) > 2
+                    || Math.Abs(bmp.PixelSize.Height - size.Value.Height) > 2))
+                continue;
+
             img.Width = size.Value.Width;
             img.Height = size.Value.Height;
             img.Stretch = Stretch.Uniform;
+            EnableClickToZoom(img);
         }
+    }
+
+    private void EnableClickToZoom(Image img)
+    {
+        // LiveMarkdown's inline image rendering can squash photos to line-height
+        // regardless of the Width/Height set on the Image control. Workaround
+        // until a renderer-side fix: any image you click pops open at full
+        // bitmap size in a dedicated Window so the cached content is at least
+        // inspectable.
+        if (img.Tag as string == "click-to-zoom-wired") return;
+        img.Tag = "click-to-zoom-wired";
+        img.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+        img.PointerPressed += (_, e) =>
+        {
+            if (img.Source is null) return;
+            if (e.ClickCount < 1) return;
+            var w = new Avalonia.Controls.Window
+            {
+                Title = "Image preview",
+                Width = Math.Min(1400, img.Width > 0 ? img.Width * 2 : 800),
+                Height = Math.Min(900, img.Height > 0 ? img.Height * 2 : 600),
+                WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner,
+                Content = new Avalonia.Controls.ScrollViewer
+                {
+                    HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                    VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                    Content = new Image
+                    {
+                        Source = img.Source,
+                        Stretch = Stretch.None,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    }
+                }
+            };
+            w.Show(this);
+        };
     }
 
     private static List<string> ExtractAllImageUrls(string markdown)

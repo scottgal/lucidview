@@ -26,7 +26,12 @@ public partial class MainWindow : Window
 {
     private readonly ImageCacheService _imageCacheService;
     private readonly MarkdownService _markdownService;
-    private readonly HtmlToMarkdownService _htmlToMarkdownService = new();
+    private readonly IHtmlToMarkdownService _htmlToMarkdownService =
+#if FULL
+        MarkdownViewer.Services.FullServices.Get<IHtmlToMarkdownService>();
+#else
+        new MarkdownViewer.Services.HtmlToMarkdownService();
+#endif
     private readonly AppSettings _settings;
     private readonly ThemeService _themeService;
     private readonly DiagramRendererPluginHost _diagramPluginHost;
@@ -123,7 +128,12 @@ public partial class MainWindow : Window
         Closing += OnWindowClosing;
         // Re-clamp the column width when the window is resized so shrinking
         // the window doesn't push the right ruler handle off-screen.
-        SizeChanged += (_, _) => ApplyContentMaxWidth();
+        SizeChanged += (_, _) =>
+        {
+            ApplyContentMaxWidth();
+            ApplyStatusBarResponsive();
+        };
+        ApplyStatusBarResponsive();
 
         // Accepts a positional arg:
         //   lucidVIEW path/to/document.md → LoadFile
@@ -163,6 +173,70 @@ public partial class MainWindow : Window
             SetWindowIcon();
             ApplyTypography();
         }, Avalonia.Threading.DispatcherPriority.Background);
+
+#if FULL
+        this.Title = "lucidVIEW-FULL";  // Override lean default so identity is visible
+        FullDiagnosticsSeparator.IsVisible = true;
+        FullDiagnosticsMenu.IsVisible = true;
+
+        // `--shot URL OUTPUT.png` mode: don't grab focus, don't show first-run
+        // dialog, auto-navigate, wait, screenshot, exit. Detected by FullProgram
+        // before Avalonia init and stashed on static fields.
+        if (MarkdownViewer.FullProgram.AutoShotUrl is { } shotUrl
+            && MarkdownViewer.FullProgram.AutoShotOutput is { } shotOut)
+        {
+            ShowActivated = false;
+            ShowInTaskbar = false;
+            // Sizing must be set BEFORE Open so the visual tree lays out at the
+            // requested DIPs. macOS clamps off-screen Positions on the visible
+            // monitor edge — moving the window after Open is the only reliable
+            // way to keep it out of the way.
+            Width = 1470;
+            Height = 900;
+            Opened += async (_, _) =>
+            {
+                Position = new Avalonia.PixelPoint(-3000, -3000);
+                await RunAutoShotAsync(shotUrl, shotOut);
+            };
+        }
+        else
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+            {
+                var settings = MarkdownViewer.Models.AppSettingsFull.Load();
+                if (!settings.HasRunBefore)
+                    await new MarkdownViewer.Views.FirstRunBootstrapDialog().ShowDialog(this);
+            }, Avalonia.Threading.DispatcherPriority.Background);
+        }
+
+        // FULL is busier than lean — hide the redundant fit/1:1 buttons so the
+        // scale slider has room next to the pipeline indicator. Lean keeps them.
+        FitWidthToggle.IsVisible = false;
+        FitHeightToggle.IsVisible = false;
+        ResetZoomBtn.IsVisible = false;
+
+        // Scan-mode toggle (RagFull ↔ Sitemap). Lean leaves the button hidden;
+        // FULL surfaces it because the Sitemap profile is a dogfood feature for
+        // the browser-mode use case (title + nav + breadcrumb extraction).
+        ScanModeToggleBtn.IsVisible = true;
+
+        // Pipeline-stage indicator (replaces the single-text ExtractionStatusText).
+        ExtractionStagesPanel.IsVisible = true;
+        var telemetry = MarkdownViewer.Services.FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+        telemetry.StageChanged += evt => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            ApplyStageEvent(evt));
+        telemetry.Recorded += info => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            // The final Record fires after extraction completes — render is
+            // about to happen, so light up the Render segment.
+            StageRenderText.Text = $"render {info.BlockCount} blocks · {info.OutputCharacterCount / 1024}K";
+            StageRenderText.Opacity = 1.0;
+        });
+        KeyDown += (s, e) =>
+        {
+            if (e.Key == Avalonia.Input.Key.F2) ShowExtractionDetails();
+        };
+#endif
     }
 
     #region Mouse Wheel Zoom & Scroll
@@ -1204,6 +1278,186 @@ public partial class MainWindow : Window
             RawScroller.Offset = new Vector(0, Math.Max(0, scrollOffset - 100));
         }
     }
+
+    #endregion
+
+    #region FULL Diagnostics
+
+#if FULL
+    private async void OnReDownloadModel(object? sender, RoutedEventArgs e)
+    {
+        StatusText.Text = "Downloading model…";
+        await MarkdownViewer.Services.ModelBootstrap.EnsureModelAsync(null, CancellationToken.None);
+        StatusText.Text = "Model ready.";
+    }
+
+    private async void OnReinstallBrowsers(object? sender, RoutedEventArgs e)
+    {
+        StatusText.Text = "Installing browsers…";
+        await MarkdownViewer.Services.ModelBootstrap.EnsureBrowsersAsync(null, CancellationToken.None);
+        StatusText.Text = "Browsers ready.";
+    }
+
+    private async void OnShowDoctor(object? sender, RoutedEventArgs e)
+    {
+        var report = MarkdownViewer.Services.ModelBootstrap.Doctor();
+        var content = $"""
+            Model: {report.ModelPath}
+            Present: {report.ModelPresent} ({report.ModelSizeBytes / 1024 / 1024} MB)
+
+            Browsers: {report.BrowsersPath}
+            Present: {report.BrowsersPresent}
+
+            Ready: {report.Ready}
+            """;
+        await new MarkdownViewer.Views.InputDialog(
+            "lucidVIEW-FULL — doctor", content)
+            .ShowDialog(this);
+    }
+    /// <summary>
+    /// Toggle FULL's extraction mode (Read=RagFull, Scan=Sitemap) and re-load
+    /// the current URL so the new profile takes effect.
+    /// </summary>
+    private async void OnToggleScanMode(object? sender, RoutedEventArgs e)
+    {
+        MarkdownViewer.Services.HtmlToMarkdownServiceFull.CurrentMode =
+            ScanModeToggleBtn.IsChecked == true
+                ? MarkdownViewer.Services.HtmlToMarkdownServiceFull.Mode.Scan
+                : MarkdownViewer.Services.HtmlToMarkdownServiceFull.Mode.Read;
+
+        // Re-load the current page so the new mode is applied. If no URL was
+        // loaded (e.g. local file), this is a no-op.
+        if (_currentFilePath is { } current
+            && Uri.TryCreate(current, UriKind.Absolute, out var uri)
+            && uri.Scheme is "http" or "https")
+        {
+            _suppressHistoryPush = true;
+            try { await LoadWebPage(current); }
+            finally { _suppressHistoryPush = false; }
+        }
+    }
+#else
+    private void OnReDownloadModel(object? sender, RoutedEventArgs e) { }
+    private void OnReinstallBrowsers(object? sender, RoutedEventArgs e) { }
+    private void OnShowDoctor(object? sender, RoutedEventArgs e) { }
+    private void OnToggleScanMode(object? sender, RoutedEventArgs e) { }
+#endif
+
+    #endregion
+
+    #region FULL Extraction Telemetry
+
+#if FULL
+    /// <summary>
+    /// Pipeline-stage indicator. Each segment lives in the status bar at 0.4
+    /// opacity until its stage fires. When a stage starts (Started=true) the
+    /// segment goes italic + 1.0 opacity; when it completes (Started=false)
+    /// the text updates with the detail value and stays at 1.0.
+    ///
+    /// Triggered by <c>ExtractionTelemetry.StageChanged</c> which is emitted
+    /// by <c>HtmlToMarkdownServiceFull.ConvertAsync</c> for Fetch+Match and
+    /// by <c>FullServices</c>'s templates-dir FileSystemWatcher for Llm.
+    /// Render fires from the existing <c>Recorded</c> handler.
+    /// </summary>
+    private void ApplyStageEvent(MarkdownViewer.Services.StageEvent evt)
+    {
+        var (block, baseLabel) = evt.Stage switch
+        {
+            MarkdownViewer.Services.ExtractionStage.Fetch  => (StageFetchText,  "fetch"),
+            MarkdownViewer.Services.ExtractionStage.Stream => (StageStreamText, "stream"),
+            MarkdownViewer.Services.ExtractionStage.Match  => (StageMatchText,  "match"),
+            MarkdownViewer.Services.ExtractionStage.Induce => (StageInduceText, "induce"),
+            MarkdownViewer.Services.ExtractionStage.Llm    => (StageLlmText,    "llm"),
+            MarkdownViewer.Services.ExtractionStage.Render => (StageRenderText, "render"),
+            _ => ((Avalonia.Controls.TextBlock?)null, "")
+        };
+        if (block is null) return;
+
+        block.Opacity = 1.0;
+        if (evt.Started)
+        {
+            block.FontStyle = Avalonia.Media.FontStyle.Italic;
+            block.Text = baseLabel + (evt.Detail is null ? "…" : $" {evt.Detail}…");
+        }
+        else
+        {
+            block.FontStyle = Avalonia.Media.FontStyle.Normal;
+            var ms = evt.Duration.TotalMilliseconds;
+            var msPart = ms > 0 ? $" · {ms:F0}ms" : "";
+            block.Text = $"{baseLabel} {evt.Detail ?? "ok"}{msPart}";
+        }
+    }
+
+    private void OnExtractionStatusClicked(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+        => ShowExtractionDetails();
+#endif
+
+    /// <summary>
+    /// Hide low-priority status-bar columns as the window narrows so the
+    /// pipeline-stage indicator (column 7) keeps room and doesn't truncate.
+    /// Thresholds were chosen so a 1366×768 laptop comfortably shows everything
+    /// and a 900-wide window still shows the essentials.
+    /// </summary>
+    private void ApplyStatusBarResponsive()
+    {
+        var w = Bounds.Width;
+        // FontSizeText is the first to drop — least useful at a glance.
+        FontSizeText.IsVisible = w >= 1200;
+        // FileInfoText (chars / image count) — useful but expendable.
+        FileInfoText.IsVisible = w >= 1050;
+        // WordCountText — keep until really narrow.
+        WordCountText.IsVisible = w >= 950;
+        // FileDateText — same threshold; date is one of the first ditched.
+        FileDateText.IsVisible = w >= 1100;
+    }
+
+#if FULL
+
+    /// <summary>
+    /// `--shot URL OUTPUT.png` flow: load the URL via the existing LoadWebPage
+    /// path, wait the configured ms (default 30 s) for image cache + re-render,
+    /// capture the window via the same harness API the UI tests use, then
+    /// Shutdown. The window is positioned off-screen + ShowActivated=false so
+    /// it never steals focus on the user's actual workspace.
+    /// </summary>
+    private async Task RunAutoShotAsync(string url, string outPath)
+    {
+        try
+        {
+            await LoadWebPage(url);
+            await Task.Delay(MarkdownViewer.FullProgram.AutoShotWaitMs);
+            await Mostlylucid.Avalonia.UITesting.Players.ScreenshotCapture.CaptureWindowAsync(this, outPath);
+            Console.WriteLine($"shot saved: {outPath}");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"shot failed: {ex.GetType().Name}: {ex.Message}");
+        }
+        finally
+        {
+            if (Application.Current?.ApplicationLifetime
+                is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                desktop.Shutdown();
+        }
+    }
+
+    private void ShowExtractionDetails()
+    {
+        try
+        {
+            _ = new MarkdownViewer.Views.ExtractionDetailsPanel().ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            var crashPath = Path.Combine(MarkdownViewer.AppPaths.LocalState, "crash.log");
+            File.AppendAllText(crashPath,
+                $"[{DateTime.Now:O}] ShowExtractionDetails NRE: {ex.GetType().FullName}: {ex.Message}\n{ex.StackTrace}\n\n");
+            throw;
+        }
+    }
+#else
+    private void OnExtractionStatusClicked(object? sender, Avalonia.Input.PointerPressedEventArgs e) { }
+#endif
 
     #endregion
 

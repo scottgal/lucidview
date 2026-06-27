@@ -6,6 +6,8 @@
 param(
     [ValidateSet('all', 'win', 'linux', 'osx', 'osx-x64', 'osx-arm64')]
     [string]$Platform = 'all',
+    [ValidateSet('Lean', 'Full', 'All')]
+    [string]$Edition = 'Lean',
     [switch]$Clean
 )
 
@@ -144,14 +146,89 @@ $platformsToBuild = switch ($Platform) {
     default { @($Platform) }
 }
 
-foreach ($p in $platformsToBuild) {
-    if (-not $runtimes.Contains($p)) {
-        Write-Host "Unknown platform: $p" -ForegroundColor Red
-        $success = $false
-        continue
+# ── Lean builds ──────────────────────────────────────────────────────────────
+if ($Edition -in @('Lean', 'All')) {
+    foreach ($p in $platformsToBuild) {
+        if (-not $runtimes.Contains($p)) {
+            Write-Host "Unknown platform: $p" -ForegroundColor Red
+            $success = $false
+            continue
+        }
+        if (-not (Publish-Platform -Name $p -Rid $runtimes[$p])) {
+            $success = $false
+        }
     }
-    if (-not (Publish-Platform -Name $p -Rid $runtimes[$p])) {
-        $success = $false
+}
+
+# ── FULL builds ───────────────────────────────────────────────────────────────
+# FULL cannot use PublishSingleFile — Playwright's browser bundle and
+# LlamaSharp's native libs must stay as loose files in the output directory.
+
+function Publish-Full {
+    param([string]$Rid)
+    $fullProject = Join-Path $PSScriptRoot 'MarkdownViewer.Full/MarkdownViewer.Full.csproj'
+    $fullOutput  = Join-Path $outputBase "full/$Rid"
+    Write-Host "`n=== Publishing FULL for $Rid -> $fullOutput ===" -ForegroundColor Cyan
+
+    $fullArgs = @(
+        'publish', $fullProject
+        '--configuration', 'Release'
+        '--runtime', $Rid
+        '--self-contained', 'true'
+        '-p:PublishSingleFile=false'
+        '-p:PublishReadyToRun=false'
+        '-p:PublishTrimmed=false'
+        '--output', $fullOutput
+    )
+
+    Write-Host "dotnet $($fullArgs -join ' ')" -ForegroundColor DarkGray
+    & dotnet @fullArgs
+    if ($LASTEXITCODE -ne 0) { throw "FULL publish failed for $Rid" }
+
+    # Mark the binary executable on POSIX hosts.
+    # AssemblyName in MarkdownViewer.Full.csproj is 'lucidVIEW' (same as lean).
+    $exe = if ($Rid -like 'win-*') { 'lucidVIEW.exe' } else { 'lucidVIEW' }
+    $exePath = Join-Path $fullOutput $exe
+    if (($IsMacOS -or $IsLinux) -and (Test-Path $exePath)) {
+        chmod +x $exePath
+    }
+
+    # Bake Playwright browsers into the published output so the bundle is
+    # self-contained. Only bake when publishing for the current host RID —
+    # cross-compiled binaries (e.g. win-x64 built on macOS) won't execute here.
+    $hostRid = if ($IsWindows) { 'win-x64' } elseif ($IsMacOS) {
+        if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq
+            [System.Runtime.InteropServices.Architecture]::Arm64) { 'osx-arm64' } else { 'osx-x64' }
+    } else { 'linux-x64' }
+
+    if ($Rid -eq $hostRid -and (Test-Path $exePath)) {
+        Write-Host "Baking Playwright browsers into $fullOutput/.playwright ..." -ForegroundColor DarkGray
+        $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $fullOutput '.playwright'
+        & $exePath '--install-browsers'
+        Remove-Item Env:PLAYWRIGHT_BROWSERS_PATH -ErrorAction SilentlyContinue
+    } else {
+        Write-Host "Skipping browser bake (cross-compile RID $Rid != host $hostRid)" -ForegroundColor Yellow
+    }
+
+    if (Test-Path $exePath) {
+        $size = (Get-Item $exePath).Length
+        $sizeMB = [math]::Round($size / 1MB, 2)
+        Write-Host "Output: $exePath ($sizeMB MB)" -ForegroundColor Green
+    }
+
+    return $true
+}
+
+if ($Edition -in @('Full', 'All')) {
+    foreach ($p in $platformsToBuild) {
+        if (-not $runtimes.Contains($p)) {
+            Write-Host "Unknown platform: $p" -ForegroundColor Red
+            $success = $false
+            continue
+        }
+        if (-not (Publish-Full -Rid $runtimes[$p])) {
+            $success = $false
+        }
     }
 }
 

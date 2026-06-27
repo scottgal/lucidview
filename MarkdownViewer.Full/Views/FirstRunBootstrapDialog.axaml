@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MarkdownViewer.Views.FirstRunBootstrapDialog"
+        Title="lucidVIEW-FULL — first run"
+        Width="520" Height="320"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+  <StackPanel Margin="20" Spacing="14">
+    <TextBlock FontSize="16" FontWeight="Bold" Text="One-time setup" />
+    <TextBlock TextWrapping="Wrap">
+      lucidVIEW-FULL uses an embedded language model and a headless browser to
+      exercise the preview StyloExtract stack on real-world pages.
+    </TextBlock>
+    <StackPanel Spacing="6">
+      <TextBlock Text="• Language model: ~400 MB, downloaded from Hugging Face." />
+      <TextBlock Text="• Playwright Chromium: ~150 MB, installed via Microsoft's installer." />
+      <TextBlock Text="Both are independently skippable. Without them, FULL falls back to lean behaviour." />
+    </StackPanel>
+    <TextBlock x:Name="StatusText" Foreground="Gray" Text="" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="SkipBtn" Content="Skip (heuristic only)" Click="OnSkip" />
+      <Button x:Name="DeferBtn" Content="Defer (fetch on first use)" Click="OnDefer" />
+      <Button x:Name="DownloadBtn" Content="Download both" Classes="accent" Click="OnDownload" />
+    </StackPanel>
+  </StackPanel>
+</Window>

@@ -36,6 +36,26 @@ jobs:
       run: dotnet test --no-build --verbosity normal || true
       continue-on-error: true
 
+  build-full:
+    name: Build FULL (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build FULL
+        run: dotnet build MarkdownViewer.Full/MarkdownViewer.Full.csproj -c Debug
+      - name: Test FULL (skip heavy)
+        run: |
+          dotnet test MarkdownViewer.Full.Tests/MarkdownViewer.Full.Tests.csproj \
+            -c Debug \
+            --filter "Category!=RequiresLlm&Category!=RequiresPlaywright"
+
   # Quick smoke test - ensure it can be published
   publish-test:
     runs-on: windows-latest

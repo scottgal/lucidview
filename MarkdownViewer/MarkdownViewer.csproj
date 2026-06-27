@@ -33,7 +33,7 @@
         <!-- App Info -->
         <AssemblyName>lucidVIEW</AssemblyName>
         <RootNamespace>MarkdownViewer</RootNamespace>
-        <Version>2.8.0</Version>
+        <Version>2.9.0</Version>
         <Product>lucidVIEW</Product>
         <Description>A modern, lightweight cross-platform markdown viewer</Description>
         <Copyright>Copyright 2026</Copyright>
@@ -48,7 +48,7 @@
         <PackageReference Include="FluentAvaloniaUI" Version="2.5.0" />
         <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="2.0.321" />
         <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
-        <PackageReference Include="LiveMarkdown.Avalonia" Version="1.9.2" />
+        <PackageReference Include="LiveMarkdown.Avalonia" Version="1.9.2-local-imgfix2" />
         <!-- LiveMarkdown.Avalonia.Svg.Skia removed: ImageCacheService /
              MarkdownService now rasterize all SVGs (remote shields, local
              icons, mermaid diagrams) up front via Mostlylucid.ImageSharp.Svg,

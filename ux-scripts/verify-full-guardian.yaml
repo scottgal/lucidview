@@ -1,0 +1,35 @@
+# Guardian front page — modern news site with heavy image use.
+
+name: verify-full-guardian
+description: theGuardian.com front page
+default_delay: 400
+
+actions:
+  - type: Wait
+    value: "3500"
+  - type: Screenshot
+    value: 01-boot
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+  - type: Click
+    target: MenuOpenUrlBtn
+  - type: Wait
+    value: "700"
+
+  - type: TypeText
+    target: InputBox
+    value: "https://www.theguardian.com/uk"
+    window_id: InputDialog
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: OkButton
+    window_id: InputDialog
+
+  - type: Wait
+    value: "30000"
+  - type: Screenshot
+    value: 02-guardian-loaded

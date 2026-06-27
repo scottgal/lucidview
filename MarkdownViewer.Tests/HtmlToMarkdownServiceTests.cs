@@ -1,4 +1,7 @@
+using System.Threading;
+using System.Threading.Tasks;
 using MarkdownViewer.Services;
+using Xunit;
 
 namespace MarkdownViewer.Tests;
 
@@ -60,5 +63,17 @@ public class HtmlToMarkdownServiceTests
 
         Assert.Contains("[link](/real)", md);
         Assert.DoesNotContain("/htmx-only", md);
+    }
+
+    [Fact]
+    public async Task ConvertAsync_PlainHtml_RoundTripsToMarkdown()
+    {
+        IHtmlToMarkdownService svc = new HtmlToMarkdownService();
+        var html = "<html><body><h1>Hello</h1><p>World</p></body></html>";
+
+        var md = await svc.ConvertAsync(html, sourceUri: null, CancellationToken.None);
+
+        Assert.Contains("Hello", md);
+        Assert.Contains("World", md);
     }
 }

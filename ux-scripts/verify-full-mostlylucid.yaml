@@ -1,0 +1,35 @@
+# mostlylucid.net — known site, simpler markdown-friendly layout, custom-built.
+
+name: verify-full-mostlylucid
+description: mostlylucid.net home
+default_delay: 400
+
+actions:
+  - type: Wait
+    value: "3500"
+  - type: Screenshot
+    value: 01-boot
+
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "500"
+  - type: Click
+    target: MenuOpenUrlBtn
+  - type: Wait
+    value: "700"
+
+  - type: TypeText
+    target: InputBox
+    value: "https://www.mostlylucid.net"
+    window_id: InputDialog
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: OkButton
+    window_id: InputDialog
+
+  - type: Wait
+    value: "30000"
+  - type: Screenshot
+    value: 02-mostlylucid-loaded

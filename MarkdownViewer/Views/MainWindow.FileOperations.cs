@@ -295,19 +295,24 @@ public partial class MainWindow
     {
         try
         {
+#if !FULL
+            // Lean has no stages panel — keep the legacy progress text.
             StatusText.Text = "Downloading...";
+#endif
 
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
                 throw new InvalidOperationException("Only http:// and https:// URLs are supported.");
 
-            var (body, isHtml) = await DownloadWebPageAsync(uri);
+            var (body, isHtml, streamingHostKnown) = await DownloadWebPageAsync(uri);
             string content;
             var mode = isHtml ? SourceMode.ConvertedFromHtml : SourceMode.DirectMarkdown;
 
             if (isHtml)
             {
+#if !FULL
                 StatusText.Text = "Converting page...";
-                content = _htmlToMarkdownService.Convert(body, uri);
+#endif
+                content = await _htmlToMarkdownService.ConvertAsync(body, uri);
 
                 if (content.Trim().Length < SparseExtractionThreshold && SpaDetection.LooksLikeSpa(body))
                 {
@@ -347,6 +352,9 @@ public partial class MainWindow
 
             PushHistory(url, title);
             SetSourceMode(mode);
+#if FULL
+            if (streamingHostKnown) MarkSourceModeHostKnown();
+#endif
             QueueImageCaching(content);
         }
         catch (Exception ex) when (!IsIgnorableError(ex))
@@ -364,9 +372,15 @@ public partial class MainWindow
 
     private void UpdateNavigationButtonState()
     {
+        // Toolbar de-clutter (UX): keep buttons hidden until they have anything
+        // to do. Reload appears as soon as the first URL loads; Back/Forward
+        // only when history goes that direction.
         BackButton.IsEnabled = _sessionHistory.CanGoBack;
+        BackButton.IsVisible = _sessionHistory.CanGoBack;
         ForwardButton.IsEnabled = _sessionHistory.CanGoForward;
+        ForwardButton.IsVisible = _sessionHistory.CanGoForward;
         ReloadButton.IsEnabled = _sessionHistory.Current is not null;
+        ReloadButton.IsVisible = _sessionHistory.Current is not null;
 
         if (AddressBar is not null && _sessionHistory.Current is { } entry)
             AddressBar.Text = entry.Url;
@@ -589,7 +603,7 @@ public partial class MainWindow
         return $"\"{escaped}\"";
     }
 
-    private static async Task<(string Body, bool IsHtml)> DownloadWebPageAsync(Uri uri)
+    private static async Task<(string Body, bool IsHtml, bool StreamingHostKnown)> DownloadWebPageAsync(Uri uri)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.UserAgent.ParseAdd(UserAgent.Value);
@@ -603,6 +617,20 @@ public partial class MainWindow
         request.Headers.Accept.ParseAdd("text/plain;q=0.7");
         request.Headers.Accept.ParseAdd("*/*;q=0.5");
 
+#if FULL
+        var fetchSw = Stopwatch.StartNew();
+        // alpha.17: warm any persisted streaming template for this host into
+        // the hot cache BEFORE the response body arrives so ScanByHost on the
+        // first chunk-threshold tick (or stream-end) hits the host template
+        // instead of bouncing on NoTemplate. Fire-and-forget warm — by the
+        // time the body finishes reading the lookup has completed.
+        var streamingHost = uri.Host;
+        var warmSelector = FullServices.Get<StyloExtract.Streaming.StreamingPathSelector>();
+        _ = warmSelector.WarmByHostAsync(streamingHost).AsTask();
+#endif
+
+        bool streamingHostKnown = false;
+
         using var response = await RemoteMarkdownClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
@@ -611,7 +639,12 @@ public partial class MainWindow
 
         var mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
 
+#if FULL
+        var (bytes, lastVerdict, peakBufferedBytes) = await ReadBodyWithLimitAndScanAsync(
+            response.Content, MaxRemoteMarkdownBytes, streamingHost, warmSelector);
+#else
         var bytes = await ReadBodyWithLimitAsync(response.Content, MaxRemoteMarkdownBytes);
+#endif
         var body = System.Text.Encoding.UTF8.GetString(bytes);
 
         var isMarkdown = mediaType.Contains("markdown", StringComparison.OrdinalIgnoreCase);
@@ -620,7 +653,100 @@ public partial class MainWindow
                 || mediaType.Contains("xhtml", StringComparison.OrdinalIgnoreCase)
                 || HtmlToMarkdownService.LooksLikeHtml(body));
 
-        return (body, isHtml);
+#if FULL
+        fetchSw.Stop();
+        // alpha.17: chunk-aware streaming-scan flow.
+        //   - ReadBodyWithLimitAndScanAsync already invoked ScanByHost on a
+        //     64KB-threshold cadence + once on stream-end, so lastVerdict holds
+        //     the final verdict the scanner produced over the accumulating buffer.
+        //   - When verdict is NoTemplate AND the body looks HTML-shaped, kick
+        //     StreamingTemplateInducer.Induce to build + upsert a host-keyed
+        //     template so the NEXT visit to this host gets a real verdict.
+        //     The induced template persists via SqliteStreamingTemplateStore.
+        //   - Status-bar fetch segment shows the verdict the scanner WOULD have
+        //     emitted for this fetch: Http+NoTemplate on first visit, then
+        //     Http+Captured (or +Bailout) once the inducer has primed the store.
+        try
+        {
+            var verdict = lastVerdict;
+            Console.WriteLine($"[streaming] scanned {bytes.Length} bytes from {uri.Host}: verdict={verdict}");
+
+            // Host is "known" whenever the scanner had a template to try at all
+            // — Captured (matched), Bailout (tried but drifted), or Continue
+            // (scanned without terminal state). NoTemplate means the host has
+            // never been seen, so the ✓ should not appear.
+            streamingHostKnown = verdict != StyloExtract.Streaming.ScanVerdict.NoTemplate;
+
+            if (verdict == StyloExtract.Streaming.ScanVerdict.NoTemplate && isHtml)
+            {
+                var inducer = FullServices.Get<StyloExtract.Streaming.StreamingTemplateInducer>();
+                var summary = inducer.Describe(bytes);
+                var induced = inducer.Induce(streamingHost, bytes);
+                if (induced is not null)
+                {
+                    var store = FullServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
+                    await store.UpsertAsync(induced, CancellationToken.None);
+                    // Just induced a template — the next visit will be Captured,
+                    // but for THIS fetch's marker we still want the ✓ so the user
+                    // sees the moment the host became known.
+                    streamingHostKnown = true;
+                    Console.WriteLine(
+                        $"[streaming] induced template for {streamingHost} " +
+                        $"(prefix={summary?.PrefixMarker}, content={summary?.ContentStartMarker}, end={summary?.ContentEndMarker})");
+
+                    // Light up the Induce segment — streaming-induced templates are
+                    // a third inducer kind alongside heuristic-deterministic and LLM,
+                    // tagged (streaming) so the user can tell them apart at a glance.
+                    var telemetryInd = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+                    telemetryInd.EmitStage(
+                        MarkdownViewer.Services.ExtractionStage.Induce,
+                        started: false,
+                        detail: $"{streamingHost} (streaming)");
+                }
+                else
+                {
+                    Console.WriteLine($"[streaming] inducer returned null for {streamingHost} — no plausible fences");
+                }
+            }
+
+            var telemetry = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+            // Stream segment: the streaming-scanner verdict + peak-buffered headline.
+            // peakBufferedBytes is the high-watermark of the tokenizer's in-flight
+            // byte buffer — under the alpha.19+ contract this stays O(longest tag)
+            // regardless of response size, so a 200 KB response with peak ~8 KB is
+            // the proof the streaming scan held bounded memory.
+            // verdict == Continue at the end of a fetch means the scanner never
+            // hit a terminal state — either no template existed (about to induce
+            // one) or the body never matched. Relabel to avoid the misleading
+            // "Continue" reading.
+            var verdictLabel = verdict == StyloExtract.Streaming.ScanVerdict.Continue
+                ? "Scanned"
+                : verdict.ToString();
+            var streamDetail = peakBufferedBytes > 0
+                ? $"{verdictLabel} peak{peakBufferedBytes}B/{bytes.Length}B"
+                : verdictLabel;
+            telemetry.EmitStage(
+                MarkdownViewer.Services.ExtractionStage.Stream,
+                started: false,
+                detail: streamDetail);
+
+            // Fetch segment: just the HTTP transport timing.
+            telemetry.EmitStage(
+                MarkdownViewer.Services.ExtractionStage.Fetch,
+                started: false,
+                detail: $"Http {bytes.Length / 1024}K",
+                duration: fetchSw.Elapsed);
+            Console.WriteLine(
+                $"[streaming] peak buffered={peakBufferedBytes:N0} B vs response={bytes.Length:N0} B " +
+                $"(ratio={(bytes.Length > 0 ? (peakBufferedBytes * 100.0 / bytes.Length).ToString("F2") : "n/a")}%)");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[streaming] scan/induction failed: {ex.Message}");
+        }
+#endif
+
+        return (body, isHtml, streamingHostKnown);
     }
 
     private static async Task<byte[]> ReadBodyWithLimitAsync(HttpContent content, long maxBytes)
@@ -640,6 +766,119 @@ public partial class MainWindow
         }
         return buffer.ToArray();
     }
+
+#if FULL
+    /// <summary>
+    /// alpha.18: true chunked streaming-scan body reader. Replaces alpha.17's
+    /// 64 KB-threshold whole-buffer re-scan with a per-chunk feed via the new
+    /// <see cref="StyloExtract.Streaming.IncrementalFenceScanner"/>. As bytes
+    /// arrive from HttpClient we feed them straight into the incremental
+    /// tokenizer + scanner, which holds a partial-tag buffer across chunk
+    /// boundaries and emits a running verdict as soon as enough tags have
+    /// passed for the structural fences to match.
+    ///
+    /// Behavioural difference vs alpha.17:
+    /// <list type="bullet">
+    ///   <item><description>Captured can land on chunk 2 or 3 — well before the
+    ///   whole body has been buffered — instead of waiting for a 64 KB
+    ///   threshold tick.</description></item>
+    ///   <item><description>No O(N) re-scan-from-start cost on each threshold
+    ///   tick; tokenization is amortised across the bytes seen so far.</description></item>
+    ///   <item><description>Same byte-budget contract; same fallback behaviour
+    ///   when the host has no warmed template (scanner is null, alpha.17
+    ///   auto-induction path still fires from the buffered bytes after
+    ///   stream-end).</description></item>
+    /// </list>
+    /// </summary>
+    private static async Task<(byte[] Bytes, StyloExtract.Streaming.ScanVerdict LastVerdict, int PeakBufferedBytes)> ReadBodyWithLimitAndScanAsync(
+        HttpContent content,
+        long maxBytes,
+        string host,
+        StyloExtract.Streaming.StreamingPathSelector selector)
+    {
+        await using var stream = await content.ReadAsStreamAsync();
+        using var buffer = new MemoryStream();
+        var chunk = new byte[16 * 1024];
+        long total = 0;
+
+        // Look up the host-keyed template (hot cache only; the caller fires
+        // WarmByHostAsync upstream so by now the warm should have landed in
+        // the hot tier). Null template -> no incremental scan; we still drain
+        // the body so auto-induction can run on full bytes after stream end.
+        var store = MarkdownViewer.Services.FullServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
+        var template = store.TryGetHotByHost(host);
+        StyloExtract.Streaming.IncrementalFenceScanner? scanner = template is not null
+            ? StyloExtract.Streaming.IncrementalFenceScanner.Create(template)
+            : null;
+
+        var lastVerdict = template is null
+            ? StyloExtract.Streaming.ScanVerdict.NoTemplate
+            : StyloExtract.Streaming.ScanVerdict.Continue;
+        int chunkIndex = 0;
+        bool earlyTerminal = false;
+
+        while (true)
+        {
+            var read = await stream.ReadAsync(chunk);
+            if (read == 0) break;
+            total += read;
+            if (total > maxBytes)
+                throw new InvalidOperationException("Remote page exceeds size limit.");
+            buffer.Write(chunk, 0, read);
+            chunkIndex++;
+
+            if (scanner is not null && !earlyTerminal)
+            {
+                var v = scanner.Feed(chunk.AsSpan(0, read));
+                Console.WriteLine($"[streaming] chunk {chunkIndex} ({read} bytes): {v}");
+                if (v is StyloExtract.Streaming.ScanVerdict.Captured
+                    or StyloExtract.Streaming.ScanVerdict.Bailout)
+                {
+                    lastVerdict = v;
+                    earlyTerminal = true;
+                    // Keep draining the body — the markdown converter downstream
+                    // still needs the full bytes — but the verdict is now latched.
+                }
+                else
+                {
+                    lastVerdict = v;
+                }
+            }
+        }
+
+        if (scanner is not null && !earlyTerminal)
+            lastVerdict = scanner.Flush();
+
+        // alpha.18: kick the refit orchestrator off-hot-path on captured scans.
+        // The orchestrator handles its own gating (cadence + EWMA drift) and
+        // fires the version sink when a refit fires.
+        if (scanner is not null
+            && lastVerdict == StyloExtract.Streaming.ScanVerdict.Captured)
+        {
+            var bytesCopy = buffer.ToArray();
+            try
+            {
+                var orchestrator = MarkdownViewer.Services.FullServices.Get<StyloExtract.Streaming.StreamingRefitOrchestrator>();
+                orchestrator.RecordCaptured(
+                    host,
+                    scanner.CaptureStartByte,
+                    scanner.CaptureEndByte,
+                    bytesCopy);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[streaming-refit] record-captured failed: {ex.Message}");
+            }
+        }
+
+        // alpha.19: scanner exposes the tokenizer's high-watermark; surface it
+        // so callers can render the bounded-memory property in telemetry. Null
+        // scanner (no template) reports 0 — we never built the partial-tag
+        // buffer at all, so "peak 0 B" is the honest answer.
+        var peakBuffered = scanner?.PeakBufferedBytes ?? 0;
+        return (buffer.ToArray(), lastVerdict, peakBuffered);
+    }
+#endif
 
     private enum SourceMode
     {
@@ -672,26 +911,49 @@ public partial class MainWindow
     private void SetSourceMode(SourceMode mode)
     {
         SourceModeIcon.IsVisible = true;
+        SourceModeLabel.IsVisible = true;
         switch (mode)
         {
             case SourceMode.LocalFile:
                 SourceModeIcon.Symbol = FluentIcons.Common.Symbol.Document;
+                SourceModeLabel.Text = "file";
                 ToolTip.SetTip(SourceModeIcon, "Local markdown file");
+                ToolTip.SetTip(SourceModeLabel, "Local markdown file");
                 break;
             case SourceMode.DirectMarkdown:
                 SourceModeIcon.Symbol = FluentIcons.Common.Symbol.Globe;
+                SourceModeLabel.Text = "markdown";
                 ToolTip.SetTip(SourceModeIcon, "Direct markdown from URL (no conversion)");
+                ToolTip.SetTip(SourceModeLabel, "Direct markdown from URL (no conversion)");
                 break;
             case SourceMode.ConvertedFromHtml:
                 SourceModeIcon.Symbol = FluentIcons.Common.Symbol.ArrowSync;
+                SourceModeLabel.Text = "html→md";
                 ToolTip.SetTip(SourceModeIcon, "Converted from HTML via StyloExtract");
+                ToolTip.SetTip(SourceModeLabel, "Converted from HTML via StyloExtract");
                 break;
             case SourceMode.ClientSideRendered:
                 SourceModeIcon.Symbol = FluentIcons.Common.Symbol.Warning;
+                SourceModeLabel.Text = "spa";
                 ToolTip.SetTip(SourceModeIcon, "Client-side rendered — JavaScript required, lucidVIEW can't run it");
+                ToolTip.SetTip(SourceModeLabel, "Client-side rendered — JavaScript required, lucidVIEW can't run it");
                 break;
         }
     }
+
+#if FULL
+    /// <summary>
+    /// Mark the source-mode label with a ✓ when the streaming template store
+    /// already has a learned host template — gives the user a persistent
+    /// "this host is known" signal beyond the transient stages flicker.
+    /// </summary>
+    private void MarkSourceModeHostKnown()
+    {
+        var current = SourceModeLabel.Text ?? "";
+        if (!current.EndsWith(" ✓", StringComparison.Ordinal))
+            SourceModeLabel.Text = current + " ✓";
+    }
+#endif
 
     private void QueueImageCaching(string content)
     {
