@@ -306,10 +306,12 @@ a ring buffer so you can scrub backwards through what each visit did.
 The `stream` segment shows the verdict from `StyloExtract.Streaming` — a
 sliding-window fence scanner that runs over the HTTP response body as it
 arrives. It is **zero-allocation in steady state**: a ref-struct rolling
-MinHash + stack-allocated window + ArrayPool rentals only. On a 200 KB page
-the scanner peaks at well under 1 KB of in-flight bytes:
+MinHash + stack-allocated window + ArrayPool rentals only. On a 200 KB
+page the in-flight peak stays in the low-kilobyte range — typically a
+few hundred bytes after a warm second visit, up to roughly the size of
+HttpClient's 16 KB chunk on a cold first visit:
 
-![FULL on a blog post — peak ~195 B for a 66 KB body](screenshots/21-full-blog-loaded.png)
+![FULL on a blog post — peak in the low hundreds of bytes for a 66 KB body](screenshots/21-full-blog-loaded.png)
 
 The verdict values you'll see:
 

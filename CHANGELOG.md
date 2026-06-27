@@ -4,35 +4,6 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
-## v2.9.0 — 2026-06-27
-
-### Added
-
-- **Source mode label in the status bar.** The unlabelled icon at the
-  bottom-left used to require a hover-tooltip to interpret. It's now
-  joined by a short text label — `file` / `markdown` / `html→md` / `spa` —
-  so the source mode is readable at a glance.
-- **Responsive status bar.** Low-priority columns hide progressively as
-  the window narrows: font size at <1200px, file date at <1100px, file
-  info at <1050px, word count at <950px. The essentials and the
-  pipeline-stage indicator (FULL only) keep their space down to
-  comfortable laptop widths.
-- **FULL sibling edition** (`MarkdownViewer.Full/`). Dogfood-only, Debug-only,
-  **not** shipped in this release — but the in-app User Manual gains a
-  new section 20 documenting it for developers building against the
-  preview StyloExtract pipeline. See `docs/full-edition.md`.
-
-### Fixed
-
-- **Toolbar de-clutter.** Back / forward / reload buttons now hide
-  entirely when they have no history to act on, instead of sitting
-  greyed-out and taking three button-shaped slots in the toolbar from
-  the welcome screen.
-- **Image dimensions on converted pages.** `<img width=H height=W>`
-  attributes are now honoured via a local `LiveMarkdown.Avalonia` fork
-  patched for the renderer. Click-to-zoom catches mismatched dimensions
-  early during inspection so authoring problems surface immediately.
-
 ## v2.8.0 — 2026-06-24
 
 ### Fixed

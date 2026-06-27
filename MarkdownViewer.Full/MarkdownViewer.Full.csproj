@@ -54,7 +54,9 @@
     <PackageReference Include="FluentAvaloniaUI" Version="2.5.0" />
     <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="2.0.321" />
     <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
-    <PackageReference Include="LiveMarkdown.Avalonia" Version="1.9.2-local-imgfix2" />
+    <!-- LiveMarkdown.Avalonia consumed via submodule + ProjectReference (below).
+         The patched HtmlInline/HtmlBlock <img> renderer lives on the
+         scottgal/LiveMarkdown.Avalonia fork's feat/html-img-renderer branch. -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
     <PackageReference Include="QuestPDF" Version="2026.2.1" />
     <PackageReference Include="QuestPDF.Markdown" Version="1.47.0" />
@@ -87,11 +89,21 @@
   <ItemGroup>
     <ProjectReference Include="..\Naiad\src\Naiad\Naiad.csproj" />
     <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
+    <!-- LiveMarkdown.Avalonia fork (HtmlInline/HtmlBlock <img> renderer patch)
+         via external/LiveMarkdown.Avalonia submodule pointing at
+         scottgal/LiveMarkdown.Avalonia#feat/html-img-renderer. -->
+    <ProjectReference Include="..\external\LiveMarkdown.Avalonia\src\LiveMarkdown.Avalonia\LiveMarkdown.Avalonia.csproj" />
   </ItemGroup>
 
-  <!-- Same Debug-only UI testing harness as lean. -->
+  <!-- UI testing harness (Debug-only). Consumes the public 1.4.2 NuGet
+       package from scottgal/lucidRESUME. The 1.4.3-local-fix1 patch
+       (PressKey + KeyEventArgs.Source/KeyUp) is pending — needs a public
+       NuGet publish from lucidRESUME's CI before we can wire it back.
+       Submoduling lucidRESUME directly to ProjectReference UITesting
+       surfaces CA1822/CA1869/CA1823 analyzer errors in net10.0 that the
+       upstream codebase hasn't fixed yet. -->
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-    <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.4.3-local-fix1" />
+    <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.4.2" />
   </ItemGroup>
 
 </Project>

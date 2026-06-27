@@ -671,11 +671,15 @@ public partial class MainWindow
             var verdict = lastVerdict;
             Console.WriteLine($"[streaming] scanned {bytes.Length} bytes from {uri.Host}: verdict={verdict}");
 
-            // Host is "known" whenever the scanner had a template to try at all
-            // — Captured (matched), Bailout (tried but drifted), or Continue
-            // (scanned without terminal state). NoTemplate means the host has
-            // never been seen, so the ✓ should not appear.
-            streamingHostKnown = verdict != StyloExtract.Streaming.ScanVerdict.NoTemplate;
+            // Host is "known" only when the scanner reached a TERMINAL state
+            // against a stored template — Captured (matched the content fence)
+            // or Bailout (template existed but drifted on this page). Continue
+            // can occur with no template at all (e.g. non-HTML body), so it
+            // is not a reliable proof the store has a learned template.
+            // The induce branch below explicitly sets this true on first-time
+            // induction.
+            streamingHostKnown = verdict is StyloExtract.Streaming.ScanVerdict.Captured
+                or StyloExtract.Streaming.ScanVerdict.Bailout;
 
             if (verdict == StyloExtract.Streaming.ScanVerdict.NoTemplate && isHtml)
             {

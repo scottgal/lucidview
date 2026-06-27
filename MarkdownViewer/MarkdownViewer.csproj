@@ -33,7 +33,7 @@
         <!-- App Info -->
         <AssemblyName>lucidVIEW</AssemblyName>
         <RootNamespace>MarkdownViewer</RootNamespace>
-        <Version>2.9.0</Version>
+        <Version>2.8.0</Version>
         <Product>lucidVIEW</Product>
         <Description>A modern, lightweight cross-platform markdown viewer</Description>
         <Copyright>Copyright 2026</Copyright>
