@@ -686,6 +686,7 @@ public partial class MainWindow
                 var inducer = FullServices.Get<StyloExtract.Streaming.StreamingTemplateInducer>();
                 var summary = inducer.Describe(bytes);
                 var induced = inducer.Induce(streamingHost, bytes);
+                var telemetryInd = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
                 if (induced is not null)
                 {
                     var store = FullServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
@@ -701,7 +702,6 @@ public partial class MainWindow
                     // Light up the Induce segment — streaming-induced templates are
                     // a third inducer kind alongside heuristic-deterministic and LLM,
                     // tagged (streaming) so the user can tell them apart at a glance.
-                    var telemetryInd = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
                     telemetryInd.EmitStage(
                         MarkdownViewer.Services.ExtractionStage.Induce,
                         started: false,
@@ -709,7 +709,24 @@ public partial class MainWindow
                 }
                 else
                 {
-                    Console.WriteLine($"[streaming] inducer returned null for {streamingHost} — no plausible fences");
+                    // Deterministic streaming-induce gave up (grid-of-cards, plain
+                    // text, SVG-only). The escalation path is LayoutExtractor's own
+                    // LLM enrichment, which fires synchronously in ConvertAsync
+                    // moments after this method returns. Surface BOTH halves of the
+                    // handoff so the user sees what's happening:
+                    //   (a) Induce segment shows "no fences" — deterministic gave up
+                    //   (b) Llm segment goes italic "started" — LLM picked up
+                    // The templates-dir FileSystemWatcher in FullServices will fire
+                    // the Llm "done" event when <host>.yaml lands.
+                    Console.WriteLine($"[streaming] inducer returned null for {streamingHost} — escalating to LLM");
+                    telemetryInd.EmitStage(
+                        MarkdownViewer.Services.ExtractionStage.Induce,
+                        started: false,
+                        detail: "no fences");
+                    telemetryInd.EmitStage(
+                        MarkdownViewer.Services.ExtractionStage.Llm,
+                        started: true,
+                        detail: streamingHost);
                 }
             }
 
@@ -747,6 +764,18 @@ public partial class MainWindow
         catch (Exception ex)
         {
             Console.WriteLine($"[streaming] scan/induction failed: {ex.Message}");
+            // Surface the swallow so it isn't a black hole — without this the
+            // Stream segment would stay at "Scanning…" italic forever when an
+            // upstream parse / tokenizer / store call blew up mid-flight.
+            try
+            {
+                var telemetryErr = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+                telemetryErr.EmitStage(
+                    MarkdownViewer.Services.ExtractionStage.Stream,
+                    started: false,
+                    detail: $"error: {ex.GetType().Name}");
+            }
+            catch { /* telemetry itself blew up — give up quietly */ }
         }
 #endif
 
