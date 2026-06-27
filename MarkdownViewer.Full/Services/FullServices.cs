@@ -74,17 +74,15 @@ internal static class FullServices
         //   visit 1: NoTemplate -> induce + upsert -> persisted to disk
         //   visit 2: ScanByHost hot-cache miss -> WarmByHostAsync hits sqlite
         //            -> real Captured / Bailout verdict
-        var streamingDbPath = Path.Combine(AppPaths.LocalState, "streaming-templates.db");
-        services.AddSingleton<IStreamingTemplateStore>(_ =>
-            new SqliteStreamingTemplateStore($"Data Source={streamingDbPath}"));
-        services.AddSingleton<StreamingPathSelector>();
-        services.AddSingleton<StreamingTemplateInducer>();
-
-        // alpha.18: streaming-template refit + versioning. Sink surfaces refit
+        //
+        // alpha.18: refit + versioning. RefitTelemetrySink surfaces refit
         // events via the existing ExtractionTelemetry "llm" status-bar segment
         // so the user sees "<host> (refit v2)" when drift triggers a refit.
+        // Registered BEFORE AddStyloExtractStreaming so the consumer sink
+        // wins over the extension's TryAddSingleton noop default.
         services.AddSingleton<IStreamingTemplateVersionSink, RefitTelemetrySink>();
-        services.AddSingleton<StreamingRefitOrchestrator>();
+        services.AddStyloExtractStreaming(o =>
+            o.SqlitePath = Path.Combine(AppPaths.LocalState, "streaming-templates.db"));
 
         // Task 8: telemetry sink — must be registered before HtmlToMarkdownServiceFull.
         services.AddSingleton<ExtractionTelemetry>();
