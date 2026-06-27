@@ -128,7 +128,12 @@ public partial class MainWindow : Window
         Closing += OnWindowClosing;
         // Re-clamp the column width when the window is resized so shrinking
         // the window doesn't push the right ruler handle off-screen.
-        SizeChanged += (_, _) => ApplyContentMaxWidth();
+        SizeChanged += (_, _) =>
+        {
+            ApplyContentMaxWidth();
+            ApplyStatusBarResponsive();
+        };
+        ApplyStatusBarResponsive();
 
         // Accepts a positional arg:
         //   lucidVIEW path/to/document.md → LoadFile
@@ -1385,6 +1390,28 @@ public partial class MainWindow : Window
 
     private void OnExtractionStatusClicked(object? sender, Avalonia.Input.PointerPressedEventArgs e)
         => ShowExtractionDetails();
+#endif
+
+    /// <summary>
+    /// Hide low-priority status-bar columns as the window narrows so the
+    /// pipeline-stage indicator (column 7) keeps room and doesn't truncate.
+    /// Thresholds were chosen so a 1366×768 laptop comfortably shows everything
+    /// and a 900-wide window still shows the essentials.
+    /// </summary>
+    private void ApplyStatusBarResponsive()
+    {
+        var w = Bounds.Width;
+        // FontSizeText is the first to drop — least useful at a glance.
+        FontSizeText.IsVisible = w >= 1200;
+        // FileInfoText (chars / image count) — useful but expendable.
+        FileInfoText.IsVisible = w >= 1050;
+        // WordCountText — keep until really narrow.
+        WordCountText.IsVisible = w >= 950;
+        // FileDateText — same threshold; date is one of the first ditched.
+        FileDateText.IsVisible = w >= 1100;
+    }
+
+#if FULL
 
     /// <summary>
     /// `--shot URL OUTPUT.png` flow: load the URL via the existing LoadWebPage

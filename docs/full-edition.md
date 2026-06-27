@@ -339,4 +339,4 @@ Anything that violates these is a defect, not a feature.
 - `MarkdownViewer/Views/MainWindow.FileOperations.cs` — `DownloadWebPageAsync` with the `#if FULL` chunked-feed integration (`ReadBodyWithLimitAndScanAsync`).
 - `MarkdownViewer.Full/Program.cs` — CLI verb parsing + `--shot` AutoShot state.
 - `docs/streaming.md` in the `stylobot-extract` repo — streaming-mode reference (verdicts, sliding-window mechanics).
-- `.superpowers/sdd/alpha19-streaming-report.md` — alpha.21 smoke metrics this guide cites.
+- `.superpowers/sdd/alpha19-streaming-report.md` — alpha.19 smoke metrics this guide originally cited (historical). The alpha.21 streaming work (Bloom early-reject + structural drift bailout) further reduces peak-buffered memory on real pages; see the lucidVIEW user-manual §20.2 for the alpha.21 headline numbers captured on mostlylucid.net.

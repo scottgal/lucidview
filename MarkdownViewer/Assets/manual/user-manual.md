@@ -337,14 +337,21 @@ paired with an HTML-shaped body.
 
 ### 20.4 Source mode indicator
 
-In FULL, the status bar's first column shows the source mode icon — a tiny
-glyph that tells you how the current document got here:
+The status bar's first column shows the source mode icon plus a short label
+that tells you how the current document got here:
 
-- **Direct markdown** — the URL returned `text/markdown` (no conversion needed)
-- **Converted from HTML** — the URL returned HTML and StyloExtract converted it
-- **Client-side rendered** — the URL looked like an SPA shell with no static content; conversion is impossible
+| Label | Icon | Meaning |
+|---|---|---|
+| `file` | document | Local markdown file you opened or dropped |
+| `markdown` | globe | The URL returned `text/markdown` (no conversion needed) |
+| `html→md` | sync arrows | The URL returned HTML and StyloExtract converted it |
+| `spa` | warning | Looked like an SPA shell with no static content — conversion impossible |
 
-Hover the icon for a tooltip with the same labels.
+When the label is followed by a **`✓`** (e.g. `html→md ✓`), the streaming
+template store already has a learned template for the current host — meaning
+the next visit will skip-path on the streaming scanner. The marker persists
+for the whole document so you can tell at a glance "I've taught lucidVIEW
+about this host."
 
 ### 20.5 CLI verbs (FULL only)
 

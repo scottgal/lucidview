@@ -70,12 +70,15 @@
                                        Foreground="{DynamicResource AppText}" />
                     </Button>
 
-                    <!-- Navigation: Back / Forward / Reload -->
+                    <!-- Navigation: Back / Forward / Reload — hidden until they
+                         have something to do, so the toolbar doesn't carry three
+                         dead buttons before the first URL is loaded. -->
                     <Button x:Name="BackButton"
                             Grid.Column="2"
                             Classes="header-btn"
                             Click="OnGoBack"
                             IsEnabled="False"
+                            IsVisible="False"
                             ToolTip.Tip="Back (Alt+Left)">
                         <ic:SymbolIcon Symbol="ArrowLeft" FontSize="18"
                                        Foreground="{DynamicResource AppText}" />
@@ -85,6 +88,7 @@
                             Classes="header-btn"
                             Click="OnGoForward"
                             IsEnabled="False"
+                            IsVisible="False"
                             ToolTip.Tip="Forward (Alt+Right)">
                         <ic:SymbolIcon Symbol="ArrowRight" FontSize="18"
                                        Foreground="{DynamicResource AppText}" />
@@ -94,6 +98,7 @@
                             Classes="header-btn"
                             Click="OnReload"
                             IsEnabled="False"
+                            IsVisible="False"
                             ToolTip.Tip="Reload (F5)">
                         <ic:SymbolIcon Symbol="ArrowClockwise" FontSize="18"
                                        Foreground="{DynamicResource AppText}" />
@@ -225,30 +230,38 @@
 
             <!-- Status Bar -->
             <Border DockPanel.Dock="Bottom" Classes="status-panel">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
-                    <!-- Source mode icon: shows whether the current doc is a
-                         local file, native markdown from a URL, or converted
-                         from HTML by StyloExtract. Hover for detail. -->
+                <Grid x:Name="StatusBarGrid" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
+                    <!-- Source mode icon + text label. Shows whether the current
+                         doc is a local file, native markdown from a URL, or
+                         converted from HTML. Lights a ✓ when a streaming
+                         template already exists for the host (FULL only). -->
                     <ic:SymbolIcon x:Name="SourceModeIcon"
                                    Grid.Column="0"
                                    Symbol="Document"
                                    FontSize="14"
                                    VerticalAlignment="Center"
-                                   Margin="6,0,8,0"
+                                   Margin="6,0,4,0"
                                    IsVisible="False"
                                    Foreground="{DynamicResource AppTextSecondary}"
                                    ToolTip.Tip="Source mode" />
-                    <TextBlock Grid.Column="1" x:Name="StatusText" Text="Ready" Classes="status-text" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="1" x:Name="SourceModeLabel"
+                               Classes="status-text"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0"
+                               IsVisible="False"
+                               Foreground="{DynamicResource AppTextSecondary}"
+                               ToolTip.Tip="Source mode" />
+                    <TextBlock Grid.Column="2" x:Name="StatusText" Text="Ready" Classes="status-text" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="2" x:Name="FileDateText" Classes="status-text" Margin="16,0"
+                    <TextBlock Grid.Column="3" x:Name="FileDateText" Classes="status-text" Margin="16,0"
                                VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="3" x:Name="WordCountText" Classes="status-text" Margin="16,0"
+                    <TextBlock Grid.Column="4" x:Name="WordCountText" Classes="status-text" Margin="16,0"
                                VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="4" x:Name="FileInfoText" Classes="status-text" Margin="16,0"
+                    <TextBlock Grid.Column="5" x:Name="FileInfoText" Classes="status-text" Margin="16,0"
                                VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="5" x:Name="FontSizeText" Text="16px" Classes="status-text"
+                    <TextBlock Grid.Column="6" x:Name="FontSizeText" Text="16px" Classes="status-text"
                                VerticalAlignment="Center" Margin="16,0,0,0" />
-                    <TextBlock Grid.Column="6" x:Name="ExtractionStatusText"
+                    <TextBlock Grid.Column="7" x:Name="ExtractionStatusText"
                                IsVisible="False"
                                Margin="12,0,0,0"
                                VerticalAlignment="Center"
@@ -258,7 +271,7 @@
                     <!-- FULL-only pipeline stage indicator: each segment starts dim (0.4)
                          and lights up to 1.0 as ConvertAsync emits StageChanged. Stays
                          IsVisible="False" in lean (runtime-neutral). -->
-                    <StackPanel Grid.Column="6" x:Name="ExtractionStagesPanel"
+                    <StackPanel Grid.Column="7" x:Name="ExtractionStagesPanel"
                                 IsVisible="False"
                                 Orientation="Horizontal"
                                 VerticalAlignment="Center"
@@ -266,17 +279,17 @@
                                 Spacing="6"
                                 Cursor="Hand"
                                 PointerPressed="OnExtractionStatusClicked">
-                        <TextBlock x:Name="StageFetchText"  Text="fetch"  Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock x:Name="StageStreamText" Text="stream" Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock x:Name="StageMatchText"  Text="match"  Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock x:Name="StageInduceText" Text="induce" Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock x:Name="StageLlmText"    Text="llm"    Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock Text="·" Opacity="0.3" Foreground="{DynamicResource ThemeAccentBrush}" />
-                        <TextBlock x:Name="StageRenderText" Text="render" Opacity="0.4" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageFetchText"  Text="fetch"  Opacity="0.55" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.45" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageStreamText" Text="stream" Opacity="0.55" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.45" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageMatchText"  Text="match"  Opacity="0.55" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.45" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageInduceText" Text="induce" Opacity="0.55" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.45" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageLlmText"    Text="llm"    Opacity="0.55" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock Text="·" Opacity="0.45" Foreground="{DynamicResource ThemeAccentBrush}" />
+                        <TextBlock x:Name="StageRenderText" Text="render" Opacity="0.55" Foreground="{DynamicResource ThemeAccentBrush}" />
                     </StackPanel>
                 </Grid>
             </Border>

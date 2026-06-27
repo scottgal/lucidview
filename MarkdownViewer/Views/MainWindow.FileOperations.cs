@@ -303,7 +303,7 @@ public partial class MainWindow
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
                 throw new InvalidOperationException("Only http:// and https:// URLs are supported.");
 
-            var (body, isHtml) = await DownloadWebPageAsync(uri);
+            var (body, isHtml, streamingHostKnown) = await DownloadWebPageAsync(uri);
             string content;
             var mode = isHtml ? SourceMode.ConvertedFromHtml : SourceMode.DirectMarkdown;
 
@@ -352,6 +352,9 @@ public partial class MainWindow
 
             PushHistory(url, title);
             SetSourceMode(mode);
+#if FULL
+            if (streamingHostKnown) MarkSourceModeHostKnown();
+#endif
             QueueImageCaching(content);
         }
         catch (Exception ex) when (!IsIgnorableError(ex))
@@ -369,9 +372,15 @@ public partial class MainWindow
 
     private void UpdateNavigationButtonState()
     {
+        // Toolbar de-clutter (UX): keep buttons hidden until they have anything
+        // to do. Reload appears as soon as the first URL loads; Back/Forward
+        // only when history goes that direction.
         BackButton.IsEnabled = _sessionHistory.CanGoBack;
+        BackButton.IsVisible = _sessionHistory.CanGoBack;
         ForwardButton.IsEnabled = _sessionHistory.CanGoForward;
+        ForwardButton.IsVisible = _sessionHistory.CanGoForward;
         ReloadButton.IsEnabled = _sessionHistory.Current is not null;
+        ReloadButton.IsVisible = _sessionHistory.Current is not null;
 
         if (AddressBar is not null && _sessionHistory.Current is { } entry)
             AddressBar.Text = entry.Url;
@@ -594,7 +603,7 @@ public partial class MainWindow
         return $"\"{escaped}\"";
     }
 
-    private static async Task<(string Body, bool IsHtml)> DownloadWebPageAsync(Uri uri)
+    private static async Task<(string Body, bool IsHtml, bool StreamingHostKnown)> DownloadWebPageAsync(Uri uri)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.UserAgent.ParseAdd(UserAgent.Value);
@@ -619,6 +628,8 @@ public partial class MainWindow
         var warmSelector = FullServices.Get<StyloExtract.Streaming.StreamingPathSelector>();
         _ = warmSelector.WarmByHostAsync(streamingHost).AsTask();
 #endif
+
+        bool streamingHostKnown = false;
 
         using var response = await RemoteMarkdownClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
@@ -660,6 +671,12 @@ public partial class MainWindow
             var verdict = lastVerdict;
             Console.WriteLine($"[streaming] scanned {bytes.Length} bytes from {uri.Host}: verdict={verdict}");
 
+            // Host is "known" whenever the scanner had a template to try at all
+            // — Captured (matched), Bailout (tried but drifted), or Continue
+            // (scanned without terminal state). NoTemplate means the host has
+            // never been seen, so the ✓ should not appear.
+            streamingHostKnown = verdict != StyloExtract.Streaming.ScanVerdict.NoTemplate;
+
             if (verdict == StyloExtract.Streaming.ScanVerdict.NoTemplate && isHtml)
             {
                 var inducer = FullServices.Get<StyloExtract.Streaming.StreamingTemplateInducer>();
@@ -669,6 +686,10 @@ public partial class MainWindow
                 {
                     var store = FullServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
                     await store.UpsertAsync(induced, CancellationToken.None);
+                    // Just induced a template — the next visit will be Captured,
+                    // but for THIS fetch's marker we still want the ✓ so the user
+                    // sees the moment the host became known.
+                    streamingHostKnown = true;
                     Console.WriteLine(
                         $"[streaming] induced template for {streamingHost} " +
                         $"(prefix={summary?.PrefixMarker}, content={summary?.ContentStartMarker}, end={summary?.ContentEndMarker})");
@@ -694,9 +715,16 @@ public partial class MainWindow
             // byte buffer — under the alpha.19+ contract this stays O(longest tag)
             // regardless of response size, so a 200 KB response with peak ~8 KB is
             // the proof the streaming scan held bounded memory.
-            var streamDetail = peakBufferedBytes > 0
-                ? $"{verdict} peak{peakBufferedBytes}B/{bytes.Length}B"
+            // verdict == Continue at the end of a fetch means the scanner never
+            // hit a terminal state — either no template existed (about to induce
+            // one) or the body never matched. Relabel to avoid the misleading
+            // "Continue" reading.
+            var verdictLabel = verdict == StyloExtract.Streaming.ScanVerdict.Continue
+                ? "Scanned"
                 : verdict.ToString();
+            var streamDetail = peakBufferedBytes > 0
+                ? $"{verdictLabel} peak{peakBufferedBytes}B/{bytes.Length}B"
+                : verdictLabel;
             telemetry.EmitStage(
                 MarkdownViewer.Services.ExtractionStage.Stream,
                 started: false,
@@ -718,7 +746,7 @@ public partial class MainWindow
         }
 #endif
 
-        return (body, isHtml);
+        return (body, isHtml, streamingHostKnown);
     }
 
     private static async Task<byte[]> ReadBodyWithLimitAsync(HttpContent content, long maxBytes)
@@ -883,26 +911,49 @@ public partial class MainWindow
     private void SetSourceMode(SourceMode mode)
     {
         SourceModeIcon.IsVisible = true;
+        SourceModeLabel.IsVisible = true;
         switch (mode)
         {
             case SourceMode.LocalFile:
                 SourceModeIcon.Symbol = FluentIcons.Common.Symbol.Document;
+                SourceModeLabel.Text = "file";
                 ToolTip.SetTip(SourceModeIcon, "Local markdown file");
+                ToolTip.SetTip(SourceModeLabel, "Local markdown file");
                 break;
             case SourceMode.DirectMarkdown:
                 SourceModeIcon.Symbol = FluentIcons.Common.Symbol.Globe;
+                SourceModeLabel.Text = "markdown";
                 ToolTip.SetTip(SourceModeIcon, "Direct markdown from URL (no conversion)");
+                ToolTip.SetTip(SourceModeLabel, "Direct markdown from URL (no conversion)");
                 break;
             case SourceMode.ConvertedFromHtml:
                 SourceModeIcon.Symbol = FluentIcons.Common.Symbol.ArrowSync;
+                SourceModeLabel.Text = "html→md";
                 ToolTip.SetTip(SourceModeIcon, "Converted from HTML via StyloExtract");
+                ToolTip.SetTip(SourceModeLabel, "Converted from HTML via StyloExtract");
                 break;
             case SourceMode.ClientSideRendered:
                 SourceModeIcon.Symbol = FluentIcons.Common.Symbol.Warning;
+                SourceModeLabel.Text = "spa";
                 ToolTip.SetTip(SourceModeIcon, "Client-side rendered — JavaScript required, lucidVIEW can't run it");
+                ToolTip.SetTip(SourceModeLabel, "Client-side rendered — JavaScript required, lucidVIEW can't run it");
                 break;
         }
     }
+
+#if FULL
+    /// <summary>
+    /// Mark the source-mode label with a ✓ when the streaming template store
+    /// already has a learned host template — gives the user a persistent
+    /// "this host is known" signal beyond the transient stages flicker.
+    /// </summary>
+    private void MarkSourceModeHostKnown()
+    {
+        var current = SourceModeLabel.Text ?? "";
+        if (!current.EndsWith(" ✓", StringComparison.Ordinal))
+            SourceModeLabel.Text = current + " ✓";
+    }
+#endif
 
     private void QueueImageCaching(string content)
     {
