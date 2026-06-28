@@ -489,6 +489,69 @@
                             </Grid>
                         </Border>
 
+                        <!-- Inline ruler bar — sticky at the top of the content area, just below
+                             the metadata panel. Width is bound to MarkdownContentBorder (inside the
+                             ScrollViewer below) so the handle tips automatically track the column
+                             edges as the user drags or as the window resizes. Lives in the DockPanel
+                             chrome (not inside the ScrollViewer) so it stays in place while the
+                             markdown scrolls underneath — saves the ~38 px of vertical real estate
+                             the old in-scroller placement consumed. -->
+                        <Grid x:Name="InlineRulerBar"
+                              DockPanel.Dock="Top"
+                              Height="22"
+                              Margin="0,2,0,2"
+                              HorizontalAlignment="Center"
+                              IsVisible="False"
+                              Background="Transparent"
+                              Width="{Binding ElementName=MarkdownContentBorder, Path=Width}"
+                              PointerPressed="OnRulerCanvasPointerPressed">
+                            <Rectangle Height="4"
+                                       VerticalAlignment="Center"
+                                       RadiusX="2" RadiusY="2"
+                                       Fill="{DynamicResource AppAccent}"
+                                       Opacity="0.55" />
+                            <TextBlock x:Name="RulerWidthLabel"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppText}" />
+                            <Thumb x:Name="RulerLeftThumb"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Top"
+                                   Width="14" Height="18"
+                                   Margin="-7,2,0,0"
+                                   Cursor="SizeWestEast"
+                                   DragDelta="OnRulerHandleDragDelta"
+                                   ToolTip.Tip="Left margin">
+                                <Thumb.Template>
+                                    <ControlTemplate>
+                                        <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
+                                              Fill="{DynamicResource AppAccent}"
+                                              Stroke="{DynamicResource AppText}"
+                                              StrokeThickness="1" />
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
+                            <Thumb x:Name="RulerRightThumb"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Top"
+                                   Width="14" Height="18"
+                                   Margin="0,2,-7,0"
+                                   Cursor="SizeWestEast"
+                                   DragDelta="OnRulerHandleDragDelta"
+                                   ToolTip.Tip="Right margin">
+                                <Thumb.Template>
+                                    <ControlTemplate>
+                                        <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
+                                              Fill="{DynamicResource AppAccent}"
+                                              Stroke="{DynamicResource AppText}"
+                                              StrokeThickness="1" />
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
+                        </Grid>
+
                         <!-- Content Views - stacked, only one visible at a time -->
                         <Grid>
                             <!-- Rendered Markdown - DockPanel for fixed gutters at edges -->
@@ -509,69 +572,6 @@
                                         <LayoutTransformControl x:Name="MarkdownLayoutTransform"
                                                                 HorizontalAlignment="Center">
                                             <StackPanel HorizontalAlignment="Center" Orientation="Vertical">
-                                                <!-- Inline ruler bar — same width as the Border below
-                                                     via ElementName binding so handles AUTOMATICALLY
-                                                     align with the column edges. No position math
-                                                     anywhere in code-behind. -->
-                                                <Grid x:Name="InlineRulerBar"
-                                                      Height="22"
-                                                      Margin="0,16,0,0"
-                                                      IsVisible="False"
-                                                      Background="Transparent"
-                                                      Width="{Binding ElementName=MarkdownContentBorder, Path=Width}"
-                                                      PointerPressed="OnRulerCanvasPointerPressed">
-                                                    <!-- Highlighted track fills the bar (= column width) -->
-                                                    <Rectangle Height="4"
-                                                               VerticalAlignment="Center"
-                                                               RadiusX="2" RadiusY="2"
-                                                               Fill="{DynamicResource AppAccent}"
-                                                               Opacity="0.55" />
-                                                    <!-- Width readout in the middle -->
-                                                    <TextBlock x:Name="RulerWidthLabel"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"
-                                                               FontSize="10"
-                                                               FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource AppText}" />
-                                                    <!-- Left handle: HA=Left + negative margin so the
-                                                         tip extends slightly past the column edge. -->
-                                                    <Thumb x:Name="RulerLeftThumb"
-                                                           HorizontalAlignment="Left"
-                                                           VerticalAlignment="Top"
-                                                           Width="14" Height="18"
-                                                           Margin="-7,2,0,0"
-                                                           Cursor="SizeWestEast"
-                                                           DragDelta="OnRulerHandleDragDelta"
-                                                           ToolTip.Tip="Left margin">
-                                                        <Thumb.Template>
-                                                            <ControlTemplate>
-                                                                <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
-                                                                      Fill="{DynamicResource AppAccent}"
-                                                                      Stroke="{DynamicResource AppText}"
-                                                                      StrokeThickness="1" />
-                                                            </ControlTemplate>
-                                                        </Thumb.Template>
-                                                    </Thumb>
-                                                    <!-- Right handle: HA=Right + negative margin -->
-                                                    <Thumb x:Name="RulerRightThumb"
-                                                           HorizontalAlignment="Right"
-                                                           VerticalAlignment="Top"
-                                                           Width="14" Height="18"
-                                                           Margin="0,2,-7,0"
-                                                           Cursor="SizeWestEast"
-                                                           DragDelta="OnRulerHandleDragDelta"
-                                                           ToolTip.Tip="Right margin">
-                                                        <Thumb.Template>
-                                                            <ControlTemplate>
-                                                                <Path Data="M 7 0 L 14 7 L 14 18 L 0 18 L 0 7 Z"
-                                                                      Fill="{DynamicResource AppAccent}"
-                                                                      Stroke="{DynamicResource AppText}"
-                                                                      StrokeThickness="1" />
-                                                            </ControlTemplate>
-                                                        </Thumb.Template>
-                                                    </Thumb>
-                                                </Grid>
-
                                             <Border x:Name="MarkdownContentBorder"
                                                     Padding="48,40" HorizontalAlignment="Center"
                                                     Margin="0,8,0,16"

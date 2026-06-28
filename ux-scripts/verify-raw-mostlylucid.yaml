@@ -1,0 +1,22 @@
+# Dump the raw markdown that StyloExtract produced for mostlylucid.net,
+# so we can SEE what the conversion is doing wrong vs the rendered view.
+#
+# Run with the URL as args[1]:
+#   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -c Debug -- \
+#       https://www.mostlylucid.net \
+#       --ux-test --script ux-scripts/verify-raw-mostlylucid.yaml \
+#       --output ux-results/mostlylucid-raw
+
+name: verify-raw-mostlylucid
+description: Switch to Raw view to see the actual markdown source
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "10000"
+  - type: Click
+    target: RawTab
+  - type: Wait
+    value: "800"
+  - type: Screenshot
+    value: raw-markdown

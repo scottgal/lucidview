@@ -33,8 +33,11 @@
 
     <Style Selector="Border.header-bar">
         <Setter Property="Background" Value="{DynamicResource AppBackgroundSecondary}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AppAccent}" />
-        <Setter Property="BorderThickness" Value="0,0,0,2" />
+        <!-- No bottom border. The InlineRulerBar (docked top, just below this
+             header) IS the visible separator between toolbar and content;
+             keeping the old 2px accent bottom-border here would render TWO
+             stacked blue lines. -->
+        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="10,6" />
         <Setter Property="Height" Value="52" />
     </Style>

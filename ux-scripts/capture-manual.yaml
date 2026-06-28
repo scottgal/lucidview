@@ -24,6 +24,31 @@ actions:
     value: 01-welcome
     description: Welcome panel before any document is loaded
 
+  # 0a. Address bar — focus, then type a URL so the watermark/typing
+  # state is captured. The harness can't reliably fetch a live URL inside
+  # a CI run, so we stop short of pressing Enter — the screenshot is the
+  # point. Cleared again before the fixture load below.
+  - type: PressKey
+    value: Ctrl+L
+  - type: Wait
+    value: "300"
+  - type: TypeText
+    target: AddressBar
+    value: "https://www.mostlylucid.net/"
+  - type: Wait
+    value: "300"
+  - type: Screenshot
+    value: 01b-address-bar
+    description: Address bar focused with a URL typed (Enter would load it)
+  - type: Click
+    target: AddressBar
+  - type: PressKey
+    value: Ctrl+A
+  - type: PressKey
+    value: Delete
+  - type: Wait
+    value: "200"
+
   # 1. Load fixture document.
   - type: Navigate
     value: ux-scripts/test-document.md

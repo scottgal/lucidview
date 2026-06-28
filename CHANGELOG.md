@@ -4,6 +4,54 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v3.0.0 - 2026-06-28
+
+Picks up StyloExtract 2.0.0, the identity-claim architecture rework that
+closes the Phase 1 + Phase 2 work that ran through alpha.22..24. The
+lean app surfaces this as better HTML to Markdown coverage on the sites
+that broke under 1.7.1's MinHash matcher (news listings, language
+picker leaks, JSON-LD-heavy pages).
+
+### Added
+
+- **Address bar at the top of the window.** `Ctrl+L` focuses it. Accepts
+  file paths and URLs interchangeably; `Enter` loads. Last URL persists
+  across launches. The side panel's Open file / Open URL entries still
+  work; the bar is the fast path.
+- **Sticky single-line ruler.** Replaces the previous double-line look
+  (header border plus standalone ruler). Drag the handles to live-resize
+  the document column; width persists across launches.
+
+### Changed
+
+- **StyloExtract bumped 1.7.1 to 2.0.0.** All HTML to Markdown
+  conversions now run on the identity-claim apply path. Practical
+  effects:
+  - News-listing pages (The Register, Verge, Ars, BBC News) extract
+    correctly. The `<article>`-tag semantic exception keeps them out
+    of the link-density gate.
+  - Wikipedia and mostlylucid no longer leak the language picker into
+    MainContent. The tighten-on-anchor heuristic prefers the inner
+    anchored content container when the outer semantic element mixes
+    content and picker.
+  - MS Learn YAML frontmatter no longer wins MainContent. The
+    metadata-shape rejection rule treats key:value-dominated blocks
+    as configuration, not content.
+  - JSON-LD `application/ld+json` blobs and other 4-12 KiB single tags
+    no longer crash the streaming tokenizer. The buffer is rented
+    from `ArrayPool<byte>.Shared` and grows up to a 1 MiB configurable
+    ceiling.
+- **Larger LLM repair context.** When the apply-time quality gate
+  flags an existing template as broken, the LLM repair prompt now
+  ships 2000 chars of the bad output (was 400), letting the inducer
+  see what went wrong.
+
+### Removed
+
+- The local `/tmp/stylo-dogfood-feed` and `/tmp/stylo-2.0.0-feed`
+  entries in `NuGet.Config` are gone; StyloExtract 2.0.0 is on
+  nuget.org.
+
 ## v2.8.0 — 2026-06-24
 
 ### Fixed

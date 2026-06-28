@@ -2,46 +2,53 @@ namespace MarkdownViewer.Services;
 
 /// <summary>
 /// Decides whether the first-pass static extraction should be retried via
-/// Playwright. A retry is warranted when the HTML is a JavaScript SPA shell
-/// or when the extraction returned too little usable text.
+/// Playwright.
+///
+/// Old policy: fire Playwright on any of (empty markdown, thin markdown,
+/// few blocks, SPA framework markers). The "thin markdown" and "few blocks"
+/// triggers backfire on server-rendered sites where the static HTML carries
+/// the real content but the heuristic happened to pick a smaller subtree:
+/// Playwright's rendered DOM exposes hidden metadata / admin / debug
+/// sub-elements that beat the actual article body on re-extraction
+/// (MS Learn's YAML frontmatter, Notion's __PROPS__, every framework's
+/// hydration scratch data). For server-rendered pages, "thin extraction"
+/// means our extractor needs to do better — NOT that we should ask JS to
+/// give us more DOM to sift through.
+///
+/// New policy: fire Playwright only when the static HTML is recognisably a
+/// JavaScript framework shell (Next/Nuxt/Angular/React-SSR/etc.) AND the
+/// static extraction produced essentially nothing. If the HTML is server-
+/// rendered with substantial body bytes, keep what the extractor produced
+/// and let the LLM repair path (if any) refine the template. Playwright is
+/// for "the page has no content without JS" — never for "the page has
+/// content but our extractor didn't find enough of it."
 /// </summary>
 internal static class RenderedFetchPolicy
 {
-    // Minimum markdown length we consider "extraction found enough content"
-    // to skip Playwright retry. Set conservatively — 500 chars (~75 words)
-    // catches genuinely-empty extractions without forcing Playwright on every
-    // article-size page. Bumping further hurts server-rendered sites where
-    // the heuristic does fine work (mostlylucid.net, blogs, docs) — the
-    // Playwright DOM has JS-executed bloat that confuses the inducer.
-    // Internal-settable so unit tests with small fixtures can lower it.
-    internal static int MinMarkdownLength { get; set; } = 500;
-
-    // Block-count signal: many real article/aggregator pages have ≥3 blocks
-    // (heading + a paragraph + at least one figure or list). Anything below
-    // suggests the static fetch returned nav-only chrome and needs JS render.
-    // Internal-settable for tests.
-    internal static int MinBlockCount { get; set; } = 3;
+    // Floor below which an extraction is treated as essentially-empty. Only
+    // applies in combination with the SPA-marker check below.
+    internal static int EmptyMarkdownThreshold { get; set; } = 200;
 
     public static bool ShouldRetry(string firstPassHtml, string firstPassMarkdown)
     {
+        // Playwright fires only when BOTH:
+        //  - the HTML carries a known SPA framework marker (the static body
+        //    is a hydration shell, not the real content); AND
+        //  - the static extraction produced essentially no text (so there's
+        //    nothing to lose by re-fetching).
+        // Sites without SPA markers are server-rendered: we keep the static
+        // extraction and don't risk a Playwright DOM corrupting the result
+        // with hidden metadata.
+        if (!SpaDetection.LooksLikeSpa(firstPassHtml))
+            return false;
+
         if (string.IsNullOrWhiteSpace(firstPassMarkdown))
             return true;
-        if (firstPassMarkdown.Length < MinMarkdownLength)
-            return true;
-        if (SpaDetection.LooksLikeSpa(firstPassHtml))
+        if (firstPassMarkdown.Length < EmptyMarkdownThreshold)
             return true;
         return false;
     }
 
     public static bool ShouldRetry(string firstPassHtml, string firstPassMarkdown, int firstPassBlockCount)
-    {
-        if (ShouldRetry(firstPassHtml, firstPassMarkdown))
-            return true;
-        // Sparse-blocks signal: many real article/aggregator pages have ≥10
-        // content blocks once JS finishes; static fetch returning fewer is a
-        // strong tell the JS-rendered headlines are missing.
-        if (firstPassBlockCount < MinBlockCount)
-            return true;
-        return false;
-    }
+        => ShouldRetry(firstPassHtml, firstPassMarkdown);
 }

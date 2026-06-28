@@ -33,14 +33,26 @@ lucidVIEW README.md
 
 ## 2. Loading a document
 
-Open a markdown file via **Open file...** in the side panel, **Open URL...**
-to fetch one over HTTPS, or just drop it on the window. Recent files appear
-in the side panel for one-click reopening.
+Four ways to open a document, all equivalent:
+
+- **Address bar at the top.** Press `Ctrl+L` (or click it) to focus, then
+  type a file path or a URL and hit `Enter`. The same control accepts both —
+  `~/notes/today.md`, `C:\docs\plan.md`, or `https://example.com/post`. The
+  watermark inside the empty bar reads *"Type a URL or path — Enter to
+  load"* so you don't have to remember which it accepts.
+
+  ![Address bar with a URL typed](screenshots/01b-address-bar.png)
+
+- **Open file...** / **Open URL...** in the side panel.
+- **Drag and drop** a `.md` file onto the window.
+- **Command line**: `lucidVIEW path/to/file.md` or `lucidVIEW https://...`.
+
+Recent files appear in the side panel for one-click reopening.
 
 ![Document loaded](screenshots/02-loaded-default.png)
 
 The default theme is Light. The window remembers your last theme, font size,
-and window dimensions across launches.
+window dimensions, and the last URL you loaded across launches.
 
 ---
 

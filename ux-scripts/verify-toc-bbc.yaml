@@ -1,0 +1,24 @@
+# Verify StyloExtract 1.7.0 produces enough heading structure that the
+# TOC sidebar populates when loading a BBC article.
+#
+# Run with the URL as args[1]:
+#   dotnet run --project MarkdownViewer/MarkdownViewer.csproj -c Debug -- \
+#       https://www.bbc.com/news \
+#       --ux-test --script ux-scripts/verify-toc-bbc.yaml \
+#       --output ux-results/toc-bbc
+
+name: verify-toc-bbc
+description: Load BBC, open TOC, screenshot to verify headings populated
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "10000"
+  - type: Screenshot
+    value: 01-bbc-loaded
+  - type: Click
+    target: TocButton
+  - type: Wait
+    value: "1000"
+  - type: Screenshot
+    value: 02-toc-open

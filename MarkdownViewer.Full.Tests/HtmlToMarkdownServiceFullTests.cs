@@ -21,12 +21,10 @@ public sealed class FullServicesFixture : IDisposable
     {
         Directory.CreateDirectory(TempDir);
         Environment.SetEnvironmentVariable("LUCIDVIEW_STATE_DIR", TempDir);
-        // Test fixtures are short by design; the prod policy thresholds (500
-        // chars, 3 blocks) would trip Playwright retry against a fake URL.
-        // Lower for the duration of these tests to match the heuristic-only
-        // expectations.
-        RenderedFetchPolicy.MinMarkdownLength = 50;
-        RenderedFetchPolicy.MinBlockCount = 1;
+        // The Playwright retry policy is now SPA-only: it only fires when the
+        // static HTML carries a known framework marker (Next.js / Nuxt / etc.)
+        // AND extraction is essentially empty. Plain test fixtures lack SPA
+        // markers and therefore never trip the retry; nothing to override.
     }
 
     public void Dispose()

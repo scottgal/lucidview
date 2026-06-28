@@ -33,7 +33,7 @@
         <!-- App Info -->
         <AssemblyName>lucidVIEW</AssemblyName>
         <RootNamespace>MarkdownViewer</RootNamespace>
-        <Version>2.8.0</Version>
+        <Version>3.0.0</Version>
         <Product>lucidVIEW</Product>
         <Description>A modern, lightweight cross-platform markdown viewer</Description>
         <Copyright>Copyright 2026</Copyright>
@@ -76,10 +76,10 @@
              (Ctrl+Shift+W) when a server returns text/html instead of
              text/markdown. AOT-clean; AngleSharp is the only transitive
              native-free addition. -->
-        <PackageReference Include="Mostlylucid.StyloExtract.Abstractions" Version="1.7.1" />
-        <PackageReference Include="Mostlylucid.StyloExtract.Html" Version="1.7.1" />
-        <PackageReference Include="Mostlylucid.StyloExtract.Heuristics" Version="1.7.1" />
-        <PackageReference Include="Mostlylucid.StyloExtract.Markdown" Version="1.7.1" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Abstractions" Version="2.0.0" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Html" Version="2.0.0" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Heuristics" Version="2.0.0" />
+        <PackageReference Include="Mostlylucid.StyloExtract.Markdown" Version="2.0.0" />
 
         <!-- Diagnostics (debug only) -->
         <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12" Condition="'$(Configuration)' == 'Debug'" />

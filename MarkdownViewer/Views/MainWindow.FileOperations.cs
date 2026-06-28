@@ -804,7 +804,7 @@ public partial class MainWindow
     /// <summary>
     /// alpha.18: true chunked streaming-scan body reader. Replaces alpha.17's
     /// 64 KB-threshold whole-buffer re-scan with a per-chunk feed via the new
-    /// <see cref="StyloExtract.Streaming.IncrementalFenceScanner"/>. As bytes
+    /// <see cref="StyloExtract.Streaming.IncrementalBytePatternScanner"/>. As bytes
     /// arrive from HttpClient we feed them straight into the incremental
     /// tokenizer + scanner, which holds a partial-tag buffer across chunk
     /// boundaries and emits a running verdict as soon as enough tags have
@@ -840,8 +840,8 @@ public partial class MainWindow
         // the body so auto-induction can run on full bytes after stream end.
         var store = MarkdownViewer.Services.FullServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
         var template = store.TryGetHotByHost(host);
-        StyloExtract.Streaming.IncrementalFenceScanner? scanner = template is not null
-            ? StyloExtract.Streaming.IncrementalFenceScanner.Create(template)
+        StyloExtract.Streaming.IncrementalBytePatternScanner? scanner = template is not null
+            ? StyloExtract.Streaming.IncrementalBytePatternScanner.Create(template)
             : null;
 
         var lastVerdict = template is null
@@ -862,25 +862,59 @@ public partial class MainWindow
 
             if (scanner is not null && !earlyTerminal)
             {
-                var v = scanner.Feed(chunk.AsSpan(0, read));
-                Console.WriteLine($"[streaming] chunk {chunkIndex} ({read} bytes): {v}");
-                if (v is StyloExtract.Streaming.ScanVerdict.Captured
-                    or StyloExtract.Streaming.ScanVerdict.Bailout)
+                try
                 {
-                    lastVerdict = v;
-                    earlyTerminal = true;
-                    // Keep draining the body — the markdown converter downstream
-                    // still needs the full bytes — but the verdict is now latched.
+                    var v = scanner.Feed(chunk.AsSpan(0, read));
+                    Console.WriteLine($"[streaming] chunk {chunkIndex} ({read} bytes): {v}");
+                    if (v is StyloExtract.Streaming.ScanVerdict.Captured
+                        or StyloExtract.Streaming.ScanVerdict.Bailout)
+                    {
+                        lastVerdict = v;
+                        earlyTerminal = true;
+                        // Keep draining the body. The markdown converter
+                        // downstream still needs the full bytes; the verdict is
+                        // now latched.
+                    }
+                    else
+                    {
+                        lastVerdict = v;
+                    }
                 }
-                else
+                catch (InvalidOperationException ex)
                 {
-                    lastVerdict = v;
+                    // The streaming tokenizer hit a structural HTML edge case
+                    // it can't recover from. Today's known case: a single tag
+                    // (often a JSON-LD script or inline SVG attribute) exceeds
+                    // IncrementalHtmlTokenizer.MaxBufferSize. The buffered
+                    // pipeline downstream still has the full bytes and can
+                    // extract normally; we just lose the streaming
+                    // optimisation for this response.
+                    //
+                    // Latch to Bailout (not NoTemplate) so the upstream auto-
+                    // induce branch in DownloadWebPageAsync doesn't fire on
+                    // this body. The template we have is fine; the response is
+                    // the outlier, and re-inducing on it would just bake the
+                    // same problem into a fresh template.
+                    Console.WriteLine($"[streaming] tokenizer aborted on chunk {chunkIndex}: {ex.Message}");
+                    scanner = null;
+                    lastVerdict = StyloExtract.Streaming.ScanVerdict.Bailout;
+                    earlyTerminal = true;
                 }
             }
         }
 
         if (scanner is not null && !earlyTerminal)
-            lastVerdict = scanner.Flush();
+        {
+            try
+            {
+                lastVerdict = scanner.Flush();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine($"[streaming] tokenizer aborted on flush: {ex.Message}");
+                lastVerdict = StyloExtract.Streaming.ScanVerdict.Bailout;
+            }
+        }
 
         // alpha.18: kick the refit orchestrator off-hot-path on captured scans.
         // The orchestrator handles its own gating (cadence + EWMA drift) and

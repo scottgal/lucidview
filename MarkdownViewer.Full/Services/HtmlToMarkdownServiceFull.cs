@@ -176,4 +176,51 @@ public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
 
         return md;
     }
+
+    private static string BuildEmptyRenderExplanation(Uri? sourceUri, int htmlLength)
+    {
+        var host = sourceUri?.Host ?? "this site";
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"# No extractable content");
+        sb.AppendLine();
+        sb.AppendLine($"**{host}** sent us {htmlLength / 1024:N0} KB of HTML but our heuristic " +
+            "extractor identified zero content blocks. The page didn't render empty because " +
+            "lucidVIEW is broken — it rendered empty because the page itself doesn't carry " +
+            "extractable article content in a shape our pipeline understands.");
+        sb.AppendLine();
+        sb.AppendLine($"## What this usually means");
+        sb.AppendLine();
+        sb.AppendLine("- **Authentication wall.** Reddit (anonymous), Twitter / X, LinkedIn, " +
+            "and most paywalled news sites serve a minimal logged-out shell to non-authenticated " +
+            "visitors. The real content is gated behind a sign-in.");
+        sb.AppendLine("- **JavaScript-only content.** The HTML response is a framework shell; " +
+            "the article body is fetched and injected by JS after the page loads. lucidVIEW's " +
+            "Playwright auto-retry already attempted this for you; it still produced nothing, " +
+            "so the JS pathway is gated by something we can't reach (auth, anti-bot, geofence).");
+        sb.AppendLine("- **Anti-scraper / anti-bot protection.** Cloudflare interstitials, " +
+            "captchas, and shaped responses for non-residential IPs all produce short minimal " +
+            "DOMs that have no article body to extract.");
+        sb.AppendLine("- **Unusual layout.** Some sites build the page from many short widgets " +
+            "and never present a single \"article body\" the heuristic can lock onto.");
+        sb.AppendLine();
+        sb.AppendLine($"## What you can try");
+        sb.AppendLine();
+        if (sourceUri is not null)
+        {
+            sb.AppendLine($"- Open [{sourceUri}]({sourceUri}) in a regular browser. If it loads " +
+                "fine there but empty here, the site is gating us out and there's nothing " +
+                "lucidVIEW can do client-side.");
+        }
+        sb.AppendLine("- Look for a print / text / lite version of the URL (e.g. `text.npr.org`, " +
+            "`lite.cnn.com`, the site's RSS feed, or `?print=1` query).");
+        sb.AppendLine("- If you're the site operator: serving a static SSR fallback or honouring " +
+            "`Accept: text/markdown` would let lucidVIEW render this page perfectly.");
+        sb.AppendLine();
+        sb.AppendLine($"## The conversion engine");
+        sb.AppendLine();
+        sb.AppendLine($"lucidVIEW uses **StyloExtract**, a separate open-source library, for the " +
+            "HTML → Markdown conversion. Coverage improvements happen there, not in lucidVIEW: " +
+            "[github.com/scottgal/styloextract](https://github.com/scottgal/styloextract).");
+        return sb.ToString();
+    }
 }

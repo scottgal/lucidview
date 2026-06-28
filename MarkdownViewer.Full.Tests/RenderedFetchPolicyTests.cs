@@ -6,22 +6,38 @@ namespace MarkdownViewer.Full.Tests;
 public class RenderedFetchPolicyTests
 {
     [Fact]
-    public void ShouldRetry_True_WhenMarkdownIsTiny()
+    public void ShouldRetry_False_WhenEmptyButNotASpa()
     {
-        Assert.True(RenderedFetchPolicy.ShouldRetry(
+        // Policy change: empty markdown is NOT enough on its own. The HTML
+        // must also be a recognisable SPA shell. Without that, Playwright
+        // can only expose hidden / debug DOM that corrupts the result
+        // (MS Learn YAML, Notion __PROPS__, etc.), so we keep the static
+        // extraction and don't risk it.
+        Assert.False(RenderedFetchPolicy.ShouldRetry(
             firstPassHtml: "<html><body>blank</body></html>",
             firstPassMarkdown: ""));
     }
 
     [Fact]
-    public void ShouldRetry_True_WhenSpaMarkerPresent()
+    public void ShouldRetry_True_WhenSpaMarkerPresent_AndExtractionEmpty()
     {
-        // 220 chars of well-formed prose — passes the MinMarkdownLength check,
-        // so only the SPA-marker branch can cause ShouldRetry to return true.
-        var md = string.Concat(Enumerable.Repeat("This sentence is real content. ", 8));
-        Assert.True(md.Length > 200);  // sanity: ensures the SPA branch is the gate
+        // SPA framework marker + empty extraction = the static body is a
+        // hydration shell. Playwright is the right move.
         Assert.True(RenderedFetchPolicy.ShouldRetry(
             firstPassHtml: "<html><body><div id=\"__next\">{}</div><script>window.__NEXT_DATA__={}</script></body></html>",
+            firstPassMarkdown: ""));
+    }
+
+    [Fact]
+    public void ShouldRetry_False_WhenSpaMarkerPresent_ButExtractionAlreadyHasContent()
+    {
+        // Some SPAs server-side render enough for the heuristic to work.
+        // When the static extraction already produced substantial text,
+        // don't bother with Playwright — the cost is high and the win
+        // (DOM bloat exposing hidden state) is negative.
+        var md = string.Concat(Enumerable.Repeat("Real article prose with substance. ", 8));
+        Assert.False(RenderedFetchPolicy.ShouldRetry(
+            firstPassHtml: "<html><body><div id=\"__next\">{}</div><script>window.__NEXT_DATA__={}</script></body>" + md + "</html>",
             firstPassMarkdown: md));
     }
 

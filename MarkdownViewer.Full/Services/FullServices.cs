@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StyloExtract.Abstractions;
+using StyloExtract.Abstractions.TemplateEnrichment;
 using StyloExtract.Core;
 using StyloExtract.Llm.LlamaSharp;
 using StyloExtract.Playwright;
@@ -86,6 +87,10 @@ internal static class FullServices
 
         // Task 8: telemetry sink — must be registered before HtmlToMarkdownServiceFull.
         services.AddSingleton<ExtractionTelemetry>();
+
+        // Lights up the status-bar Llm segment while a CPU-only inference is in
+        // flight so a 30-60 s qwen3.5:4b call doesn't look like the app froze.
+        services.AddSingleton<ILlmActivityObserver, StatusBarLlmActivityObserver>();
 
         services.AddSingleton<IHtmlToMarkdownService, HtmlToMarkdownServiceFull>();
 
