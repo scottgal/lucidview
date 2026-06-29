@@ -1,0 +1,39 @@
+name: verify-image-click
+description: Verify click-to-expand overlay shows in-window (not a separate Window)
+default_delay: 500
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: MarkdownViewer/Assets/manual/user-manual.md
+  - type: Wait
+    value: "3500"
+  - type: PressKey
+    value: Home
+  - type: Wait
+    value: "800"
+  - type: Screenshot
+    value: 01-manual-loaded
+
+  # Click roughly in the area of the embedded welcome screen image. The
+  # welcome image renders centered around y=350-400px in the doc area.
+  - type: Click
+    target: MdViewer
+    x: 600
+    y: 500
+  - type: Wait
+    value: "800"
+  - type: Screenshot
+    value: 02-overlay-shown
+
+  # Click backdrop to dismiss
+  - type: Click
+    target: ImagePreviewOverlay
+    x: 100
+    y: 100
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 03-overlay-dismissed

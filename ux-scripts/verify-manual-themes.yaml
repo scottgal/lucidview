@@ -1,0 +1,39 @@
+name: verify-manual-themes
+description: Verify the user-manual Themes table (section 4) renders cell images correctly
+default_delay: 500
+
+actions:
+  - type: Wait
+    value: "1500"
+  - type: Navigate
+    value: MarkdownViewer/Assets/manual/user-manual.md
+  - type: Wait
+    value: "3500"
+  - type: Click
+    target: TocButton
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 01-toc-open
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: RenderedScroller
+  - type: Wait
+    value: "300"
+  - type: PressKey
+    value: PageDown
+  - type: Wait
+    value: "400"
+  - type: PressKey
+    value: PageDown
+  - type: Wait
+    value: "400"
+  - type: PressKey
+    value: PageDown
+  - type: Wait
+    value: "1500"
+  - type: Screenshot
+    value: 02-manual-themes-area

@@ -89,6 +89,7 @@ public partial class MainWindow : Window
         MdViewer.MarkdownBuilder = new ObservableStringBuilder();
         MdViewer.ImageBasePath = Path.GetTempPath();
         MdViewer.LinkClick += OnLinkClick;
+        EnsureImagePreviewWired();
         _themeService = new ThemeService(Application.Current!) { CustomTheme = _settings.CustomTheme };
         _diagramPluginHost = new DiagramRendererPluginHost(
         [
@@ -490,11 +491,6 @@ public partial class MainWindow : Window
         // Deferred until layout has produced the visual tree.
         SchedulePromoteAnimatedImages(content);
 
-        // Apply natural display sizes to cached images (shields are rendered
-        // at 2× for hi-DPI crispness — without this they'd render at the
-        // physical pixel count and appear double-sized).
-        ScheduleConstrainCachedImages(processed);
-
         // Phase 2: Render uncached diagrams in background, then swap in results
         if (pendingDiagrams.Count > 0)
         {
@@ -521,7 +517,6 @@ public partial class MainWindow : Window
 
                 // Re-run marker replacement after pending diagrams update.
                 ScheduleDiagramMarkerReplacement();
-                ScheduleConstrainCachedImages(updated);
             }
             catch (OperationCanceledException)
             {

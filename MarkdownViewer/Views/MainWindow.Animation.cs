@@ -1,6 +1,8 @@
 using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using LiveMarkdown.Avalonia;
 using VisualExtensions = Avalonia.VisualTree.VisualExtensions;
@@ -14,6 +16,56 @@ public partial class MainWindow
     private static readonly Regex AnimatedImageMarkdownRegex =
         new(@"!\[[^\]]*\]\(([^)\s]+\.(?:gif|webp|apng)(?:\?[^)\s]*)?)\)",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // Click-to-expand wiring. We hook a single tunneled PointerPressed on the
+    // MdViewer root and check whether the OriginalSource (or any ancestor)
+    // is an Image with a loaded Source. Cheaper than walking the visual tree
+    // after every render to wire per-image handlers, and survives streaming
+    // updates that re-create Image controls. The overlay shown is the
+    // in-window Border defined in MainWindow.axaml — explicitly NOT a new
+    // Window, which was the previous workaround.
+    private bool _imagePreviewWired;
+
+    private void EnsureImagePreviewWired()
+    {
+        if (_imagePreviewWired || MdViewer is null) return;
+        MdViewer.AddHandler(InputElement.PointerPressedEvent, OnRendererPointerPressed, RoutingStrategies.Tunnel);
+        _imagePreviewWired = true;
+    }
+
+    private void OnRendererPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var props = e.GetCurrentPoint(MdViewer).Properties;
+        if (!props.IsLeftButtonPressed) return;
+
+        var hit = e.Source as Visual;
+        while (hit is not null)
+        {
+            if (hit is Image img && img.Source is not null)
+            {
+                ShowImagePreview(img.Source);
+                e.Handled = true;
+                return;
+            }
+            hit = VisualExtensions.GetVisualParent(hit);
+        }
+    }
+
+    private void ShowImagePreview(Avalonia.Media.IImage source)
+    {
+        if (ImagePreviewImage is null || ImagePreviewOverlay is null) return;
+        ImagePreviewImage.Source = source;
+        ImagePreviewOverlay.IsVisible = true;
+    }
+
+    private void OnImagePreviewBackdropPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (ImagePreviewOverlay is null) return;
+        ImagePreviewOverlay.IsVisible = false;
+        if (ImagePreviewImage is not null)
+            ImagePreviewImage.Source = null;
+        e.Handled = true;
+    }
 
     // LiveMarkdown.Avalonia decodes Images via static Bitmap (first frame
     // only); we walk its post-render tree and swap the static Source for
@@ -29,116 +81,6 @@ public partial class MainWindow
         // Retry on a timer until we find at least one Image (or give up
         // after a few seconds).
         _ = PromoteAnimatedImagesWithRetry(animatedUrls);
-    }
-
-    // Cached SVG→PNG is rasterized at 2× for hi-DPI; without this the
-    // on-screen size doubles because LiveMarkdown treats physical pixels
-    // as DIPs.
-    private void ScheduleConstrainCachedImages(string processedMarkdown)
-    {
-        if (string.IsNullOrEmpty(processedMarkdown)) return;
-        var imageUrls = ExtractAllImageUrls(processedMarkdown);
-        if (imageUrls.Count == 0) return;
-        _ = ConstrainCachedImagesWithRetry(imageUrls);
-    }
-
-    private async Task ConstrainCachedImagesWithRetry(List<string> markdownImageUrls)
-    {
-        const int maxAttempts = 30;
-        const int delayMs = 100;
-        for (int attempt = 0; attempt < maxAttempts; attempt++)
-        {
-            await Task.Delay(delayMs);
-
-            var images = VisualExtensions
-                .GetVisualDescendants(MdViewer)
-                .OfType<Image>()
-                .ToList();
-
-            if (images.Count > 0)
-            {
-                ApplyCachedImageConstraints(images, markdownImageUrls);
-                return;
-            }
-        }
-    }
-
-    private void ApplyCachedImageConstraints(List<Image> images, List<string> markdownImageUrls)
-    {
-        // Match the i-th Image control with the i-th markdown URL. This pairing
-        // can drift when LiveMarkdown emits extra Image controls (inline icons,
-        // list decorations) but on most pages the alignment holds. Mitigation:
-        // if the Image's Source already exposes a natural-size matching the
-        // cached entry, we trust the pairing; otherwise skip to avoid pinning
-        // a content image to a shield's tiny dimensions.
-        for (int i = 0; i < images.Count && i < markdownImageUrls.Count; i++)
-        {
-            var size = _imageCacheService.GetCachedDisplaySizeByLocalPath(markdownImageUrls[i]);
-            if (size == null) continue;
-
-            var img = images[i];
-
-            // Defence against the mis-alignment bug: if the Image already has a
-            // Source loaded and its bitmap dimensions don't match the looked-up
-            // cache entry, skip (different image — pairing is off). Let
-            // AppStyles' Stretch=Uniform DownOnly handle it from the Source.
-            if (img.Source is Avalonia.Media.Imaging.Bitmap bmp
-                && (Math.Abs(bmp.PixelSize.Width - size.Value.Width) > 2
-                    || Math.Abs(bmp.PixelSize.Height - size.Value.Height) > 2))
-                continue;
-
-            img.Width = size.Value.Width;
-            img.Height = size.Value.Height;
-            img.Stretch = Stretch.Uniform;
-            EnableClickToZoom(img);
-        }
-    }
-
-    private void EnableClickToZoom(Image img)
-    {
-        // LiveMarkdown's inline image rendering can squash photos to line-height
-        // regardless of the Width/Height set on the Image control. Workaround
-        // until a renderer-side fix: any image you click pops open at full
-        // bitmap size in a dedicated Window so the cached content is at least
-        // inspectable.
-        if (img.Tag as string == "click-to-zoom-wired") return;
-        img.Tag = "click-to-zoom-wired";
-        img.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
-        img.PointerPressed += (_, e) =>
-        {
-            if (img.Source is null) return;
-            if (e.ClickCount < 1) return;
-            var w = new Avalonia.Controls.Window
-            {
-                Title = "Image preview",
-                Width = Math.Min(1400, img.Width > 0 ? img.Width * 2 : 800),
-                Height = Math.Min(900, img.Height > 0 ? img.Height * 2 : 600),
-                WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner,
-                Content = new Avalonia.Controls.ScrollViewer
-                {
-                    HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-                    VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-                    Content = new Image
-                    {
-                        Source = img.Source,
-                        Stretch = Stretch.None,
-                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                    }
-                }
-            };
-            w.Show(this);
-        };
-    }
-
-    private static List<string> ExtractAllImageUrls(string markdown)
-    {
-        var urls = new List<string>();
-        foreach (Match m in Regex.Matches(markdown, @"!\[[^\]]*\]\(([^)\s]+)(?:\s+""[^""]*"")?\)"))
-        {
-            urls.Add(m.Groups[1].Value);
-        }
-        return urls;
     }
 
     private async Task PromoteAnimatedImagesWithRetry(List<string> animatedUrls)

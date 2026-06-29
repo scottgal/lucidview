@@ -4,6 +4,118 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v3.1.0 - 2026-06-29
+
+### Fixed
+
+- **Markdown `![]()` images and shield badges no longer render as thin
+  strips at text-line height.** Root cause was the renderer's protective
+  `MarkdownTextBlock.OnMeasureInvalidated` override preserving cached
+  `_textRuns` across measure invalidations to avoid selection-render
+  jitter. That cache trapped the stale 0×0 size of inline-hosted
+  `Image` controls between when `AsyncImageLoader` set them up and when
+  the bitmap actually resolved, leaving the image frozen at line height
+  forever. Fix is layered: `MarkdownTextBlock.RebuildInlineLayout()`
+  clears `_textRuns` and invalidates measure on every layoutable
+  ancestor; `AsyncImageLoader.InvalidateHostInlineLayout()` walks up
+  from the loaded `Image` to find the host `MarkdownTextBlock` and
+  posts the rebuild at `DispatcherPriority.Background` so the Image's
+  own measure pass has propagated first; and `EnsureMinHeightForEmbeddedImage`
+  pushes the loaded image's height onto the host `TextBlock` so the
+  surrounding table cell (or any layout panel that sizes children to
+  `DesiredSize`) actually grows to fit the image instead of clipping it.
+  Affects every `![]()` image and HTML `<img>` tag without explicit
+  dims — README shields and the bundled User Manual's theme thumbnails
+  were both visibly broken in v3.0.x.
+- **Images in markdown table cells now size to a per-column budget
+  instead of overflowing the document column.** `MarkdownService`
+  scans each line for the pipe-delimited table-row shape, counts the
+  column count, and passes that hint into `ClampToContainerSize` which
+  divides the standalone 900-wide / 700-tall cap by the column count
+  (with a 120 px floor to keep pathological 20-col tables legible).
+  A 1470×867 theme screenshot in a 2-column table now emits at
+  ~434 wide instead of forcing the table out past the 900-wide
+  document column. 6 new unit tests in `ImageSizingTests.cs` lock the
+  per-column behaviour down.
+- **Shields render pixel-perfect with browser default.** Same `<img
+  width=W height=H>` explicit-dim path remote images already used,
+  now applied to every cached remote image including badges and not
+  just `>200 px` content images. `SvgImage.LoadAsPng` already returns
+  the SVG's intrinsic CSS dimensions (not the 2× rasterised pixel
+  count) so the emitted shield gets its natural 80×20 layout slot
+  regardless of the cache PNG's actual pixel count. `Image.Stretch =
+  Uniform` handles the 2× downscale at draw time so retina screens
+  still get the sharp output.
+- **HTML `<img>` `Width/Height` pinning hardened against unconstrained
+  parent containers.** Previously the renderer set only `Width/Height`
+  on the `Image`; an unconstrained-width parent could let the inline
+  measurement drift. Now also sets `MaxWidth/MaxHeight` to the same
+  declared values so `Width` controls the desired size and `MaxWidth`
+  caps it regardless of the parent's constraint.
+- **Ruler width readout now matches the visible card edge.** The
+  binding was on `MarkdownContentBorder.Width` (the inner content
+  slot) but the card the user sees is `Width + Padding` wide, so the
+  drag handles drifted ~48 px inside each edge. Now binds to
+  `Bounds.Width`, which is the actual rendered outer width including
+  padding — handles sit right at the card edge.
+- **Local image dimensions extracted via `SKData` + `SKCodec.Create`
+  instead of feeding a `FileStream` directly.** `SKCodec` takes
+  ownership of the stream it receives; pairing that with a `using var
+  stream = File.OpenRead(...)` would double-dispose. The new code
+  mirrors the existing `ImageCacheService.TryGetRasterDimensions`
+  pattern (read into byte[], wrap in `SKData`, hand the `SKData` to
+  `SKCodec.Create`). Catch narrowed to `IOException` /
+  `UnauthorizedAccessException` instead of swallowing everything.
+
+### Added
+
+- **Click any image for a full-size in-window preview.** Replaces the
+  v3.0.0 separate-`Window` click-to-zoom kludge (which itself was a
+  workaround for the thin-strip rendering bug — now obsolete with the
+  real fix in place). The preview is an overlay `Border` over the main
+  window at `ZIndex=200` with a `ScrollViewer` for large images and a
+  dismiss chip in the corner. Click the backdrop to close. A single
+  tunneled `PointerPressed` handler on the renderer walks the visual
+  tree to find the clicked `Image`, no per-image wiring needed.
+- **Priority-based image fetch on doc load.** First 6 remote images
+  fetch with priority; once they're cached the markdown re-renders so
+  visible-area images get explicit-dim `<img>` tags (browser pixel
+  parity for shields, proper layout for content images), then the
+  tail streams in the background. The whole pipeline is bound to a
+  per-document `CancellationTokenSource` so rapid doc-switching
+  cancels in-flight tail downloads instead of leaving zombie fetches
+  competing for the cache's 4-slot download semaphore.
+- **`Dispatcher.UIThread.InvokeAsync` hop in the post-cache refresh
+  callback.** The priority await chain runs through `HttpClient` and
+  `Task.WhenAll` — the resumption can land on a thread-pool thread.
+  An explicit dispatcher hop before `DisplayMarkdown` guarantees the
+  UI mutation runs on the UI thread regardless of how the awaits
+  resumed.
+
+### Removed
+
+- **`ApplyCachedImageConstraints` + `EnableClickToZoom` +
+  `ScheduleConstrainCachedImages` (`MainWindow.Animation.cs`).** The
+  v3.0.0 post-render walk that pinned `Image.Width/Height` from cache
+  entries and wired a separate-`Window` click-to-zoom on every
+  image. That whole stack was fighting the thin-strip bug from
+  outside the renderer; now that it's fixed at the renderer level, the
+  post-render walk is dead code and is gone.
+
+### Notes
+
+- The `LiveMarkdown.Avalonia` submodule is at commit `feat/html-img-renderer`
+  with the renderer-side fixes for the inline measure invalidation bug
+  and the `MinHeight` push pattern for inline-hosted images. Drop the
+  submodule and go back to a published `PackageReference` once the
+  upstream library accepts the patch.
+- Bundled user-manual screenshots are unchanged from v3.0.1 — the
+  capture harness's `PressKey` no longer accepts chord syntax (`Ctrl+L`
+  etc.) so `ux-scripts/capture-manual.yaml` fails part-way through.
+  Screenshots are still content-accurate; they'll be regenerated once
+  the capture script is updated to use `Click target=AddressBar`
+  patterns instead of the chord-key path.
+
 ## v3.0.1 - 2026-06-29
 
 ### Fixed

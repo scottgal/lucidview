@@ -1,0 +1,45 @@
+name: verify-image-fix
+description: Load user-manual.md and screenshot the welcome image to verify the markdown ![]() fix
+default_delay: 500
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: MarkdownViewer/Assets/manual/user-manual.md
+  - type: Wait
+    value: "3000"
+  - type: PressKey
+    value: Home
+  - type: Wait
+    value: "800"
+  - type: Screenshot
+    value: 01-manual-top-with-welcome-image
+    description: User Manual welcome section — image should render at sensible size
+
+  - type: PressKey
+    value: PageDown
+  - type: Wait
+    value: "600"
+  - type: Screenshot
+    value: 02-manual-loading-section
+
+  - type: PressKey
+    value: PageDown
+  - type: Wait
+    value: "600"
+  - type: Screenshot
+    value: 03-manual-sidepanel-section
+
+  - type: Navigate
+    value: README.md
+  - type: Wait
+    value: "3000"
+  - type: PressKey
+    value: Home
+  - type: Wait
+    value: "800"
+  - type: Screenshot
+    value: 04-readme-top-with-shields
+    description: README header with 4 shields plus main screenshot

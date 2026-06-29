@@ -69,7 +69,7 @@ public class ImageCacheService : IDisposable
     /// stale, sends a conditional GET (If-None-Match / If-Modified-Since)
     /// and either reuses the cached content (304) or refetches (200).
     /// </summary>
-    public async Task<string> CacheRemoteImageAsync(string url)
+    public async Task<string> CacheRemoteImageAsync(string url, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(url))
             return url;
@@ -80,7 +80,7 @@ public class ImageCacheService : IDisposable
             return entry.LocalPath;
         }
 
-        await _downloadLimiter.WaitAsync();
+        await _downloadLimiter.WaitAsync(cancellationToken);
         try
         {
             return await FetchOrRevalidateAsync(url, entry);
@@ -98,14 +98,77 @@ public class ImageCacheService : IDisposable
     }
 
     /// <summary>Pre-cache all remote images found in markdown content.</summary>
-    public async Task PreCacheImagesAsync(IEnumerable<string> imageUrls)
+    public async Task PreCacheImagesAsync(IEnumerable<string> imageUrls, CancellationToken cancellationToken = default)
     {
         var tasks = imageUrls
             .Where(url => url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                          url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            .Select(CacheRemoteImageAsync);
+            .Select(url => CacheRemoteImageAsync(url, cancellationToken));
 
         await Task.WhenAll(tasks);
+    }
+
+    /// <summary>
+    /// Two-phase image cache: fetch the first <paramref name="priorityCount"/>
+    /// images and signal once they're cached (so the caller can re-render with
+    /// explicit-dim &lt;img&gt; tags for the visible part of the document),
+    /// then continue fetching the rest in the background without blocking.
+    /// Approximates viewport-priority loading: images at the top of the doc
+    /// are almost always what the user sees first, so getting their dims into
+    /// the rewrite pass keeps the first paint crisp. Tail images stream in
+    /// via LiveMarkdown's per-Image HTTP handler as the layout reaches them.
+    /// <paramref name="cancellationToken"/> aborts both the priority await
+    /// and the background tail — wire it to the per-document lifetime so a
+    /// rapid doc-switch session doesn't leave zombie tail downloads
+    /// contending for the shared download semaphore.
+    /// </summary>
+    public async Task PreCacheImagesPriorityAsync(
+        IReadOnlyList<string> imageUrls,
+        int priorityCount,
+        Func<Task>? onPriorityComplete = null,
+        CancellationToken cancellationToken = default)
+    {
+        var remote = imageUrls
+            .Where(url => url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                         url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (remote.Count == 0) return;
+
+        var priorityUrls = remote.Take(priorityCount).ToList();
+        var tailUrls = remote.Skip(priorityCount).ToList();
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await Task.WhenAll(priorityUrls.Select(url => CacheRemoteImageAsync(url, cancellationToken)));
+
+        if (onPriorityComplete is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await onPriorityComplete();
+        }
+
+        if (tailUrls.Count == 0 || cancellationToken.IsCancellationRequested) return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.WhenAll(tailUrls.Select(url => CacheRemoteImageAsync(url, cancellationToken)));
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on doc-switch cancellation — silent.
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+            {
+                // Network / disk hiccup on tail images — log so it's
+                // diagnosable. LiveMarkdown's per-Image HTTP handler will
+                // refetch the URL when its Image source resolves, so the
+                // first paint already-emitted (with raw URLs for un-dim'd
+                // tail entries) still gets pixels eventually.
+                Console.WriteLine($"[image-cache] tail batch hiccup: {ex.GetType().Name}: {ex.Message}");
+            }
+        }, cancellationToken);
     }
 
     /// <summary>Get the cached local path for a URL, or null if not cached.</summary>

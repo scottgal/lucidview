@@ -296,6 +296,37 @@
 
             <!-- Main Content Area -->
             <Grid>
+                <!-- Image Preview Overlay (click-to-expand) -->
+                <Border x:Name="ImagePreviewOverlay"
+                        IsVisible="False"
+                        Background="#CC000000"
+                        ZIndex="200"
+                        PointerPressed="OnImagePreviewBackdropPressed">
+                    <Grid>
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto"
+                                      Padding="40">
+                            <Image x:Name="ImagePreviewImage"
+                                   Stretch="None"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                        </ScrollViewer>
+                        <Border CornerRadius="14"
+                                Background="#80000000"
+                                Width="36" Height="36"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="0,16,16,0"
+                                IsHitTestVisible="False">
+                            <ic:SymbolIcon Symbol="Dismiss"
+                                           FontSize="18"
+                                           Foreground="White"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+
                 <!-- Drop Overlay -->
                 <Border x:Name="DropOverlay" IsVisible="False" Classes="drop-overlay" ZIndex="100">
                     <Border Classes="drop-card" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -503,7 +534,7 @@
                               HorizontalAlignment="Center"
                               IsVisible="False"
                               Background="Transparent"
-                              Width="{Binding ElementName=MarkdownContentBorder, Path=Width}"
+                              Width="{Binding ElementName=MarkdownContentBorder, Path=Bounds.Width}"
                               PointerPressed="OnRulerCanvasPointerPressed">
                             <Rectangle Height="4"
                                        VerticalAlignment="Center"

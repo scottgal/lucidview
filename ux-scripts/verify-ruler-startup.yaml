@@ -1,0 +1,16 @@
+name: verify-ruler-startup
+description: Verify ruler width matches actual doc width at startup
+default_delay: 500
+
+actions:
+  - type: Wait
+    value: "2000"
+  - type: Screenshot
+    value: 01-startup-welcome
+
+  - type: Navigate
+    value: MarkdownViewer/Assets/manual/user-manual.md
+  - type: Wait
+    value: "3000"
+  - type: Screenshot
+    value: 02-doc-loaded

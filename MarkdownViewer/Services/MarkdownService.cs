@@ -391,81 +391,220 @@ public partial class MarkdownService
 
     private string ProcessImagePaths(string content)
     {
+        // Walk line-by-line so we can pass a column-count hint to images that
+        // sit inside a table row. Standalone-paragraph images get the full
+        // document-column cap (900 wide); table cell images get the same cap
+        // divided by the row's column count so they fit without forcing the
+        // table out past the document edge.
         var imageRegex = ImageRegex();
-
-        return imageRegex.Replace(content, match =>
+        var sb = new StringBuilder(content.Length);
+        var lines = content.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
         {
-            var alt = match.Groups[1].Value;
-            var path = match.Groups[2].Value;
+            var line = lines[i];
+            var tableColumns = CountTableRowColumns(line);
+            sb.Append(imageRegex.Replace(line, match => ReplaceImage(match, tableColumns)));
+            if (i < lines.Length - 1) sb.Append('\n');
+        }
+        return sb.ToString();
+    }
 
-            // Skip data URIs
-            if (path.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                return match.Value;
+    /// <summary>
+    /// Returns the column count for a markdown table row line (e.g.
+    /// <c>| Theme | Screenshot |</c> returns 2), or 0 if the line isn't a
+    /// table row. Header-separator lines (<c>|---|---|</c>) also return their
+    /// column count — they participate in the row context but contain no
+    /// images. Tolerant of leading whitespace.
+    /// </summary>
+    private static int CountTableRowColumns(string line)
+    {
+        if (line is null) return 0;
+        var trimmed = line.TrimStart();
+        if (trimmed.Length < 3 || trimmed[0] != '|') return 0;
+        // Strip trailing pipe + whitespace so we don't off-by-one count.
+        var end = trimmed.TrimEnd();
+        if (end[end.Length - 1] != '|') return 0;
+        // Count cells = pipe count - 1. e.g. "| a | b |" has 3 pipes → 2 cells.
+        var pipes = 0;
+        for (int i = 0; i < end.Length; i++) if (end[i] == '|') pipes++;
+        return Math.Max(0, pipes - 1);
+    }
 
-            // Check if remote URL - try to use cached version
-            if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
-                return ProcessRemoteImage(alt, path);
-            }
+    private string ReplaceImage(Match match, int tableColumns)
+    {
+        var alt = match.Groups[1].Value;
+        var path = match.Groups[2].Value;
 
-            // Already absolute file path - convert to file URI
-            if (Path.IsPathRooted(path))
-            {
-                return EmitLocalImage(alt, path);
-            }
-
-            // Resolve relative path
-            if (!string.IsNullOrEmpty(_baseUrl))
-            {
-                // URL-based resolution - resolve and try cache
-                var resolvedUrl = ResolveRelativeUrl(_baseUrl, path);
-                return ProcessRemoteImage(alt, resolvedUrl);
-            }
-
-            if (!string.IsNullOrEmpty(_basePath))
-            {
-                try
-                {
-                    var resolvedPath = Path.GetFullPath(Path.Combine(_basePath, path));
-                    return EmitLocalImage(alt, resolvedPath);
-                }
-                catch
-                {
-                    return match.Value;
-                }
-            }
-
+        // Skip data URIs
+        if (path.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
             return match.Value;
-        });
+
+        // Check if remote URL - try to use cached version
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return ProcessRemoteImage(alt, path, tableColumns);
+        }
+
+        // Already absolute file path - convert to file URI
+        if (Path.IsPathRooted(path))
+        {
+            return EmitLocalImage(alt, path, tableColumns);
+        }
+
+        // Resolve relative path
+        if (!string.IsNullOrEmpty(_baseUrl))
+        {
+            // URL-based resolution - resolve and try cache
+            var resolvedUrl = ResolveRelativeUrl(_baseUrl, path);
+            return ProcessRemoteImage(alt, resolvedUrl, tableColumns);
+        }
+
+        if (!string.IsNullOrEmpty(_basePath))
+        {
+            try
+            {
+                var resolvedPath = Path.GetFullPath(Path.Combine(_basePath, path));
+                return EmitLocalImage(alt, resolvedPath, tableColumns);
+            }
+            catch
+            {
+                return match.Value;
+            }
+        }
+
+        return match.Value;
     }
 
     /// <summary>
     /// Emit markdown for a local image. SVGs are routed through
     /// <see cref="ImageCacheService.CacheLocalSvg"/> so the AOT-clean
     /// renderer rasterizes them to PNG up front — that lets us drop the
-    /// LiveMarkdown.Avalonia.Svg.Skia plugin entirely. Other formats are
-    /// passed through as a file:// URI for LiveMarkdown's default loader.
+    /// LiveMarkdown.Avalonia.Svg.Skia plugin entirely. PNG/JPEG/etc. dimensions
+    /// are extracted via SKCodec and emitted as raw <c>&lt;img width=W height=H&gt;</c>
+    /// so the explicit-dim HtmlInlineNode path renders them at their natural
+    /// size on first measure — the bare <c>![]()</c> path collapses to text-line
+    /// height while the async load resolves.
     /// </summary>
-    private string EmitLocalImage(string alt, string absolutePath)
+    private string EmitLocalImage(string alt, string absolutePath, int tableColumns = 0)
     {
+        string? resolvedPath = absolutePath;
+        int width = 0, height = 0;
+
         if (absolutePath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
         {
             var pngPath = _imageCacheService?.CacheLocalSvg(absolutePath);
             if (pngPath != null)
-                return $"![{alt}]({pngPath})";
-            // Fall through on render failure: emit the original SVG path so
-            // the caller still sees something (broken image vs nothing).
+            {
+                resolvedPath = pngPath;
+                var size = _imageCacheService?.GetCachedDisplaySize("local-svg|" + absolutePath + "|" +
+                                                                      File.GetLastWriteTimeUtc(absolutePath).Ticks);
+                if (size is { Width: > 0, Height: > 0 } svgDims)
+                {
+                    width = svgDims.Width;
+                    height = svgDims.Height;
+                }
+            }
+        }
+        else
+        {
+            var dims = TryGetLocalImageDimensions(absolutePath);
+            if (dims is { } d)
+            {
+                width = d.Width;
+                height = d.Height;
+            }
         }
 
+        if (width > 0 && height > 0)
+        {
+            var (displayW, displayH) = ClampToContainerSize(width, height, tableColumns);
+            // Emit the absolute path (not a file:// URI) — HtmlImageRenderer.
+            // ResolveUri wraps an unrooted absolute path back into a file://
+            // URI for LocalFileAsyncImageLoaderHandler, but a pre-formed
+            // file:// URI falls into the "treat as relative" branch and
+            // combines with ImageBasePath. Plain absolute path is the contract.
+            var escapedAlt = System.Net.WebUtility.HtmlEncode(alt);
+            var escapedSrc = System.Net.WebUtility.HtmlEncode(resolvedPath);
+            return $"<img src=\"{escapedSrc}\" alt=\"{escapedAlt}\" width=\"{displayW}\" height=\"{displayH}\" />";
+        }
+
+        // No dims could be extracted: fall back to markdown ![]() with file://
+        // URI. LocalFileAsyncImageLoaderHandler dispatches on uri.IsFile, and
+        // the renderer-level layout-rebuild fix in AsyncImageLoader recovers
+        // the size after load, with Image.Link's MaxWidth/MaxHeight as the cap.
+        return $"![{alt}]({TryBuildFileUri(resolvedPath) ?? resolvedPath})";
+    }
+
+    /// <summary>
+    /// Browsers cap inline content images at the column width via CSS
+    /// (typically <c>img { max-width: 100% }</c>) — small images render at
+    /// natural size, big ones scale down preserving aspect. Avalonia's Image
+    /// control with SizeToContent.Manual (the path explicit width/height
+    /// take) renders at literally W×H, so a 1470×867 PNG fills the screen.
+    /// Pre-clamp the emitted dims to a content-column-width cap so the
+    /// explicit-dim HtmlInlineNode path produces browser-like layout. Shields
+    /// and badges stay under the cap and emit at their natural size.
+    /// </summary>
+    public static (int Width, int Height) ClampToContainerSize(int width, int height, int tableColumns = 0)
+    {
+        const int MaxContentWidth = 900;
+        const int MaxContentHeight = 700;
+        // Inside a table row: shrink so the column doesn't push the table past
+        // the document column edge. With N columns we get MaxContentWidth / N
+        // per cell as a budget; subtract a small inter-cell padding allowance.
+        // Cap height to maintain visual balance — a 2-col table getting
+        // 450-wide images doesn't want 700-tall slots.
+        var maxW = tableColumns >= 2
+            ? Math.Max(120, (MaxContentWidth / tableColumns) - 16)
+            : MaxContentWidth;
+        var maxH = tableColumns >= 2
+            ? Math.Max(80, (MaxContentHeight / tableColumns) - 16)
+            : MaxContentHeight;
+
+        if (width <= maxW && height <= maxH)
+            return (width, height);
+
+        var widthRatio = (double)maxW / width;
+        var heightRatio = (double)maxH / height;
+        var minRatio = Math.Min(widthRatio, heightRatio);
+        var newW = Math.Max(1, (int)Math.Round(width * minRatio));
+        var newH = Math.Max(1, (int)Math.Round(height * minRatio));
+        return (newW, newH);
+    }
+
+    private static string? TryBuildFileUri(string absolutePath)
+    {
         try
         {
-            var fileUri = new Uri(absolutePath).AbsoluteUri;
-            return $"![{alt}]({fileUri})";
+            return new Uri(absolutePath).AbsoluteUri;
         }
         catch
         {
-            return $"![{alt}]({absolutePath})";
+            return null;
+        }
+    }
+
+    private static (int Width, int Height)? TryGetLocalImageDimensions(string absolutePath)
+    {
+        try
+        {
+            if (!File.Exists(absolutePath)) return null;
+            // Read the file into a byte buffer then go through SKData rather
+            // than handing a FileStream to SKCodec.Create — the codec wraps a
+            // managed stream and takes ownership of disposal, so a `using
+            // var stream` on the FileStream would double-dispose. The
+            // existing ImageCacheService.TryGetRasterDimensions uses the same
+            // SKData pattern; mirror it here for safety and consistency.
+            var bytes = File.ReadAllBytes(absolutePath);
+            using var data = SKData.CreateCopy(bytes);
+            using var codec = SKCodec.Create(data);
+            if (codec is null) return null;
+            return (codec.Info.Width, codec.Info.Height);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 
@@ -478,7 +617,7 @@ public partial class MarkdownService
     /// original http URL — which is what made shields render as window-sized
     /// bitmaps. Use the raw absolute path.
     /// </summary>
-    private string ProcessRemoteImage(string alt, string url)
+    private string ProcessRemoteImage(string alt, string url, int tableColumns = 0)
     {
         var debug = Environment.GetEnvironmentVariable("LUCIDVIEW_IMG_DEBUG") == "1";
         var cachedPath = _imageCacheService?.GetCachedPath(url);
@@ -486,19 +625,24 @@ public partial class MarkdownService
         if (cachedPath == null)
             return $"![{alt}]({url})";
 
-        // When we know the cached image's natural dimensions, emit raw
-        // <img width=W height=H> so LiveMarkdown.Avalonia's HtmlInline/
-        // HtmlBlock renderer (1.9.2-local-imgfix1 fork) sizes the Image
-        // control deterministically — async-load measure-invalidation was
-        // collapsing content images to a single text line otherwise.
-        // Shields/badges (<200px wide) stay as ![alt](path) markdown so the
-        // existing shield-pinning style continues to constrain them crisply.
+        // Always emit explicit <img width=W height=H> when we know the natural
+        // dimensions — including shields/badges. Previously the <200px gate
+        // routed shields through ![]() markdown to "keep them crisp" via the
+        // implicit Image style. That left them in the async-load measure-
+        // invalidation path: shields collapsed to text-line height (≈16-30px)
+        // until the load completed, and even after load they rendered at the
+        // 2× rasterized PNG pixel size (e.g. 160×40 vs the 80×20 a browser
+        // shows). Routing them through the HtmlInlineNode path with explicit
+        // dims gives both deterministic sizing AND browser-parity display
+        // (NaturalWidth/Height come from the SVG's intrinsic CSS user-units,
+        // so an 80×20 shield emits as 80×20 even though the cached PNG is 2×).
         var size = _imageCacheService?.GetCachedDisplaySize(url);
-        if (size is { Width: > 200 } dims)
+        if (size is { Width: > 0, Height: > 0 } dims)
         {
+            var (displayW, displayH) = ClampToContainerSize(dims.Width, dims.Height, tableColumns);
             var escapedAlt = System.Net.WebUtility.HtmlEncode(alt);
             var escapedSrc = System.Net.WebUtility.HtmlEncode(cachedPath);
-            return $"<img src=\"{escapedSrc}\" alt=\"{escapedAlt}\" width=\"{dims.Width}\" height=\"{dims.Height}\" />";
+            return $"<img src=\"{escapedSrc}\" alt=\"{escapedAlt}\" width=\"{displayW}\" height=\"{displayH}\" />";
         }
 
         return $"![{alt}]({cachedPath})";

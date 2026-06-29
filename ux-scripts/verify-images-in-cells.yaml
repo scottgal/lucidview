@@ -1,0 +1,29 @@
+name: verify-images-in-cells
+description: Verify images inside markdown table cells render without clipping
+default_delay: 500
+
+actions:
+  - type: Wait
+    value: "1500"
+
+  - type: Navigate
+    value: /tmp/image-cell-test.md
+  - type: Wait
+    value: "3000"
+  - type: PressKey
+    value: Home
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 01-cells-top
+
+  - type: Click
+    target: RenderedScroller
+  - type: Wait
+    value: "300"
+  - type: PressKey
+    value: End
+  - type: Wait
+    value: "1500"
+  - type: Screenshot
+    value: 02-cells-table

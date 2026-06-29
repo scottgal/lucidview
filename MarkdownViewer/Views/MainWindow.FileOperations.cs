@@ -266,14 +266,39 @@ public partial class MainWindow
         }
     }
 
-    private async Task CacheImagesAndRefreshAsync(string content, List<string> imageUrls)
+    private async Task CacheImagesAndRefreshAsync(string content, List<string> imageUrls, CancellationToken cancellationToken)
     {
+        // Two-phase load: fetch the first PriorityCount images (top of the
+        // doc, almost always what the user sees first), refresh the render so
+        // those get explicit-dim <img> tags (browser-pixel-parity for shields,
+        // proper layout for screenshots), then stream the tail in background.
+        // Without this every doc paused initial render until ALL remote images
+        // had downloaded, which made multi-shield READMEs feel sluggish even
+        // though the visible content was ready in milliseconds.
+        const int PriorityCount = 6;
         try
         {
-            await _imageCacheService.PreCacheImagesAsync(imageUrls);
-            if (!string.Equals(_rawContent, content, StringComparison.Ordinal))
-                return;
-            await DisplayMarkdown(content);
+            await _imageCacheService.PreCacheImagesPriorityAsync(
+                imageUrls,
+                PriorityCount,
+                async () =>
+                {
+                    // The await chain through HttpClient/Task.WhenAll can resume
+                    // on a threadpool thread; explicit Dispatcher hop before
+                    // any UI mutation guarantees DisplayMarkdown runs on the
+                    // UI thread regardless of how the priority awaits resumed.
+                    await Dispatcher.UIThread.InvokeAsync(async () =>
+                    {
+                        if (!string.Equals(_rawContent, content, StringComparison.Ordinal))
+                            return;
+                        await DisplayMarkdown(content);
+                    });
+                },
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when a new doc supersedes this one — silent.
         }
         catch (Exception ex) when (IsIgnorableError(ex))
         {
@@ -1022,10 +1047,24 @@ public partial class MainWindow
     }
 #endif
 
+    private CancellationTokenSource? _imageCachingCts;
+
     private void QueueImageCaching(string content)
     {
         var imageUrls = _markdownService.ExtractImageUrls(content);
-        if (imageUrls.Count > 0)
-            _ = CacheImagesAndRefreshAsync(content, imageUrls);
+        if (imageUrls.Count == 0) return;
+
+        // Cancel any in-flight tail downloads from a previous doc so a rapid
+        // navigate-away session doesn't leave zombie fetches contending for
+        // the cache's download semaphore. Old CTS gets disposed in the
+        // continuation; the new token covers both the priority await and
+        // the fire-and-forget tail.
+        var previous = _imageCachingCts;
+        var cts = new CancellationTokenSource();
+        _imageCachingCts = cts;
+        previous?.Cancel();
+        previous?.Dispose();
+
+        _ = CacheImagesAndRefreshAsync(content, imageUrls, cts.Token);
     }
 }
