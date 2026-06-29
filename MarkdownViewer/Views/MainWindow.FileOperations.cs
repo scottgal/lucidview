@@ -377,7 +377,7 @@ public partial class MainWindow
 
             PushHistory(url, title);
             SetSourceMode(mode);
-#if FULL
+#if LAB
             if (streamingHostKnown) MarkSourceModeHostKnown();
 #endif
             QueueImageCaching(content);
@@ -642,7 +642,7 @@ public partial class MainWindow
         request.Headers.Accept.ParseAdd("text/plain;q=0.7");
         request.Headers.Accept.ParseAdd("*/*;q=0.5");
 
-#if FULL
+#if LAB
         var fetchSw = Stopwatch.StartNew();
         // alpha.17: warm any persisted streaming template for this host into
         // the hot cache BEFORE the response body arrives so ScanByHost on the
@@ -664,7 +664,7 @@ public partial class MainWindow
 
         var mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
 
-#if FULL
+#if LAB
         var (bytes, lastVerdict, peakBufferedBytes) = await ReadBodyWithLimitAndScanAsync(
             response.Content, MaxRemoteMarkdownBytes, streamingHost, warmSelector);
 #else
@@ -678,7 +678,7 @@ public partial class MainWindow
                 || mediaType.Contains("xhtml", StringComparison.OrdinalIgnoreCase)
                 || HtmlToMarkdownService.LooksLikeHtml(body));
 
-#if FULL
+#if LAB
         fetchSw.Stop();
         // alpha.17: chunk-aware streaming-scan flow.
         //   - ReadBodyWithLimitAndScanAsync already invoked ScanByHost on a
@@ -825,7 +825,7 @@ public partial class MainWindow
         return buffer.ToArray();
     }
 
-#if FULL
+#if LAB
     /// <summary>
     /// alpha.18: true chunked streaming-scan body reader. Replaces alpha.17's
     /// 64 KB-threshold whole-buffer re-scan with a per-chunk feed via the new
@@ -1033,7 +1033,7 @@ public partial class MainWindow
         }
     }
 
-#if FULL
+#if LAB
     /// <summary>
     /// Mark the source-mode label with a ✓ when the streaming template store
     /// already has a learned host template — gives the user a persistent

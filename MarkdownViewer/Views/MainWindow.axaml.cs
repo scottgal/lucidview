@@ -27,7 +27,7 @@ public partial class MainWindow : Window
     private readonly ImageCacheService _imageCacheService;
     private readonly MarkdownService _markdownService;
     private readonly IHtmlToMarkdownService _htmlToMarkdownService =
-#if FULL
+#if LAB
         MarkdownViewer.Services.FullServices.Get<IHtmlToMarkdownService>();
 #else
         new MarkdownViewer.Services.HtmlToMarkdownService();
@@ -175,7 +175,7 @@ public partial class MainWindow : Window
             ApplyTypography();
         }, Avalonia.Threading.DispatcherPriority.Background);
 
-#if FULL
+#if LAB
         this.Title = "lucidVIEW-FULL";  // Override lean default so identity is visible
         FullDiagnosticsSeparator.IsVisible = true;
         FullDiagnosticsMenu.IsVisible = true;
@@ -1278,7 +1278,7 @@ public partial class MainWindow : Window
 
     #region FULL Diagnostics
 
-#if FULL
+#if LAB
     private async void OnReDownloadModel(object? sender, RoutedEventArgs e)
     {
         StatusText.Text = "Downloading model…";
@@ -1342,7 +1342,7 @@ public partial class MainWindow : Window
 
     #region FULL Extraction Telemetry
 
-#if FULL
+#if LAB
     /// <summary>
     /// Pipeline-stage indicator. Each segment lives in the status bar at 0.4
     /// opacity until its stage fires. When a stage starts (Started=true) the
@@ -1406,7 +1406,7 @@ public partial class MainWindow : Window
         FileDateText.IsVisible = w >= 1100;
     }
 
-#if FULL
+#if LAB
 
     /// <summary>
     /// `--shot URL OUTPUT.png` flow: load the URL via the existing LoadWebPage

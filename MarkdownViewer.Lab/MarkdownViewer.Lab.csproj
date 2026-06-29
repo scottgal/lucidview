@@ -1,0 +1,155 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>..\MarkdownViewer\app.manifest</ApplicationManifest>
+
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+
+    <AssemblyName>lucidVIEW</AssemblyName>
+    <RootNamespace>MarkdownViewer</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>lucidLAB</Product>
+    <Description>Dogfood testbed of lucidVIEW with the lucidRAG + lucidSupport stack</Description>
+    <ApplicationIcon>..\MarkdownViewer\favicon.ico</ApplicationIcon>
+
+    <DefineConstants>$(DefineConstants);LAB</DefineConstants>
+
+    <StartupObject>MarkdownViewer.Lab.LabProgram</StartupObject>
+
+    <PublishSingleFile>false</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MarkdownViewer.Lab.Tests" />
+  </ItemGroup>
+
+  <!-- File-linked lean source: every .cs and .axaml except lean's Program.cs.
+       Same pattern FULL used today; renamed for Lab. -->
+  <ItemGroup>
+    <Compile Include="..\MarkdownViewer\**\*.cs"
+             Exclude="..\MarkdownViewer\bin\**;..\MarkdownViewer\obj\**;..\MarkdownViewer\Program.cs"
+             Link="%(RecursiveDir)%(Filename)%(Extension)" />
+    <AvaloniaXaml Include="..\MarkdownViewer\**\*.axaml"
+                  Exclude="..\MarkdownViewer\bin\**;..\MarkdownViewer\obj\**"
+                  Link="%(RecursiveDir)%(Filename)%(Extension)" />
+    <AvaloniaResource Include="..\MarkdownViewer\Assets\*.svg" Link="Assets\%(Filename)%(Extension)" />
+    <AvaloniaResource Include="..\MarkdownViewer\Assets\Raleway-*.ttf" Link="Assets\%(Filename)%(Extension)" />
+    <Content Include="..\MarkdownViewer\Assets\manual\user-manual.md" Link="manual\user-manual.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\MarkdownViewer\Assets\manual\screenshots\*.png" Link="manual\screenshots\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\MarkdownViewer\default-settings.json" Link="default-settings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Lean's package set (carried). -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageReference Include="FluentAvaloniaUI" Version="2.5.0" />
+    <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="2.0.321" />
+    <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.5" />
+    <PackageReference Include="QuestPDF" Version="2026.2.1" />
+    <PackageReference Include="QuestPDF.Markdown" Version="1.47.0" />
+    <PackageReference Include="SkiaSharp" Version="3.119.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.2" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.3" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.3" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.5" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12" Condition="'$(Configuration)' == 'Debug'" />
+  </ItemGroup>
+
+  <!-- Ephemeral substrate primitives. -->
+  <ItemGroup>
+    <PackageReference Include="Mostlylucid.Ephemeral.Atoms.SlidingCache" Version="2.6.4" />
+    <PackageReference Include="Mostlylucid.Ephemeral.SQLite.SingleWriter" Version="2.6.4" />
+    <PackageReference Include="Mostlylucid.Ephemeral.Atoms.Data.SQLite" Version="2.6.4" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+  </ItemGroup>
+
+  <!-- lucidRAG OSS packages. -->
+  <ItemGroup>
+    <PackageReference Include="Mostlylucid.LucidRAG.Core" Version="2.7.5" />
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.LucidRAG.DocSummarizer.Core" Version="*" /> -->
+    <PackageReference Include="Mostlylucid.LucidRAG.DocSummarizer.FullText.Lucene" Version="2.7.5" />
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.LucidRAG.DocSummarizer.LLamaSharp" Version="*" /> -->
+    <PackageReference Include="Mostlylucid.LucidRAG.Decomposer" Version="2.7.5" />
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.LucidRAG.UltraResearch" Version="*" /> -->
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.GraphRag" Version="*" /> -->
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.Storage.Core" Version="*" /> -->
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.Summarizer.Core" Version="*" /> -->
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.Summarizers.Reader.Markdown" Version="*" /> -->
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.Summarizers.Reader.Pdf" Version="*" /> -->
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.Summarizers.Reader.Docx" Version="*" /> -->
+    <!-- TODO: blocked on upstream publish to nuget.org -->
+    <!-- <PackageReference Include="Mostlylucid.Summarizers.Reader.Gutenberg" Version="*" /> -->
+  </ItemGroup>
+
+  <!-- StyloExtract stack (carried from FULL). -->
+  <ItemGroup>
+    <PackageReference Include="Mostlylucid.StyloExtract.Core" Version="2.0.0" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="2.0.0" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Streaming" Version="2.0.0" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Playwright" Version="2.0.0" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Llm.LlamaSharp" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.60.0" />
+  </ItemGroup>
+
+  <!-- LLM in-process. -->
+  <ItemGroup>
+    <PackageReference Include="LLamaSharp" Version="0.27.0" />
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
+  </ItemGroup>
+
+  <!-- ONNX Runtime + per-platform native packages. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.24.4" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.24.4" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
+    <!-- CoreML EP is part of Microsoft.ML.OnnxRuntime on macOS; no separate package. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+  </ItemGroup>
+
+  <!-- DuckDB + VSS for the vector substrate. -->
+  <ItemGroup>
+    <PackageReference Include="DuckDB.NET.Bindings.Full" Version="1.5.0" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.5.0" />
+  </ItemGroup>
+
+  <!-- LucidSupport (blocked on upstream Typesense extraction in scottgal/lucidrag.commercial). -->
+  <!-- TODO: blocked on upstream Typesense extraction in scottgal/lucidrag.commercial -->
+  <!-- <PackageReference Include="LucidSupport.Core" Version="*" /> -->
+  <!-- <PackageReference Include="LucidSupport.Inference" Version="*" /> -->
+
+  <!-- Avalonia UI testing (Debug-only, same as lean and former FULL). -->
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <ProjectReference Include="..\external\lucidRESUME\src\Mostlylucid.Avalonia.UITesting\Mostlylucid.Avalonia.UITesting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naiad\src\Naiad\Naiad.csproj" />
+    <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
+    <ProjectReference Include="..\external\LiveMarkdown.Avalonia\src\LiveMarkdown.Avalonia\LiveMarkdown.Avalonia.csproj" />
+  </ItemGroup>
+
+</Project>
