@@ -4,6 +4,28 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v3.0.1 - 2026-06-29
+
+### Fixed
+
+- **HTML `<img>` rendering regression in the lean build.** v3.0.0 shipped
+  with `LiveMarkdown.Avalonia` resolved to 1.9.2 stable from nuget.org
+  instead of the local fork that carries the HTML `<img>` width/height
+  renderer patch. NuGet had been silently falling back since the
+  `1.9.2-local-imgfix2` PackageReference points at a version that was
+  never published; CI accepted the NU1603 warning and the regression
+  shipped. Symptoms: shields rendered at 2x size (and clipped by the
+  next horizontal rule), theme thumbnails rendered as thin colored
+  strips at the text-line height. The lean csproj now uses
+  `ProjectReference` against the `external/LiveMarkdown.Avalonia`
+  submodule (the same path FULL already used), so the img patch
+  is present in the lean build the same way it always was in FULL.
+- README's lucidVIEW-FULL section called it "not shipped in releases"
+  but listed stale `alpha.19` dependency pins and didn't make it clear
+  that there is no download anywhere. Section now says explicitly:
+  "never published, no download link, build from source if you want
+  it." Dependency pins bumped to 2.0.0.
+
 ## v3.0.0 - 2026-06-28
 
 Picks up StyloExtract 2.0.0, the identity-claim architecture rework that

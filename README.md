@@ -240,31 +240,34 @@ services.
 
 ---
 
-## lucidVIEW-FULL — the dogfood sibling
+## lucidVIEW-FULL: the dogfood sibling (not a download)
 
-Alongside the lean `MarkdownViewer/` project there's a second exe,
-`MarkdownViewer.Full/`. It is **not shipped in releases** — it exists as a
-tight feedback loop against the preview
-[`Mostlylucid.StyloExtract`](https://github.com/scottgal/stylobot-extract)
-1.8.0-alpha train, so the upstream library can iterate against real-world
+Alongside the lean `MarkdownViewer/` project there is a second exe in
+the repo, `MarkdownViewer.Full/`. **It is never published.** There is no
+download link, no release artifact, no Windows Store entry. The only way
+to run it is to build from source. It exists as a tight feedback loop
+against the [`Mostlylucid.StyloExtract`](https://github.com/scottgal/styloextract)
+2.0 library so the upstream extractor can iterate against real-world
 web pages without the lean release path ever changing.
 
-What FULL adds on top of lean (currently pinned at alpha.19):
+If you came here looking for a more featureful download of lucidVIEW,
+there isn't one. The lean build below is what ships and is what almost
+everyone wants.
+
+What FULL adds on top of lean (against `Mostlylucid.StyloExtract.*` 2.0.0):
 
 - `Mostlylucid.StyloExtract.Core` + `.Templates` + `.Playwright` + `.Streaming` + `.Llm.LlamaSharp`
-- `LLamaSharp` 0.27.0 — in-process LLM (CPU) for template induction
-- `Microsoft.Playwright` 1.60.0 — rendered-DOM auto-retry for SPA pages
-- A local fork of `LiveMarkdown.Avalonia` (1.9.2-local-imgfix2) with the
-  HTML `<img width=H height=W>` renderer needed for proper image dims
+- `LLamaSharp` 0.27.0 for in-process CPU LLM template induction
+- `Microsoft.Playwright` 1.60.0 for rendered-DOM auto-retry on SPA pages
 - Streaming gateway scanner wired into the HTTP byte stream
 - F2 Extraction Details panel with NDJSON export
-- Pipeline stage indicator in the status bar (`fetch · match · llm · render`)
+- Pipeline stage indicator in the status bar (`fetch · stream · match · induce · llm · render`)
 - First-run bootstrap dialog (model + browser install)
 - Read/Scan mode toggle (RagFull vs Sitemap extraction profile)
 - CLI verbs: `--doctor` / `--install-browsers` / `--download-model` /
   `--shot <url> <out.png>`
 
-Run it:
+Run it from source:
 
 ```bash
 dotnet run --project MarkdownViewer.Full/MarkdownViewer.Full.csproj -c Debug
@@ -273,7 +276,7 @@ dotnet run --project MarkdownViewer.Full/MarkdownViewer.Full.csproj -c Debug
 **Lean Release output is unaffected.** Every lean source touch that supports
 FULL is guarded by `#if FULL` and runtime-neutral when the constant is not
 defined. See [`docs/full-edition.md`](docs/full-edition.md) for the full
-guide — what FULL does, the dogfood pipeline step-by-step, CLI reference,
+guide: what FULL does, the dogfood pipeline step-by-step, CLI reference,
 settings layout, and the rules this branch lives under.
 
 ---
