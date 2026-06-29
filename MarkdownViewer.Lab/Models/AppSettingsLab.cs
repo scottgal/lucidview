@@ -1,10 +1,10 @@
-// Stub for AppSettingsFull — used by the #if LAB first-run check.
+// Stub for AppSettingsLab — used by the #if LAB first-run check.
 // Real implementation wired in Task 4 of the lucidLAB plan.
 using System.Text.Json;
 
 namespace MarkdownViewer.Models;
 
-public sealed class AppSettingsFull
+public sealed class AppSettingsLab
 {
     private static readonly JsonSerializerOptions WriteOptions =
         new JsonSerializerOptions { WriteIndented = true };
@@ -21,18 +21,18 @@ public sealed class AppSettingsFull
     private static string SettingsFilePath =>
         Path.Combine(MarkdownViewer.Lab.AppPaths.LocalState, "settings.json");
 
-    public static AppSettingsFull Load()
+    public static AppSettingsLab Load()
     {
         if (!File.Exists(SettingsFilePath))
-            return new AppSettingsFull();
+            return new AppSettingsLab();
         try
         {
             var json = File.ReadAllText(SettingsFilePath);
-            return JsonSerializer.Deserialize<AppSettingsFull>(json) ?? new AppSettingsFull();
+            return JsonSerializer.Deserialize<AppSettingsLab>(json) ?? new AppSettingsLab();
         }
         catch
         {
-            return new AppSettingsFull();
+            return new AppSettingsLab();
         }
     }
 

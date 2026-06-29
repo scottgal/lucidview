@@ -1,6 +1,8 @@
 // Stub implementations for the #if LAB join points in lean source.
 // These provide the API surface needed for compilation; real implementations
 // are delivered in Tasks 4-6 of the lucidLAB plan.
+// Note: LabServices.ResolveModelPath contains real path-resolution logic
+// (lifted from the deleted FULL edition), not a stub.
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MarkdownViewer.Services;
@@ -44,10 +46,11 @@ public sealed class StageEvent
 public sealed class ExtractionTelemetry
 {
     public event Action<StageEvent>? StageChanged;
-    public event Action<LastExtractionInfo>? Recorded;
 
-    public static LastExtractionInfo? Last => null;
-    public static IReadOnlyList<LastExtractionInfo> Recent => [];
+#pragma warning disable CA1822 // These are intentional instance stubs; Tasks 4-6 wire real backing fields.
+    public LastExtractionInfo? Last => null;
+    public IReadOnlyList<LastExtractionInfo> Recent => [];
+#pragma warning restore CA1822
 
     /// <summary>
     /// Emits a stage-start or stage-complete event to the StageChanged subscribers.
@@ -69,10 +72,10 @@ public sealed class ExtractionTelemetry
 }
 
 // ---------------------------------------------------------------------------
-// FullServices stub — empty DI container; real wiring in Task 5
+// LabServices stub — empty DI container; real wiring in Task 5
 // ---------------------------------------------------------------------------
 
-internal static class FullServices
+internal static class LabServices
 {
     private static readonly Lazy<IServiceProvider> _lazy = new(static () =>
         new ServiceCollection().BuildServiceProvider());
@@ -127,10 +130,10 @@ internal static class ModelBootstrap
 }
 
 // ---------------------------------------------------------------------------
-// HtmlToMarkdownServiceFull stub — real StyloExtract wiring in Task 5
+// HtmlToMarkdownServiceLab stub — real StyloExtract wiring in Task 5
 // ---------------------------------------------------------------------------
 
-public sealed class HtmlToMarkdownServiceFull : IHtmlToMarkdownService
+public sealed class HtmlToMarkdownServiceLab : IHtmlToMarkdownService
 {
     public enum Mode { Read, Scan }
 

@@ -7,7 +7,7 @@ namespace MarkdownViewer.Services;
 /// <summary>
 /// Shared pre-processing steps applied to raw HTML before markdown conversion.
 /// Used by both lean's <see cref="HtmlToMarkdownService"/> and FULL's
-/// <see cref="HtmlToMarkdownServiceFull"/> so logic is not duplicated.
+/// <see cref="HtmlToMarkdownServiceLab"/> so logic is not duplicated.
 /// </summary>
 public static class HtmlPreProcessor
 {

@@ -1,9 +1,9 @@
-// Shim: MarkdownViewer.FullProgram in the MarkdownViewer namespace so that
+// Shim: MarkdownViewer.LabProgram in the MarkdownViewer namespace so that
 // the #if LAB blocks in lean source compile. CLI arg parsing moved to
 // MarkdownViewer.Lab.LabProgram; values set there and read here.
 namespace MarkdownViewer;
 
-internal static class FullProgram
+internal static class LabProgram
 {
     /// <summary>URL to auto-load + screenshot (--shot URL). Null = normal startup.</summary>
     internal static string? AutoShotUrl { get; set; }

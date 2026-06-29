@@ -954,9 +954,9 @@
                             </StackPanel>
                         </Button>
 
-                        <!-- FULL Diagnostics — hidden in lean, shown via #if FULL in ctor -->
-                        <Border x:Name="FullDiagnosticsSeparator" Classes="panel-separator" IsVisible="False" />
-                        <StackPanel x:Name="FullDiagnosticsMenu" IsVisible="False">
+                        <!-- FULL Diagnostics — hidden in lean, shown via #if LAB in ctor -->
+                        <Border x:Name="LabDiagnosticsSeparator" Classes="panel-separator" IsVisible="False" />
+                        <StackPanel x:Name="LabDiagnosticsMenu" IsVisible="False">
                             <Button x:Name="ReDownloadModelMenuItem" Classes="panel-item" Click="OnReDownloadModel"
                                     ToolTip.Tip="Re-download the LLM model">
                                 <StackPanel Orientation="Horizontal" Spacing="12">

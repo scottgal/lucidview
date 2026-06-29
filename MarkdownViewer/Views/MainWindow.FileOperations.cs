@@ -650,7 +650,7 @@ public partial class MainWindow
         // instead of bouncing on NoTemplate. Fire-and-forget warm — by the
         // time the body finishes reading the lookup has completed.
         var streamingHost = uri.Host;
-        var warmSelector = FullServices.Get<StyloExtract.Streaming.StreamingPathSelector>();
+        var warmSelector = LabServices.Get<StyloExtract.Streaming.StreamingPathSelector>();
         _ = warmSelector.WarmByHostAsync(streamingHost).AsTask();
 #endif
 
@@ -708,13 +708,13 @@ public partial class MainWindow
 
             if (verdict == StyloExtract.Streaming.ScanVerdict.NoTemplate && isHtml)
             {
-                var inducer = FullServices.Get<StyloExtract.Streaming.StreamingTemplateInducer>();
+                var inducer = LabServices.Get<StyloExtract.Streaming.StreamingTemplateInducer>();
                 var summary = inducer.Describe(bytes);
                 var induced = inducer.Induce(streamingHost, bytes);
-                var telemetryInd = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+                var telemetryInd = LabServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
                 if (induced is not null)
                 {
-                    var store = FullServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
+                    var store = LabServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
                     await store.UpsertAsync(induced, CancellationToken.None);
                     // Just induced a template — the next visit will be Captured,
                     // but for THIS fetch's marker we still want the ✓ so the user
@@ -741,7 +741,7 @@ public partial class MainWindow
                     // handoff so the user sees what's happening:
                     //   (a) Induce segment shows "no fences" — deterministic gave up
                     //   (b) Llm segment goes italic "started" — LLM picked up
-                    // The templates-dir FileSystemWatcher in FullServices will fire
+                    // The templates-dir FileSystemWatcher in LabServices will fire
                     // the Llm "done" event when <host>.yaml lands.
                     Console.WriteLine($"[streaming] inducer returned null for {streamingHost} — escalating to LLM");
                     telemetryInd.EmitStage(
@@ -755,7 +755,7 @@ public partial class MainWindow
                 }
             }
 
-            var telemetry = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+            var telemetry = LabServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
             // Stream segment: the streaming-scanner verdict + peak-buffered headline.
             // peakBufferedBytes is the high-watermark of the tokenizer's in-flight
             // byte buffer — under the alpha.19+ contract this stays O(longest tag)
@@ -794,7 +794,7 @@ public partial class MainWindow
             // upstream parse / tokenizer / store call blew up mid-flight.
             try
             {
-                var telemetryErr = FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+                var telemetryErr = LabServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
                 telemetryErr.EmitStage(
                     MarkdownViewer.Services.ExtractionStage.Stream,
                     started: false,
@@ -863,7 +863,7 @@ public partial class MainWindow
         // WarmByHostAsync upstream so by now the warm should have landed in
         // the hot tier). Null template -> no incremental scan; we still drain
         // the body so auto-induction can run on full bytes after stream end.
-        var store = MarkdownViewer.Services.FullServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
+        var store = MarkdownViewer.Services.LabServices.Get<StyloExtract.Streaming.IStreamingTemplateStore>();
         var template = store.TryGetHotByHost(host);
         StyloExtract.Streaming.IncrementalBytePatternScanner? scanner = template is not null
             ? StyloExtract.Streaming.IncrementalBytePatternScanner.Create(template)
@@ -950,7 +950,7 @@ public partial class MainWindow
             var bytesCopy = buffer.ToArray();
             try
             {
-                var orchestrator = MarkdownViewer.Services.FullServices.Get<StyloExtract.Streaming.StreamingRefitOrchestrator>();
+                var orchestrator = MarkdownViewer.Services.LabServices.Get<StyloExtract.Streaming.StreamingRefitOrchestrator>();
                 orchestrator.RecordCaptured(
                     host,
                     scanner.CaptureStartByte,

@@ -28,7 +28,7 @@ public partial class MainWindow : Window
     private readonly MarkdownService _markdownService;
     private readonly IHtmlToMarkdownService _htmlToMarkdownService =
 #if LAB
-        MarkdownViewer.Services.FullServices.Get<IHtmlToMarkdownService>();
+        MarkdownViewer.Services.LabServices.Get<IHtmlToMarkdownService>();
 #else
         new MarkdownViewer.Services.HtmlToMarkdownService();
 #endif
@@ -177,14 +177,14 @@ public partial class MainWindow : Window
 
 #if LAB
         this.Title = "lucidVIEW-FULL";  // Override lean default so identity is visible
-        FullDiagnosticsSeparator.IsVisible = true;
-        FullDiagnosticsMenu.IsVisible = true;
+        LabDiagnosticsSeparator.IsVisible = true;
+        LabDiagnosticsMenu.IsVisible = true;
 
         // `--shot URL OUTPUT.png` mode: don't grab focus, don't show first-run
-        // dialog, auto-navigate, wait, screenshot, exit. Detected by FullProgram
+        // dialog, auto-navigate, wait, screenshot, exit. Detected by LabProgram
         // before Avalonia init and stashed on static fields.
-        if (MarkdownViewer.FullProgram.AutoShotUrl is { } shotUrl
-            && MarkdownViewer.FullProgram.AutoShotOutput is { } shotOut)
+        if (MarkdownViewer.LabProgram.AutoShotUrl is { } shotUrl
+            && MarkdownViewer.LabProgram.AutoShotOutput is { } shotOut)
         {
             ShowActivated = false;
             ShowInTaskbar = false;
@@ -204,7 +204,7 @@ public partial class MainWindow : Window
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
             {
-                var settings = MarkdownViewer.Models.AppSettingsFull.Load();
+                var settings = MarkdownViewer.Models.AppSettingsLab.Load();
                 if (!settings.HasRunBefore)
                     await new MarkdownViewer.Views.FirstRunBootstrapDialog().ShowDialog(this);
             }, Avalonia.Threading.DispatcherPriority.Background);
@@ -223,16 +223,9 @@ public partial class MainWindow : Window
 
         // Pipeline-stage indicator (replaces the single-text ExtractionStatusText).
         ExtractionStagesPanel.IsVisible = true;
-        var telemetry = MarkdownViewer.Services.FullServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
+        var telemetry = MarkdownViewer.Services.LabServices.Get<MarkdownViewer.Services.ExtractionTelemetry>();
         telemetry.StageChanged += evt => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             ApplyStageEvent(evt));
-        telemetry.Recorded += info => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            // The final Record fires after extraction completes — render is
-            // about to happen, so light up the Render segment.
-            StageRenderText.Text = $"render {info.BlockCount} blocks · {info.OutputCharacterCount / 1024}K";
-            StageRenderText.Opacity = 1.0;
-        });
         KeyDown += (s, e) =>
         {
             if (e.Key == Avalonia.Input.Key.F2) ShowExtractionDetails();
@@ -1315,10 +1308,10 @@ public partial class MainWindow : Window
     /// </summary>
     private async void OnToggleScanMode(object? sender, RoutedEventArgs e)
     {
-        MarkdownViewer.Services.HtmlToMarkdownServiceFull.CurrentMode =
+        MarkdownViewer.Services.HtmlToMarkdownServiceLab.CurrentMode =
             ScanModeToggleBtn.IsChecked == true
-                ? MarkdownViewer.Services.HtmlToMarkdownServiceFull.Mode.Scan
-                : MarkdownViewer.Services.HtmlToMarkdownServiceFull.Mode.Read;
+                ? MarkdownViewer.Services.HtmlToMarkdownServiceLab.Mode.Scan
+                : MarkdownViewer.Services.HtmlToMarkdownServiceLab.Mode.Read;
 
         // Re-load the current page so the new mode is applied. If no URL was
         // loaded (e.g. local file), this is a no-op.
@@ -1350,8 +1343,8 @@ public partial class MainWindow : Window
     /// the text updates with the detail value and stays at 1.0.
     ///
     /// Triggered by <c>ExtractionTelemetry.StageChanged</c> which is emitted
-    /// by <c>HtmlToMarkdownServiceFull.ConvertAsync</c> for Fetch+Match and
-    /// by <c>FullServices</c>'s templates-dir FileSystemWatcher for Llm.
+    /// by <c>HtmlToMarkdownServiceLab.ConvertAsync</c> for Fetch+Match and
+    /// by <c>LabServices</c>'s templates-dir FileSystemWatcher for Llm.
     /// Render fires from the existing <c>Recorded</c> handler.
     /// </summary>
     private void ApplyStageEvent(MarkdownViewer.Services.StageEvent evt)
@@ -1420,7 +1413,7 @@ public partial class MainWindow : Window
         try
         {
             await LoadWebPage(url);
-            await Task.Delay(MarkdownViewer.FullProgram.AutoShotWaitMs);
+            await Task.Delay(MarkdownViewer.LabProgram.AutoShotWaitMs);
             await Mostlylucid.Avalonia.UITesting.Players.ScreenshotCapture.CaptureWindowAsync(this, outPath);
             Console.WriteLine($"shot saved: {outPath}");
         }
