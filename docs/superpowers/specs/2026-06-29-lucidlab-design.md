@@ -229,17 +229,27 @@ Each substrate has a single writer per workspace. Each substrate independently f
 
 ### Persistence + LFU Composition
 
-The evidence corpus is the most read-heavy substrate. lucidLAB composes its storage from three Ephemeral atoms confirmed published on nuget.org:
+The evidence corpus is the most read-heavy substrate. `Mostlylucid.Ephemeral.SQLite.SingleWriter` (`SqliteSingleWriter`, nuget.org `2.6.4`) is itself the LFU + write-through primitive lucidLAB uses; no separate `SlidingCacheAtom` layered on top.
 
-- `Mostlylucid.Ephemeral.Atoms.SlidingCache` - `SlidingCacheAtom`. Sliding-window LFU. Front of the read path.
-- `Mostlylucid.Ephemeral.SQLite.SingleWriter` - `SqliteSingleWriter` + `SqliteRepository` + `WriteCommand`. The single-writer durable back end with bounded write-behind queue. All writes funnel through this.
-- `Mostlylucid.Ephemeral.Atoms.Data.SQLite` - `SqliteDataStorageAtom`. The SQLite data adapter the single writer drives.
+Relevant `SqliteSingleWriter` 2.6.4 surface lucidLAB consumes:
 
-`EvidenceStore` wires these together. Reads check the SlidingCache; misses fall through to `SqliteRepository` and warm the cache. Writes are dispatched as `WriteCommand`s to `SqliteSingleWriter`, which serialises them against the SQLite file. The cache is the storage primitive, not a parasite over it: every read goes through the cache, every write goes through the single writer, and there is no second copy of the truth.
+- `GetOrCreate(connectionString, SqliteSingleWriterOptions?)` - keyed-by-connection-string factory; same instance returned for the same connection string within the process.
+- `ReadAsync<T>(string cacheKey, Func<SqliteConnection, Task<T>>, CancellationToken)` - cached reads; the single writer manages the LFU itself, keyed on `cacheKey`.
+- `WriteAndInvalidateAsync(sql, IReadOnlyDictionary<string, object?> params, IEnumerable<string> cacheKeysToInvalidate, CancellationToken)` - serialised write plus cache invalidation in one call.
+- `WriteAsync(sql, IReadOnlyDictionary<string, object?>, CancellationToken)` - AOT-safe parameterised write.
+- `FlushWritesAsync(CancellationToken)` - drains the in-flight write coordinator.
+- `GetSignals(string pattern)` - observability stream; `cache.*` and `write.*` patterns surface to the dashboard.
+- `GetWriteSnapshot()` - in-flight write tracking for backpressure.
+- `EnableWriteAheadLogging` option (default `true`) - WAL is on out of the box; the older `Cache=Shared` connection-string pattern is unnecessary.
+- `CacheSizeLimit`, `DefaultCacheDuration`, `HotKeyExtension`, `HotAccessThreshold` options - LFU tuning.
 
-The dashboard exposes: cache hit rate, cache size, write-behind queue depth, write-behind drain latency, single-writer current command, last N completed commands.
+`EvidenceStore` wraps a single `SqliteSingleWriter` instance per workspace. `GetAsync(hash)` calls `_writer.ReadAsync<string?>("evidence:" + hash.ToHex(), reader, ct)`. `PutAsync(hash, text)` calls `_writer.WriteAndInvalidateAsync(insertSql, params, [cacheKey], ct)`. `DrainAsync(deadline)` wraps `FlushWritesAsync` with a CTS for the timeout. `GetStats()` derives counters from `_writer.GetSignals(...)` and `_writer.GetWriteSnapshot()`. No `_writeBuffer`, no separate read connection, no `SlidingCacheAtom` field. The single writer is the storage primitive; everything flows through it.
 
-The same composition can back any read-heavy `ContentHash`-keyed store; lucidLAB uses it for evidence text only. Vectors and the lexical index have their own optimised storage; metadata is small enough to live on `Microsoft.Data.Sqlite` directly without the LFU front.
+The dashboard exposes: cache hit rate, cache size, in-flight write count, last-write latency, hot-key activity - all sourced from `GetSignals` and `GetWriteSnapshot` on the same `SqliteSingleWriter` instance.
+
+`Mostlylucid.Ephemeral.Atoms.SlidingCache` and `Mostlylucid.Ephemeral.Atoms.Data.SQLite` are not used by `EvidenceStore`. They remain available for any later substrate or service that needs a standalone in-memory LFU or a generic JSON-keyed SQLite key/value adapter, but lucidLAB's evidence corpus does not need them.
+
+Vectors and the lexical index have their own optimised storage; metadata is small enough to live on `Microsoft.Data.Sqlite` directly without the LFU front.
 
 ### Workspace Model
 
@@ -265,7 +275,7 @@ Everything below lives in the lucidLAB overlay unless tagged `(consumed)`. `(con
 
 ### Storage substrate
 
-- `EvidenceStore`. Wraps `SlidingCacheAtom` over `SqliteSingleWriter` over `SqliteDataStorageAtom` `(consumed)`. Public surface: `Get(ContentHash)`, `Put(ContentHash, string)`, `BatchPut`, `DrainAsync`. Idempotent on `ContentHash`.
+- `EvidenceStore`. Wraps `SqliteSingleWriter` `(consumed from Mostlylucid.Ephemeral.SQLite.SingleWriter)` directly. The single writer is itself the LFU + write-through primitive: reads via `ReadAsync<string?>(cacheKey, reader, ct)`, writes via `WriteAndInvalidateAsync(sql, params, cacheKeysToInvalidate, ct)`, drain via `FlushWritesAsync`. Public surface: `Get(ContentHash)`, `Put(ContentHash, string)`, `BatchPut`, `DrainAsync`. Idempotent on `ContentHash`.
 - `VectorStore`. Wraps `Mostlylucid.Storage.Core` DuckDB+VSS adapter `(consumed)`. Public: `Upsert(segmentId, ContentHash, vector)`, `Search(queryVector, k)`, `Delete(segmentId)`.
 - `LexicalIndex`. Wraps `Mostlylucid.LucidRAG.DocSummarizer.FullText.Lucene` `(consumed)`. Public: `Index(Segment)`, `Search(query, k)`, `RebuildAsync()`.
 - `MetadataStore`. `Microsoft.Data.Sqlite` direct. Public: typed repositories for documents, segments, entities, salient_terms, personal_facts, workspace_attachments, workspace_library.
@@ -586,7 +596,7 @@ Recording these here so the spec doesn't pretend they were obvious:
 1. **lucidLAB replaces lucidVIEW-FULL.** Single dogfood exe. `MarkdownViewer.Full/` and tests removed in the same commit.
 2. **Corpus = workspace.** A workspace owns attached folders (watched, live-ingested), a library (curated drag-drop and URL-paste through StyloExtract), and a personal corpus (annotations/highlights tagged `personal:*`, excluded from default retrieval but their entities feed the graph). Multiple named workspaces, switchable. First-launch auto-creates `default` and opens it. Dropping a folder onto the window attaches it and triggers ingestion.
 3. **Two substrates per the lucidRAG split.** Index (vectors + lexical + metadata + pointers) is queried. Evidence corpus (text addressable by `ContentHash`) is only hydrated at synthesis. Pointer-only flow through retrieval and ranking.
-4. **Evidence storage composes from Ephemeral atoms** (`SlidingCacheAtom` + `SqliteSingleWriter` + `SqliteDataStorageAtom`). The cache is the storage primitive, not a parasite over a separate store.
+4. **Evidence storage uses `SqliteSingleWriter` directly** (`Mostlylucid.Ephemeral.SQLite.SingleWriter 2.6.4`). The single writer is itself the LFU + write-through primitive (built-in cached reads via `ReadAsync<T>(cacheKey, …)`, atomic write+invalidate via `WriteAndInvalidateAsync`, WAL on by default). `SlidingCacheAtom` and `SqliteDataStorageAtom` are not used by `EvidenceStore` — composing them on top of the single writer would be the parasitic-cache pattern the user explicitly ruled out.
 5. **Vector store is DuckDB + VSS persistent.** lucidRAG's embedded answer. Not sqlite-vec, not in-memory.
 6. **Lexical index is Lucene.Net 4.8.** lucidRAG ships `Mostlylucid.LucidRAG.DocSummarizer.FullText.Lucene`; lucidLAB consumes it.
 7. **ONNX GPU is the default**, via per-platform native packages (DirectML on Windows, CoreML on macOS, CUDA on Linux). Auto-detect at startup, surface chosen EP on status bar, `--ep` CLI override, `--strict-ep` for diagnostics.
