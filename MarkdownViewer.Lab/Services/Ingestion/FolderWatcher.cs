@@ -45,6 +45,7 @@ public sealed class FolderWatcher : IAsyncDisposable
     private readonly ILogger<FolderWatcher> _log;
 
     private readonly CancellationTokenSource _stopCts = new();
+    private CancellationTokenSource? _linkedCts;
     private FileSystemWatcher? _fsw;
     private Task? _consumer;
 
@@ -96,7 +97,8 @@ public sealed class FolderWatcher : IAsyncDisposable
     /// </summary>
     public Task StartAsync(CancellationToken ct)
     {
-        var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _stopCts.Token);
+        _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _stopCts.Token);
+        var linked = _linkedCts;
 
         // Set up the FileSystemWatcher.
         _fsw = new FileSystemWatcher(_folder)
@@ -149,6 +151,7 @@ public sealed class FolderWatcher : IAsyncDisposable
             catch (OperationCanceledException) { }
         }
 
+        _linkedCts?.Dispose();
         _stopCts.Dispose();
     }
 
@@ -200,7 +203,7 @@ public sealed class FolderWatcher : IAsyncDisposable
         if (_channel.Reader.Count >= _channelCapacity)
         {
             Interlocked.Increment(ref _dropped);
-            _log.LogTrace("FolderWatcher: channel full ({Count}/{Cap}), dropped {Path}",
+            _log.LogWarning("FolderWatcher: channel full ({Count}/{Cap}), dropped {Path}",
                 _channel.Reader.Count, _channelCapacity, path);
             return false;
         }

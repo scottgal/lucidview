@@ -9,25 +9,44 @@ using FluentAssertions;
 using MarkdownViewer.Lab.Services.Ingestion;
 using MarkdownViewer.Lab.Services.Storage;
 using MarkdownViewer.Lab.Tests.Ingestion.Stubs;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using StyloExtract.Abstractions;
+using StyloExtract.Core;
 using Xunit;
 
 namespace MarkdownViewer.Lab.Tests.Ingestion;
 
 /// <summary>
 /// Tests for <see cref="LibraryAdder"/>.
-/// Unconditional (no RequiresPlaywright gate): the URL test uses an
-/// in-process <see cref="HttpClient"/> backed by a stub handler that
-/// returns fixture HTML, so no network access is needed.
+///
+/// <para>
+/// HTML ingestion now routes through <see cref="HtmlIngestor"/> which uses
+/// the real <see cref="ILayoutExtractor"/> from <c>AddStyloExtract()</c>.
+/// URL tests use an in-process <see cref="HttpClient"/> backed by a stub
+/// handler so no network access is needed.
+/// </para>
 /// </summary>
 public class LibraryAdderTests : IAsyncDisposable
 {
     private readonly string _root =
         Path.Combine(Path.GetTempPath(), $"lab-lib-{Guid.NewGuid():N}");
 
+    private readonly ServiceProvider _sp;
+    private readonly ILayoutExtractor _extractor;
+
     public LibraryAdderTests()
     {
         Directory.CreateDirectory(_root);
+
+        var services = new ServiceCollection();
+        services.AddStyloExtract(o =>
+        {
+            o.StorePath      = Path.Combine(_root, "templates.db");
+            o.DefaultProfile = ExtractionProfile.RagFull;
+        });
+        _sp        = services.BuildServiceProvider();
+        _extractor = _sp.GetRequiredService<ILayoutExtractor>();
     }
 
     // ── AddPathAsync: local .html file is ingested with source="library" ──
@@ -58,10 +77,10 @@ public class LibraryAdderTests : IAsyncDisposable
             count++;
 
         count.Should().BeGreaterThan(0,
-            "AddPathAsync should route the HTML file through HtmlIngestor and write segments");
+            "AddPathAsync should route the HTML file through HtmlIngestor (StyloExtract) and write segments");
     }
 
-    // ── AddUrlAsync: local HTTP fixture, no network required ──────────────
+    // ── AddUrlAsync: HTML URL routed directly to HtmlIngestor ─────────────
 
     [Fact]
     public async Task LibraryAdder_AddUrlAsync_HtmlResponse_IsIngested()
@@ -70,15 +89,28 @@ public class LibraryAdderTests : IAsyncDisposable
         await using var ws = await store.CreateAsync("default", CancellationToken.None);
         var workspaceIngestor = BuildIngestor(ws);
 
-        // Stub handler returns fixture HTML synchronously.
+        // Stub handler returns fixture HTML synchronously — no network needed.
         var stubHandler = new StubHttpHandler(
             content: SampleHtml,
             contentType: "text/html; charset=utf-8");
 
-        var http = new HttpClient(stubHandler);
+        // The LibraryAdder uses _http only for HEAD probing + non-HTML GET.
+        // HTML URLs are dispatched to HtmlIngestor which uses its own HttpClient.
+        // Provide a separate stub for the HtmlIngestor so the URL fetch also works.
+        var htmlIngestorHttp = new HttpClient(stubHandler);
+        var htmlIngestor     = new HtmlIngestor(_extractor, htmlIngestorHttp,
+                                   NullLogger<HtmlIngestor>.Instance);
+
+        var workspaceIngestorWithHtml = new WorkspaceIngestor(ws,
+            embedder:  StubEmbedder.Instance,
+            ner:       StubNer.Instance,
+            ingestors: new IIngestor[] { htmlIngestor },
+            log:       NullLogger<WorkspaceIngestor>.Instance);
+
+        var adderHttp = new HttpClient(stubHandler);
         var adder = new LibraryAdder(
-            workspaceIngestor,
-            http: http,
+            workspaceIngestorWithHtml,
+            http: adderHttp,
             log: NullLogger<LibraryAdder>.Instance);
 
         await adder.AddUrlAsync(
@@ -91,7 +123,7 @@ public class LibraryAdderTests : IAsyncDisposable
             count++;
 
         count.Should().BeGreaterThan(0,
-            "AddUrlAsync must fetch the URL, route through HtmlIngestor, and write segments");
+            "AddUrlAsync must route the HTML URL through HtmlIngestor (StyloExtract) and write segments");
     }
 
     [Fact]
@@ -151,25 +183,25 @@ public class LibraryAdderTests : IAsyncDisposable
                            new SegmentQuery(), CancellationToken.None))
             count++;
 
-        // The double-ingest must not double-write segments.
-        // Exact count depends on chunking but must be stable between runs.
         count.Should().BeGreaterThan(0, "segments should exist after ingestion");
-        // We can't assert exact count without knowing chunk boundaries, but
-        // we verify no exception was thrown and segments are present.
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
-    private static WorkspaceIngestor BuildIngestor(Workspace ws, bool html = true)
+    private WorkspaceIngestor BuildIngestor(Workspace ws, bool html = true)
     {
-        var ingestors = html
-            ? new IIngestor[] { new HtmlIngestor(NullLogger<HtmlIngestor>.Instance) }
+        IIngestor[] ingestors = html
+            ? new IIngestor[]
+              {
+                  new HtmlIngestor(_extractor, NullLogger<HtmlIngestor>.Instance),
+              }
             : new IIngestor[] { new MarkdownIngestor() };
+
         return new WorkspaceIngestor(ws,
-            embedder: StubEmbedder.Instance,
-            ner: StubNer.Instance,
+            embedder:  StubEmbedder.Instance,
+            ner:       StubNer.Instance,
             ingestors: ingestors,
-            log: NullLogger<WorkspaceIngestor>.Instance);
+            log:       NullLogger<WorkspaceIngestor>.Instance);
     }
 
     private const string SampleHtml = """
@@ -192,9 +224,12 @@ public class LibraryAdderTests : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        await _sp.DisposeAsync();
         if (Directory.Exists(_root))
-            Directory.Delete(_root, recursive: true);
-        await Task.CompletedTask;
+        {
+            try { Directory.Delete(_root, recursive: true); }
+            catch { /* best effort */ }
+        }
     }
 }
 
@@ -208,7 +243,7 @@ internal sealed class StubHttpHandler : HttpMessageHandler
 
     public StubHttpHandler(string content, string contentType)
     {
-        _content = content;
+        _content     = content;
         _contentType = contentType;
     }
 
@@ -218,10 +253,12 @@ internal sealed class StubHttpHandler : HttpMessageHandler
     {
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent(_content, Encoding.UTF8, _contentType.Split(';')[0].Trim()),
+            Content = new StringContent(_content, Encoding.UTF8,
+                _contentType.Split(';')[0].Trim()),
         };
         response.Content.Headers.ContentType =
-            new System.Net.Http.Headers.MediaTypeHeaderValue(_contentType.Split(';')[0].Trim())
+            new System.Net.Http.Headers.MediaTypeHeaderValue(
+                _contentType.Split(';')[0].Trim())
             {
                 CharSet = "utf-8",
             };

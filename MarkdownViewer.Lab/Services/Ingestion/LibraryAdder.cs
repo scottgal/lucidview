@@ -13,11 +13,17 @@ namespace MarkdownViewer.Lab.Services.Ingestion;
 /// with <c>source="library"</c>.
 ///
 /// <para>
-/// URL handling: HTTP-fetches the URL with <c>Accept: text/markdown, text/html</c>.
-/// Responses with a <c>text/html</c> content-type are handed to
-/// <see cref="HtmlIngestor"/>; all other responses (including
-/// <c>text/markdown</c>) are treated as Markdown and handed to
-/// <see cref="MarkdownIngestor"/> via a temp file.
+/// URL handling for HTML: <see cref="AddUrlAsync"/> passes the URL string
+/// directly to <see cref="WorkspaceIngestor.IngestAsync"/>, which dispatches
+/// to <see cref="HtmlIngestor"/>. The <see cref="HtmlIngestor"/> is responsible
+/// for its own fetch (via its injected <see cref="HttpClient"/>) and for running
+/// <c>ILayoutExtractor.ExtractAsync</c> on the result.
+/// </para>
+///
+/// <para>
+/// URL handling for non-HTML content (e.g. <c>text/markdown</c>): the response
+/// is fetched here with an <c>Accept: text/markdown, text/html</c> header, written
+/// to a temp file, and dispatched as Markdown via <see cref="MarkdownIngestor"/>.
 /// </para>
 ///
 /// <para>
@@ -54,53 +60,68 @@ public sealed class LibraryAdder
     }
 
     /// <summary>
-    /// HTTP-fetches <paramref name="url"/>, detects whether the response is
-    /// HTML or Markdown, and ingests accordingly with <c>source="library"</c>.
+    /// Routes <paramref name="url"/> into the ingestion pipeline.
+    ///
+    /// <para>
+    /// For HTML URLs: passes the URL string directly to
+    /// <see cref="WorkspaceIngestor.IngestAsync"/>, which dispatches to
+    /// <see cref="HtmlIngestor"/>. The ingestor fetches and calls
+    /// <c>ILayoutExtractor.ExtractAsync</c> internally.
+    /// </para>
+    ///
+    /// <para>
+    /// For non-HTML URLs: fetches the body here and writes a temp
+    /// <c>.md</c> file, then passes to <see cref="WorkspaceIngestor"/>.
+    /// </para>
     /// </summary>
     public async Task AddUrlAsync(Uri url, CancellationToken ct)
     {
-        _log.LogInformation("LibraryAdder: fetching {Url}", url);
+        _log.LogInformation("LibraryAdder: processing URL {Url}", url);
 
+        // Probe the content-type first with a lightweight HEAD request.
+        // If HEAD is not supported, fall back to GET with early content-type
+        // sniffing before reading the body.
+        string? contentType = null;
+        try
+        {
+            using var head = new HttpRequestMessage(HttpMethod.Head, url);
+            using var headResp = await _http.SendAsync(head, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (headResp.IsSuccessStatusCode)
+                contentType = headResp.Content.Headers.ContentType?.MediaType;
+        }
+        catch
+        {
+            // HEAD not supported or network error — fall through to GET.
+        }
+
+        if (contentType is null || IsHtml(contentType))
+        {
+            // HTML path: pass the URL string to WorkspaceIngestor so HtmlIngestor
+            // handles its own fetch and runs ILayoutExtractor end-to-end.
+            _log.LogDebug("LibraryAdder: routing {Url} to HtmlIngestor (StyloExtract path)", url);
+            await _ingestor.IngestAsync(url.ToString(), source: "library", ct);
+            return;
+        }
+
+        // Non-HTML path (text/markdown, text/plain, etc.): fetch body and write
+        // a temp .md file for MarkdownIngestor.
+        _log.LogDebug("LibraryAdder: fetching non-HTML {ContentType} from {Url}", contentType, url);
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.TryAddWithoutValidation("Accept", "text/markdown, text/html");
-
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseContentRead, ct);
         resp.EnsureSuccessStatusCode();
 
-        var contentType = resp.Content.Headers.ContentType?.MediaType ?? string.Empty;
         var bytes = await resp.Content.ReadAsByteArrayAsync(ct);
-
-        if (IsHtml(contentType))
+        var tmpPath = Path.Combine(Path.GetTempPath(),
+            $"lucidlab-library-{Guid.NewGuid():N}.md");
+        try
         {
-            // Write to a temp file so HtmlIngestor can read it via the standard
-            // IIngestor interface.  The temp path also becomes the document Path
-            // stored in metadata.
-            var tmpPath = Path.Combine(Path.GetTempPath(),
-                $"lucidlab-library-{Guid.NewGuid():N}.html");
-            try
-            {
-                await File.WriteAllBytesAsync(tmpPath, bytes, ct);
-                await _ingestor.IngestAsync(tmpPath, source: "library", ct);
-            }
-            finally
-            {
-                TryDelete(tmpPath);
-            }
+            await File.WriteAllBytesAsync(tmpPath, bytes, ct);
+            await _ingestor.IngestAsync(tmpPath, source: "library", ct);
         }
-        else
+        finally
         {
-            // Treat as Markdown (text/markdown or text/plain).
-            var tmpPath = Path.Combine(Path.GetTempPath(),
-                $"lucidlab-library-{Guid.NewGuid():N}.md");
-            try
-            {
-                await File.WriteAllBytesAsync(tmpPath, bytes, ct);
-                await _ingestor.IngestAsync(tmpPath, source: "library", ct);
-            }
-            finally
-            {
-                TryDelete(tmpPath);
-            }
+            TryDelete(tmpPath);
         }
     }
 
