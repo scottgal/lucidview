@@ -107,11 +107,11 @@
 
   <!-- StyloExtract stack (carried from FULL). -->
   <ItemGroup>
-    <PackageReference Include="Mostlylucid.StyloExtract.Core" Version="2.0.0" />
-    <PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="2.0.0" />
-    <PackageReference Include="Mostlylucid.StyloExtract.Streaming" Version="2.0.0" />
-    <PackageReference Include="Mostlylucid.StyloExtract.Playwright" Version="2.0.0" />
-    <PackageReference Include="Mostlylucid.StyloExtract.Llm.LlamaSharp" Version="2.0.0" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Core" Version="2.0.1" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="2.0.1" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Streaming" Version="2.0.1" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Playwright" Version="2.0.1" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Llm.LlamaSharp" Version="2.0.1" />
     <PackageReference Include="Microsoft.Playwright" Version="1.60.0" />
   </ItemGroup>
 
