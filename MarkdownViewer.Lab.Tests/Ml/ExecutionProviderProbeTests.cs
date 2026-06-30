@@ -22,6 +22,10 @@ public class ExecutionProviderProbeTests
     [Fact]
     public void Probe_StrictMissingEp_Throws()
     {
+        var available = ExecutionProviderProbe.Probe();
+        if (available.Selected == ExecutionProvider.Cuda)
+            return;  // skip on machines where CUDA is actually available
+
         // CUDA is not available on CI / macOS dev machines.
         // With strict=true the probe must throw rather than fall through.
         var act = () => ExecutionProviderProbe.Probe(ExecutionProvider.Cuda, strict: true);

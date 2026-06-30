@@ -56,7 +56,7 @@ public sealed class NerExtractor : INerExtractor, IDisposable
     /// </summary>
     public static NerExtractor Load(string modelPath, ExecutionProvider ep)
     {
-        var opts = BuildSessionOptions(ep);
+        using var opts = BuildSessionOptions(ep);
         return new NerExtractor(new InferenceSession(modelPath, opts));
     }
 

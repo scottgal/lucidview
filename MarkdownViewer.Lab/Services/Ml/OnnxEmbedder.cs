@@ -15,6 +15,9 @@ public interface IOnnxEmbedder
 
     /// <summary>Embed a single text string into a float vector.</summary>
     float[] Embed(string text);
+
+    /// <summary>Embed a batch of text strings into float vectors.</summary>
+    float[][] EmbedBatch(IReadOnlyList<string> texts);
 }
 
 /// <summary>
@@ -55,7 +58,7 @@ public sealed class OnnxEmbedder : IOnnxEmbedder, IDisposable
     /// </summary>
     public static OnnxEmbedder Load(string modelPath, ExecutionProvider ep)
     {
-        var opts = BuildSessionOptions(ep);
+        using var opts = BuildSessionOptions(ep);
         return new OnnxEmbedder(new InferenceSession(modelPath, opts));
     }
 
