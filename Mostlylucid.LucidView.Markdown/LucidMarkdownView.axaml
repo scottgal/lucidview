@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:md="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
+             x:Class="Mostlylucid.LucidView.Markdown.LucidMarkdownView">
+    <ScrollViewer>
+        <md:MarkdownRenderer x:Name="MdViewer" />
+    </ScrollViewer>
+</UserControl>

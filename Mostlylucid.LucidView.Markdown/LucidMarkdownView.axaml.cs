@@ -1,0 +1,150 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Threading;
+using LiveMarkdown.Avalonia;
+using Mostlylucid.LucidView.Markdown.Plugins;
+using Mostlylucid.LucidView.Markdown.Services;
+
+namespace Mostlylucid.LucidView.Markdown;
+
+/// <summary>
+/// A self-contained Avalonia UserControl that renders Markdown (including Mermaid diagrams)
+/// using the LiveMarkdown.Avalonia renderer and Naiad diagram pipeline.
+/// </summary>
+public partial class LucidMarkdownView : UserControl
+{
+    // ── Styled Properties ───────────────────────────────────────────────────
+
+    /// <summary>Defines the <see cref="Markdown"/> property.</summary>
+    public static readonly StyledProperty<string?> MarkdownProperty =
+        AvaloniaProperty.Register<LucidMarkdownView, string?>(nameof(Markdown));
+
+    /// <summary>Defines the <see cref="SourcePath"/> property.</summary>
+    public static readonly StyledProperty<string?> SourcePathProperty =
+        AvaloniaProperty.Register<LucidMarkdownView, string?>(nameof(SourcePath));
+
+    // ── CLR wrappers ────────────────────────────────────────────────────────
+
+    /// <summary>The Markdown text to render. Changing this triggers a re-render.</summary>
+    public string? Markdown
+    {
+        get => GetValue(MarkdownProperty);
+        set => SetValue(MarkdownProperty, value);
+    }
+
+    /// <summary>
+    /// Base path used to resolve relative image paths inside the Markdown.
+    /// Defaults to <see cref="Path.GetTempPath()"/> when not set.
+    /// </summary>
+    public string? SourcePath
+    {
+        get => GetValue(SourcePathProperty);
+        set => SetValue(SourcePathProperty, value);
+    }
+
+    // ── Events ──────────────────────────────────────────────────────────────
+
+    /// <summary>Raised when a link inside the rendered Markdown is clicked.</summary>
+    public event EventHandler<LinkClickedEventArgs>? LinkClick;
+
+    // ── Internals ───────────────────────────────────────────────────────────
+
+    private readonly MarkdownService _markdownService;
+    private readonly ImageCacheService _imageCacheService;
+    private readonly DiagramRendererPluginHost _pluginHost;
+
+    // ── Constructor ─────────────────────────────────────────────────────────
+
+    public LucidMarkdownView()
+    {
+        InitializeComponent();
+
+        _markdownService = new MarkdownService();
+        _imageCacheService = new ImageCacheService();
+        _markdownService.SetImageCacheService(_imageCacheService);
+
+        _pluginHost = new DiagramRendererPluginHost([
+            new AvaloniaNativeDiagramRendererPlugin(
+                _markdownService,
+                ResolveDiagramTextBrush,
+                SaveDiagramAsNoOp)
+        ]);
+
+        MdViewer.LinkClick += (s, e) => LinkClick?.Invoke(s, e);
+    }
+
+    // ── Avalonia lifecycle ──────────────────────────────────────────────────
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        MdViewer.ImageBasePath = SourcePath ?? Path.GetTempPath();
+
+        // Re-render when attached so late bindings (e.g. DataContext) are reflected.
+        if (!string.IsNullOrEmpty(Markdown))
+            Dispatcher.UIThread.Post(() => _ = RenderAsync(Markdown), DispatcherPriority.Background);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == MarkdownProperty)
+            _ = RenderAsync(change.GetNewValue<string?>());
+
+        if (change.Property == SourcePathProperty)
+            MdViewer.ImageBasePath = change.GetNewValue<string?>() ?? Path.GetTempPath();
+    }
+
+    // ── Render pipeline ─────────────────────────────────────────────────────
+
+    private async Task RenderAsync(string? markdown)
+    {
+        if (markdown is null)
+        {
+            MdViewer.MarkdownBuilder = new ObservableStringBuilder();
+            return;
+        }
+
+        var (processed, pendingDiagrams) = _markdownService.ProcessMarkdownFast(markdown);
+
+        var builder = new ObservableStringBuilder();
+        builder.Append(processed);
+        MdViewer.MarkdownBuilder = builder;
+
+        _pluginHost.ReplaceDiagramMarkers(MdViewer);
+
+        if (pendingDiagrams.Count == 0) return;
+
+        var ct = _markdownService.BeginNewRenderBatch();
+        try
+        {
+            var replacements = await _markdownService.RenderPendingDiagramsAsync(pendingDiagrams, ct);
+            var updated = processed;
+            foreach (var (placeholder, replacement) in replacements)
+                updated = updated.Replace(placeholder, replacement);
+
+            var diagramBuilder = new ObservableStringBuilder();
+            diagramBuilder.Append(updated);
+            MdViewer.MarkdownBuilder = diagramBuilder;
+
+            _pluginHost.ReplaceDiagramMarkers(MdViewer);
+        }
+        catch (OperationCanceledException)
+        {
+            // A new render batch was started (e.g. Markdown changed again) — this is expected.
+        }
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
+    private IBrush? ResolveDiagramTextBrush()
+    {
+        // Use the control's current foreground, falling back to white for dark themes.
+        if (Foreground is { } fg) return fg;
+        return Brushes.White;
+    }
+
+    private static Task SaveDiagramAsNoOp(string mermaidSource, string format) => Task.CompletedTask;
+}
