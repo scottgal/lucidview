@@ -73,6 +73,8 @@ jobs:
               "Naiad/src/Naiad.Skins.Showcase/Naiad.Skins.Showcase.csproj",
               "Naiad/src/Naiad.Surfaces.ImageSharp/Naiad.Surfaces.ImageSharp.csproj",
               "Naiad/src/Naiad.Surfaces.Skia/Naiad.Surfaces.Skia.csproj",
+              "Mostlylucid.ImageSharp.Svg/Mostlylucid.ImageSharp.Svg.csproj",
+              "Mostlylucid.LucidView.Markdown/Mostlylucid.LucidView.Markdown.csproj",
           ]
           package_projects = [repo / p for p in package_projects]
 
