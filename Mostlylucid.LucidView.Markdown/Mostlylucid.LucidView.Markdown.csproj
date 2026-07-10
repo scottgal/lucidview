@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <PackageId>Mostlylucid.LucidView.Markdown</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Scott Galloway</Authors>
+    <Description>lucidVIEW's markdown render control (LiveMarkdown.Avalonia + Naiad diagrams) as a reusable Avalonia control.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IsPackable>true</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <!-- LiveMarkdown.Avalonia: uses local ProjectReference (scottgal fork with HtmlInline img-fix patch)
+         which is not yet published to NuGet. -->
+    <ProjectReference Include="..\external\LiveMarkdown.Avalonia\src\LiveMarkdown.Avalonia\LiveMarkdown.Avalonia.csproj" />
+    <!-- Naiad: uses local ProjectReference — the published 1.3.1 package lacks APIs used by this code. -->
+    <ProjectReference Include="..\Naiad\src\Naiad\Naiad.csproj" />
+    <PackageReference Include="SkiaSharp" Version="3.119.2" />
+    <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
+  </ItemGroup>
+</Project>
