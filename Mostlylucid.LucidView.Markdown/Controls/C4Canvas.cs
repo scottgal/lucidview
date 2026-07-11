@@ -1,6 +1,7 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using MermaidSharp.Diagrams.C4;
 
@@ -28,6 +29,44 @@ public class C4Canvas : Control
     /// colour, so the architecture doubles as a live ownership map. Falls back to the C4 type palette.
     /// </summary>
     public IReadOnlyDictionary<string, Color>? ElementColors { get; set; }
+
+    /// <summary>
+    /// Raised when a C4 element is clicked — the architecture diagram as a navigation interface
+    /// (drill into a component, focus its owning agent, …).
+    /// </summary>
+    public event EventHandler<C4PositionedElement>? ElementClicked;
+
+    /// <summary>Returns the element whose box contains <paramref name="point"/>, or null.</summary>
+    public C4PositionedElement? HitTest(Point point)
+    {
+        var layout = Layout;
+        if (layout is null) return null;
+        foreach (var el in layout.Elements)
+            if (point.X >= el.X && point.X <= el.X + el.Width &&
+                point.Y >= el.Y && point.Y <= el.Y + el.Height)
+                return el;
+        return null;
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        var hit = HitTest(e.GetPosition(this));
+        if (hit is not null)
+        {
+            ElementClicked?.Invoke(this, hit);
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        // Hand cursor over clickable elements for affordance.
+        Cursor = HitTest(e.GetPosition(this)) is not null
+            ? new Cursor(StandardCursorType.Hand)
+            : Cursor.Default;
+    }
 
     static C4Canvas()
     {

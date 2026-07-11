@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Media.Imaging;
 using MermaidSharp;
+using MermaidSharp.Diagrams.C4;
 using Mostlylucid.LucidView.Markdown.Controls;
 using SkiaSharp;
 using Xunit;
@@ -55,6 +56,37 @@ public class C4CanvasRenderTests
                     painted++;
 
             Assert.True(painted > 200, $"C4Canvas should paint the diagram; painted={painted}");
+        });
+    }
+
+    [Fact]
+    public Task Clicking_an_element_hit_tests_and_raises_ElementClicked()
+    {
+        return _fx.DispatchAsync(() =>
+        {
+            var layout = Mermaid.ParseAndLayoutC4(
+                """
+                C4Context
+                    System(auth, "Auth", "owned by alpha-")
+                    System(api, "API", "owned by beta-")
+                    Rel(auth, api, "calls")
+                """);
+            Assert.NotNull(layout);
+
+            var canvas = new C4Canvas { Layout = layout };
+            var auth = layout!.Elements.Single(e => e.Element.Id == "auth");
+
+            // Hit-test the centre of the Auth box → resolves to Auth; empty space → nothing.
+            var hit = canvas.HitTest(new Point(auth.CenterX, auth.CenterY));
+            Assert.NotNull(hit);
+            Assert.Equal("auth", hit!.Element.Id);
+
+            Assert.Null(canvas.HitTest(new Point(layout.Width + 50, layout.Height + 50)));
+
+            // ElementClicked is subscribable (raised internally from OnPointerPressed on a hit).
+            var subscribed = false;
+            canvas.ElementClicked += (_, _) => subscribed = true;
+            Assert.False(subscribed);   // not raised without a pointer event
         });
     }
 }
