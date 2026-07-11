@@ -48,6 +48,18 @@ public partial class MarkdownService
     private int _diagramCounter;
 
     /// <summary>
+    /// Maps C4 placeholder keys (e.g. "c4-0") to their native positioned layout.
+    /// Used by C4Canvas to render C4 diagrams as native Avalonia controls (so they can overlay live
+    /// activity and colour elements by owning agent) instead of a static SVG.
+    /// </summary>
+    private readonly Dictionary<string, MermaidSharp.Diagrams.C4.C4LayoutResult> _c4Layouts = new(StringComparer.Ordinal);
+    private int _c4Counter;
+    public IReadOnlyDictionary<string, MermaidSharp.Diagrams.C4.C4LayoutResult> C4Layouts => _c4Layouts;
+
+    /// <summary>Look up a native C4 layout by its placeholder key.</summary>
+    public MermaidSharp.Diagrams.C4.C4LayoutResult? GetC4Layout(string key) => _c4Layouts.GetValueOrDefault(key);
+
+    /// <summary>
     /// Get all mermaid diagrams in the current document (PNG path → mermaid code).
     /// </summary>
     public IReadOnlyDictionary<string, string> MermaidDiagrams => _mermaidSourceMap;
@@ -671,15 +683,18 @@ public partial class MarkdownService
     /// </summary>
     internal const string FlowchartMarkerPrefix = "FLOWCHART:";
     internal const string DiagramMarkerPrefix = "DIAGRAM:";
+    internal const string C4MarkerPrefix = "C4:";
 
     private (string Content, List<MermaidWorkItem> Pending) ProcessMermaidBlocksTwoPhase(string content)
     {
         _mermaidCounter = 0;
         _flowchartCounter = 0;
         _diagramCounter = 0;
+        _c4Counter = 0;
         _mermaidSourceMap.Clear();
         _flowchartLayouts.Clear();
         _diagramDocuments.Clear();
+        _c4Layouts.Clear();
         _c4ZoomTargets.Clear();
         var mermaidRegex = MermaidBlockRegex();
         var matches = mermaidRegex.Matches(content);
@@ -703,6 +718,19 @@ public partial class MarkdownService
                 // Insert a text marker. LiveMarkdown renders it as a Run inside a
                 // MarkdownTextBlock. We find it in the visual tree and replace with FlowchartCanvas.
                 rewritten.Append($"\n\n{FlowchartMarkerPrefix}{flowchartKey}\n\n");
+                cursor = match.Index + match.Length;
+                continue;
+            }
+
+            // Native C4 rendering (before the generic SVG path) so C4 diagrams render as a live
+            // C4Canvas rather than a static SVG.
+            var c4Layout = TryComputeC4Layout(mermaidCode);
+            if (c4Layout is not null)
+            {
+                var c4Key = $"c4-{_c4Counter++}";
+                _c4Layouts[c4Key] = c4Layout;
+                _mermaidSourceMap[c4Key] = mermaidCode;
+                rewritten.Append($"\n\n{C4MarkerPrefix}{c4Key}\n\n");
                 cursor = match.Index + match.Length;
                 continue;
             }
@@ -872,6 +900,43 @@ public partial class MarkdownService
                     continue;
 
                 var layout = Mermaid.ParseAndLayoutFlowchart(attempt, renderOptions);
+                if (layout is not null)
+                    return layout;
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// If the mermaid code is a C4 diagram, compute a native positioned layout and return it.
+    /// Returns null for non-C4 diagrams or on parse/layout failure.
+    /// </summary>
+    private MermaidSharp.Diagrams.C4.C4LayoutResult? TryComputeC4Layout(string mermaidCode)
+    {
+        try
+        {
+            var diagramType = Mermaid.DetectDiagramType(mermaidCode);
+            if (diagramType is not (DiagramType.C4Context or DiagramType.C4Container
+                or DiagramType.C4Component or DiagramType.C4Deployment))
+                return null;
+
+            var renderOptions = CreateRenderOptions();
+            foreach (var attempt in new[]
+                     {
+                         mermaidCode.Trim(),
+                         StripIndentation(mermaidCode),
+                         PreprocessMermaidCode(mermaidCode)
+                     })
+            {
+                if (string.IsNullOrWhiteSpace(attempt))
+                    continue;
+
+                var layout = Mermaid.ParseAndLayoutC4(attempt, renderOptions);
                 if (layout is not null)
                     return layout;
             }

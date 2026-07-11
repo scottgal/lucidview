@@ -24,7 +24,8 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
     {
         var flowchartLayouts = markdownService.FlowchartLayouts;
         var diagramDocs = markdownService.DiagramDocuments;
-        if (flowchartLayouts.Count == 0 && diagramDocs.Count == 0) return;
+        var c4Layouts = markdownService.C4Layouts;
+        if (flowchartLayouts.Count == 0 && diagramDocs.Count == 0 && c4Layouts.Count == 0) return;
 
         var markers = new List<MarkerTarget>();
         FindDiagramMarkers(root, markers);
@@ -82,6 +83,23 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
                         scrollToDiagram?.Invoke(target);
                 };
                 replacement = canvas;
+            }
+            else if (marker.Prefix == MarkdownService.C4MarkerPrefix)
+            {
+                var layout = markdownService.GetC4Layout(marker.Key);
+                if (layout is null)
+                {
+                    Debug.WriteLine($"[DiagramCanvas:{Name}] No C4 layout for key '{marker.Key}'");
+                    continue;
+                }
+
+                Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing C4 '{marker.Key}' - {layout.Width:F0}x{layout.Height:F0}");
+
+                replacement = new C4Canvas
+                {
+                    Layout = layout,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+                };
             }
 
             if (replacement is null) continue;
@@ -183,6 +201,13 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
         {
             var key = ExtractMarkerKey(text, idx + MarkdownService.DiagramMarkerPrefix.Length);
             return string.IsNullOrEmpty(key) ? null : (MarkdownService.DiagramMarkerPrefix, key);
+        }
+
+        idx = text.IndexOf(MarkdownService.C4MarkerPrefix, StringComparison.OrdinalIgnoreCase);
+        if (idx >= 0)
+        {
+            var key = ExtractMarkerKey(text, idx + MarkdownService.C4MarkerPrefix.Length);
+            return string.IsNullOrEmpty(key) ? null : (MarkdownService.C4MarkerPrefix, key);
         }
 
         return null;
