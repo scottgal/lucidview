@@ -270,6 +270,18 @@ public partial class MarkdownService
         return _renderCts.Token;
     }
 
+    /// <summary>
+    /// Cancels any in-flight render batch without starting a new one. Call this when the owning
+    /// control is torn down (e.g. detached from the visual tree) so no diagram-rendering work
+    /// outlives it.
+    /// </summary>
+    public void CancelRenderBatch()
+    {
+        _renderCts?.Cancel();
+        _renderCts?.Dispose();
+        _renderCts = null;
+    }
+
     public List<string> ExtractImageUrls(string content)
     {
         var urls = new List<string>();

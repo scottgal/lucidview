@@ -86,6 +86,19 @@ public partial class LucidMarkdownView : UserControl
             Dispatcher.UIThread.Post(() => _ = RenderAsync(Markdown), DispatcherPriority.Background);
     }
 
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+
+        // Stop rendering when we leave the tree. Cancel any in-flight diagram batch and clear the
+        // streaming builder so no async render/layout work outlives the control. Besides being the
+        // correct lifetime behaviour for a closed document, this is essential under a *shared*
+        // headless test session: a view that keeps re-driving layout after its window closes leaves
+        // never-settling work on the single UI thread and eventually wedges a later test.
+        _markdownService.CancelRenderBatch();
+        MdViewer.MarkdownBuilder = new ObservableStringBuilder();
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
