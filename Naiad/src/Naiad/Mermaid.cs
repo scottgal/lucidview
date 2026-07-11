@@ -239,6 +239,26 @@ public static class Mermaid
         return renderer.LayoutModel(result.Value, options);
     }
 
+    /// <summary>
+    /// Parse a C4 diagram and produce a positioned <see cref="MermaidSharp.Diagrams.C4.C4LayoutResult"/>
+    /// (backend-agnostic geometry) — the analog of <see cref="ParseAndLayoutFlowchart"/>, for native
+    /// canvas rendering. Returns null if the input is not a parseable C4 diagram.
+    /// </summary>
+    public static MermaidSharp.Diagrams.C4.C4LayoutResult? ParseAndLayoutC4(string input, RenderOptions? options = null)
+    {
+        options = (options ?? RenderOptions.Default).Clone();
+        SecurityValidator.NormalizeSecurityLimits(options);
+        SecurityValidator.ValidateInput(input, options);
+        options = ApplyNaiadDirectives(input, ApplyInitDirectives(input, options));
+        SecurityValidator.NormalizeSecurityLimits(options);
+
+        var parser = new MermaidSharp.Diagrams.C4.C4Parser();
+        var result = parser.Parse(input);
+        if (!result.Success) return null;
+
+        return MermaidSharp.Diagrams.C4.C4Layout.Compute(result.Value, options);
+    }
+
     public static DiagramType DetectDiagramType(string input)
     {
         // Skip %%{init}%% directives and %% comment lines to find the actual diagram type
