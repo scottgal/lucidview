@@ -14,7 +14,8 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
     Func<IBrush?> resolveDiagramTextBrush,
     Func<string, string, Task> saveDiagramAs,
     Action<string>? openExternalLink = null,
-    Action<string>? scrollToDiagram = null) : IDiagramRendererPlugin
+    Action<string>? scrollToDiagram = null,
+    Action<string>? c4ElementClicked = null) : IDiagramRendererPlugin
 {
     public string Name => "avalonia-native";
 
@@ -95,11 +96,13 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
 
                 Debug.WriteLine($"[DiagramCanvas:{Name}] Replacing C4 '{marker.Key}' - {layout.Width:F0}x{layout.Height:F0}");
 
-                replacement = new C4Canvas
+                var c4 = new C4Canvas
                 {
                     Layout = layout,
                     HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
                 };
+                c4.ElementClicked += (_, el) => c4ElementClicked?.Invoke(el.Element.Id);
+                replacement = c4;
             }
 
             if (replacement is null) continue;

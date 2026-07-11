@@ -48,6 +48,12 @@ public partial class LucidMarkdownView : UserControl
     /// <summary>Raised when a link inside the rendered Markdown is clicked.</summary>
     public event EventHandler<LinkClickedEventArgs>? LinkClick;
 
+    /// <summary>
+    /// Raised when a C4 element in a rendered C4 diagram is clicked, with the element's id — so a host
+    /// can treat the architecture diagram as a navigation surface (e.g. focus the owning agent).
+    /// </summary>
+    public event Action<string>? C4ElementClicked;
+
     // ── Internals ───────────────────────────────────────────────────────────
 
     private readonly MarkdownService _markdownService;
@@ -68,7 +74,8 @@ public partial class LucidMarkdownView : UserControl
             new AvaloniaNativeDiagramRendererPlugin(
                 _markdownService,
                 ResolveDiagramTextBrush,
-                SaveDiagramAsNoOp)
+                SaveDiagramAsNoOp,
+                c4ElementClicked: id => C4ElementClicked?.Invoke(id))
         ]);
 
         MdViewer.LinkClick += (s, e) => LinkClick?.Invoke(s, e);
