@@ -26,6 +26,13 @@ public class C4Element
     public bool IsExternal { get; set; }
     public string? BoundaryId { get; set; }
     public string? Link { get; set; }
+
+    /// <summary>
+    /// Optional per-element background colour (hex, e.g. "#438DD5"), from a Mermaid C4
+    /// <c>UpdateElementStyle(id, $bgColor="…")</c> directive — used to colour a component by its
+    /// owning agent so the architecture doubles as a live responsibility map.
+    /// </summary>
+    public string? BgColor { get; set; }
 }
 
 public enum C4ElementType

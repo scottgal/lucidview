@@ -252,11 +252,20 @@ public static class Mermaid
         options = ApplyNaiadDirectives(input, ApplyInitDirectives(input, options));
         SecurityValidator.NormalizeSecurityLimits(options);
 
+        // Lift out Update… style directives (which the strict grammar does not model) and capture
+        // per-element background colours, so styled/ownership-coloured C4 still parses.
+        var (cleaned, bgColors) = MermaidSharp.Diagrams.C4.C4StyleDirectives.Extract(input);
+
         var parser = new MermaidSharp.Diagrams.C4.C4Parser();
-        var result = parser.Parse(input);
+        var result = parser.Parse(cleaned);
         if (!result.Success) return null;
 
-        return MermaidSharp.Diagrams.C4.C4Layout.Compute(result.Value, options);
+        var model = result.Value;
+        foreach (var element in model.Elements)
+            if (bgColors.TryGetValue(element.Id, out var color))
+                element.BgColor = color;
+
+        return MermaidSharp.Diagrams.C4.C4Layout.Compute(model, options);
     }
 
     public static DiagramType DetectDiagramType(string input)

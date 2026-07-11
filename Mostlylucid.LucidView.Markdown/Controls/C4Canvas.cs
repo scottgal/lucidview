@@ -160,8 +160,12 @@ public class C4Canvas : Control
 
     Color ColorFor(C4Element element)
     {
+        // Explicit ownership override wins, then a per-element colour carried in the model
+        // (UpdateElementStyle $bgColor), then the C4 type palette.
         if (ElementColors is not null && ElementColors.TryGetValue(element.Id, out var owner))
             return owner;
+        if (!string.IsNullOrWhiteSpace(element.BgColor) && Color.TryParse(element.BgColor, out var custom))
+            return custom;
         if (element.IsExternal) return ExternalColor;
         return element.Type switch
         {

@@ -21,10 +21,14 @@ public class C4CanvasRenderTests
             var layout = Mermaid.ParseAndLayoutC4(
                 """
                 C4Context
-                    title Test Context
+                    title Ownership
                     Person(user, "User", "A person")
-                    System(system, "System", "Main system")
-                    Rel(user, system, "Uses")
+                    System(auth, "Auth", "owned by alpha-")
+                    System(api, "API", "owned by beta-")
+                    Rel(user, auth, "signs in")
+                    Rel(auth, api, "authorises")
+                    UpdateElementStyle(auth, $bgColor="#4CDB6E")
+                    UpdateElementStyle(api, $bgColor="#E5A05A")
                 """);
             Assert.NotNull(layout);
 

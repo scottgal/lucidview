@@ -110,4 +110,45 @@ public class C4LayoutTests
     [Test]
     public void Non_c4_input_returns_null()
         => Assert.That(Mermaid.ParseAndLayoutC4("flowchart TD\n A --> B"), Is.Null);
+
+    [Test]
+    public void UpdateElementStyle_is_captured_as_per_element_bg_colour()
+    {
+        const string input =
+            """
+            C4Context
+                System(core, "Core", "Main")
+                System(ext, "Ext", "Other")
+                UpdateElementStyle(core, $bgColor="#438DD5")
+            """;
+
+        var layout = Mermaid.ParseAndLayoutC4(input);
+
+        Assert.That(layout, Is.Not.Null);                       // directive did not break parsing
+        Assert.That(layout!.Elements, Has.Count.EqualTo(2));
+        var core = layout.Elements.Single(e => e.Element.Id == "core");
+        Assert.That(core.Element.BgColor, Is.EqualTo("#438DD5"));
+        var ext = layout.Elements.Single(e => e.Element.Id == "ext");
+        Assert.That(ext.Element.BgColor, Is.Null);
+    }
+
+    [Test]
+    public void Unknown_update_directives_do_not_break_parsing()
+    {
+        const string input =
+            """
+            C4Context
+                System(a, "A", "x")
+                System(b, "B", "y")
+                Rel(a, b, "uses")
+                UpdateRelStyle(a, b, $textColor="red")
+                UpdateLayoutConfig($c4ShapeInRow="2")
+            """;
+
+        var layout = Mermaid.ParseAndLayoutC4(input);
+
+        Assert.That(layout, Is.Not.Null);
+        Assert.That(layout!.Elements, Has.Count.EqualTo(2));
+        Assert.That(layout.Edges, Has.Count.EqualTo(1));
+    }
 }
