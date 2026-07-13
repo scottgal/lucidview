@@ -133,7 +133,13 @@ public partial class LucidMarkdownView : UserControl
         builder.Append(processed);
         MdViewer.MarkdownBuilder = builder;
 
+        // First pass runs synchronously, but on a fresh render the builder update hasn't been laid out into
+        // the visual tree yet, so this walk finds no marker Runs. That's fine for async diagrams (their
+        // await + second pass below catches them after layout) but flowcharts have no async step — without a
+        // deferred pass their FLOWCHART: marker never gets replaced (it renders as raw text). So always defer
+        // one more pass after a layout tick; ReplaceDiagramMarkers is idempotent (a replaced marker is gone).
         _pluginHost.ReplaceDiagramMarkers(MdViewer);
+        Dispatcher.UIThread.Post(() => _pluginHost.ReplaceDiagramMarkers(MdViewer), DispatcherPriority.Loaded);
 
         if (pendingDiagrams.Count == 0) return;
 
