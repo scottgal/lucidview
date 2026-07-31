@@ -3,6 +3,7 @@
         xmlns:md="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
         xmlns:services="clr-namespace:MarkdownViewer.Services"
         xmlns:models="clr-namespace:MarkdownViewer.Models"
+        xmlns:controls="clr-namespace:MarkdownViewer.Controls"
         xmlns:ic="using:FluentIcons.Avalonia.Fluent"
         x:Class="MarkdownViewer.Views.MainWindow"
         Title="lucidVIEW"
@@ -195,6 +196,13 @@
                                       ToolTip.Tip="Split source and preview">
                             <ic:SymbolIcon Symbol="PanelLeftContract" FontSize="17" />
                         </ToggleButton>
+                        <Button x:Name="EditorSaveButton"
+                                Classes="header-btn"
+                                Click="OnSaveMarkdown"
+                                ToolTip.Tip="Save Markdown (Ctrl+S)">
+                            <ic:SymbolIcon Symbol="Save" FontSize="17"
+                                           Foreground="{DynamicResource AppText}" />
+                        </Button>
                     </StackPanel>
 
                     <!-- Search Button -->
@@ -659,18 +667,49 @@
                                           HorizontalScrollBarVisibility="Auto"
                                           VerticalScrollBarVisibility="Auto"
                                           Background="{DynamicResource AppBackground}">
-                                <Border Padding="24,16">
-                                    <TextBox x:Name="RawTextBlock"
-                                             AcceptsReturn="True"
-                                             TextChanging="OnEditorTextChanging"
-                                             Background="Transparent"
-                                             BorderThickness="0"
-                                             FontFamily="Cascadia Code, JetBrains Mono, Consolas, monospace"
-                                             FontSize="13"
-                                             Foreground="{DynamicResource AppText}"
-                                             TextWrapping="NoWrap"
-                                             Watermark="Write Markdown..." />
-                                </Border>
+                                <LayoutTransformControl x:Name="EditorLayoutTransform"
+                                                        HorizontalAlignment="Center">
+                                    <Border x:Name="EditorContentBorder"
+                                            Padding="20,14"
+                                            Margin="0,8,0,16"
+                                            Background="{DynamicResource AppBackgroundSecondary}"
+                                            BorderBrush="{DynamicResource AppBorderSubtle}"
+                                            BorderThickness="1"
+                                            CornerRadius="4">
+                                        <DockPanel>
+                                            <Border DockPanel.Dock="Top"
+                                                    Padding="0,0,0,10"
+                                                    BorderBrush="{DynamicResource AppBorderSubtle}"
+                                                    BorderThickness="0,0,0,1">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Button Classes="editor-format" Click="OnEditorBold" ToolTip.Tip="Bold">
+                                                        <TextBlock Text="B" FontWeight="Bold" />
+                                                    </Button>
+                                                    <Button Classes="editor-format" Click="OnEditorItalic" ToolTip.Tip="Italic">
+                                                        <TextBlock Text="I" FontStyle="Italic" />
+                                                    </Button>
+                                                    <Button Classes="editor-format" Click="OnEditorHeading" ToolTip.Tip="Heading">
+                                                        <TextBlock Text="H" FontWeight="Bold" />
+                                                    </Button>
+                                                    <Button Classes="editor-format" Click="OnEditorList" ToolTip.Tip="Bulleted list">
+                                                        <ic:SymbolIcon Symbol="TextBulletList" FontSize="15" />
+                                                    </Button>
+                                                    <Button Classes="editor-format" Click="OnEditorLink" ToolTip.Tip="Link">
+                                                        <ic:SymbolIcon Symbol="Link" FontSize="15" />
+                                                    </Button>
+                                                    <Button Classes="editor-format" Click="OnSaveMarkdown" ToolTip.Tip="Save Markdown (Ctrl+S)">
+                                                        <ic:SymbolIcon Symbol="Save" FontSize="15" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Border>
+                                            <controls:MarkdownCanvasEditor x:Name="VisualEditor" />
+                                            <!-- Holds the canonical source for save/export and for
+                                                 advanced Markdown operations. The visible Edit mode
+                                                 is the block canvas above. -->
+                                            <TextBox x:Name="RawTextBlock" IsVisible="False" />
+                                        </DockPanel>
+                                    </Border>
+                                </LayoutTransformControl>
                             </ScrollViewer>
                         </Grid>
                     </DockPanel>

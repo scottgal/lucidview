@@ -11,7 +11,7 @@
 
     <AssemblyName>lucidVIEW</AssemblyName>
     <RootNamespace>MarkdownViewer</RootNamespace>
-    <Version>4.0.0</Version>
+    <Version>4.1.0</Version>
     <Product>lucidVIEW-FULL</Product>
     <Description>Dogfood build of lucidVIEW with the preview StyloExtract LLM + Playwright stack</Description>
     <ApplicationIcon>..\MarkdownViewer\favicon.ico</ApplicationIcon>
@@ -54,6 +54,7 @@
     <PackageReference Include="FluentAvaloniaUI" Version="2.5.0" />
     <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="2.0.321" />
     <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
+    <PackageReference Include="GHSoftware.Avalonia.SpellChecker.Avalonia11" Version="0.3.3" />
     <!-- LiveMarkdown.Avalonia consumed via submodule + ProjectReference (below).
          The patched HtmlInline/HtmlBlock <img> renderer lives on the
          scottgal/LiveMarkdown.Avalonia fork's feat/html-img-renderer branch. -->

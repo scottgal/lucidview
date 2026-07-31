@@ -12,6 +12,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.SpellChecker;
 using LiveMarkdown.Avalonia;
 using MarkdownViewer.Models;
 using MarkdownViewer.Plugins;
@@ -25,6 +26,8 @@ namespace MarkdownViewer.Views;
 public partial class MainWindow : Window
 {
     private readonly ImageCacheService _imageCacheService;
+    private readonly TextBoxSpellChecker _spellChecker;
+    private TextBoxSpellChecker? _canvasSpellChecker;
     private readonly MarkdownService _markdownService;
     private readonly IHtmlToMarkdownService _htmlToMarkdownService =
 #if FULL
@@ -80,6 +83,11 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _spellChecker = new TextBoxSpellChecker(SpellCheckerConfig.Create("en_GB"));
+        _spellChecker.Initialize(RawTextBlock);
+        VisualEditor.ImageBasePath = Path.GetTempPath();
+        VisualEditor.MarkdownChanged += OnVisualEditorMarkdownChanged;
+        VisualEditor.ActiveEditorChanged += OnCanvasActiveEditorChanged;
 
         // Window chrome: extend into title bar with system caption buttons
         SystemDecorations = SystemDecorations.Full;
@@ -499,6 +507,7 @@ public partial class MainWindow : Window
         {
             _isUpdatingEditor = true;
             RawTextBlock.Text = content;
+            VisualEditor.Markdown = content;
             _isUpdatingEditor = false;
             SetEditorDirty(false);
         }
@@ -755,7 +764,7 @@ public partial class MainWindow : Window
     {
         // Apply font size via LayoutTransformControl for proper layout handling
         var scale = _fontSize / 16.0;
-        MarkdownLayoutTransform.LayoutTransform = new ScaleTransform(scale, scale);
+        ApplyDocumentScale(scale);
 
         _settings.FontSize = _fontSize;
         _settings.Save();
@@ -1002,17 +1011,23 @@ public partial class MainWindow : Window
         if (isSplit)
         {
             var splitWidth = Math.Max(MinContentWidth, (Bounds.Width - 18) / 2);
-            var cardWidth = Math.Min(_settings.ContentMaxWidth, splitWidth);
+            // Split is a two-pane workspace, not a narrow reading column.
+            // Each pane owns its available width; the single-column ruler is
+            // restored automatically on returning to Edit or Preview.
+            var cardWidth = splitWidth;
             MarkdownContentBorder.Width = cardWidth;
+            EditorContentBorder.Width = cardWidth;
             UpdateImageMaxWidth(cardWidth);
+            InlineRulerBar.IsVisible = false;
         }
         else
         {
             ApplyContentMaxWidth();
+            ApplyRulerVisibility();
         }
 
         if (!isPreview)
-            RawTextBlock.Focus();
+            VisualEditor.FocusEditor();
     }
 
     private void OnEditorTextChanging(object? sender, TextChangingEventArgs e)
@@ -1029,6 +1044,29 @@ public partial class MainWindow : Window
         _editorPreviewTimer.Tick += OnEditorPreviewTimerTick;
         _editorPreviewTimer.Stop();
         _editorPreviewTimer.Start();
+    }
+
+    private void OnVisualEditorMarkdownChanged(object? sender, string content)
+    {
+        if (_isUpdatingEditor)
+            return;
+
+        _isUpdatingEditor = true;
+        RawTextBlock.Text = content;
+        _isUpdatingEditor = false;
+        OnEditorTextChanging(this, null!);
+    }
+
+    private void OnCanvasActiveEditorChanged(object? sender, TextBox? editor)
+    {
+        if (editor is null)
+        {
+            _canvasSpellChecker = null;
+            return;
+        }
+
+        _canvasSpellChecker = new TextBoxSpellChecker(SpellCheckerConfig.Create("en_GB"));
+        _canvasSpellChecker.Initialize(editor);
     }
 
     private void OnEditorPreviewTimerTick(object? sender, EventArgs e)
@@ -1049,6 +1087,37 @@ public partial class MainWindow : Window
         _editorDirty = isDirty;
         if (isDirty)
             StatusText.Text = "Edited — Ctrl+S to save";
+    }
+
+    private async void OnSaveMarkdown(object? sender, RoutedEventArgs e)
+        => await SaveMarkdown();
+
+    private void OnEditorBold(object? sender, RoutedEventArgs e) => VisualEditor.WrapSelection("**", "**", "bold text");
+    private void OnEditorItalic(object? sender, RoutedEventArgs e) => VisualEditor.WrapSelection("*", "*", "italic text");
+    private void OnEditorLink(object? sender, RoutedEventArgs e) => VisualEditor.WrapSelection("[", "](https://)", "link text");
+    private void OnEditorHeading(object? sender, RoutedEventArgs e) => VisualEditor.PrefixCurrentLine("## ");
+    private void OnEditorList(object? sender, RoutedEventArgs e) => VisualEditor.PrefixCurrentLine("- ");
+
+    private void WrapEditorSelection(string prefix, string suffix, string placeholder)
+    {
+        var text = RawTextBlock.Text ?? string.Empty;
+        var start = RawTextBlock.SelectionStart;
+        var end = RawTextBlock.SelectionEnd;
+        var selected = end > start ? text[start..end] : placeholder;
+        RawTextBlock.Text = text[..start] + prefix + selected + suffix + text[end..];
+        RawTextBlock.SelectionStart = start + prefix.Length;
+        RawTextBlock.SelectionEnd = start + prefix.Length + selected.Length;
+        RawTextBlock.Focus();
+    }
+
+    private void PrefixEditorLine(string prefix)
+    {
+        var text = RawTextBlock.Text ?? string.Empty;
+        var caret = RawTextBlock.CaretIndex;
+        var start = text.LastIndexOf('\n', Math.Max(0, caret - 1)) + 1;
+        RawTextBlock.Text = text.Insert(start, prefix);
+        RawTextBlock.CaretIndex = caret + prefix.Length;
+        RawTextBlock.Focus();
     }
 
     private void ToggleFullScreen()
@@ -1113,7 +1182,7 @@ public partial class MainWindow : Window
     {
         // Reset to width-based scaling (default behavior)
         var scale = _fontSize / 16.0;
-        MarkdownLayoutTransform.LayoutTransform = new ScaleTransform(scale, scale);
+        ApplyDocumentScale(scale);
         ZoomSlider.Value = _fontSize / 16.0 * 100;
         UpdateZoomPercentText();
         RefreshRulerForScaleChange();
@@ -1127,7 +1196,7 @@ public partial class MainWindow : Window
             var viewportHeight = RenderedScroller.Viewport.Height;
             var contentHeight = MdViewer.Bounds.Height;
             var scale = Math.Min(2.0, Math.Max(0.5, viewportHeight / contentHeight));
-            MarkdownLayoutTransform.LayoutTransform = new ScaleTransform(scale, scale);
+            ApplyDocumentScale(scale);
             ZoomSlider.Value = scale * 100;
             UpdateZoomPercentText();
             RefreshRulerForScaleChange();
@@ -1139,7 +1208,7 @@ public partial class MainWindow : Window
         if (MarkdownLayoutTransform == null) return;
 
         var scale = e.NewValue / 100.0;
-        MarkdownLayoutTransform.LayoutTransform = new ScaleTransform(scale, scale);
+        ApplyDocumentScale(scale);
         UpdateZoomPercentText();
 
         // Deselect fit mode toggles when manually adjusting
@@ -1162,6 +1231,13 @@ public partial class MainWindow : Window
     private void UpdateZoomPercentText()
     {
         if (ZoomPercentText != null) ZoomPercentText.Text = $"{(int)ZoomSlider.Value}%";
+    }
+
+    private void ApplyDocumentScale(double scale)
+    {
+        var transform = new ScaleTransform(scale, scale);
+        MarkdownLayoutTransform.LayoutTransform = transform;
+        EditorLayoutTransform.LayoutTransform = new ScaleTransform(scale, scale);
     }
 
     #region Context Menu & Clipboard

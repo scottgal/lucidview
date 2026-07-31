@@ -4,6 +4,21 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v4.1.0 - 2026-07-31
+
+### Changed
+
+- **Native visual Markdown canvas.** Edit mode now presents Markdown as its
+  rendered native blocks. Select a block to edit it in place; it returns to
+  the visual document when you move on, while Markdown remains the saved file
+  format. This replaces the exposed full-document source textbox and requires
+  no WebView.
+
+### Added
+
+- **Offline editor spellcheck.** The active canvas block uses the bundled
+  Hunspell `en_GB` dictionary for underlines, suggestions, and Ignore.
+
 ## v4.0.0 - 2026-07-31
 
 ### Added

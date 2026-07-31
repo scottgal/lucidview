@@ -33,7 +33,7 @@
         <!-- App Info -->
         <AssemblyName>lucidVIEW</AssemblyName>
         <RootNamespace>MarkdownViewer</RootNamespace>
-        <Version>4.0.0</Version>
+        <Version>4.1.0</Version>
         <Product>lucidVIEW</Product>
         <Description>A modern, lightweight cross-platform markdown viewer</Description>
         <Copyright>Copyright 2026</Copyright>
@@ -48,6 +48,7 @@
         <PackageReference Include="FluentAvaloniaUI" Version="2.5.0" />
         <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="2.0.321" />
         <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
+        <PackageReference Include="GHSoftware.Avalonia.SpellChecker.Avalonia11" Version="0.3.3" />
         <!-- LiveMarkdown.Avalonia: consumed via the external/LiveMarkdown.Avalonia
              submodule (ProjectReference) so the HtmlInline/HtmlBlock <img>
              width/height patch is in the lean build. The previous PackageReference
@@ -104,7 +105,7 @@
          decoupled from the lucidRESUME working tree. Bump the version when
          a new Mostlylucid.Avalonia.UITesting release lands. -->
     <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.4.2" />
+        <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.7.1" />
     </ItemGroup>
 
     <!-- Include README.md in output for Help menu -->

@@ -163,6 +163,20 @@
         <Setter Property="Foreground" Value="{DynamicResource AppAccent}" />
     </Style>
 
+    <Style Selector="Button.editor-format">
+        <Setter Property="MinWidth" Value="28" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondary}" />
+        <Setter Property="CornerRadius" Value="3" />
+    </Style>
+
+    <Style Selector="Button.editor-format:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    </Style>
+
     <!-- ==================== SIDE PANEL ==================== -->
 
     <Style Selector="Border.panel-header">

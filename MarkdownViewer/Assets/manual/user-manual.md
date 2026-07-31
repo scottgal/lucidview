@@ -114,10 +114,14 @@ The status bar shows the match count.
 ## 7. Native Markdown editor
 
 Use the three compact icons in the header to choose **Preview**, **Edit**, or
-**Split**. Edit is a native Markdown source surface — not a browser editor.
-Split keeps source and rendered output side by side and refreshes the preview
-after a brief pause while you type. `Ctrl+S` writes an opened local Markdown
-file back to disk; URL and generated documents use the familiar Save As flow.
+**Split**. Edit is a native visual Markdown canvas — not a browser editor.
+Markdown blocks are shown exactly as they render; click a block to edit it in
+place, then move away to return it to the visual document. Split keeps the
+canvas and rendered output side by side and refreshes the preview after a
+brief pause while you type. `Ctrl+S` writes an opened local Markdown file back
+to disk; URL and generated documents use the familiar Save As flow. Spellcheck
+runs locally through the bundled Hunspell dictionary: misspellings are
+underlined and right-clicking a word offers suggestions or Ignore.
 
 ![Markdown editor](screenshots/11-raw-view.png)
 

@@ -9,8 +9,8 @@ actions:
   - type: Wait
     value: "300"
   - type: TypeText
-    target: RawTextBlock
-    value: "\n\n## Native editor smoke test\n\nThis preview is rendered without a WebView.\n"
+    target: CanvasBlockEditor
+    value: "\n\n## Native editor smoke test\n\nThis preview is rendered without a WebView and has a mispelt word.\n"
   - type: Wait
     value: "700"
   - type: Screenshot

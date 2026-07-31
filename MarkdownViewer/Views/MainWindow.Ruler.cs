@@ -35,6 +35,7 @@ public partial class MainWindow
         // HorizontalAlignment=Center shrink the Border to its content's
         // natural width — which makes the ruler-bound width WRONG.
         MarkdownContentBorder.Width = w;
+        EditorContentBorder.Width = w;
         UpdateImageMaxWidth(w);
         UpdateWidthReadout();
     }
@@ -83,6 +84,7 @@ public partial class MainWindow
             MinContentWidth, EffectiveMaxContentWidth);
 
         MarkdownContentBorder.Width = next;
+        EditorContentBorder.Width = next;
         _settings.ContentMaxWidth = next;
         UpdateImageMaxWidth(next);
         UpdateWidthReadout();
@@ -103,6 +105,7 @@ public partial class MainWindow
         var next = Math.Clamp(halfWidth * 2.0, MinContentWidth, EffectiveMaxContentWidth);
 
         MarkdownContentBorder.Width = next;
+        EditorContentBorder.Width = next;
         _settings.ContentMaxWidth = next;
         UpdateImageMaxWidth(next);
         UpdateWidthReadout();
