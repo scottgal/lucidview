@@ -1,0 +1,13 @@
+name: verify-image-table-local
+description: Capture two-column screenshots to verify full image height and no right-edge clipping.
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1000"
+  - type: Navigate
+    value: ux-scripts/image-table-fixture.md
+  - type: Wait
+    value: "3000"
+  - type: Screenshot
+    value: image-table

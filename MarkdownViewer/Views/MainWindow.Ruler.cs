@@ -35,6 +35,7 @@ public partial class MainWindow
         // HorizontalAlignment=Center shrink the Border to its content's
         // natural width — which makes the ruler-bound width WRONG.
         MarkdownContentBorder.Width = w;
+        UpdateImageMaxWidth(w);
         UpdateWidthReadout();
     }
 
@@ -83,6 +84,7 @@ public partial class MainWindow
 
         MarkdownContentBorder.Width = next;
         _settings.ContentMaxWidth = next;
+        UpdateImageMaxWidth(next);
         UpdateWidthReadout();
         // Persist on every delta — settings.json is tiny so the write cost is
         // negligible. Survives unexpected app exit, not just clean close.
@@ -102,8 +104,16 @@ public partial class MainWindow
 
         MarkdownContentBorder.Width = next;
         _settings.ContentMaxWidth = next;
+        UpdateImageMaxWidth(next);
         UpdateWidthReadout();
         _settings.Save();
         e.Handled = true;
+    }
+
+    private void UpdateImageMaxWidth(double outerWidth)
+    {
+        _markdownService.SetMaxImageWidth(Math.Max(
+            1,
+            outerWidth - MarkdownContentBorder.Padding.Left - MarkdownContentBorder.Padding.Right));
     }
 }

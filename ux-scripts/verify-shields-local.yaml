@@ -1,0 +1,13 @@
+name: verify-shields-local
+description: Render the local shield fixture and capture the exact badge layout.
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "1000"
+  - type: Navigate
+    value: ux-scripts/shield-fixture.md
+  - type: Wait
+    value: "3000"
+  - type: Screenshot
+    value: shields

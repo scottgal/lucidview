@@ -51,6 +51,14 @@ public partial class MainWindow : Window
     private AppTheme _effectiveTheme = AppTheme.Dark;
     private Avalonia.Threading.DispatcherTimer? _diagramReplacementTimer;
     private int _diagramReplacementAttempts;
+    // Every document load gets a new generation. Mermaid fallbacks render on a
+    // worker thread, so cancellation alone cannot prevent a completed older
+    // render from resuming on the UI thread and replacing newer content.
+    private int _markdownRenderGeneration;
+    private Avalonia.Threading.DispatcherTimer? _editorPreviewTimer;
+    private bool _isUpdatingEditor;
+    private bool _editorDirty;
+    private bool _diagramRenderPending;
     private const int MaxDiagramReplacementAttempts = 8;
 
     // Markdown.Avalonia's StaticBinding/IBinding implementation throws these
@@ -183,6 +191,7 @@ public partial class MainWindow : Window
         // `--shot URL OUTPUT.png` mode: don't grab focus, don't show first-run
         // dialog, auto-navigate, wait, screenshot, exit. Detected by FullProgram
         // before Avalonia init and stashed on static fields.
+#if DEBUG
         if (MarkdownViewer.FullProgram.AutoShotUrl is { } shotUrl
             && MarkdownViewer.FullProgram.AutoShotOutput is { } shotOut)
         {
@@ -201,6 +210,7 @@ public partial class MainWindow : Window
             };
         }
         else
+#endif
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
             {
@@ -270,6 +280,9 @@ public partial class MainWindow : Window
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
+        Interlocked.Increment(ref _markdownRenderGeneration);
+        _markdownService.CancelRenderBatch();
+
         if (Application.Current is not null)
             Application.Current.PropertyChanged -= OnApplicationPropertyChanged;
 
@@ -362,6 +375,7 @@ public partial class MainWindow : Window
     private ICommand? _goForwardCommand;
     private ICommand? _reloadCommand;
     private ICommand? _openInExternalBrowserCommand;
+    private ICommand? _saveMarkdownCommand;
     private ICommand? _saveAsMarkdownCommand;
     private ICommand? _openSettingsCommand;
     private ICommand? _toggleFullScreenCommand;
@@ -386,6 +400,7 @@ public partial class MainWindow : Window
     public ICommand ReloadCommand => _reloadCommand ??= new RelayCommand(async () => await Reload());
     public ICommand OpenInExternalBrowserCommand => _openInExternalBrowserCommand ??= new RelayCommand(OpenCurrentInExternalBrowser);
     public ICommand SaveAsMarkdownCommand => _saveAsMarkdownCommand ??= new RelayCommand(async () => await SaveAsMarkdown());
+    public ICommand SaveMarkdownCommand => _saveMarkdownCommand ??= new RelayCommand(async () => await SaveMarkdown());
     public ICommand OpenSettingsCommand => _openSettingsCommand ??= new RelayCommand(async () => await OpenSettings());
     public ICommand ToggleFullScreenCommand => _toggleFullScreenCommand ??= new RelayCommand(ToggleFullScreen);
     public ICommand ToggleSidePanelCommand => _toggleSidePanelCommand ??= new RelayCommand(ToggleSidePanel);
@@ -452,8 +467,14 @@ public partial class MainWindow : Window
 
     #endregion
 
-    private async Task DisplayMarkdown(string content)
+    private async Task DisplayMarkdown(string content, bool preserveView = false)
     {
+        var renderGeneration = Interlocked.Increment(ref _markdownRenderGeneration);
+        // Always start a new batch, including when the incoming document has no
+        // Mermaid. Otherwise a previous document's pending diagram can finish
+        // after this one and overwrite its MarkdownBuilder.
+        var ct = _markdownService.BeginNewRenderBatch();
+
         _rawContent = content;
 
         // Extract headings for navigation
@@ -474,15 +495,21 @@ public partial class MainWindow : Window
         var newBuilder = new LiveMarkdown.Avalonia.ObservableStringBuilder();
         newBuilder.Append(processed);
         MdViewer.MarkdownBuilder = newBuilder;
-        RawTextBlock.Text = content;
+        if (!preserveView)
+        {
+            _isUpdatingEditor = true;
+            RawTextBlock.Text = content;
+            _isUpdatingEditor = false;
+            SetEditorDirty(false);
+        }
 
         WelcomePanel.IsVisible = false;
         ContentGrid.IsVisible = true;
         UpdateToc();
 
-        PreviewTab.IsChecked = true;
-        RenderedPanel.IsVisible = true;
-        RawScroller.IsVisible = false;
+        if (!preserveView)
+            PreviewTab.IsChecked = true;
+        ApplyViewMode();
 
         // Replace marker text with native diagram controls once the visual tree is ready.
         ScheduleDiagramMarkerReplacement();
@@ -494,10 +521,13 @@ public partial class MainWindow : Window
         // Phase 2: Render uncached diagrams in background, then swap in results
         if (pendingDiagrams.Count > 0)
         {
-            var ct = _markdownService.BeginNewRenderBatch();
+            _diagramRenderPending = true;
             try
             {
                 var replacements = await _markdownService.RenderPendingDiagramsAsync(pendingDiagrams, ct);
+
+                if (renderGeneration != Volatile.Read(ref _markdownRenderGeneration))
+                    return;
 
                 // Apply replacements to the displayed content
                 var updated = processed;
@@ -521,6 +551,10 @@ public partial class MainWindow : Window
             catch (OperationCanceledException)
             {
                 // New file/theme switch cancelled this batch - that's fine
+            }
+            finally
+            {
+                _diagramRenderPending = false;
             }
         }
     }
@@ -922,9 +956,99 @@ public partial class MainWindow : Window
 
     private void OnTabChanged(object? sender, RoutedEventArgs e)
     {
+        ApplyViewMode();
+    }
+
+    private void OnTabClicked(object? sender, RoutedEventArgs e)
+    {
+        // The UI harness invokes Click directly, which does not perform the
+        // platform pointer-toggle behaviour of RadioButton. Make the action
+        // deterministic for keyboard, automation, and pointer activation.
+        if (sender == PreviewTab)
+        {
+            PreviewTab.IsChecked = true;
+            RawTab.IsChecked = false;
+            SplitTab.IsChecked = false;
+        }
+        else if (sender == RawTab)
+        {
+            PreviewTab.IsChecked = false;
+            RawTab.IsChecked = true;
+            SplitTab.IsChecked = false;
+        }
+        else if (sender == SplitTab)
+        {
+            PreviewTab.IsChecked = false;
+            RawTab.IsChecked = false;
+            SplitTab.IsChecked = true;
+        }
+        ApplyViewMode();
+    }
+
+    private void ApplyViewMode()
+    {
         var isPreview = PreviewTab.IsChecked == true;
-        RenderedPanel.IsVisible = isPreview;
+        var isSplit = SplitTab.IsChecked == true;
+
+        ContentViewsGrid.ColumnDefinitions = isSplit ? new ColumnDefinitions("*,*") : new ColumnDefinitions("*");
+        Grid.SetColumn(RawScroller, 0);
+        Grid.SetColumn(RenderedPanel, isSplit ? 1 : 0);
+        RenderedPanel.IsVisible = isPreview || isSplit;
         RawScroller.IsVisible = !isPreview;
+
+        // The preview column is half-width in Split mode. Keep the rendered
+        // card inside that column instead of retaining the full-window ruler
+        // width, which would crop its left edge.
+        if (isSplit)
+        {
+            var splitWidth = Math.Max(MinContentWidth, (Bounds.Width - 18) / 2);
+            var cardWidth = Math.Min(_settings.ContentMaxWidth, splitWidth);
+            MarkdownContentBorder.Width = cardWidth;
+            UpdateImageMaxWidth(cardWidth);
+        }
+        else
+        {
+            ApplyContentMaxWidth();
+        }
+
+        if (!isPreview)
+            RawTextBlock.Focus();
+    }
+
+    private void OnEditorTextChanging(object? sender, TextChangingEventArgs e)
+    {
+        if (_isUpdatingEditor)
+            return;
+
+        SetEditorDirty(true);
+        _editorPreviewTimer ??= new Avalonia.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(300)
+        };
+        _editorPreviewTimer.Tick -= OnEditorPreviewTimerTick;
+        _editorPreviewTimer.Tick += OnEditorPreviewTimerTick;
+        _editorPreviewTimer.Stop();
+        _editorPreviewTimer.Start();
+    }
+
+    private void OnEditorPreviewTimerTick(object? sender, EventArgs e)
+    {
+        _editorPreviewTimer?.Stop();
+        // Let LiveMarkdown finish its Mermaid replacement before changing the
+        // source again; its internal block diff is not re-entrant.
+        if (_diagramRenderPending)
+        {
+            _editorPreviewTimer?.Start();
+            return;
+        }
+        _ = DisplayMarkdown(RawTextBlock.Text ?? string.Empty, preserveView: true);
+    }
+
+    private void SetEditorDirty(bool isDirty)
+    {
+        _editorDirty = isDirty;
+        if (isDirty)
+            StatusText.Text = "Edited — Ctrl+S to save";
     }
 
     private void ToggleFullScreen()
@@ -1408,6 +1532,8 @@ public partial class MainWindow : Window
 
 #if FULL
 
+#if DEBUG
+
     /// <summary>
     /// `--shot URL OUTPUT.png` flow: load the URL via the existing LoadWebPage
     /// path, wait the configured ms (default 30 s) for image cache + re-render,
@@ -1435,6 +1561,8 @@ public partial class MainWindow : Window
                 desktop.Shutdown();
         }
     }
+
+#endif
 
     private void ShowExtractionDetails()
     {

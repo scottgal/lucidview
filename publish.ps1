@@ -8,12 +8,19 @@ param(
     [string]$Platform = 'all',
     [ValidateSet('Lean', 'Full', 'All')]
     [string]$Edition = 'Lean',
-    [switch]$Clean
+    [switch]$Clean,
+    [switch]$MacAppStore,
+    [string]$MacAppSigningIdentity = $env:MAC_APP_SIGNING_IDENTITY,
+    [string]$MacInstallerSigningIdentity = $env:MAC_INSTALLER_SIGNING_IDENTITY
 )
 
 $ErrorActionPreference = 'Stop'
 $projectPath = Join-Path $PSScriptRoot 'MarkdownViewer/MarkdownViewer.csproj'
 $outputBase = Join-Path $PSScriptRoot 'publish'
+if ($MacAppStore -and -not $IsMacOS) { throw 'Mac App Store packages must be assembled and signed on macOS.' }
+[xml]$projectDefinition = Get-Content $projectPath
+$appVersion = $projectDefinition.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+if (-not $appVersion) { throw 'Could not determine the application version from MarkdownViewer.csproj.' }
 
 # Runtime identifiers for each platform target
 $runtimes = [ordered]@{
@@ -53,7 +60,9 @@ function New-MacAppBundle {
     if (Test-Path $appRoot) { Remove-Item -Recurse -Force $appRoot }
     New-Item -ItemType Directory -Force -Path $macos, $resources | Out-Null
 
-    Copy-Item (Join-Path $PSScriptRoot 'MarkdownViewer/macos/Info.plist') (Join-Path $contents 'Info.plist')
+    $infoPlist = Get-Content (Join-Path $PSScriptRoot 'MarkdownViewer/macos/Info.plist') -Raw
+    $infoPlist = $infoPlist.Replace('$(AppVersion)', $appVersion).Replace('$(AppBuildVersion)', $appVersion)
+    Set-Content -Path (Join-Path $contents 'Info.plist') -Value $infoPlist -Encoding UTF8
     Copy-Item (Join-Path $PSScriptRoot 'MarkdownViewer/Assets/lucidVIEW.icns') (Join-Path $resources 'lucidVIEW.icns')
 
     # Move every published file (binary + native libs) into Contents/MacOS
@@ -76,11 +85,30 @@ function New-MacAppBundle {
             chmod +x $binPath
         }
 
-        # Ad-hoc codesign so Gatekeeper doesn't quarantine local builds.
-        # Distribution builds need a real Developer ID — see docs/macos-bundle.md.
+        # Ad-hoc signing is appropriate only for local builds. Mac App Store
+        # builds require the sandbox entitlement and both App + Installer
+        # Distribution identities.
         if ($IsMacOS) {
-            Write-Host "Ad-hoc signing $appRoot" -ForegroundColor DarkGray
-            & codesign --force --deep --sign - $appRoot 2>&1 | Out-Null
+            if ($MacAppStore) {
+                if (-not $MacAppSigningIdentity -or -not $MacInstallerSigningIdentity) {
+                    throw 'Mac App Store builds require -MacAppSigningIdentity and -MacInstallerSigningIdentity.'
+                }
+
+                $entitlements = Join-Path $PSScriptRoot 'MarkdownViewer/macos/AppStore.entitlements'
+                Write-Host "Signing Mac App Store bundle $appRoot" -ForegroundColor DarkGray
+                & codesign --force --deep --strict --options runtime --entitlements $entitlements --sign $MacAppSigningIdentity $appRoot
+                if ($LASTEXITCODE -ne 0) { throw 'codesign failed for Mac App Store bundle.' }
+                & codesign --verify --deep --strict --verbose=2 $appRoot
+                if ($LASTEXITCODE -ne 0) { throw 'codesign verification failed for Mac App Store bundle.' }
+
+                $packagePath = Join-Path $BundleParentDir 'lucidVIEW.pkg'
+                & productbuild --sign $MacInstallerSigningIdentity --component $appRoot /Applications $packagePath
+                if ($LASTEXITCODE -ne 0) { throw 'productbuild failed for Mac App Store package.' }
+                Write-Host "Mac App Store package: $packagePath" -ForegroundColor Green
+            } else {
+                Write-Host "Ad-hoc signing $appRoot" -ForegroundColor DarkGray
+                & codesign --force --deep --sign - $appRoot 2>&1 | Out-Null
+            }
         }
     }
 

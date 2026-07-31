@@ -248,6 +248,10 @@ public partial class MarkdownService
 
                 // Naiad rendering is CPU-bound - run on thread pool
                 var pngPath = await Task.Run(() => RenderMermaidToPng(item.MermaidCode), ct);
+                // Task.Run cannot stop a render that has already started. Do
+                // not publish its result into the next document's state once
+                // its owning batch has been cancelled.
+                ct.ThrowIfCancellationRequested();
                 _mermaidSourceMap[pngPath] = item.MermaidCode;
                 var markdownPath = pngPath.Replace("\\", "/");
                 return (item.Placeholder, Replacement: $"\n\n![Mermaid Diagram]({markdownPath})\n\n");

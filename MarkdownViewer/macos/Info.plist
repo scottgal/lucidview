@@ -9,9 +9,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.mostlylucid.lucidview</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>$(AppBuildVersion)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>$(AppVersion)</string>
     <key>CFBundleExecutable</key>
     <string>lucidVIEW</string>
     <key>CFBundleIconFile</key>

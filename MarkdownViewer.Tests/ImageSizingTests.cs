@@ -1,4 +1,6 @@
 using MarkdownViewer.Services;
+using Mostlylucid.ImageSharp.Svg;
+using SkiaSharp;
 
 namespace MarkdownViewer.Tests;
 
@@ -12,6 +14,30 @@ namespace MarkdownViewer.Tests;
 /// </summary>
 public class ImageSizingTests
 {
+    [Fact]
+    public void SvgRasterizer_ShieldClipPath_PreservesRoundedCornersAtHighDpi()
+    {
+        const string shield = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+              <clipPath id="rounded"><rect width="20" height="20" rx="3"/></clipPath>
+              <g clip-path="url(#rounded)"><rect width="20" height="20" fill="#4c1"/></g>
+            </svg>
+            """;
+
+        var result = SvgImage.LoadAsPng(shield, new SvgRenderOptions { Scale = 2f });
+
+        Assert.Equal(20, result.NaturalWidth);
+        Assert.Equal(20, result.NaturalHeight);
+
+        using var bitmap = SKBitmap.Decode(result.Bytes);
+        Assert.NotNull(bitmap);
+        Assert.Equal(40, bitmap.Width);
+        Assert.Equal(40, bitmap.Height);
+        Assert.Equal(0, bitmap.GetPixel(0, 0).Alpha);
+        Assert.True(bitmap.GetPixel(6, 0).Alpha > 0, "Top edge should remain inside the rounded corner.");
+        Assert.True(bitmap.GetPixel(0, 6).Alpha > 0, "Left edge should remain inside the rounded corner.");
+    }
+
     // ---------- ClampToContainerSize ----------
 
     [Fact]

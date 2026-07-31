@@ -23,6 +23,7 @@ public partial class MarkdownService
     private string? _themeSubgraphFill;
     private string? _themeSubgraphStroke;
     private ImageCacheService? _imageCacheService;
+    private int _maxImageWidth = 900;
 
     private int _mermaidCounter;
     private CancellationTokenSource? _renderCts;
@@ -88,6 +89,12 @@ public partial class MarkdownService
     public void SetImageCacheService(ImageCacheService? cacheService)
     {
         _imageCacheService = cacheService;
+    }
+
+    /// <summary>Sets the usable markdown-column width for responsive image sizing.</summary>
+    public void SetMaxImageWidth(double width)
+    {
+        _maxImageWidth = Math.Max(1, (int)Math.Floor(width));
     }
 
     public void SetThemeColors(ThemeDefinition themeDef)
@@ -236,6 +243,10 @@ public partial class MarkdownService
 
                 // Naiad rendering is CPU-bound - run on thread pool
                 var pngPath = await Task.Run(() => RenderMermaidToPng(item.MermaidCode), ct);
+                // Task.Run cannot stop a render that has already started. Do
+                // not publish its result into the next document's state once
+                // its owning batch has been cancelled.
+                ct.ThrowIfCancellationRequested();
                 _mermaidSourceMap[pngPath] = item.MermaidCode;
                 var markdownPath = pngPath.Replace("\\", "/");
                 return (item.Placeholder, Replacement: $"\n\n![Mermaid Diagram]({markdownPath})\n\n");
@@ -268,6 +279,15 @@ public partial class MarkdownService
         _renderCts?.Cancel();
         _renderCts = new CancellationTokenSource();
         return _renderCts.Token;
+    }
+
+    /// <summary>
+    /// Cancels any in-flight diagram work when its owning window is closing.
+    /// </summary>
+    public void CancelRenderBatch()
+    {
+        _renderCts?.Cancel();
+        _renderCts = null;
     }
 
     public List<string> ExtractImageUrls(string content)
@@ -518,7 +538,7 @@ public partial class MarkdownService
 
         if (width > 0 && height > 0)
         {
-            var (displayW, displayH) = ClampToContainerSize(width, height, tableColumns);
+            var (displayW, displayH) = ClampToContainerSize(width, height, tableColumns, _maxImageWidth);
             // Emit the absolute path (not a file:// URI) — HtmlImageRenderer.
             // ResolveUri wraps an unrooted absolute path back into a file://
             // URI for LocalFileAsyncImageLoaderHandler, but a pre-formed
@@ -546,18 +566,22 @@ public partial class MarkdownService
     /// explicit-dim HtmlInlineNode path produces browser-like layout. Shields
     /// and badges stay under the cap and emit at their natural size.
     /// </summary>
-    public static (int Width, int Height) ClampToContainerSize(int width, int height, int tableColumns = 0)
+    public static (int Width, int Height) ClampToContainerSize(
+        int width,
+        int height,
+        int tableColumns = 0,
+        int maxContentWidth = 900)
     {
-        const int MaxContentWidth = 900;
         const int MaxContentHeight = 700;
+        maxContentWidth = Math.Max(1, maxContentWidth);
         // Inside a table row: shrink so the column doesn't push the table past
         // the document column edge. With N columns we get MaxContentWidth / N
         // per cell as a budget; subtract a small inter-cell padding allowance.
         // Cap height to maintain visual balance — a 2-col table getting
         // 450-wide images doesn't want 700-tall slots.
         var maxW = tableColumns >= 2
-            ? Math.Max(120, (MaxContentWidth / tableColumns) - 16)
-            : MaxContentWidth;
+            ? Math.Max(120, (maxContentWidth / tableColumns) - 16)
+            : maxContentWidth;
         var maxH = tableColumns >= 2
             ? Math.Max(80, (MaxContentHeight / tableColumns) - 16)
             : MaxContentHeight;
@@ -639,7 +663,7 @@ public partial class MarkdownService
         var size = _imageCacheService?.GetCachedDisplaySize(url);
         if (size is { Width: > 0, Height: > 0 } dims)
         {
-            var (displayW, displayH) = ClampToContainerSize(dims.Width, dims.Height, tableColumns);
+            var (displayW, displayH) = ClampToContainerSize(dims.Width, dims.Height, tableColumns, _maxImageWidth);
             var escapedAlt = System.Net.WebUtility.HtmlEncode(alt);
             var escapedSrc = System.Net.WebUtility.HtmlEncode(cachedPath);
             return $"<img src=\"{escapedSrc}\" alt=\"{escapedAlt}\" width=\"{displayW}\" height=\"{displayH}\" />";

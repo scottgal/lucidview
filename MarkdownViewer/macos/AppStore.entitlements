@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Required for Mac App Store distribution. -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <!-- "Open Web Page" and remote markdown/image fetching. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- Open/Save dialogs select Markdown documents and PDF exports. -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+</dict>
+</plist>

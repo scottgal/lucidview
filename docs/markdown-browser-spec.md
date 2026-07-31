@@ -14,7 +14,7 @@ A focused reader that treats the web like a library of markdown documents. You
 type or paste a URL, you get a clean rendered page, you click a link, you get
 the next clean page. Back/forward like a browser. History like a browser. But
 the renderer is the same one that's already shipped — native Avalonia,
-Mermaid offline, 6 themes, Word-style ruler, real print, PDF export.
+Mermaid offline, 7 themes, Word-style ruler, real print, PDF export.
 
 This is **not** a browser-as-app-platform. It can't run a SPA. It can't fill a
 form. It can't watch a video. For any of those the user falls back to their

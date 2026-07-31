@@ -149,4 +149,60 @@ public class LucidMarkdownViewRenderTests
             window.Close();
         });
     }
+
+    [Fact]
+    public async Task LucidMarkdownView_renders_explicit_size_image_at_full_height()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"lucid-md-image-{Guid.NewGuid():N}");
+        var imagePath = Path.Combine(tempDir, "red.png");
+        var screenshotPath = Path.Combine(tempDir, "render.png");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            using (var bitmap = new SKBitmap(120, 80))
+            using (var canvas = new SKCanvas(bitmap))
+            {
+                canvas.Clear(SKColors.Red);
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                File.WriteAllBytes(imagePath, data.ToArray());
+            }
+
+            await _fx.DispatchAsync(async () =>
+            {
+                var view = new LucidMarkdownView
+                {
+                    Markdown = "![red](red.png)",
+                    SourcePath = tempDir,
+                    Width = 400,
+                    Height = 240
+                };
+                var window = new Window { Width = 400, Height = 240, Content = view };
+
+                window.Show();
+                await HeadlessRender.SettleAsync(window);
+                // Local image decode is asynchronous. The shared headless UI
+                // session can still be completing a preceding test's layout,
+                // so wait for the decode + invalidation to reach the next
+                // render tick before capturing pixels.
+                await Task.Delay(300);
+                await HeadlessRender.SettleAsync(window);
+                await ScreenshotCapture.CaptureControlAsync(window, view, screenshotPath);
+                window.Close();
+            });
+
+            using var rendered = SKBitmap.Decode(screenshotPath);
+            Assert.NotNull(rendered);
+            var redRows = Enumerable.Range(0, rendered.Height)
+                .Count(y => Enumerable.Range(0, rendered.Width)
+                    .Any(x => rendered.GetPixel(x, y).Red > 200 && rendered.GetPixel(x, y).Green < 80));
+            Assert.True(redRows >= 60,
+                $"Expected an 80px image to occupy most of its height, but found only {redRows} red rows.");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
+        }
+    }
 }

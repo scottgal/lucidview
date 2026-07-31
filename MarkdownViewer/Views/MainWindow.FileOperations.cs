@@ -514,9 +514,44 @@ public partial class MainWindow
         StatusText.Text = $"Couldn't resolve: {raw}";
     }
 
+    private async Task SaveMarkdown()
+    {
+        var content = RawTextBlock.Text ?? _rawContent;
+        if (string.IsNullOrEmpty(content))
+        {
+            StatusText.Text = "Nothing to save";
+            return;
+        }
+
+        // Saving a local Markdown file writes it back in place. URL and generated
+        // documents retain the established Save As flow so their source is never
+        // overwritten unexpectedly.
+        if (!string.IsNullOrWhiteSpace(_currentFilePath)
+            && Path.IsPathFullyQualified(_currentFilePath)
+            && File.Exists(_currentFilePath))
+        {
+            try
+            {
+                await File.WriteAllTextAsync(_currentFilePath, content);
+                _rawContent = content;
+                SetEditorDirty(false);
+                StatusText.Text = $"Saved {Path.GetFileName(_currentFilePath)}";
+                return;
+            }
+            catch (Exception ex) when (!IsIgnorableError(ex))
+            {
+                StatusText.Text = $"Save failed: {ex.Message}";
+                return;
+            }
+        }
+
+        await SaveAsMarkdown();
+    }
+
     private async Task SaveAsMarkdown()
     {
-        if (string.IsNullOrEmpty(_rawContent))
+        var content = RawTextBlock.Text ?? _rawContent;
+        if (string.IsNullOrEmpty(content))
         {
             StatusText.Text = "Nothing to save";
             return;
@@ -573,11 +608,13 @@ public partial class MainWindow
             // already has the source path.
             string output;
             if (isUrl && Uri.TryCreate(_currentFilePath, UriKind.Absolute, out var fmUri))
-                output = BuildSavedMarkdown(fmUri, _rawContent);
+                output = BuildSavedMarkdown(fmUri, content);
             else
-                output = _rawContent;
+                output = content;
 
             await File.WriteAllTextAsync(path, output);
+            _rawContent = content;
+            SetEditorDirty(false);
             StatusText.Text = $"Saved {Path.GetFileName(path)}";
         }
         catch (Exception ex) when (!IsIgnorableError(ex))

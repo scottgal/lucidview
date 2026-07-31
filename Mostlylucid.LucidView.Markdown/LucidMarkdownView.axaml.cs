@@ -59,6 +59,7 @@ public partial class LucidMarkdownView : UserControl
     private readonly MarkdownService _markdownService;
     private readonly ImageCacheService _imageCacheService;
     private readonly DiagramRendererPluginHost _pluginHost;
+    private int _renderGeneration;
 
     // ── Constructor ─────────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ public partial class LucidMarkdownView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         MdViewer.ImageBasePath = SourcePath ?? Path.GetTempPath();
+        _markdownService.SetBasePath(SourcePath);
 
         // Re-render when attached so late bindings (e.g. DataContext) are reflected.
         if (!string.IsNullOrEmpty(Markdown))
@@ -114,13 +116,28 @@ public partial class LucidMarkdownView : UserControl
             _ = RenderAsync(change.GetNewValue<string?>());
 
         if (change.Property == SourcePathProperty)
-            MdViewer.ImageBasePath = change.GetNewValue<string?>() ?? Path.GetTempPath();
+        {
+            var sourcePath = change.GetNewValue<string?>();
+            MdViewer.ImageBasePath = sourcePath ?? Path.GetTempPath();
+            _markdownService.SetBasePath(sourcePath);
+
+            // XAML bindings can set Markdown before SourcePath. Reprocess in
+            // that order so relative local images are not permanently parsed
+            // against the temporary directory.
+            if (Markdown is not null)
+                _ = RenderAsync(Markdown);
+        }
     }
 
     // ── Render pipeline ─────────────────────────────────────────────────────
 
     private async Task RenderAsync(string? markdown)
     {
+        var renderGeneration = Interlocked.Increment(ref _renderGeneration);
+        // Start a new batch even for plain Markdown. A previous document may
+        // still have a PNG fallback rendering in the background.
+        var ct = _markdownService.BeginNewRenderBatch();
+
         if (markdown is null)
         {
             MdViewer.MarkdownBuilder = new ObservableStringBuilder();
@@ -143,10 +160,13 @@ public partial class LucidMarkdownView : UserControl
 
         if (pendingDiagrams.Count == 0) return;
 
-        var ct = _markdownService.BeginNewRenderBatch();
         try
         {
             var replacements = await _markdownService.RenderPendingDiagramsAsync(pendingDiagrams, ct);
+
+            if (renderGeneration != Volatile.Read(ref _renderGeneration))
+                return;
+
             var updated = processed;
             foreach (var (placeholder, replacement) in replacements)
                 updated = updated.Replace(placeholder, replacement);

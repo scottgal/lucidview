@@ -11,7 +11,7 @@
 
     <AssemblyName>lucidVIEW</AssemblyName>
     <RootNamespace>MarkdownViewer</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>4.0.0</Version>
     <Product>lucidVIEW-FULL</Product>
     <Description>Dogfood build of lucidVIEW with the preview StyloExtract LLM + Playwright stack</Description>
     <ApplicationIcon>..\MarkdownViewer\favicon.ico</ApplicationIcon>
@@ -66,17 +66,17 @@
     <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.3" />
     <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.3" />
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />
-
+    <PackageReference Include="AngleSharp" Version="1.5.0" />
     <!-- FULL preview StyloExtract stack (Task 4). Core brings Abstractions/Html/Heuristics/Markdown transitively. -->
-    <PackageReference Include="Mostlylucid.StyloExtract.Core" Version="2.0.0" />
-    <PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="2.0.0" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Core" Version="2.0.1" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="2.0.1" />
     <!-- alpha.16: zero-allocation byte-stream fence scanner for gateway-position scan. -->
-    <PackageReference Include="Mostlylucid.StyloExtract.Streaming" Version="2.0.0" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Streaming" Version="2.0.1" />
     <!-- Task 5: Playwright rendered-DOM fetcher + browser runtime. -->
-    <PackageReference Include="Mostlylucid.StyloExtract.Playwright" Version="2.0.0" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Playwright" Version="2.0.1" />
     <PackageReference Include="Microsoft.Playwright" Version="1.60.0" />
     <!-- Task 6: LlamaSharp in-process LLM + template inducer. -->
-    <PackageReference Include="Mostlylucid.StyloExtract.Llm.LlamaSharp" Version="2.0.0" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Llm.LlamaSharp" Version="2.0.1" />
     <PackageReference Include="LLamaSharp" Version="0.27.0" />
     <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />

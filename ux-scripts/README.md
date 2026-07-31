@@ -26,7 +26,8 @@ dotnet run --project MarkdownViewer/MarkdownViewer.csproj -- --ux-mcp
 | File | What it does |
 |---|---|
 | `test-document.md` | Feature-rich fixture (headings, code, mermaid, table, list, image). Loaded by every script via the `Navigate` action. |
-| `smoke-all-functions.yaml` | Exercises every non-dialog function: load, side panel, all 6 themes, TOC, search, raw/preview tabs, font controls, zoom controls, fullscreen. ~20 screenshots. |
+| `smoke-all-functions.yaml` | Exercises every non-dialog function: load, side panel, all 7 themes, TOC, search, raw/preview tabs, font controls, zoom controls, fullscreen. ~20 screenshots. |
+| `verify-native-editor.yaml` | Exercises native Edit/Split/Preview, live source rendering, and captures both editor surfaces. |
 | `dialogs.yaml` | Opens every dialog-bound menu item (Settings, Render Mermaid, Open URL, Help) and screenshots. Native file pickers (Open File, Export PDF) cannot be driven by the harness — those are smoke-tested manually. |
 
 ## How `Navigate` loads the fixture

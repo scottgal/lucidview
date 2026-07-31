@@ -71,7 +71,7 @@ Press `Escape` or click outside the panel to close it.
 
 ## 4. Themes
 
-lucidVIEW ships with six themes. Switch instantly from the **Theme** group in
+lucidVIEW ships with seven themes. Switch instantly from the **Theme** group in
 the side panel — colors, code blocks, and diagrams all re-theme without
 re-rendering the document.
 
@@ -111,13 +111,15 @@ The status bar shows the match count.
 
 ---
 
-## 7. Preview vs Raw
+## 7. Native Markdown editor
 
-Toggle between the rendered preview and the raw markdown source via the
-**Preview / Raw** tabs in the header. Useful for copy-pasting code blocks or
-checking exact source formatting.
+Use the three compact icons in the header to choose **Preview**, **Edit**, or
+**Split**. Edit is a native Markdown source surface — not a browser editor.
+Split keeps source and rendered output side by side and refreshes the preview
+after a brief pause while you type. `Ctrl+S` writes an opened local Markdown
+file back to disk; URL and generated documents use the familiar Save As flow.
 
-![Raw markdown view](screenshots/11-raw-view.png)
+![Markdown editor](screenshots/11-raw-view.png)
 
 ---
 
@@ -251,6 +253,7 @@ on every platform.
 | `Ctrl+P` | Print to default printer |
 | `Ctrl+Shift+P` | Export PDF... |
 | `Ctrl+F` | Search |
+| `Ctrl+S` | Save the current local Markdown file, or Save As when it has no local source |
 | `Ctrl+B` | Toggle side panel |
 | `Ctrl+=` / `Ctrl+-` | Increase / decrease font size |
 | `Ctrl+wheel` | Zoom |

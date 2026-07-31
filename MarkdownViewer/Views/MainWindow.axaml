@@ -26,7 +26,7 @@
         <KeyBinding Gesture="F5" Command="{Binding ReloadCommand}" />
         <KeyBinding Gesture="Ctrl+R" Command="{Binding ReloadCommand}" />
         <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding OpenInExternalBrowserCommand}" />
-        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveAsMarkdownCommand}" />
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveMarkdownCommand}" />
         <KeyBinding Gesture="F11" Command="{Binding ToggleFullScreenCommand}" />
         <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidePanelCommand}" />
         <KeyBinding Gesture="Ctrl+F" Command="{Binding ToggleSearchCommand}" />
@@ -174,19 +174,27 @@
                         </ToggleButton>
                     </StackPanel>
 
-                    <!-- Preview/Raw Toggle -->
+                    <!-- Native Markdown editing modes — source remains canonical; no WebView. -->
                     <StackPanel x:Name="ViewTabsPanel" Grid.Column="7" Orientation="Horizontal" Spacing="0" Margin="8,0" IsEnabled="False">
-                        <RadioButton x:Name="PreviewTab"
-                                     Content="Preview"
-                                     GroupName="ViewTabs"
-                                     IsChecked="True"
-                                     Click="OnTabChanged"
-                                     Classes="header-tab" />
-                        <RadioButton x:Name="RawTab"
-                                     Content="Raw"
-                                     GroupName="ViewTabs"
-                                     Click="OnTabChanged"
-                                     Classes="header-tab" />
+                        <ToggleButton x:Name="PreviewTab"
+                                      IsChecked="True"
+                                      Click="OnTabClicked"
+                                      Classes="header-tab"
+                                      ToolTip.Tip="Preview rendered Markdown">
+                            <ic:SymbolIcon Symbol="Eye" FontSize="17" />
+                        </ToggleButton>
+                        <ToggleButton x:Name="RawTab"
+                                      Click="OnTabClicked"
+                                      Classes="header-tab"
+                                      ToolTip.Tip="Edit Markdown source">
+                            <ic:SymbolIcon Symbol="Edit" FontSize="17" />
+                        </ToggleButton>
+                        <ToggleButton x:Name="SplitTab"
+                                      Click="OnTabClicked"
+                                      Classes="header-tab"
+                                      ToolTip.Tip="Split source and preview">
+                            <ic:SymbolIcon Symbol="PanelLeftContract" FontSize="17" />
+                        </ToggleButton>
                     </StackPanel>
 
                     <!-- Search Button -->
@@ -583,8 +591,8 @@
                             </Thumb>
                         </Grid>
 
-                        <!-- Content Views - stacked, only one visible at a time -->
-                        <Grid>
+                        <!-- Content Views. Split mode is a native source/preview editor, not a WebView. -->
+                        <Grid x:Name="ContentViewsGrid">
                             <!-- Rendered Markdown - DockPanel for fixed gutters at edges -->
                             <DockPanel x:Name="RenderedPanel" IsVisible="True"
                                        Background="{DynamicResource AppBackground}">
@@ -645,18 +653,23 @@
                                 </Grid>
                             </DockPanel>
 
-                            <!-- Raw Markdown -->
+                            <!-- Markdown source editor -->
                             <ScrollViewer x:Name="RawScroller"
                                           IsVisible="False"
                                           HorizontalScrollBarVisibility="Auto"
                                           VerticalScrollBarVisibility="Auto"
                                           Background="{DynamicResource AppBackground}">
                                 <Border Padding="24,16">
-                                    <SelectableTextBlock x:Name="RawTextBlock"
-                                                         FontFamily="Cascadia Code, JetBrains Mono, Consolas, monospace"
-                                                         FontSize="13"
-                                                         Foreground="{DynamicResource AppText}"
-                                                         TextWrapping="NoWrap" />
+                                    <TextBox x:Name="RawTextBlock"
+                                             AcceptsReturn="True"
+                                             TextChanging="OnEditorTextChanging"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             FontFamily="Cascadia Code, JetBrains Mono, Consolas, monospace"
+                                             FontSize="13"
+                                             Foreground="{DynamicResource AppText}"
+                                             TextWrapping="NoWrap"
+                                             Watermark="Write Markdown..." />
                                 </Border>
                             </ScrollViewer>
                         </Grid>

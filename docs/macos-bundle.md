@@ -84,9 +84,30 @@ If you publish from Windows or Linux for macOS:
   in one shot; cross-OS publishers should point users at the curl-pipe line
   in the README rather than the raw zip workflow.
 
-## Distribution signing (out of scope here)
+## Mac App Store submission
 
-For Mac App Store or notarized distribution outside the Store, you need:
+Mac App Store builds must use App Sandbox. `MarkdownViewer/macos/AppStore.entitlements`
+declares the minimum permissions used by lucidVIEW: outgoing network access and
+read/write access to files explicitly chosen in Open/Save dialogs.
+
+After creating the macOS App Store record and Bundle ID `com.mostlylucid.lucidview`,
+install a **Mac App Distribution** certificate and a **Mac Installer Distribution**
+certificate in the build Mac's keychain. Then build a signed upload package:
+
+```bash
+pwsh ./publish.ps1 -Platform osx-arm64 -MacAppStore \
+  -MacAppSigningIdentity 'Mac App Distribution: Your Company (TEAMID)' \
+  -MacInstallerSigningIdentity 'Mac Installer Distribution: Your Company (TEAMID)'
+```
+
+This produces `publish/osx-arm64/lucidVIEW.pkg`, verifies the signed app bundle,
+and keeps the bundle's two version fields aligned with `MarkdownViewer.csproj`.
+Upload the `.pkg` with Transporter or Xcode. Before submission, test the signed
+bundle in a sandboxed user account: opening a document, saving/exporting, loading
+a web page and remote images, printing, and opening external links.
+
+For notarized distribution outside the Store, you need a Developer ID Application
+certificate instead (not the App Store certificates):
 
 - An Apple Developer ID Application certificate in your login keychain
 - A notarytool profile configured (`xcrun notarytool store-credentials`)

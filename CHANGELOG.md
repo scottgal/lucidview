@@ -4,6 +4,40 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v4.0.0 - 2026-07-31
+
+### Added
+
+- **Native Markdown editing.** Preview, Edit, and Split modes now sit in the
+  header as compact icon controls. The source editor is a native Avalonia
+  surface — no browser or WebView — and Split mode provides a debounced live
+  rendered preview alongside the Markdown source.
+- **Save-in-place for local Markdown files.** `Ctrl+S` writes changes back to
+  an opened local file. URL and generated documents deliberately retain Save
+  As so a remote source is never overwritten unexpectedly.
+- **Store packaging groundwork.** The Windows manifest is namespace-correct;
+  macOS has App Sandbox entitlements, versioned bundle metadata, and a signed
+  App Store package mode in `publish.ps1`.
+
+### Fixed
+
+- **Mermaid render hand-off no longer leaks into a later document.** Each
+  document render has a generation and cancellation boundary, preventing a
+  completed asynchronous diagram from replacing newer content.
+- **Shields, SVG clipping, and table images render at the intended size.** SVG
+  rounded-rectangle arcs are correct, inline image baseline alignment is
+  native-layout-safe, and image budgets respect the usable document width.
+- **Native-editor refreshes cannot abort the application.** The bundled
+  renderer now rebuilds an out-of-sync extension proxy rather than asserting
+  on the UI thread.
+
+### Changed
+
+- Updated the coordinated StyloExtract family to **2.0.1** and AngleSharp to
+  **1.5.0**. The dependency vulnerability audit is clean for both editions.
+- Corrected feature documentation and release text to reflect the seven
+  built-in themes.
+
 ## v3.1.0 - 2026-06-29
 
 ### Fixed

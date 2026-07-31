@@ -170,7 +170,7 @@ jobs:
           ## lucidVIEW ${{ steps.version.outputs.version }}
 
           A modern, lightweight cross-platform markdown viewer with mermaid diagrams,
-          syntax highlighting, six themes, real print, PDF export and an in-app
+          syntax highlighting, seven themes, real print, PDF export and an in-app
           self-documenting user manual.
 
           ### Downloads
@@ -316,7 +316,8 @@ jobs:
           ### Features
 
           - Clean modern UI with slide-out menu
-          - **6 themes** — Light, Dark, VS Code, GitHub, mostlylucid Dark, mostlylucid Light
+          - **7 themes** — Light, Dark, VS Code, GitHub, mostlylucid Dark, mostlylucid Light, Pride
+          - **Native Markdown editor** — icon-based Preview, Edit and Split modes with live native rendering
           - **Real Print** (`Ctrl+P`) → default printer + **Export PDF** (`Ctrl+Shift+P`)
           - Bundled Raleway font (SIL Open Font License)
           - **Mermaid diagrams** rendered offline via the bundled Naiad engine — 30+ diagram types

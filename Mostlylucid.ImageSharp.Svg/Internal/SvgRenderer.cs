@@ -985,13 +985,13 @@ internal sealed class SvgRenderer
         var pb = new PathBuilder();
         pb.StartFigure();
         pb.AddLine(new PointF(x + rx, y), new PointF(x + w - rx, y));
-        pb.AddArc(new PointF(x + w - rx, y + ry), rx, ry, 0, 0, 90);
+        pb.AddArc(new PointF(x + w - rx, y + ry), rx, ry, 0, -90, 90);
         pb.AddLine(new PointF(x + w, y + ry), new PointF(x + w, y + h - ry));
         pb.AddArc(new PointF(x + w - rx, y + h - ry), rx, ry, 0, 0, 90);
         pb.AddLine(new PointF(x + w - rx, y + h), new PointF(x + rx, y + h));
-        pb.AddArc(new PointF(x + rx, y + h - ry), rx, ry, 0, 0, 90);
+        pb.AddArc(new PointF(x + rx, y + h - ry), rx, ry, 0, 90, 90);
         pb.AddLine(new PointF(x, y + h - ry), new PointF(x, y + ry));
-        pb.AddArc(new PointF(x + rx, y + ry), rx, ry, 0, 0, 90);
+        pb.AddArc(new PointF(x + rx, y + ry), rx, ry, 0, 180, 90);
         pb.CloseFigure();
         return pb.Build();
     }
