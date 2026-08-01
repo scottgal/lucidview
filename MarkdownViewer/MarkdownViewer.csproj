@@ -105,7 +105,7 @@
          decoupled from the lucidRESUME working tree. Bump the version when
          a new Mostlylucid.Avalonia.UITesting release lands. -->
     <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.7.0" />
+        <PackageReference Include="Mostlylucid.Avalonia.UITesting" Version="1.7.1" />
     </ItemGroup>
 
     <!-- Include README.md in output for Help menu -->
