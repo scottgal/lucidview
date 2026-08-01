@@ -1,0 +1,86 @@
+# Full editor theme audit — captures editor in every theme
+name: editor-theme-audit
+description: Cycle through all themes in edit mode and capture screenshots
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "2000"
+    description: Startup
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+    description: Load fixture
+
+  - type: Wait
+    value: "1000"
+
+  # Switch to edit tab immediately
+  - type: Click
+    target: RawTab
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 01-editor-default
+
+  # Open side panel for theme access
+  - type: Click
+    target: MenuButton
+  - type: Wait
+    value: "300"
+
+  # Dark
+  - type: Click
+    target: ThemeDarkCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 02-editor-dark
+
+  # VS Code
+  - type: Click
+    target: ThemeVSCodeCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 03-editor-vscode
+
+  # GitHub
+  - type: Click
+    target: ThemeGitHubCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 04-editor-github
+
+  # mostlylucid Dark
+  - type: Click
+    target: ThemeMostlyLucidDarkCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 05-editor-mostlylucid-dark
+
+  # mostlylucid Light
+  - type: Click
+    target: ThemeMostlyLucidLightCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 06-editor-mostlylucid-light
+
+  # Light
+  - type: Click
+    target: ThemeLightCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 07-editor-light
+
+  # Pride
+  - type: Click
+    target: ThemePrideCard
+  - type: Wait
+    value: "500"
+  - type: Screenshot
+    value: 08-editor-pride

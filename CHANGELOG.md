@@ -4,6 +4,27 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v4.2.0 - 2026-08-01
+
+### Changed
+
+- **Block-based WYSIWYG editor.** The Markdown editor is now a true block canvas
+  with typed blocks (heading, paragraph, code, image, quote, list, divider,
+  mermaid). Each block renders its content and switches to inline editing on
+  click — no render↔raw toggle. A slash menu (`/`) inserts new blocks, Enter
+  splits blocks, and hover reveals type badges with delete buttons.
+
+- **Theme-aware editor.** Editor text, backgrounds, borders, and hover states
+  respond to all seven themes (Light, Dark, VS Code, GitHub, mostlylucid Dark,
+  mostlylucid Light, Pride). No more white-on-white in light mode.
+
+### Added
+
+- **Slash command palette.** Type `/` in any block to insert headings, code
+  fences, images, quotes, lists, dividers, or mermaid diagrams.
+- **Block navigation.** Arrow keys move between blocks; Backspace on an empty
+  block deletes it.
+
 ## v4.1.0 - 2026-07-31
 
 ### Changed

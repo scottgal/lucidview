@@ -4,6 +4,7 @@
         xmlns:services="clr-namespace:MarkdownViewer.Services"
         xmlns:models="clr-namespace:MarkdownViewer.Models"
         xmlns:controls="clr-namespace:MarkdownViewer.Controls"
+        xmlns:editor="clr-namespace:MarkdownViewer.Controls.Editor"
         xmlns:ic="using:FluentIcons.Avalonia.Fluent"
         x:Class="MarkdownViewer.Views.MainWindow"
         Title="lucidVIEW"
@@ -702,7 +703,7 @@
                                                     </Button>
                                                 </StackPanel>
                                             </Border>
-                                            <controls:MarkdownCanvasEditor x:Name="VisualEditor" />
+                                            <editor:BlockEditor x:Name="VisualEditor" />
                                             <!-- Holds the canonical source for save/export and for
                                                  advanced Markdown operations. The visible Edit mode
                                                  is the block canvas above. -->
