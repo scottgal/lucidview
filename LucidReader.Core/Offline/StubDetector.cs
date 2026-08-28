@@ -37,10 +37,19 @@ public static partial class StubDetector
 
     private static string VisibleText(string html)
     {
-        var withoutTags = TagPattern().Replace(html, " ");
+        // Script and style content is never visible text in any rendering
+        // context, so it is removed (element and content together) before
+        // the general tag strip runs. Without this, a short teaser padded
+        // with an embedded widget's inline script or stylesheet would be
+        // long enough in raw characters to read as a full article.
+        var withoutScriptsAndStyles = ScriptOrStylePattern().Replace(html, " ");
+        var withoutTags = TagPattern().Replace(withoutScriptsAndStyles, " ");
         var decoded = System.Net.WebUtility.HtmlDecode(withoutTags);
         return WhitespacePattern().Replace(decoded, " ").Trim();
     }
+
+    [GeneratedRegex(@"<(script|style)\b[^>]*>.*?</\1>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex ScriptOrStylePattern();
 
     [GeneratedRegex(@"<[^>]+>")]
     private static partial Regex TagPattern();
@@ -48,6 +57,12 @@ public static partial class StubDetector
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespacePattern();
 
+    // Known gaps, accepted as part of this heuristic's error budget: an
+    // article that legitimately ends mid-sentence with an ellipsis will
+    // trip the "..." branch and read as a stub, and a teaser that ends with
+    // something like "Continue at our site" or a bare arrow/glyph will not
+    // match anything here and will read as a full article. Both are wrong
+    // sometimes by design; see the class doc comment.
     [GeneratedRegex(
         @"(read\s+(the\s+)?(more|full|rest)|continue\s+reading|view\s+(the\s+)?(full\s+)?(article|post)|\[\s*\.\.\.\s*\]|\.\.\.\s*$)",
         RegexOptions.IgnoreCase)]
