@@ -52,6 +52,29 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_corrupt_file_is_preserved_at_the_backup_path()
+    {
+        Directory.CreateDirectory(_dir);
+        const string corruptContent = "{ this is not json";
+        await File.WriteAllTextAsync(Path_, corruptContent);
+
+        var settings = await SettingsStore.LoadAsync(Path_);
+
+        Assert.Equal(ReaderSettings.Defaults, settings);
+        Assert.True(File.Exists(Path_ + ".corrupt"));
+        Assert.Equal(corruptContent, await File.ReadAllTextAsync(Path_ + ".corrupt"));
+    }
+
+    [Fact]
+    public async Task A_missing_file_does_not_create_a_backup()
+    {
+        var settings = await SettingsStore.LoadAsync(Path_);
+
+        Assert.Equal(ReaderSettings.Defaults, settings);
+        Assert.False(File.Exists(Path_ + ".corrupt"));
+    }
+
+    [Fact]
     public async Task Saving_leaves_no_temp_file_behind()
     {
         await SettingsStore.SaveAsync(Path_, ReaderSettings.Defaults);
