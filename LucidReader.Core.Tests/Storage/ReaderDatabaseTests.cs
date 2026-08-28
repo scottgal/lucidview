@@ -1,4 +1,5 @@
 using LucidReader.Core.Storage;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace LucidReader.Core.Tests.Storage;
@@ -88,5 +89,21 @@ public class ReaderDatabaseTests
         });
 
         Assert.Equal(1, enforced);
+    }
+
+    [Fact]
+    public async Task Foreign_keys_are_enforced_on_the_write_connection()
+    {
+        using var temp = new TempDatabase();
+        await using var database = await ReaderDatabase.OpenAsync(temp.Path);
+
+        await Assert.ThrowsAsync<SqliteException>(() => database.WriteAsync(
+            "INSERT INTO items (feed_id, guid, first_seen_utc) VALUES ($feedId, $guid, $firstSeen);",
+            new Dictionary<string, object?>
+            {
+                ["$feedId"] = 999999,
+                ["$guid"] = "does-not-matter",
+                ["$firstSeen"] = "2026-08-28T00:00:00Z"
+            }));
     }
 }
