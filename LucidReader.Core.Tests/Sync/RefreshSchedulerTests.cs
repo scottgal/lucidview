@@ -244,24 +244,31 @@ public class RefreshSchedulerTests : IAsyncLifetime
         await using var scheduler = new RefreshScheduler(repo, _refresh, _time, TimeSpan.FromMinutes(1));
         scheduler.Start();
 
-        // First tick: GetDueAsync throws. The single property this class
-        // guarantees is that this does not kill the timer.
+        Assert.Null(scheduler.LastTickError);
+        Assert.Equal(0, scheduler.ConsecutiveTickFailures);
+
+        // First tick: GetDueAsync throws. The observable, test-checkable
+        // property this class guarantees is that this does not kill the
+        // timer - waiting on LastTickError (rather than on PendingCount,
+        // which a throwing tick never touches either way) is what actually
+        // proves the catch block ran, not just that nothing crashed.
         _time.Advance(TimeSpan.FromMinutes(1));
-        await WaitForAsync(() => repo.CallCount >= 1);
-        // Give the failing tick's own exception handling a moment to finish
-        // unwinding before asserting on state it touches.
-        await WaitForAsync(() => repo.CallCount >= 1 && _refresh.PendingCount == 0, attempts: 25, delayMs: 20);
+        await WaitForAsync(() => scheduler.LastTickError is not null);
 
         Assert.True(scheduler.IsRunning);
+        Assert.Equal("Simulated database failure.", scheduler.LastTickError);
+        Assert.Equal(1, scheduler.ConsecutiveTickFailures);
         Assert.Equal(0, _refresh.PendingCount);
 
         // Second tick: the timer is still alive, so it fires again and this
-        // time the query succeeds.
+        // time the query succeeds - which must clear the failure signal.
         _time.Advance(TimeSpan.FromMinutes(1));
         await WaitForAsync(() => _refresh.PendingCount > 0);
 
         Assert.True(_refresh.PendingCount > 0);
         Assert.True(repo.CallCount >= 2);
+        Assert.Null(scheduler.LastTickError);
+        Assert.Equal(0, scheduler.ConsecutiveTickFailures);
     }
 
     [Fact]
