@@ -19,6 +19,20 @@ public sealed class FeedRefreshService : IAsyncDisposable
     /// The coordinator requires an explicit bound, and rightly so: a server
     /// that accepts a connection and then stalls would otherwise hold its
     /// concurrency slot until the app closes.
+    ///
+    /// This bound is enforced twice, deliberately. Mostlylucid.Ephemeral 3.0.0's
+    /// EphemeralWorkCoordinator races the queued body against a
+    /// Task.WaitAsync(maxBodyDuration) call that lives OUTSIDE the body (verified
+    /// by decompiling BodyDurationGuard.RunBoundedAsync): the token it hands the
+    /// body is the coordinator's own long-lived shutdown token, never cancelled
+    /// by the duration timer itself. If the coordinator's timer alone were relied
+    /// on, a stalled fetch would keep running forever as an orphaned task: this
+    /// method's own token would never see cancellation, _inFlight would never be
+    /// released, Completed would never fire, and no failure would ever be
+    /// recorded - the exact "server accepts a connection and stalls" scenario
+    /// this bound exists to guard against. So the same duration is enforced
+    /// again, independently, inside RefreshWithTimeoutGuardAsync, using a timer
+    /// this class controls directly.
     /// </summary>
     public static readonly TimeSpan MaxFeedFetchDuration = TimeSpan.FromSeconds(60);
 
@@ -29,6 +43,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
     private readonly BackoffPolicy _backoff;
     private readonly Func<ReaderSettings> _settings;
     private readonly TimeProvider _time;
+    private readonly TimeSpan _maxFetchDuration;
     private readonly EphemeralWorkCoordinator<FeedRefreshRequest> _coordinator;
     private readonly ConcurrentDictionary<long, byte> _inFlight = new();
 
@@ -40,7 +55,8 @@ public sealed class FeedRefreshService : IAsyncDisposable
         BackoffPolicy backoff,
         Func<ReaderSettings> settings,
         TimeProvider timeProvider,
-        int maxConcurrency = 4)
+        int maxConcurrency = 4,
+        TimeSpan? maxFetchDuration = null)
     {
         _feeds = feeds;
         _items = items;
@@ -49,10 +65,11 @@ public sealed class FeedRefreshService : IAsyncDisposable
         _backoff = backoff;
         _settings = settings;
         _time = timeProvider;
+        _maxFetchDuration = maxFetchDuration ?? MaxFeedFetchDuration;
 
         _coordinator = new EphemeralWorkCoordinator<FeedRefreshRequest>(
             RunAsync,
-            MaxFeedFetchDuration,
+            _maxFetchDuration,
             new EphemeralOptions
             {
                 MaxConcurrency = maxConcurrency,
@@ -109,12 +126,12 @@ public sealed class FeedRefreshService : IAsyncDisposable
         FeedRefreshOutcome outcome;
         try
         {
-            outcome = await RefreshCoreAsync(request.FeedId, ct);
+            outcome = await RefreshWithTimeoutGuardAsync(request.FeedId, ct);
         }
         finally
         {
             // Removed before Completed fires, and unconditionally on the way out
-            // (including when RefreshCoreAsync throws): a subscriber reacting to
+            // (including when the refresh throws): a subscriber reacting to
             // Completed by re-queueing the same feed must see it as available, and
             // a body that throws must not leave the feed permanently in flight.
             _inFlight.TryRemove(request.FeedId, out _);
@@ -125,10 +142,63 @@ public sealed class FeedRefreshService : IAsyncDisposable
 
     /// <summary>
     /// Refreshes one feed inline, bypassing the queue. Used by the synchronous
-    /// refresh path and by tests.
+    /// refresh path and by tests. Runs under the same timeout guard as the
+    /// queued path, for the same reason: a manual "refresh this feed" action
+    /// should not hang forever against a stalled server either.
     /// </summary>
     public Task<FeedRefreshOutcome> RefreshNowAsync(long feedId, CancellationToken ct = default) =>
-        RefreshCoreAsync(feedId, ct);
+        RefreshWithTimeoutGuardAsync(feedId, ct);
+
+    /// <summary>
+    /// Runs one refresh under a timer this class owns, rather than trusting the
+    /// coordinator's own body-duration bound to cancel anything (see the comment
+    /// on MaxFeedFetchDuration for why that bound does not reach this token).
+    ///
+    /// `ct` cancelling is a genuine caller-requested stop: for the queued path
+    /// that is Mostlylucid.Ephemeral's own coordinator-wide shutdown token,
+    /// cancelled only by Pause-independent Cancel()/DisposeAsync, never by the
+    /// per-body duration timer; for RefreshNowAsync it is whatever the caller
+    /// passed in. The linked timeoutCts firing on its own timer is a distinct,
+    /// later condition. The two are told apart below by testing the ORIGINAL
+    /// `ct` - not the linked token handed down into the fetch, which is
+    /// cancelled in both cases - after catching: if `ct` itself is still live,
+    /// only our own timer could have fired.
+    /// </summary>
+    private async Task<FeedRefreshOutcome> RefreshWithTimeoutGuardAsync(long feedId, CancellationToken ct)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(_maxFetchDuration);
+
+        try
+        {
+            return await RefreshCoreAsync(feedId, timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return await RecordTimeoutFailureAsync(feedId, ct);
+        }
+    }
+
+    /// <summary>
+    /// Records a stalled fetch as an ordinary failure: same backoff curve, same
+    /// auto-pause counter, same NextDueUtc advancement as any other failure. The
+    /// feed is re-read here rather than reusing anything from the timed-out
+    /// attempt, since nothing from that attempt's snapshot can be trusted to
+    /// still be current.
+    /// </summary>
+    private async Task<FeedRefreshOutcome> RecordTimeoutFailureAsync(long feedId, CancellationToken ct)
+    {
+        var feed = await _feeds.GetAsync(feedId, ct);
+        if (feed is null)
+            return new FeedRefreshOutcome(feedId, false, 0, false, "The feed no longer exists.");
+
+        var settings = EffectiveFeedSettings.Resolve(feed, _settings());
+        var now = _time.GetUtcNow();
+        const string error = "The fetch did not complete within the allotted time.";
+
+        await RecordFailureAsync(feed, error, now, settings, ct);
+        return new FeedRefreshOutcome(feedId, false, 0, false, error);
+    }
 
     private async Task<FeedRefreshOutcome> RefreshCoreAsync(long feedId, CancellationToken ct)
     {
@@ -202,14 +272,16 @@ public sealed class FeedRefreshService : IAsyncDisposable
         var newCount = await _items.UpsertManyAsync(items, ct);
 
         // Adopt the feed's own title and site link, but never overwrite a title
-        // the user set for themselves.
+        // the user set for themselves. Written through a narrow update that
+        // touches only these two columns: the `feed` in scope here is a
+        // snapshot from the start of this refresh, and by now the user may
+        // have edited the folder, overrides, enabled state or anything else
+        // on the row while the fetch was in flight. Writing the whole record
+        // back (UpdateAsync's normal contract) would silently revert that edit.
         if (parsed.Title is not null || parsed.SiteUrl is not null)
         {
-            await _feeds.UpdateAsync(feed with
-            {
-                Title = parsed.Title ?? feed.Title,
-                SiteUrl = parsed.SiteUrl ?? feed.SiteUrl
-            }, ct);
+            await _feeds.UpdateTitleAndSiteUrlAsync(
+                feed.Id, parsed.Title ?? feed.Title, parsed.SiteUrl ?? feed.SiteUrl, ct);
         }
 
         await _feeds.RecordSuccessAsync(
@@ -231,8 +303,11 @@ public sealed class FeedRefreshService : IAsyncDisposable
             feed.Id, error, now,
             _backoff.NextDueAfterFailure(now, failures, settings), ct);
 
+        // Narrow update for the same reason as the title/site adoption above:
+        // `feed` is a stale snapshot by the time auto-pause fires, and writing
+        // the whole record back would revert whatever the user changed since.
         if (BackoffPolicy.ShouldAutoPause(failures) && feed.IsEnabled)
-            await _feeds.UpdateAsync(feed with { IsEnabled = false }, ct);
+            await _feeds.SetEnabledAsync(feed.Id, false, ct);
     }
 
     /// <summary>

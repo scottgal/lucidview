@@ -9,12 +9,20 @@ namespace LucidReader.Core.Tests.Feeds;
 /// </summary>
 public sealed class StubHttpHandler : HttpMessageHandler
 {
-    private readonly Func<HttpRequestMessage, HttpResponseMessage> _respond;
+    private readonly Func<HttpRequestMessage, HttpResponseMessage>? _respond;
+    private readonly TaskCompletionSource<HttpResponseMessage>? _gate;
+    private readonly bool _blockUntilCancelled;
 
     public List<HttpRequestMessage> Requests { get; } = [];
 
     public StubHttpHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) =>
         _respond = respond;
+
+    private StubHttpHandler(TaskCompletionSource<HttpResponseMessage> gate) =>
+        _gate = gate;
+
+    private StubHttpHandler(bool blockUntilCancelled) =>
+        _blockUntilCancelled = blockUntilCancelled;
 
     public static StubHttpHandler Returning(
         HttpStatusCode status,
@@ -59,12 +67,41 @@ public sealed class StubHttpHandler : HttpMessageHandler
     public static StubHttpHandler Throwing(Exception exception) =>
         new(_ => throw exception);
 
-    protected override Task<HttpResponseMessage> SendAsync(
+    /// <summary>
+    /// Records the request, then hangs until the request's own cancellation
+    /// token is cancelled, at which point HttpClient.SendAsync surfaces that
+    /// as an OperationCanceledException - the same shape a genuinely stalled
+    /// server produces. Used to exercise a per-fetch timeout without any real
+    /// network delay.
+    /// </summary>
+    public static StubHttpHandler Blocking() => new(blockUntilCancelled: true);
+
+    /// <summary>
+    /// Records the request, then waits for the test to complete the returned
+    /// TaskCompletionSource before responding. Used to land a database write
+    /// from outside the handler at a precise point mid-fetch, rather than
+    /// racing a Task.Delay against the refresh.
+    /// </summary>
+    public static (StubHttpHandler Handler, TaskCompletionSource<HttpResponseMessage> Gate) Gated()
+    {
+        var gate = new TaskCompletionSource<HttpResponseMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        return (new StubHttpHandler(gate), gate);
+    }
+
+    protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
         Requests.Add(request);
-        return Task.FromResult(_respond(request));
+
+        if (_gate is not null)
+            return await _gate.Task.WaitAsync(cancellationToken);
+
+        if (_blockUntilCancelled)
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+
+        return _respond!(request);
     }
 
     public HttpClient CreateClient() => new(this);

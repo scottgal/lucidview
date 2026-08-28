@@ -33,16 +33,28 @@ public class FeedRefreshServiceTests : IAsyncLifetime
         _temp.Dispose();
     }
 
-    private FeedRefreshService CreateService(StubHttpHandler handler) =>
+    private FeedRefreshService CreateService(StubHttpHandler handler, TimeSpan? maxFetchDuration = null) =>
         new(_feeds, _items,
             new FeedFetcher(handler.CreateClient()),
             new FeedParser(),
             new BackoffPolicy(new Random(999)),
             () => ReaderSettings.Defaults,
-            _time);
+            _time,
+            maxFetchDuration: maxFetchDuration);
 
     private Task<long> AddFeedAsync(string url = "https://example.com/feed.xml") =>
         _feeds.AddAsync(new Feed { FeedUrl = url });
+
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan? timeout = null)
+    {
+        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(5));
+        while (!condition())
+        {
+            if (DateTime.UtcNow > deadline)
+                throw new TimeoutException("Condition was not met in time.");
+            await Task.Delay(5);
+        }
+    }
 
     [Fact]
     public async Task A_successful_refresh_stores_the_items()
@@ -281,5 +293,82 @@ public class FeedRefreshServiceTests : IAsyncLifetime
 
         var pending = await _items.GetPendingOfflineAsync(100);
         Assert.Empty(pending);
+    }
+
+    [Fact]
+    public async Task A_stalled_fetch_records_a_failure_advances_next_due_and_still_raises_Completed()
+    {
+        var handler = StubHttpHandler.Blocking();
+        await using var service = CreateService(handler, maxFetchDuration: TimeSpan.FromMilliseconds(50));
+        var feedId = await AddFeedAsync();
+
+        var completed = new TaskCompletionSource<FeedRefreshOutcome>();
+        service.Completed += outcome => completed.TrySetResult(outcome);
+
+        Assert.True(service.TryQueue(feedId));
+        var outcome = await completed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.False(outcome.Success);
+        Assert.False(outcome.NotModified);
+
+        var feed = await _feeds.GetAsync(feedId);
+        Assert.Equal(1, feed!.ConsecutiveFailures);
+        Assert.True(feed.NextDueUtc > _time.GetUtcNow());
+
+        // The feed was released once the stall was recorded, not left
+        // permanently in flight.
+        Assert.True(service.TryQueue(feedId));
+    }
+
+    [Fact]
+    public async Task Repeated_stalls_eventually_reach_auto_pause()
+    {
+        var handler = StubHttpHandler.Blocking();
+        await using var service = CreateService(handler, maxFetchDuration: TimeSpan.FromMilliseconds(20));
+        var feedId = await AddFeedAsync();
+
+        for (var i = 0; i < BackoffPolicy.AutoPauseThreshold; i++)
+        {
+            var outcome = await service.RefreshNowAsync(feedId);
+            Assert.False(outcome.Success);
+        }
+
+        var feed = await _feeds.GetAsync(feedId);
+        Assert.False(feed!.IsEnabled);
+        Assert.Equal(BackoffPolicy.AutoPauseThreshold, feed.ConsecutiveFailures);
+    }
+
+    [Fact]
+    public async Task A_user_edit_made_while_a_refresh_is_in_flight_survives()
+    {
+        var (handler, gate) = StubHttpHandler.Gated();
+        await using var service = CreateService(handler);
+        var feedId = await AddFeedAsync();
+
+        var refreshTask = service.RefreshNowAsync(feedId);
+
+        // Wait for the fetch to actually be under way (the handler has seen
+        // the request) before landing the concurrent edit, so the edit lands
+        // after RefreshCoreAsync has already loaded its now-stale snapshot.
+        await WaitUntilAsync(() => handler.Requests.Count > 0);
+
+        var beforeEdit = await _feeds.GetAsync(feedId);
+        await _feeds.UpdateAsync(
+            beforeEdit! with { AutoDownload = false, TitleOverride = "My Custom Title" },
+            CancellationToken.None);
+
+        gate.SetResult(new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(Fixtures.Feed("rss2-simple.xml"))
+        });
+
+        var outcome = await refreshTask;
+        Assert.True(outcome.Success);
+
+        var feed = await _feeds.GetAsync(feedId);
+        Assert.Equal(false, feed!.AutoDownload);
+        Assert.Equal("My Custom Title", feed.TitleOverride);
+        Assert.Equal("Example Blog", feed.Title);
+        Assert.Equal("https://example.com/", feed.SiteUrl);
     }
 }

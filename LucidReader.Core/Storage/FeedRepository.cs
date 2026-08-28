@@ -141,6 +141,43 @@ public sealed class FeedRepository(ReaderDatabase db)
         db.WriteAsync("DELETE FROM feeds WHERE id = $id;",
             new Dictionary<string, object?> { ["$id"] = id }, ct);
 
+    /// <summary>
+    /// Updates only the publisher-owned title and site link a refresh adopts
+    /// from the feed's own content. Deliberately narrower than UpdateAsync:
+    /// a refresh runs against whatever Feed snapshot it loaded at the start
+    /// of the fetch, and the user is free to edit folder, overrides, enabled
+    /// state and the rest of the row while that fetch is in flight. Writing
+    /// only these two columns means a refresh can never revert a concurrent
+    /// user edit to anything else.
+    /// </summary>
+    public Task UpdateTitleAndSiteUrlAsync(
+        long feedId, string? title, string? siteUrl, CancellationToken ct = default) =>
+        db.WriteAsync(
+            "UPDATE feeds SET title = $title, site_url = $site WHERE id = $id;",
+            new Dictionary<string, object?>
+            {
+                ["$id"] = feedId,
+                ["$title"] = title,
+                ["$site"] = siteUrl
+            },
+            ct);
+
+    /// <summary>
+    /// Updates only is_enabled. Used for auto-pause, which - like the title
+    /// and site link adoption above - must not write back a whole Feed
+    /// snapshot that may already be stale by the time the fetch finishes.
+    /// </summary>
+    public Task SetEnabledAsync(
+        long feedId, bool isEnabled, CancellationToken ct = default) =>
+        db.WriteAsync(
+            "UPDATE feeds SET is_enabled = $enabled WHERE id = $id;",
+            new Dictionary<string, object?>
+            {
+                ["$id"] = feedId,
+                ["$enabled"] = isEnabled ? 1 : 0
+            },
+            ct);
+
     private Task<Feed?> QuerySingleAsync(
         string sql, Dictionary<string, object?> parameters, CancellationToken ct) =>
         db.QueryAsync<Feed?>(async connection =>
