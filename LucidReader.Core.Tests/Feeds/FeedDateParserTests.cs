@@ -36,4 +36,34 @@ public class FeedDateParserTests
     {
         Assert.NotNull(FeedDateParser.TryParse("  Wed, 26 Aug 2026 09:00:00 GMT \n"));
     }
+
+    [Fact]
+    public void Wrong_weekday_name_still_parses_to_the_correct_instant()
+    {
+        // 27 August 2026 is a Thursday, not a Wednesday. Feed generators get
+        // this wrong routinely; the date itself is still trustworthy.
+        var parsed = FeedDateParser.TryParse("Wed, 27 Aug 2026 10:00:00 GMT");
+
+        Assert.NotNull(parsed);
+        Assert.Equal(DateTimeOffset.Parse("2026-08-27T10:00:00+00:00"), parsed!.Value);
+    }
+
+    [Fact]
+    public void Correct_weekday_name_still_parses_unchanged()
+    {
+        // 27 August 2026 is genuinely a Thursday.
+        var parsed = FeedDateParser.TryParse("Thu, 27 Aug 2026 10:00:00 GMT");
+
+        Assert.NotNull(parsed);
+        Assert.Equal(DateTimeOffset.Parse("2026-08-27T10:00:00+00:00"), parsed!.Value);
+    }
+
+    [Fact]
+    public void Leading_non_weekday_token_is_not_silently_stripped()
+    {
+        // "Foo" is not a weekday name and not part of any recognised format;
+        // stripping arbitrary leading tokens would corrupt this into a valid
+        // parse of "27 Aug 2026 10:00:00 GMT", which must not happen.
+        Assert.Null(FeedDateParser.TryParse("Foo, 27 Aug 2026 10:00:00 GMT"));
+    }
 }
