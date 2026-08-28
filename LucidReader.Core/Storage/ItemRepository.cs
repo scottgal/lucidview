@@ -73,10 +73,16 @@ public sealed class ItemRepository(ReaderDatabase db)
         // dictionary's own properties (Count, Keys, ...) instead of its entries. Binding the
         // parameters ourselves inside one ExecuteInTransactionAsync call keeps the batch
         // atomic and keeps the $-prefixed SQL convention used throughout this codebase.
-        var before = await CountAsync(feedId, ct);
-
-        await db.Writer.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
+        //
+        // Both counts are taken on the transaction's own connection, inside the same
+        // ExecuteInTransactionAsync call as the upsert loop, so the count-insert-count
+        // sequence is atomic against any concurrent writer (retention pruning in
+        // particular runs on a timer and can delete rows for this feed between two
+        // counts taken outside the transaction).
+        return await db.Writer.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
         {
+            var before = await CountAsync(connection, transaction, feedId, innerCt);
+
             foreach (var item in items)
             {
                 await using var command = connection.CreateCommand();
@@ -86,10 +92,10 @@ public sealed class ItemRepository(ReaderDatabase db)
                     command.Parameters.AddWithValue(key, value ?? DBNull.Value);
                 await command.ExecuteNonQueryAsync(innerCt);
             }
-        }, ct);
 
-        var after = await CountAsync(feedId, ct);
-        return after - before;
+            var after = await CountAsync(connection, transaction, feedId, innerCt);
+            return after - before;
+        }, ct);
     }
 
     public Task<FeedItem?> GetAsync(long id, CancellationToken ct = default) =>
@@ -221,14 +227,20 @@ public sealed class ItemRepository(ReaderDatabase db)
             return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
         }, ct);
 
-    private Task<int> CountAsync(long feedId, CancellationToken ct) =>
-        db.QueryAsync(async connection =>
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT count(*) FROM items WHERE feed_id = $feedId;";
-            command.Parameters.AddWithValue("$feedId", feedId);
-            return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
-        }, ct);
+    /// <summary>
+    /// Counts a feed's rows on the given connection and transaction, rather than
+    /// through db.QueryAsync's own short-lived connection, so a caller can take
+    /// this count as part of a larger atomic sequence (see UpsertManyAsync).
+    /// </summary>
+    private static async Task<int> CountAsync(
+        SqliteConnection connection, SqliteTransaction transaction, long feedId, CancellationToken ct)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT count(*) FROM items WHERE feed_id = $feedId;";
+        command.Parameters.AddWithValue("$feedId", feedId);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
+    }
 
     private static Dictionary<string, object?> BuildParameters(FeedItem item) => new()
     {

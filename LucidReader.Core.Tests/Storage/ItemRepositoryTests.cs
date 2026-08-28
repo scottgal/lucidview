@@ -115,6 +115,45 @@ public class ItemRepositoryTests : IAsyncLifetime
         }));
     }
 
+    /// <summary>
+    /// Regression test for the before/after count race: a concurrent delete on the
+    /// same feed (standing in for retention pruning, which runs on its own timer)
+    /// must not corrupt the newly-inserted count that UpsertManyAsync returns. This
+    /// reproduces reliably against the pre-fix implementation, which took its two
+    /// counts through separate short-lived read connections outside the write
+    /// transaction: it failed on the very first iteration there. With both counts
+    /// taken on the transaction's own connection inside the same
+    /// ExecuteInTransactionAsync call, the delete (itself a write dispatched through
+    /// the same single-writer queue) can only land wholly before or wholly after the
+    /// upsert's transaction, never inside it, so the count is unaffected however the
+    /// two tasks are scheduled. 200 iterations to keep the race window exercised
+    /// repeatedly rather than relying on a single lucky (or unlucky) interleaving.
+    /// </summary>
+    [Fact]
+    public async Task Concurrent_delete_during_a_batch_upsert_does_not_corrupt_the_inserted_count()
+    {
+        for (var iter = 0; iter < 200; iter++)
+        {
+            await _items.UpsertAsync(NewItem($"keep-{iter}"));
+            await _items.UpsertAsync(NewItem($"doomed-{iter}"));
+
+            var upsertTask = _items.UpsertManyAsync(new[]
+            {
+                NewItem($"keep-{iter}"),
+                NewItem($"new-{iter}-1"),
+                NewItem($"new-{iter}-2")
+            });
+            var deleteTask = _db.WriteAsync(
+                "DELETE FROM items WHERE guid = $guid AND feed_id = $feedId;",
+                new Dictionary<string, object?> { ["$guid"] = $"doomed-{iter}", ["$feedId"] = _feedId });
+
+            var inserted = await upsertTask;
+            await deleteTask;
+
+            Assert.Equal(2, inserted);
+        }
+    }
+
     [Fact]
     public async Task The_same_guid_in_two_different_feeds_is_two_items()
     {
