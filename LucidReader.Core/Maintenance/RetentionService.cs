@@ -80,6 +80,18 @@ public sealed class RetentionService(
                 ct);
         }
 
+        // A DELETE only marks pages free inside the file; SQLite does not shrink
+        // the file itself without help. The database was put into incremental
+        // auto-vacuum mode once at startup (SchemaMigrator), so this returns
+        // freed pages to the OS now. Unlike a full VACUUM it does not rewrite
+        // the whole file or need an exclusive lock beyond a normal write, which
+        // is what makes it safe to run here on the background retention timer
+        // rather than only at startup. Skipped when nothing was deleted, since
+        // there is nothing to reclaim and no point paying even that small cost.
+        if (deleted > 0)
+            await db.WriteAsync(
+                "PRAGMA incremental_vacuum;", new Dictionary<string, object?>(), ct);
+
         return deleted;
     }
 

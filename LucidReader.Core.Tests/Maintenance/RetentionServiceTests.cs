@@ -170,4 +170,21 @@ public class RetentionServiceTests : IAsyncLifetime
 
         Assert.Equal(0, await service.PruneAsync());
     }
+
+    [Fact]
+    public async Task Pruning_a_large_number_of_rows_shrinks_the_reported_database_size()
+    {
+        for (var i = 0; i < 2000; i++)
+            await AddAsync($"bulk-{i:D5}", ageDays: 40, isRead: true);
+        var service = Service(ReaderSettings.Defaults with { KeepReadArticlesDays = 30 });
+        var sizeBefore = await service.GetDatabaseSizeBytesAsync();
+
+        var deleted = await service.PruneAsync();
+
+        var sizeAfter = await service.GetDatabaseSizeBytesAsync();
+        Assert.Equal(2000, deleted);
+        Assert.True(
+            sizeAfter < sizeBefore,
+            $"expected the database to shrink after pruning; before={sizeBefore} after={sizeAfter}");
+    }
 }
