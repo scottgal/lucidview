@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<rss version="2.0">
+  <channel>
+    <title>Encoding Test</title>
+    <link>https://encoding.example/</link>
+    <description>A windows-1252 feed.</description>
+    <item>
+      <title>Café owner’s recipe – revisited</title>
+      <link>https://encoding.example/1</link>
+      <guid>https://encoding.example/1</guid>
+      <description>A summary with an accented word.</description>
+    </item>
+  </channel>
+</rss>
