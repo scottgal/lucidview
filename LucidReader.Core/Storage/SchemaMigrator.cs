@@ -52,6 +52,17 @@ public static class SchemaMigrator
     }
 
     /// <summary>
+    /// The exception from the most recent failed attempt to convert a database
+    /// to incremental auto-vacuum mode, or null if the last attempt (if any)
+    /// succeeded or none has run yet. Exposed so a composition root can log it
+    /// through whatever logging it has, since this project takes no logging
+    /// dependency of its own. Purely diagnostic: nothing in this codebase reads
+    /// it to make a decision, and it is not meant to be asserted on by tests
+    /// beyond confirming the conversion did not throw out of OpenAsync.
+    /// </summary>
+    public static Exception? LastIncrementalVacuumConversionError { get; private set; }
+
+    /// <summary>
     /// Puts the database into incremental auto-vacuum mode, so that
     /// "PRAGMA incremental_vacuum" after a prune actually returns freed pages
     /// to the OS instead of leaving deleted rows' space allocated inside the
@@ -62,17 +73,46 @@ public static class SchemaMigrator
     /// database created before this check existed (every database made by the
     /// app so far) it is a one-time cost paid the next time it is opened,
     /// not a cost paid on the background retention timer.
+    ///
+    /// Converting needs roughly the database's own size again in free disk
+    /// space, since VACUUM writes a full temporary copy before replacing the
+    /// original. On a large existing database with a nearly-full disk that can
+    /// fail. Before this conversion existed the app opened regardless of free
+    /// disk space, so a failure here must not change that: the whole attempt,
+    /// including reading the mode back, is contained, and any failure leaves
+    /// the database exactly as it was. SQLite does not apply a changed
+    /// auto_vacuum pragma to an existing, non-empty database until VACUUM
+    /// completes, so a VACUUM that throws partway through has not altered the
+    /// on-disk mode; there is nothing to roll back and nothing for the next
+    /// open to find half-applied. The next open (the very next launch, since
+    /// this runs unconditionally on every OpenAsync) simply sees the mode is
+    /// still not incremental and tries again, so this is naturally retried
+    /// once conditions allow rather than needing separate retry bookkeeping.
     /// </summary>
     private static async Task EnsureIncrementalVacuumAsync(
         SqliteConnection connection,
         CancellationToken ct)
     {
         const int incrementalMode = 2;
-        if (await ReadAutoVacuumModeAsync(connection, ct) == incrementalMode)
-            return;
+        try
+        {
+            if (await ReadAutoVacuumModeAsync(connection, ct) == incrementalMode)
+            {
+                LastIncrementalVacuumConversionError = null;
+                return;
+            }
 
-        await ExecuteAsync(connection, "PRAGMA auto_vacuum = INCREMENTAL;", ct);
-        await ExecuteAsync(connection, "VACUUM;", ct);
+            await ExecuteAsync(connection, "PRAGMA auto_vacuum = INCREMENTAL;", ct);
+            await ExecuteAsync(connection, "VACUUM;", ct);
+            LastIncrementalVacuumConversionError = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Contained deliberately: this is an optional space-reclamation
+            // optimization, not a correctness requirement, and OpenAsync must
+            // keep working exactly as it did before this conversion existed.
+            LastIncrementalVacuumConversionError = ex;
+        }
     }
 
     private static async Task<int> ReadAutoVacuumModeAsync(
