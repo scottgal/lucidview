@@ -3,7 +3,7 @@ using Microsoft.Data.Sqlite;
 
 namespace LucidReader.Core.Storage;
 
-public sealed class FeedRepository(ReaderDatabase db)
+public class FeedRepository(ReaderDatabase db)
 {
     public Task<long> AddAsync(Feed feed, CancellationToken ct = default) =>
         db.WriteReturningIdAsync(
@@ -50,8 +50,13 @@ public sealed class FeedRepository(ReaderDatabase db)
     /// Feeds whose next_due_utc has passed, plus feeds that have never been
     /// fetched (null next_due). Disabled feeds are excluded, matching the
     /// partial index ix_feeds_next_due.
+    ///
+    /// Virtual solely so tests can inject a failure (a repository whose
+    /// override throws once) to exercise RefreshScheduler's exception
+    /// containment. The class stays non-sealed only for that override; every
+    /// other member is unchanged production behaviour.
     /// </summary>
-    public Task<IReadOnlyList<Feed>> GetDueAsync(
+    public virtual Task<IReadOnlyList<Feed>> GetDueAsync(
         DateTimeOffset nowUtc, int limit, CancellationToken ct = default) =>
         QueryManyAsync(
             """
