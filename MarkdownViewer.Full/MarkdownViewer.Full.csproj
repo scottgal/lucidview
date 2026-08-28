@@ -90,6 +90,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Naiad\src\Naiad\Naiad.csproj" />
     <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
+    <ProjectReference Include="..\Mostlylucid.LucidView.Content\Mostlylucid.LucidView.Content.csproj" />
     <!-- LiveMarkdown.Avalonia fork (HtmlInline/HtmlBlock <img> renderer patch)
          via external/LiveMarkdown.Avalonia submodule pointing at
          scottgal/LiveMarkdown.Avalonia#feat/html-img-renderer. -->

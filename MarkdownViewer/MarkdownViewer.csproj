@@ -82,6 +82,7 @@
              badges and (via MarkdownService) mermaid diagrams. Replaces the
              previous Svg.Skia 3.4.1 reference, which was non-AOT-friendly. -->
         <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
+        <ProjectReference Include="..\Mostlylucid.LucidView.Content\Mostlylucid.LucidView.Content.csproj" />
 
         <!-- HTML → Markdown via StyloExtract. Powers "Open Web Page..."
              (Ctrl+Shift+W) when a server returns text/html instead of
