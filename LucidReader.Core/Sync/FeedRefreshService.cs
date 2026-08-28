@@ -126,7 +126,31 @@ public sealed class FeedRefreshService : IAsyncDisposable
         FeedRefreshOutcome outcome;
         try
         {
-            outcome = await RefreshWithTimeoutGuardAsync(request.FeedId, ct);
+            try
+            {
+                outcome = await RefreshWithTimeoutGuardAsync(request.FeedId, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // A genuine caller-requested stop (app shutdown, Coordinator.Cancel()):
+                // RefreshWithTimeoutGuardAsync already turned its own timer firing into
+                // an ordinary failure outcome above, so any OperationCanceledException
+                // that reaches here can only be this. Nothing to record, and Completed
+                // deliberately does not fire for it - there is no feed-level failure to
+                // report, the whole app is stopping.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Anything else unhandled - a transient SQLite error, a disk-full
+                // write, any unexpected failure from a repository call that (unlike
+                // the parser's own try/catch in StoreAsync) is not otherwise guarded -
+                // must still result in Completed firing. Left uncaught, this is exactly
+                // the same "a caller waiting on Completed hangs forever, and no
+                // bookkeeping is written" symptom the timeout guard above exists to
+                // prevent, just triggered by a different kind of failure.
+                outcome = await RecordUnexpectedFailureAsync(request.FeedId, ex, ct);
+            }
         }
         finally
         {
@@ -198,6 +222,41 @@ public sealed class FeedRefreshService : IAsyncDisposable
 
         await RecordFailureAsync(feed, error, now, settings, ct);
         return new FeedRefreshOutcome(feedId, false, 0, false, error);
+    }
+
+    /// <summary>
+    /// Turns any otherwise-unhandled exception from a queued refresh into an
+    /// ordinary recorded failure, so Completed still fires and backoff still
+    /// advances no matter what went wrong.
+    ///
+    /// Recording the failure is itself best-effort: the most likely reason this
+    /// method runs at all is that the database is the thing that just failed, so
+    /// a second failure while trying to write the first one is an expected
+    /// possibility here, not a surprising one. It must not prevent Completed from
+    /// firing with the original error - that would reopen exactly the hole this
+    /// method exists to close, just one exception later. The original error is
+    /// always what reaches the caller through the outcome, regardless of whether
+    /// the write below succeeded.
+    /// </summary>
+    private async Task<FeedRefreshOutcome> RecordUnexpectedFailureAsync(
+        long feedId, Exception ex, CancellationToken ct)
+    {
+        try
+        {
+            var feed = await _feeds.GetAsync(feedId, ct);
+            if (feed is not null)
+            {
+                var settings = EffectiveFeedSettings.Resolve(feed, _settings());
+                var now = _time.GetUtcNow();
+                await RecordFailureAsync(feed, ex.Message, now, settings, ct);
+            }
+        }
+        catch (Exception)
+        {
+            // Best-effort, see the summary above.
+        }
+
+        return new FeedRefreshOutcome(feedId, false, 0, false, ex.Message);
     }
 
     private async Task<FeedRefreshOutcome> RefreshCoreAsync(long feedId, CancellationToken ct)

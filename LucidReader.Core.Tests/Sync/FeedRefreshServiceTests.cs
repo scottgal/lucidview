@@ -371,4 +371,43 @@ public class FeedRefreshServiceTests : IAsyncLifetime
         Assert.Equal("Example Blog", feed.Title);
         Assert.Equal("https://example.com/", feed.SiteUrl);
     }
+
+    [Fact]
+    public async Task An_unexpected_repository_failure_still_raises_Completed_and_does_not_hang()
+    {
+        var (handler, gate) = StubHttpHandler.Gated();
+        await using var service = CreateService(handler);
+        var feedId = await AddFeedAsync();
+
+        var completed = new TaskCompletionSource<FeedRefreshOutcome>();
+        service.Completed += outcome => completed.TrySetResult(outcome);
+
+        Assert.True(service.TryQueue(feedId));
+
+        // Wait for the fetch to actually be under way, then delete the feed out
+        // from under the in-flight refresh. When the gate below is released,
+        // ItemRepository.UpsertManyAsync will try to insert items against a
+        // feed_id that no longer exists, and the items table's foreign key to
+        // feeds turns that into a genuine, unforced SqliteException - the same
+        // shape of failure a transient DB error would produce, and one that
+        // StoreAsync's own try/catch (which only wraps the parser) does not
+        // already guard against.
+        await WaitUntilAsync(() => handler.Requests.Count > 0);
+        await _feeds.DeleteAsync(feedId);
+
+        gate.SetResult(new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(Fixtures.Feed("rss2-simple.xml"))
+        });
+
+        var outcome = await completed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.False(outcome.Success);
+        Assert.False(outcome.NotModified);
+        Assert.NotNull(outcome.Error);
+
+        // The feed was released once the failure was recorded, not left
+        // permanently in flight.
+        Assert.True(service.TryQueue(feedId));
+    }
 }
