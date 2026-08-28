@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Entity Trouble</title>
+    <link>https://entity.example/</link>
+    <item>
+      <title>An item with a raw&nbsp;entity</title>
+      <link>https://entity.example/1</link>
+      <guid>https://entity.example/1</guid>
+      <description>A summary.</description>
+    </item>
+    <item>
+      <title>A perfectly fine item</title>
+      <link>https://entity.example/2</link>
+      <guid>https://entity.example/2</guid>
+      <description>Another summary.</description>
+    </item>
+  </channel>
+</rss>
