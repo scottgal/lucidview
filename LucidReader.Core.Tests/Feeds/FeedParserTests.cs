@@ -114,6 +114,43 @@ public class FeedParserTests
     }
 
     [Fact]
+    public void Cdata_entities_survive_untouched_while_undeclared_entities_outside_are_repaired()
+    {
+        var feed = Parse("rss2-cdata-entities.xml");
+
+        var item = Assert.Single(feed.Items);
+
+        // The undeclared &reg; is legal, literal text inside CDATA and must not
+        // be rewritten by the document-level entity recovery pass.
+        Assert.Contains("&reg;", item.ContentHtml);
+
+        // The undeclared &nbsp; outside CDATA is what triggered recovery in the
+        // first place; it should still be repaired so the title is readable.
+        Assert.Contains("Trouble outside CDATA", item.Title);
+        Assert.DoesNotContain("&nbsp;", item.Title);
+    }
+
+    [Fact]
+    public void A_bare_ampersand_is_repaired_rather_than_losing_the_document()
+    {
+        var feed = Parse("rss2-bare-ampersand.xml");
+
+        var item = Assert.Single(feed.Items);
+        Assert.Equal("Fish & Chips", item.Title);
+        Assert.Contains("Bed & Breakfast", item.Summary);
+    }
+
+    [Fact]
+    public void An_item_with_no_guid_link_or_title_is_skipped_and_counted()
+    {
+        var feed = Parse("rss2-no-identity.xml");
+
+        var item = Assert.Single(feed.Items);
+        Assert.Equal("A perfectly identifiable item", item.Title);
+        Assert.Equal(1, feed.SkippedItemCount);
+    }
+
+    [Fact]
     public void An_empty_channel_parses_successfully_with_zero_items()
     {
         var feed = Parse("rss2-empty-channel.xml");
@@ -146,6 +183,9 @@ public class FeedParserTests
     [InlineData("rss2-relative-links.xml")]
     [InlineData("rss2-undeclared-entity.xml")]
     [InlineData("rss2-empty-channel.xml")]
+    [InlineData("rss2-cdata-entities.xml")]
+    [InlineData("rss2-bare-ampersand.xml")]
+    [InlineData("rss2-no-identity.xml")]
     public void CanParse_accepts_every_real_feed_in_the_corpus(string fixture)
     {
         Assert.True(_parser.CanParse(Fixtures.Feed(fixture)));

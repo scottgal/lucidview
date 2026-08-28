@@ -50,9 +50,11 @@ public sealed partial class FeedParser : IFeedParser
     }
 
     /// <summary>
-    /// Loads strictly, then retries once with undeclared HTML entities replaced
-    /// by their numeric equivalents. A single stray &amp;nbsp; is not a reason
-    /// to throw away a user's whole feed.
+    /// Loads strictly, then retries once with undeclared entities (named, like
+    /// &amp;nbsp;, or a bare stray &amp;) escaped to something legal. A single
+    /// bad ampersand is not a reason to throw away a user's whole feed - and by
+    /// far the most common way a real-world feed is broken is a raw "Fish &amp;
+    /// Chips" in a title, not a fancy named entity.
     /// </summary>
     private static XDocument? TryLoad(string content)
     {
@@ -73,32 +75,72 @@ public sealed partial class FeedParser : IFeedParser
         }
     }
 
-    private static string ReplaceUndeclaredEntities(string content) =>
-        UndeclaredEntityPattern().Replace(content, match => match.Value switch
+    /// <summary>
+    /// Repairs undeclared entities and bare ampersands, but only in markup -
+    /// never inside a CDATA section. Entities are never expanded inside CDATA,
+    /// so something like &lt;![CDATA[&amp;reg;]]&gt; is already legal, literal
+    /// text; rewriting it would corrupt an article body that a publisher wrote
+    /// correctly. The document is split on CDATA boundaries and only the
+    /// non-CDATA segments are repaired.
+    /// </summary>
+    private static string ReplaceUndeclaredEntities(string content)
+    {
+        var segments = CDataPattern().Split(content);
+
+        // Split with a single capturing group alternates [outside, cdata,
+        // outside, cdata, ...]: even indices are markup, odd indices are the
+        // CDATA sections (delimiters included), which are left untouched.
+        for (var i = 0; i < segments.Length; i += 2)
+            segments[i] = EscapeEntities(segments[i]);
+
+        return string.Concat(segments);
+    }
+
+    private static string EscapeEntities(string markup) =>
+        UndeclaredEntityPattern().Replace(markup, match =>
         {
-            "&nbsp;" => "&#160;",
-            "&copy;" => "&#169;",
-            "&mdash;" => "&#8212;",
-            "&ndash;" => "&#8211;",
-            "&hellip;" => "&#8230;",
-            "&rsquo;" => "&#8217;",
-            "&lsquo;" => "&#8216;",
-            "&ldquo;" => "&#8220;",
-            "&rdquo;" => "&#8221;",
-            "&trade;" => "&#8482;",
-            "&pound;" => "&#163;",
-            "&euro;" => "&#8364;",
-            // Anything else undeclared becomes a literal ampersand, which is
-            // always valid and never loses the surrounding text.
-            _ => "&amp;" + match.Value[1..]
+            var name = match.Groups[1].Value;
+
+            // A bare ampersand with nothing entity-shaped after it - by far the
+            // most common way a real feed is broken.
+            if (name.Length == 0) return "&amp;";
+
+            return ("&" + name) switch
+            {
+                "&nbsp;" => "&#160;",
+                "&copy;" => "&#169;",
+                "&mdash;" => "&#8212;",
+                "&ndash;" => "&#8211;",
+                "&hellip;" => "&#8230;",
+                "&rsquo;" => "&#8217;",
+                "&lsquo;" => "&#8216;",
+                "&ldquo;" => "&#8220;",
+                "&rdquo;" => "&#8221;",
+                "&trade;" => "&#8482;",
+                "&pound;" => "&#163;",
+                "&euro;" => "&#8364;",
+                // Anything else undeclared becomes a literal ampersand, which
+                // is always valid and never loses the surrounding text.
+                _ => "&amp;" + name
+            };
         });
 
     /// <summary>
-    /// Named entities other than the five XML predefines. Numeric references
-    /// are already legal and are left alone.
+    /// An ampersand that does not begin a legal XML reference (one of the five
+    /// predefines, or a numeric/hex reference): either a bare ampersand, or an
+    /// undeclared named entity like &amp;nbsp;, captured without the leading
+    /// "&amp;" in group 1 when a name is present.
     /// </summary>
-    [GeneratedRegex(@"&(?!(?:amp|lt|gt|quot|apos);|#\d+;|#x[0-9a-fA-F]+;)[a-zA-Z][a-zA-Z0-9]*;")]
+    [GeneratedRegex(@"&(?!(?:amp|lt|gt|quot|apos);|#\d+;|#x[0-9a-fA-F]+;)([a-zA-Z][a-zA-Z0-9]*;)?")]
     private static partial Regex UndeclaredEntityPattern();
+
+    /// <summary>
+    /// A CDATA section, delimiters included, captured as a single group so
+    /// Regex.Split keeps it (rather than discarding it) alongside the markup
+    /// either side of it.
+    /// </summary>
+    [GeneratedRegex(@"(<!\[CDATA\[.*?\]\]>)", RegexOptions.Singleline)]
+    private static partial Regex CDataPattern();
 
     private static ParsedFeed ParseRss2(XElement root, Uri sourceUri)
     {
@@ -146,12 +188,17 @@ public sealed partial class FeedParser : IFeedParser
     }
 
     /// <summary>
-    /// Parses each item independently. SkippedItemCount only counts items the
-    /// parser could not read at all (an exception thrown while reading the
-    /// element) - never items it read but could not fully understand, such as
-    /// one with an unparseable date. That item is still added to Items with a
-    /// null PublishedUtc; it costs its sort position, not its place in the
-    /// feed. One malformed item never costs the caller the rest of the feed.
+    /// Parses each item independently. SkippedItemCount counts only items the
+    /// parser could not usefully read, which is precisely:
+    ///   1. an item with no guid, no link and no title - nothing the storage
+    ///      layer can deduplicate on and nothing worth showing a user, so
+    ///      ParseRssItem/ParseAtomEntry throw FeedParseException for it, or
+    ///   2. a genuinely unexpected failure while reading the element, caught
+    ///      here as a safety net.
+    /// It does NOT count an item with an unparseable date: that item is still
+    /// added to Items with a null PublishedUtc. An unreadable date costs the
+    /// item its sort position, nothing more; the item itself is still worth
+    /// showing. One skipped item never costs the caller the rest of the feed.
     /// </summary>
     private static (IReadOnlyList<ParsedItem> Items, int Skipped) ParseItems(
         IEnumerable<XElement> elements,
@@ -184,7 +231,7 @@ public sealed partial class FeedParser : IFeedParser
         var description = Trimmed(Child("description"));
         var encoded = Trimmed(element.Element(Content + "encoded")?.Value);
 
-        return new ParsedItem
+        return RequireIdentity(new ParsedItem
         {
             Guid = Trimmed(Child("guid")),
             Link = ResolveLink(Child("link"), sourceUri),
@@ -196,7 +243,7 @@ public sealed partial class FeedParser : IFeedParser
             Summary = description,
             // content:encoded is the full article when a publisher offers one.
             ContentHtml = encoded ?? description
-        };
+        });
     }
 
     private static ParsedItem ParseAtomEntry(XElement element, Uri sourceUri)
@@ -204,7 +251,7 @@ public sealed partial class FeedParser : IFeedParser
         var summary = Trimmed(element.Element(Atom + "summary")?.Value);
         var content = Trimmed(element.Element(Atom + "content")?.Value);
 
-        return new ParsedItem
+        return RequireIdentity(new ParsedItem
         {
             Guid = Trimmed(element.Element(Atom + "id")?.Value),
             Link = ResolveLink(AtomLink(element), sourceUri),
@@ -215,8 +262,20 @@ public sealed partial class FeedParser : IFeedParser
             UpdatedUtc = FeedDateParser.TryParse(element.Element(Atom + "updated")?.Value),
             Summary = summary,
             ContentHtml = content ?? summary
-        };
+        });
     }
+
+    /// <summary>
+    /// An item with no guid, no link and no title has no usable identity: the
+    /// storage layer cannot deduplicate it and there is nothing to show a
+    /// user. Throwing here (rather than returning it) is what makes it count
+    /// toward SkippedItemCount instead of silently becoming an empty row.
+    /// </summary>
+    private static ParsedItem RequireIdentity(ParsedItem item) =>
+        item.Guid is null && item.Link is null && item.Title is null
+            ? throw new FeedParseException(
+                "Item has no guid, link or title and cannot be identified or shown.")
+            : item;
 
     /// <summary>
     /// The alternate link, or the first link with no rel, which is what most

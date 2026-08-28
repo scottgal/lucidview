@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>CDATA Entities</title>
+    <link>https://cdata.example/</link>
+    <item>
+      <title>Trouble outside CDATA &nbsp; the entity</title>
+      <link>https://cdata.example/1</link>
+      <guid>https://cdata.example/1</guid>
+      <description>A summary.</description>
+      <content:encoded><![CDATA[<p>A registered mark &reg; must stay literal text.</p>]]></content:encoded>
+    </item>
+  </channel>
+</rss>
