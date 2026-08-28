@@ -91,7 +91,8 @@ public class OfflineDownloaderTests : IAsyncLifetime
     public async Task A_stub_triggers_a_page_fetch_and_is_stored_as_extracted()
     {
         var handler = StubHttpHandler.Returning(
-            HttpStatusCode.OK, "<html><body>" + LongArticle() + "</body></html>");
+            HttpStatusCode.OK, "<html><body>" + LongArticle() + "</body></html>",
+            mediaType: "text/html");
         await using var downloader = CreateDownloader(handler);
         var id = await AddItemAsync("<p>Short teaser.</p>");
 
@@ -256,7 +257,10 @@ public class OfflineDownloaderTests : IAsyncLifetime
             CreateDownloader(handler, maxFetchDuration: TimeSpan.FromMilliseconds(50));
         var id = await AddItemAsync("<p>Short teaser.</p>");
 
-        await downloader.DownloadNowAsync(id);
+        // Bounded, like its sibling test below: if the timeout guard were
+        // ever regressed away, this must fail promptly rather than hang
+        // until CI's outer job timeout.
+        await downloader.DownloadNowAsync(id).WaitAsync(TimeSpan.FromSeconds(10));
 
         var item = await _items.GetAsync(id);
         Assert.Equal(OfflineState.Failed, item!.OfflineState);
@@ -285,5 +289,53 @@ public class OfflineDownloaderTests : IAsyncLifetime
         // The item was released once the timeout was recorded, not left
         // permanently in flight.
         Assert.True(downloader.TryQueue(id));
+    }
+
+    // --- Article-page validation ---
+    //
+    // Whatever ArticleFetcher returns is handed straight to the markdown
+    // converter and, on success, overwrites the item's content and marks it
+    // Downloaded and Extracted. There is no secondary "does this look like
+    // an article" check downstream, so ArticleFetcher's own gates are the
+    // only thing standing between a login wall, captcha page, soft 404 or
+    // CSV export and it being silently stored as the article.
+
+    [Fact]
+    public async Task A_text_plain_response_is_rejected_and_the_summary_survives()
+    {
+        // No explicit mediaType: StubHttpHandler.Returning defaults to
+        // StringContent's own "text/plain", the same shape a login wall or
+        // a misconfigured server without a proper Content-Type would take.
+        var handler = StubHttpHandler.Returning(HttpStatusCode.OK, LongArticle());
+        await using var downloader = CreateDownloader(handler);
+        var id = await AddItemAsync("<p>Short teaser.</p>");
+
+        await downloader.DownloadNowAsync(id);
+
+        Assert.Single(handler.Requests);
+        var item = await _items.GetAsync(id);
+        Assert.Equal(OfflineState.Failed, item!.OfflineState);
+        Assert.NotNull(item.OfflineError);
+        Assert.Equal("<p>Short teaser.</p>", item.Summary);
+        Assert.Null(item.ContentMarkdown);
+    }
+
+    [Fact]
+    public async Task A_chunked_response_over_the_size_cap_is_rejected_not_buffered()
+    {
+        // No Content-Length header at all - the shape a chunked response
+        // takes - so the fast Content-Length pre-check in ArticleFetcher
+        // cannot fire; only the streaming bound can reject this.
+        var handler = StubHttpHandler.ReturningUnboundedLength(9 * 1024 * 1024);
+        await using var downloader = CreateDownloader(handler);
+        var id = await AddItemAsync("<p>Short teaser.</p>");
+
+        await downloader.DownloadNowAsync(id).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Single(handler.Requests);
+        var item = await _items.GetAsync(id);
+        Assert.Equal(OfflineState.Failed, item!.OfflineState);
+        Assert.NotNull(item.OfflineError);
+        Assert.Equal("<p>Short teaser.</p>", item.Summary);
     }
 }

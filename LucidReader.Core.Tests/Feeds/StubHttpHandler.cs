@@ -28,16 +28,81 @@ public sealed class StubHttpHandler : HttpMessageHandler
         HttpStatusCode status,
         string? body = null,
         string? etag = null,
-        string? lastModified = null) =>
+        string? lastModified = null,
+        string? mediaType = null) =>
         new(_ =>
         {
             var response = new HttpResponseMessage(status);
             if (body is not null) response.Content = new StringContent(body);
+            if (mediaType is not null && response.Content is not null)
+                response.Content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
             if (etag is not null) response.Headers.TryAddWithoutValidation("ETag", etag);
             if (lastModified is not null)
                 response.Content?.Headers.TryAddWithoutValidation("Last-Modified", lastModified);
             return response;
         });
+
+    /// <summary>
+    /// Serves a body of the given byte count with no Content-Length header,
+    /// the same shape a chunked-transfer-encoded response takes: content
+    /// whose length is unknown until fully read. Used to prove a size cap
+    /// that only checks Content-Length would miss it entirely.
+    /// </summary>
+    public static StubHttpHandler ReturningUnboundedLength(
+        long byteCount, string mediaType = "text/html") =>
+        new(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(new RepeatingStream((byte)'a', byteCount))
+            };
+            response.Content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+            return response;
+        });
+
+    /// <summary>
+    /// A non-seekable stream that yields <paramref name="length"/> bytes of a
+    /// single repeated value. Non-seekable so StreamContent cannot compute a
+    /// Content-Length from it (StreamContent only sets that header when the
+    /// underlying stream reports CanSeek), which is exactly the shape a real
+    /// chunked response takes.
+    /// </summary>
+    private sealed class RepeatingStream(byte value, long length) : Stream
+    {
+        private long _remaining = length;
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_remaining <= 0) return 0;
+            var toWrite = (int)Math.Min(count, _remaining);
+            Array.Fill(buffer, value, offset, toWrite);
+            _remaining -= toWrite;
+            return toWrite;
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) =>
+            throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) =>
+            throw new NotSupportedException();
+    }
 
     /// <summary>
     /// Serves raw bytes with an explicit (or absent) charset on the
