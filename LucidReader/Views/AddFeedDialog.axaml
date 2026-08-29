@@ -1,0 +1,84 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LucidReader.Views.AddFeedDialog"
+        Title="Add Feed"
+        Width="560" Height="480"
+        MinWidth="480" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ListBackgroundBrush}">
+
+    <!--
+        Same palette fix SettingsDialog and FeedSettingsDialog apply: the base
+        theme's accent is not the blue the rest of the app selects with, so the
+        accent keys are rebound to AccentSelectionColor here too.
+    -->
+    <Window.Resources>
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="AccentButtonBackground" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="AccentButtonBorderBrush" Color="{DynamicResource AccentSelectionColor}" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20,16,20,16" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+
+        <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,12">
+            <TextBlock Text="Add a feed" Classes="row-title" FontSize="16" />
+            <TextBlock Classes="row-secondary"
+                       Text="Paste a feed address, or the address of a site and lucidREADER will look for its feeds." />
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+            <TextBox Grid.Column="0" x:Name="FeedUrlBox"
+                     Watermark="https://example.com"
+                     KeyDown="OnUrlKeyDown" />
+            <Button Grid.Column="1" x:Name="FindButton" Content="Find" Width="80"
+                    Margin="8,0,0,0" Click="OnFind" />
+        </Grid>
+
+        <TextBlock Grid.Row="2" x:Name="DiscoveryStatusText" Classes="row-secondary"
+                   TextWrapping="Wrap" Margin="0,0,0,10" />
+
+        <!--
+            The chooser. A site can offer several feeds (xkcd offers Atom and
+            RSS; a news site often offers one per section), so this is a
+            checkbox list rather than a single-selection picker, and every
+            discovered feed starts ticked because subscribing to what you
+            asked for is the common case.
+        -->
+        <Border Grid.Row="3" Classes="settings-card">
+            <ListBox x:Name="DiscoveredList" Background="Transparent" BorderThickness="0" Margin="4">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                  Content="{Binding Label}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,*" Margin="0,14,0,0">
+            <TextBlock Grid.Column="0" Text="Folder" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <ComboBox Grid.Column="1" x:Name="FolderCombo" HorizontalAlignment="Stretch" />
+        </Grid>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+            <Button x:Name="CancelButton" Content="Cancel" Click="OnCancel" Width="80" IsCancel="True" />
+            <Button x:Name="AddButton" Content="Add" Click="OnAdd" Width="80" Classes="accent" IsEnabled="False" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -127,6 +127,15 @@ public sealed class ReaderServices : IAsyncDisposable
     /// </summary>
     public IFeedSearch FeedSearch { get; }
 
+    /// <summary>
+    /// The one HttpClient this app owns. Exposed so short-lived helpers built
+    /// in the UI layer (FeedAutodiscovery, per add-feed dialog) share this
+    /// connection pool and this client's deliberately infinite timeout rather
+    /// than constructing a second client per dialog. Internal, not public:
+    /// this is a composition-root detail, not part of the app's surface.
+    /// </summary>
+    internal HttpClient Http => _http;
+
     public int ConfiguredFetchConcurrency { get; }
     public int ConfiguredDownloadConcurrency { get; }
 

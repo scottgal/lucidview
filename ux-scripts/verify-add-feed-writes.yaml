@@ -1,0 +1,61 @@
+name: verify-add-feed-writes
+description: >
+  The other half of verify-add-feed-dialog: this one actually clicks Add, so
+  it proves the discovered feeds are written, the sidebar reloads and the
+  status bar reports what happened. Run it against a database you do not mind
+  gaining two xkcd subscriptions; unsubscribing again is context-menu only,
+  which the harness cannot drive.
+
+  Needs network access, same as verify-add-feed-dialog.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Wait for app startup
+
+  - type: Click
+    target: AddFeedButton
+
+  - type: Wait
+    value: "600"
+
+  - type: TypeText
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    value: "xkcd.com"
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: HasText
+    value: "Found 2 feeds. Choose the ones you want."
+    timeout: 15000
+
+  - type: Click
+    target: AddButton
+    window_id: "Add Feed"
+    description: Subscribe to both
+
+  - type: Wait
+    value: "1500"
+    description: Wait for the writes and the sidebar reload
+
+  - type: Expect
+    target: StatusText
+    matcher: ContainsText
+    value: "Added"
+    description: >
+      ContainsText, not HasText: a second run of this script against the same
+      database correctly reports the two feeds as already subscribed instead.
+
+  - type: Screenshot
+    value: 10-after-add
+
+  - type: Screenshot
+    value: 11-sidebar
+    target: SidebarSections

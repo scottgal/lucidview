@@ -9,10 +9,10 @@ namespace LucidReader.Views;
 /// <summary>
 /// Toolbar/menu/keybinding actions (add feed, refresh, navigate, mark
 /// read/starred, open original, search focus, find in article, tags,
-/// export, settings). AddFeedCommand stays a no-op stub here deliberately:
-/// feed autodiscovery is a later task and not part of this one.
-/// OpenSettingsCommand is wired to ShowSettingsDialogAsync (Task 11,
-/// MainWindow.Settings.cs). Every other command below is real.
+/// export, settings). OpenSettingsCommand is wired to
+/// ShowSettingsDialogAsync (Task 11, MainWindow.Settings.cs) and
+/// AddFeedCommand to ShowAddFeedDialogAsync (Task 13,
+/// MainWindow.Subscriptions.cs). Every command below is real.
 ///
 /// PDF export is out of scope for this app, per the plan-level decision that
 /// lucidVIEW's PdfExportService could not be shared (it depends on a large
@@ -113,10 +113,12 @@ public partial class MainWindow
     public RelayCommand FindInArticleCommand => _findInArticle ??= new RelayCommand(FocusFindInArticle);
 
     /// <summary>
-    /// Not wired to a dialog yet: feed autodiscovery (Task 13) has not
-    /// shipped, so there is nothing safe to open here.
+    /// Task 13: opens the add-feed dialog, which resolves whatever address
+    /// the user pasted through FeedAutodiscovery
+    /// (MainWindow.Subscriptions.cs). This was a no-op stub from Task 6
+    /// until autodiscovery shipped.
     /// </summary>
-    public RelayCommand AddFeedCommand => _addFeed ??= new RelayCommand(() => { });
+    public RelayCommand AddFeedCommand => _addFeed ??= new RelayCommand(async () => await ShowAddFeedDialogAsync());
 
     /// <summary>
     /// Task 11: opens the global settings dialog (MainWindow.Settings.cs).

@@ -1,0 +1,123 @@
+name: verify-add-feed-dialog
+description: >
+  Drive the Task 13 add-feed flow: open the dialog from the toolbar, check the
+  empty-address message, paste a bare domain, and confirm autodiscovery
+  normalises it to https, finds both of the site's feeds and enables Add.
+  Cancels rather than adding, so the run writes nothing to the database.
+
+  xkcd.com is the target because it publishes exactly two autodiscovery link
+  tags (Atom 1.0 and RSS 2.0), which is what exercises the multi-feed chooser.
+  This step needs network access; without it the Found-2-feeds expectation is
+  the one that will fail.
+
+  The two OPML buttons are checked for presence only: both open a native file
+  picker, which is an OS-owned window the harness cannot see into.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Wait for app startup
+
+  - type: Screenshot
+    value: 00-main-window
+
+  - type: Expect
+    target: ImportOpmlButton
+    matcher: IsEnabled
+
+  - type: Expect
+    target: ExportOpmlButton
+    matcher: IsEnabled
+
+  - type: Click
+    target: AddFeedButton
+    description: Open the add-feed dialog
+
+  - type: Wait
+    value: "600"
+    description: Wait for the dialog to open and be tracked
+
+  - type: Screenshot
+    value: 01-add-feed-dialog
+    window_id: "Add Feed"
+
+  - type: Expect
+    target: AddButton
+    window_id: "Add Feed"
+    matcher: IsDisabled
+    description: Nothing has been discovered yet, so there is nothing to add
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+    description: Find with an empty box should say what is missing, not search
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: HasText
+    value: "Enter the address of a feed or a website."
+
+  - type: Screenshot
+    value: 02-empty-address
+    window_id: "Add Feed"
+
+  - type: TypeText
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    value: "xkcd.com"
+    description: A bare domain, with no scheme
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+
+  - type: Wait
+    value: "4000"
+    description: Wait for the page fetch and link scan
+
+  - type: Expect
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    matcher: HasValue
+    value: "https://xkcd.com"
+    description: The bare domain must be normalised to the address actually fetched
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: HasText
+    value: "Found 2 feeds. Choose the ones you want."
+    timeout: 15000
+
+  - type: Expect
+    target: DiscoveredList
+    window_id: "Add Feed"
+    matcher: HasCount
+    value: "2"
+
+  - type: Expect
+    target: AddButton
+    window_id: "Add Feed"
+    matcher: IsEnabled
+    description: Discovering feeds is what makes Add live
+
+  - type: Screenshot
+    value: 03-discovered-feeds
+    window_id: "Add Feed"
+
+  - type: Screenshot
+    value: 04-dialog-over-main
+    composite: true
+
+  - type: Click
+    target: CancelButton
+    window_id: "Add Feed"
+    description: Cancel, so this run subscribes to nothing
+
+  - type: Wait
+    value: "600"
+
+  - type: Screenshot
+    value: 05-after-cancel
