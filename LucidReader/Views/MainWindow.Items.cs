@@ -164,11 +164,6 @@ public partial class MainWindow
         AdjustUnreadCount(row.Item.FeedId, target ? -1 : 1);
     }
 
-    /// <summary>Stub: a later task re-queries ItemRows against SearchText.</summary>
-#pragma warning disable CA1822
-    private Task OnSearchTextChangedAsync() => Task.CompletedTask;
-#pragma warning restore CA1822
-
     /// <summary>
     /// Nudges the cached unread counts rather than requerying the whole tree,
     /// so scanning a list stays responsive. If this cache is ever observed to
