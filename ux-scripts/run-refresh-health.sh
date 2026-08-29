@@ -6,7 +6,10 @@
 # row again, so the check is repeatable instead of depending on database state
 # a previous session left behind. Cleanup runs on failure and on interrupt too,
 # which is why the seed uses a feed_url no real subscription would collide with.
-set -uo pipefail
+# -e matters here: without it a failing seed INSERT (locked database, a
+# changed schema) still let the harness launch, and the real problem showed up
+# as a confusing Expect mismatch instead of the error it is.
+set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$REPO/LucidReader/bin/Debug/net10.0/osx-arm64/lucidREADER"

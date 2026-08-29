@@ -237,15 +237,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task OnOpenedAsync()
     {
+        var hasStartupWarning = false;
         if (_services.StartupWarning is { } warning)
+        {
             StatusMessage = "Storage maintenance could not run: " + warning.Message;
+            hasStartupWarning = true;
+        }
 
         await LoadFeedTreeAsync();
 
         // After the tree, so the first readout already knows how many feeds
         // came back auto-paused. StartHealthMonitoring only schedules the
         // repeats; the first check is this explicit one.
-        await CheckHealthAsync();
+        //
+        // Skipped entirely when a startup warning is on screen. A failed
+        // database maintenance run is reported exactly once, here, and any
+        // health line would overwrite it before the user could read it. The
+        // health readout is not lost, only deferred: the first timer tick
+        // takes over 30 seconds later.
+        if (!hasStartupWarning) await CheckHealthAsync();
         StartHealthMonitoring();
     }
 
@@ -310,10 +320,63 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Sidebar.Add(favourites);
         Sidebar.Add(feedsSection);
 
+        RepointSelectionAfterTreeReload();
+
         // Fired without awaiting: the tree is already on screen with text
         // and the neutral placeholder glyph, and favicons fill in as they
         // resolve. See MainWindow.Images.cs.
         _ = ResolveSidebarIconsAsync();
+    }
+
+    /// <summary>
+    /// Whether two nodes stand for the same sidebar row across a tree reload.
+    /// LoadFeedTreeAsync throws every FeedTreeNode away and builds new ones,
+    /// so reference equality says nothing; identity is the feed, the folder or
+    /// the smart filter the row stands for. Static and node-only so it can be
+    /// tested without a Window.
+    /// </summary>
+    internal static bool IsSameRow(FeedTreeNode a, FeedTreeNode b)
+    {
+        if (a.Kind != b.Kind) return false;
+
+        return a.Kind switch
+        {
+            FeedTreeNodeKind.Feed => a.FeedId is not null && a.FeedId == b.FeedId,
+            FeedTreeNodeKind.Folder => a.FolderId is not null && a.FolderId == b.FolderId,
+            _ => a.SmartFilter == b.SmartFilter
+        };
+    }
+
+    /// <summary>
+    /// Carries the selection across a tree reload and re-raises the properties
+    /// whose answers the reload can have changed.
+    ///
+    /// Two things go wrong without this. The selection highlight is lost after
+    /// any action that reloads the tree, because the highlighted node object
+    /// no longer exists. And IsPausedFeedSelected goes stale: the old node is
+    /// a frozen snapshot, so a feed auto-paused in the background while it was
+    /// selected never grows a Resume button, and a paused feed whose refresh
+    /// just succeeded keeps one.
+    ///
+    /// Assigns the backing field rather than going through SelectedFeedNode's
+    /// setter on purpose. That setter cancels a running search, clears the
+    /// search box and kicks off LoadItemsAsync; none of that is wanted for
+    /// what is the same row the user already had selected, and the item reload
+    /// in particular would race whatever the caller does next.
+    /// </summary>
+    private void RepointSelectionAfterTreeReload()
+    {
+        if (_selectedFeedNode is not { } previous) return;
+
+        var replacement = AllFeedTreeNodes.FirstOrDefault(n => IsSameRow(previous, n));
+
+        previous.IsSelected = false;
+        _selectedFeedNode = replacement;
+        if (replacement is not null) replacement.IsSelected = true;
+
+        Raise(nameof(SelectedFeedNode));
+        Raise(nameof(IsFeedSelected));
+        Raise(nameof(IsPausedFeedSelected));
     }
 
     private static FeedTreeNode ToNode(Feed feed, IReadOnlyDictionary<long, int> unread) => new()

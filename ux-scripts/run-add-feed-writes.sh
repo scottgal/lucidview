@@ -8,7 +8,11 @@
 # stops a test run leaving subscriptions behind in a working database.
 #
 # Needs network: it fetches https://xkcd.com and follows its feed links.
-set -uo pipefail
+# -e matters here: without it a failing cleanup DELETE (locked database, a
+# changed schema) still let the harness launch against rows that were meant to
+# be gone, and the real problem showed up as a confusing Expect mismatch
+# instead of the error it is.
+set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$REPO/LucidReader/bin/Debug/net10.0/osx-arm64/lucidREADER"

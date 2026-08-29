@@ -15,6 +15,23 @@ public partial class MainWindow
     private DispatcherTimer? _healthTimer;
 
     /// <summary>
+    /// Cancelled from the window's Closing handler. Checked after the store
+    /// read inside CheckHealthAsync, which is the only await a tick suspends
+    /// on and so the only place a continuation can come back to a disposing
+    /// ReaderServices.
+    /// </summary>
+    private readonly CancellationTokenSource _healthCancellation = new();
+
+    /// <summary>
+    /// Health reads that throw are swallowed so a failed readout cannot kill
+    /// the timer or the app, but swallowing every one of them means a store
+    /// that fails on every tick leaves health reporting dead for the whole
+    /// session with no trace at all. The first failure is written out so
+    /// there is something to find.
+    /// </summary>
+    private bool _healthFailureReported;
+
+    /// <summary>
     /// How many consecutive failing ticks before the user is told. One blip is
     /// noise; a streak means background refresh has genuinely stopped working.
     /// </summary>
@@ -34,7 +51,15 @@ public partial class MainWindow
     /// there is nothing to report, which is what lets the caller leave a
     /// status line the user's own action just produced alone.
     /// </summary>
+    /// <param name="isExpectedToRun">
+    /// False when the user turned off "Refresh on startup" in settings, which
+    /// is the only reason ReaderServices never calls Scheduler.Start(). A
+    /// stopped scheduler is then the setting working, not a fault, and saying
+    /// otherwise every 30 seconds would stamp over every status line the
+    /// user's own actions produce and make the status bar useless.
+    /// </param>
     internal static string DescribeHealth(
+        bool isExpectedToRun,
         bool isRunning,
         string? lastTickError,
         int consecutiveFailures,
@@ -44,7 +69,7 @@ public partial class MainWindow
 
         if (!isRunning)
         {
-            parts.Add("Background refresh is not running.");
+            if (isExpectedToRun) parts.Add("Background refresh is not running.");
         }
         else if (consecutiveFailures >= TickFailureThreshold)
         {
@@ -78,6 +103,13 @@ public partial class MainWindow
 
     private void StopHealthMonitoring()
     {
+        // Stopping the timer only prevents future ticks. A tick already
+        // suspended on the GetAllAsync await would otherwise resume after the
+        // window closed and touch a ReaderServices App.axaml.cs is disposing,
+        // which is the exact window this call is meant to close. Cancelling
+        // gives the continuation something to check before it does that.
+        _healthCancellation.Cancel();
+
         if (_healthTimer is null) return;
 
         _healthTimer.Stop();
@@ -93,16 +125,35 @@ public partial class MainWindow
     /// </summary>
     private async void OnHealthTimerTick(object? sender, EventArgs e)
     {
-        try { await CheckHealthAsync(); }
-        catch (Exception) { /* a failed health read must not kill the timer or the app */ }
+        try
+        {
+            await CheckHealthAsync();
+        }
+        catch (Exception ex)
+        {
+            // A failed health read must not kill the timer or the app, but it
+            // must not vanish either: report the first one so a persistently
+            // failing store is diagnosable.
+            if (!_healthFailureReported)
+            {
+                _healthFailureReported = true;
+                Console.Error.WriteLine($"[Health] {ex.GetType().Name}: {ex.Message}");
+            }
+        }
     }
 
     public async Task CheckHealthAsync()
     {
+        var token = _healthCancellation.Token;
+
         var pausedCount = (await _services.Feeds.GetAllAsync())
             .Count(f => f.AutoPausedUtc is not null);
 
+        // The window may have closed while that read was in flight.
+        if (token.IsCancellationRequested) return;
+
         var text = DescribeHealth(
+            _services.Settings.RefreshOnStartup,
             _services.Scheduler.IsRunning,
             _services.Scheduler.LastTickError,
             _services.Scheduler.ConsecutiveTickFailures,
@@ -114,9 +165,12 @@ public partial class MainWindow
 
     /// <summary>
     /// True when the sidebar selection is a feed the Core layer auto-paused.
-    /// Drives the Resume toolbar button's visibility; raised from
-    /// SelectedFeedNode's setter and again after every tree reload, since a
-    /// resume changes the answer for the node that is still selected.
+    /// Drives the Resume toolbar button's visibility. Raised from
+    /// SelectedFeedNode's setter, and again from the end of LoadFeedTreeAsync
+    /// (see RepointSelectionAfterTreeReload), because a reload both replaces
+    /// the node object the selection points at and can change the answer for
+    /// the feed that is still selected: a background auto-pause makes it true,
+    /// a resume or a successful refresh makes it false.
     /// </summary>
     public bool IsPausedFeedSelected => SelectedFeedNode?.IsAutoPaused == true;
 
@@ -153,19 +207,15 @@ public partial class MainWindow
         // queued would be a lie, so the two cases word themselves differently.
         var queued = _services.Refresh.TryQueue(feedId, isManual: true);
 
-        var wasSelected = SelectedFeedNode?.FeedId == feedId;
+        // LoadFeedTreeAsync builds brand new FeedTreeNode instances and
+        // re-points the selection at the fresh row for the same feed, so the
+        // Resume button reads the resumed state rather than the pre-resume
+        // snapshot. Items are then loaded here, before the confirmation is
+        // written: LoadItemsAsync ends by setting StatusMessage itself, so
+        // writing the confirmation first would let the article count replace
+        // it as soon as the query completed. Same shape as AfterRefreshAsync.
         await LoadFeedTreeAsync();
-
-        // LoadFeedTreeAsync builds brand new FeedTreeNode instances, so the
-        // node SelectedFeedNode still points at is the pre-resume snapshot:
-        // it reports IsAutoPaused true forever and would keep the Resume
-        // button on screen for a feed that is no longer paused. Re-point the
-        // selection at the fresh row for the same feed.
-        if (wasSelected)
-        {
-            SelectedFeedNode = AllFeedTreeNodes.FirstOrDefault(n => n.FeedId == feedId);
-            Raise(nameof(IsPausedFeedSelected));
-        }
+        await LoadItemsAsync();
 
         StatusMessage = queued
             ? "Feed resumed."
