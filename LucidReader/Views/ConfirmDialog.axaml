@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LucidReader.Views.ConfirmDialog"
+        Title="Confirm"
+        Width="450" Height="160"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+
+    <Grid Margin="16" RowDefinitions="Auto,*,Auto">
+        <TextBlock x:Name="MessageText" Grid.Row="0" Text="Are you sure?" TextWrapping="Wrap" />
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8"
+                    Margin="0,16,0,0">
+            <Button x:Name="CancelButton" Content="Cancel" Click="OnCancel" Width="80" IsCancel="True" />
+            <Button x:Name="ConfirmButton" Content="Confirm" Click="OnConfirm" Width="100" Classes="accent" IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</Window>

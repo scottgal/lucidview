@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+
+    <AssemblyName>lucidREADER</AssemblyName>
+    <RootNamespace>LucidReader</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>lucidREADER</Product>
+    <Description>A native RSS and Atom reader built on the lucidVIEW rendering stack</Description>
+
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishReadyToRunComposite>false</PublishReadyToRunComposite>
+    <PublishTrimmed>false</PublishTrimmed>
+    <!-- Must stay false. Self-extracting the SQLite native library into a temp
+         directory makes the macOS hardened runtime refuse to load it, which
+         kills the app at first database access on a notarised build. -->
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageReference Include="FluentAvaloniaUI" Version="2.5.0" />
+    <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="2.0.321" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12" Condition="'$(Configuration)' == 'Debug'" />
+
+    <!-- Override transitive Tmds.DBus.Protocol 0.21.2 (GHSA-xrw6-gwf8-vvr9), same as MarkdownViewer.csproj. -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LucidReader.Core\LucidReader.Core.csproj" />
+    <ProjectReference Include="..\Mostlylucid.LucidView.Markdown\Mostlylucid.LucidView.Markdown.csproj" />
+    <ProjectReference Include="..\Mostlylucid.LucidView.Shell\Mostlylucid.LucidView.Shell.csproj" />
+    <ProjectReference Include="..\Mostlylucid.LucidView.Content\Mostlylucid.LucidView.Content.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <ProjectReference Include="..\external\lucidRESUME\src\Mostlylucid.Avalonia.UITesting\Mostlylucid.Avalonia.UITesting.csproj" />
+  </ItemGroup>
+</Project>
