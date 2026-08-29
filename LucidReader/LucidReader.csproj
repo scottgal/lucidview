@@ -46,4 +46,13 @@
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <ProjectReference Include="..\external\lucidRESUME\src\Mostlylucid.Avalonia.UITesting\Mostlylucid.Avalonia.UITesting.csproj" />
   </ItemGroup>
+
+  <!-- Lets LucidReader.Core.Tests exercise ReaderServices.OnRefreshCompleted
+       and DownloadQueueLoop directly, to test the disposal-ordering guarantee
+       without racing a real HTTP refresh through FeedRefreshService's
+       coordinator. Both members stay internal; this does not widen the
+       public API. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="LucidReader.Core.Tests" />
+  </ItemGroup>
 </Project>

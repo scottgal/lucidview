@@ -23,8 +23,26 @@ public sealed class ReaderServices : IAsyncDisposable
     private readonly PeriodicTimer? _retentionTimer;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly Task _retentionLoop;
+    private readonly SemaphoreSlim _downloadQueueSignal = new(0);
+    private readonly Task _downloadQueueLoop;
     private ReaderSettings _settings;
     private int _disposed;
+
+    // Bounds how long DisposeAsync waits for the download-queue loop to drain
+    // whatever QueuePendingAsync call was in flight or signalled when shutdown
+    // began. A stuck call (network hang, wedged writer) must not hang app
+    // shutdown forever; OfflineDownloader's own MaxArticleFetchDuration (180s)
+    // is the thing we are actually bounding here, so this needs to be at least
+    // that long plus slack.
+    private static readonly TimeSpan DownloadQueueDrainTimeout = TimeSpan.FromSeconds(200);
+
+    /// <summary>
+    /// Test-only observation point (internal + InternalsVisibleTo, same as
+    /// OnRefreshCompleted): lets a test assert that DisposeAsync actually
+    /// awaited this task to completion, rather than merely asserting that
+    /// disposal did not throw.
+    /// </summary>
+    internal Task DownloadQueueLoop => _downloadQueueLoop;
 
     private ReaderServices(
         string settingsPath,
@@ -65,6 +83,7 @@ public sealed class ReaderServices : IAsyncDisposable
 
         _retentionTimer = new PeriodicTimer(RetentionInterval);
         _retentionLoop = RunRetentionLoopAsync();
+        _downloadQueueLoop = RunDownloadQueueLoopAsync();
     }
 
     private static readonly TimeSpan RetentionInterval = TimeSpan.FromHours(6);
@@ -182,19 +201,55 @@ public sealed class ReaderServices : IAsyncDisposable
         SettingsChanged?.Invoke(settings);
     }
 
-    private void OnRefreshCompleted(FeedRefreshOutcome outcome)
+    /// <summary>
+    /// Runs on the refresh coordinator's thread, so this must be fast,
+    /// non-blocking and non-throwing. SemaphoreSlim.Release() is exactly that:
+    /// no I/O, no await, and the only exception it can raise
+    /// (SemaphoreFullException, if the count would overflow int.MaxValue) is
+    /// not a real-world concern here. The earlier version of this method used
+    /// a bare `Task.Run` per completion, which is what let a queue call
+    /// survive past DisposeAsync uncounted and undisposed-of: nothing tracked
+    /// it, so disposal could not wait for it. Signalling a single long-lived
+    /// loop instead means there is exactly one task to await at shutdown.
+    ///
+    /// internal rather than private, with InternalsVisibleTo to
+    /// LucidReader.Core.Tests, so the disposal-ordering guarantee can be
+    /// tested by simulating a refresh completion without spinning up a real
+    /// HTTP feed and racing the coordinator's own concurrency (see
+    /// Disposal_awaits_the_in_flight_download_queue_sweep_triggered_by_a_refresh_completion
+    /// in ReaderServicesTests). It is still only ever wired up as an
+    /// Action&lt;FeedRefreshOutcome&gt; event handler in production code.
+    /// </summary>
+    internal void OnRefreshCompleted(FeedRefreshOutcome outcome)
     {
         if (!outcome.Success || outcome.NewItemCount <= 0) return;
 
-        // Fire and forget on purpose: this runs on the refresh coordinator's
-        // thread and must not block it. Failures here are not fatal, the items
-        // stay pending and the next queue sweep picks them up.
-        _ = Task.Run(async () =>
+        try { _downloadQueueSignal.Release(); }
+        catch (ObjectDisposedException) { }
+        catch (SemaphoreFullException) { }
+    }
+
+    /// <summary>
+    /// The only place QueuePendingAsync is called from a refresh completion.
+    /// One signal is enough to trigger a sweep (QueuePendingAsync picks up
+    /// everything currently pending, not just the feed that just refreshed),
+    /// so this deliberately does not try to coalesce multiple pending signals
+    /// into one sweep: a few redundant sweeps in a row are cheap and harmless,
+    /// and a coalescing channel would add complexity for no real benefit here.
+    /// </summary>
+    private async Task RunDownloadQueueLoopAsync()
+    {
+        try
         {
-            try { await Downloader.QueuePendingAsync(ct: _shutdown.Token); }
-            catch (OperationCanceledException) { }
-            catch (Exception) { }
-        });
+            while (true)
+            {
+                await _downloadQueueSignal.WaitAsync(_shutdown.Token);
+                try { await Downloader.QueuePendingAsync(ct: _shutdown.Token); }
+                catch (OperationCanceledException) { }
+                catch (Exception) { /* items stay pending; the next sweep picks them up */ }
+            }
+        }
+        catch (OperationCanceledException) { }
     }
 
     private async Task RunRetentionLoopAsync()
@@ -215,9 +270,17 @@ public sealed class ReaderServices : IAsyncDisposable
 
     /// <summary>
     /// Shutdown order matters and nothing in Core enforces it. Stop scheduling
-    /// first so no new work is queued, then drain the two coordinators whose
-    /// in-flight work still writes to the database, and only then close the
-    /// database itself.
+    /// first so no new work is queued, then drain the loops whose in-flight
+    /// work still writes to the database, then drain the two coordinators, and
+    /// only then close the database itself.
+    ///
+    /// The download-queue loop matters here specifically: a refresh that
+    /// completes just before shutdown signals it to run QueuePendingAsync,
+    /// and that call must finish (or be given up on, under the bound) before
+    /// Downloader.DisposeAsync() and Database.DisposeAsync() run a few lines
+    /// later. Awaiting it here, with a bound so a stuck call cannot hang
+    /// shutdown forever, is what makes "await services.DisposeAsync() means
+    /// everything has stopped" actually true.
     /// </summary>
     public async ValueTask DisposeAsync()
     {
@@ -229,6 +292,10 @@ public sealed class ReaderServices : IAsyncDisposable
         _retentionTimer?.Dispose();
         try { await _retentionLoop; } catch (OperationCanceledException) { }
 
+        try { await _downloadQueueLoop.WaitAsync(DownloadQueueDrainTimeout); }
+        catch (OperationCanceledException) { }
+        catch (TimeoutException) { /* best effort; disposal must still proceed */ }
+
         await Scheduler.DisposeAsync();
         await Refresh.DisposeAsync();
         await Downloader.DisposeAsync();
@@ -236,5 +303,6 @@ public sealed class ReaderServices : IAsyncDisposable
 
         _http.Dispose();
         _shutdown.Dispose();
+        _downloadQueueSignal.Dispose();
     }
 }

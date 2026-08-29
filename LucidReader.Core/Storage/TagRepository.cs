@@ -34,6 +34,19 @@ public sealed class TagRepository(ReaderDatabase db)
         // insert, not on the DO UPDATE branch of an UPSERT, so relying on it
         // after a conflict would silently return a stale id from an earlier
         // statement in the same transaction.
+        //
+        // These three statements are NOT wrapped in a single transaction, so a
+        // failure or concurrent write between them (e.g. the tag row being
+        // deleted between the SELECT and the item_tags insert) can leave
+        // things inconsistent in a way FolderRepository/ItemRepository's
+        // single-statement methods don't have to worry about. Acceptable for
+        // now because this class is a documented placeholder (see the class
+        // doc comment): TagRepository did not exist before Task 1 and was
+        // added only so ReaderServices.Tags had something to compile against.
+        // Whoever owns the tagging UI task should either wrap this in
+        // db.Writer's transaction support or confirm the current three-step
+        // shape is good enough, rather than assuming it was already reviewed
+        // for that.
         await db.WriteAsync(
             "INSERT OR IGNORE INTO tags (name) VALUES ($name);",
             new Dictionary<string, object?> { ["$name"] = tagName },

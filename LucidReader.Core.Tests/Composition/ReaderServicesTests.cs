@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using LucidReader;
 using LucidReader.Core.Model;
 using LucidReader.Core.Storage;
+using LucidReader.Core.Sync;
 using LucidReader.Core.Tests.Storage;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
@@ -125,6 +127,59 @@ public class ReaderServicesTests
             var queued = await services.QueuePendingDownloadsAsync();
 
             Assert.True(queued >= 1);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    /// <summary>
+    /// Regression test for a review finding on Task 1: OnRefreshCompleted used
+    /// to fire the download-queue sweep via a bare, untracked `Task.Run`, so
+    /// DisposeAsync could return (and go on to dispose Downloader and
+    /// Database) while that sweep was still running. The exception this
+    /// produced was swallowed by a generic catch, so nothing crashed, but
+    /// "await services.DisposeAsync()" no longer meant everything had
+    /// actually stopped.
+    ///
+    /// This simulates the refresh completion directly via the internal
+    /// OnRefreshCompleted (rather than driving a real HTTP fetch through
+    /// FeedRefreshService's coordinator, which would make the timing of
+    /// Completed firing non-deterministic and turn this into a flaky
+    /// integration test) and asserts on the actual invariant: by the time
+    /// DisposeAsync returns, the download-queue loop task it is supposed to
+    /// be waiting for has completed, not merely that no exception escaped.
+    /// </summary>
+    [Fact]
+    public async Task Disposal_awaits_the_in_flight_download_queue_sweep_triggered_by_a_refresh_completion()
+    {
+        var (db, settings, dir) = TempPaths();
+        try
+        {
+            var services = await ReaderServices.StartAsync(db, settings);
+            var feedId = await services.Feeds.AddAsync(new Feed { FeedUrl = "https://example.com/feed.xml" });
+            await services.Items.UpsertAsync(new FeedItem
+            {
+                FeedId = feedId,
+                Guid = "g1",
+                Title = "An item",
+                FirstSeenUtc = DateTimeOffset.UtcNow,
+                OfflineState = OfflineState.Pending
+            });
+
+            // Exactly what FeedRefreshService.Completed would raise for a
+            // successful refresh that found one new item.
+            services.OnRefreshCompleted(new FeedRefreshOutcome(feedId, true, 1, false, null));
+            var loop = services.DownloadQueueLoop;
+
+            var stopwatch = Stopwatch.StartNew();
+            await services.DisposeAsync();
+            stopwatch.Stop();
+
+            // The actual guarantee under test: DisposeAsync awaited the loop
+            // (drained it) rather than abandoning it.
+            Assert.True(loop.IsCompleted);
+            Assert.False(loop.IsFaulted);
+            // And it did not fall back to hanging on the drain bound to get there.
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(30));
         }
         finally { Directory.Delete(dir, true); }
     }
