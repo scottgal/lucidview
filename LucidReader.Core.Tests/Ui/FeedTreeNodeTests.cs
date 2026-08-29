@@ -1,3 +1,4 @@
+using Avalonia;
 using LucidReader.Models;
 using Xunit;
 
@@ -29,9 +30,9 @@ public class FeedTreeNodeTests
         var folder = new FeedTreeNode { Title = "Folder", Kind = FeedTreeNodeKind.Folder };
         var topLevelFeed = new FeedTreeNode { Title = "Feed", Kind = FeedTreeNodeKind.Feed };
 
-        Assert.Equal(16, feedInFolder.Indent);
-        Assert.Equal(0, folder.Indent);
-        Assert.Equal(0, topLevelFeed.Indent);
+        Assert.Equal(new Thickness(16, 0, 0, 0), feedInFolder.Indent);
+        Assert.Equal(default, folder.Indent);
+        Assert.Equal(default, topLevelFeed.Indent);
     }
 
     [Fact]

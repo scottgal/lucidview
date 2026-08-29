@@ -39,6 +39,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _statusMessage = string.Empty;
     private ItemFilter _filter = ItemFilter.All;
 
+    /// <summary>
+    /// This constructor is the reason the build prints
+    /// "AVLN3001: XAML resource ... won't be reachable via runtime loader,
+    /// as no public constructor was found". MainWindow has no public
+    /// parameterless constructor because App.axaml.cs constructs it directly
+    /// with a ReaderServices instance (the composition root), never through
+    /// AvaloniaXamlLoader's own activation path. That is expected and safe
+    /// for the shipped app. The cost: the XAML previewer and hot reload for
+    /// MainWindow.axaml do not work, because both rely on the loader being
+    /// able to instantiate the class itself. Do not "fix" this by adding a
+    /// parameterless constructor just to silence the warning; that would
+    /// let the window be constructed without a ReaderServices and crash on
+    /// first use of _services.
+    /// </summary>
     public MainWindow(ReaderServices services)
     {
         _services = services;

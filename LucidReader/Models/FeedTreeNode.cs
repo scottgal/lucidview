@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Avalonia;
 using LucidReader.Core.Storage;
 
 namespace LucidReader.Models;
@@ -42,8 +43,17 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
     public string UnreadLabel => _unreadCount > 0 ? _unreadCount.ToString() : string.Empty;
     public bool HasProblem => ConsecutiveFailures > 0 || IsAutoPaused;
 
-    /// <summary>Indent for feeds inside a folder. Folders and smart rows sit flush.</summary>
-    public double Indent => Kind == FeedTreeNodeKind.Feed && FolderId is not null ? 16 : 0;
+    /// <summary>
+    /// Left indent for feeds inside a folder. Folders and smart rows sit flush.
+    /// Typed as a Thickness, not a bare double: Avalonia's reflection-based
+    /// binding pipeline (compiled bindings are off for this project) does not
+    /// coerce a double into a Thickness-typed target property such as
+    /// Margin, so a double here would silently no-op and the tree would
+    /// render flat with no visible folder nesting.
+    /// </summary>
+    public Thickness Indent => Kind == FeedTreeNodeKind.Feed && FolderId is not null
+        ? new Thickness(16, 0, 0, 0)
+        : default;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
