@@ -87,6 +87,29 @@ public class ItemRepositoryTests : IAsyncLifetime
         Assert.Equal(ContentSource.Extracted, loaded.ContentSource);
     }
 
+    /// <summary>
+    /// Regression for a Task 8b review finding: FeedRefreshService builds a
+    /// fresh FeedItem from ParsedFeed on every poll, and ImageUrl is always
+    /// null there (nothing populates it from a parsed feed). If the upsert's
+    /// ON CONFLICT DO UPDATE ever writes image_url = excluded.image_url
+    /// again, this re-upsert - standing in for the next scheduled refresh -
+    /// would silently null out whatever OfflineDownloader captured minutes
+    /// earlier. image_url must behave exactly like content_markdown above:
+    /// downloader-owned, refresh-blind.
+    /// </summary>
+    [Fact]
+    public async Task Re_upserting_preserves_a_captured_article_image()
+    {
+        var id = await _items.UpsertAsync(NewItem());
+        await _items.SetContentAsync(
+            id, "# The full article", ContentSource.Extracted, "https://cdn.example.com/card.jpg");
+
+        await _items.UpsertAsync(NewItem(title: "Title fixed upstream"));
+
+        var loaded = await _items.GetAsync(id);
+        Assert.Equal("https://cdn.example.com/card.jpg", loaded!.ImageUrl);
+    }
+
     [Fact]
     public async Task UpsertMany_reports_only_the_newly_inserted_count()
     {

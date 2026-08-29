@@ -16,9 +16,16 @@ public sealed class ItemRepository(ReaderDatabase db)
 
     /// <summary>
     /// Inserts, or updates the publisher-owned fields when we have seen this
-    /// (feed_id, guid) before. Reader-owned state (read, starred, content we
-    /// downloaded, offline state) is deliberately never touched by an upsert:
-    /// a publisher fixing a typo must not mark fifty items unread.
+    /// (feed_id, guid) before. Reader-owned state - read, starred, content we
+    /// downloaded, offline state, and image_url - is deliberately never
+    /// touched by an upsert: a publisher fixing a typo must not mark fifty
+    /// items unread. image_url belongs in this group, not with title and
+    /// summary, because nothing populates FeedItem.ImageUrl from a parsed
+    /// feed; it is set only by OfflineDownloader after reading the article
+    /// page (see ItemRepository.SetContentAsync's own imageUrl guard). A
+    /// refresh's upsert overwriting it with the always-null value a
+    /// freshly-parsed FeedItem carries would silently erase every captured
+    /// social-card image on the item's next poll.
     ///
     /// The WHERE NOT EXISTS guard is the other half of retention's tombstone
     /// design (see item_tombstones in Migrations.V2 and RetentionService): a
@@ -50,8 +57,7 @@ public sealed class ItemRepository(ReaderDatabase db)
             author = excluded.author,
             published_utc = excluded.published_utc,
             updated_utc = excluded.updated_utc,
-            summary = excluded.summary,
-            image_url = excluded.image_url;
+            summary = excluded.summary;
         """;
 
     /// <summary>
