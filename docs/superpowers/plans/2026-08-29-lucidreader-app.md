@@ -64,6 +64,10 @@ These were consciously deferred and are now in scope. Each is assigned to a task
 
 **The visual direction is macOS Mail.** Decided partway through execution, after the shell was built. lucidREADER drops the theme picker it inherited from lucidVIEW: the seven themes were never chosen for a reader, and Mail follows the system appearance rather than offering a palette. `ReaderSettings.Theme` stays in the settings file as an unused field rather than being deleted, so reversing this costs nothing. Task 8a establishes the visual language once so Tasks 9 to 15 inherit it instead of each being restyled afterwards. Task 11's settings dialog therefore loses its theme picker.
 
+**Discovery and visual richness.** Added mid-execution at the user's request. Three things, all of which mostly reuse machinery that already exists: favicons in the sidebar, OpenGraph thumbnails in the list and hero images in the reading pane (Task 8c), fed by metadata extracted from pages the app ALREADY fetches (Task 8b), plus opt-in online feed search (Task 8d). Paste-a-URL discovery was already built in Task 3 and only lacked a UI, which Task 13 supplies. `feeds.icon_path` has existed unused since the first migration and finally gets populated.
+
+Two things worth recording. List thumbnails are a deliberate departure from Mail, which has none, toward Reeder and NetNewsWire; the sidebar and reading pane stay Mail-like. And online search is the only feature that sends user data to a third party, so it defaults to OFF and the settings screen must say what it does.
+
 **macOS first, graceful elsewhere.** Translucency and the unified title bar are real on macOS through Avalonia's transparency hints and extended client area, and degrade to a solid background and a normal title bar on Windows and Linux with no layout change. Plan 3 stays cross-platform.
 
 **Per-feed settings depth.** Spec 6.2 lists four inheritable overrides. `EffectiveFeedSettings.Resolve` already computes all four and `RetentionService` honours per-feed retention. The per-feed dialog therefore edits exactly those four plus title override, folder, and enable/disable. Nothing else becomes per-feed in v1.
@@ -3907,6 +3911,330 @@ dotnet test MarkdownViewer.Tests/MarkdownViewer.Tests.csproj 2>&1 | tail -3
 git add LucidReader LucidReader.Core.Tests
 git commit -m "feat(reader): Mac Mail visual language"
 ```
+
+---
+
+## Task 8b: Site and article metadata (Core)
+
+**Files:**
+- Create: `LucidReader.Core/Feeds/SiteMetadata.cs`, `LucidReader.Core/Feeds/SiteMetadataExtractor.cs`
+- Modify: `LucidReader.Core/Storage/Migrations.cs` (add V3)
+- Modify: `LucidReader.Core/Model/FeedItem.cs` (add `ImageUrl`)
+- Modify: `LucidReader.Core/Storage/ItemRepository.cs`, `RowMappers.cs`
+- Modify: `LucidReader.Core/Feeds/FeedAutodiscovery.cs` (return the site icon)
+- Modify: `LucidReader.Core/Offline/OfflineDownloader.cs` (capture the article image)
+- Test: `LucidReader.Core.Tests/Feeds/SiteMetadataExtractorTests.cs`, plus migration and repository coverage
+
+**Interfaces:**
+- Produces:
+  - `readonly record struct SiteMetadata(string? IconUrl, string? ImageUrl, string? Description)`
+  - `static class SiteMetadataExtractor` with `static SiteMetadata Extract(string html, Uri baseUri)`
+  - `DiscoveredFeed` gains `string? IconUrl`
+  - `FeedItem` gains `string? ImageUrl`
+  - Migration V3 adding `items.image_url TEXT NULL`
+
+**The point of this task is that almost nothing new gets fetched.** `FeedAutodiscovery` already downloads the site page to find feed links; the favicon is in that same HTML. `ArticleFetcher` already downloads the article page for full-text extraction; the OpenGraph image is in that same HTML. This task reads what is already on the wire. It must NOT add a second fetch of a page we have already retrieved.
+
+`feeds.icon_path` has existed since migration V1 and nothing has ever written to it. This task starts.
+
+- [ ] **Step 1: Write the failing extractor tests**
+
+Create `LucidReader.Core.Tests/Fixtures/Html/metadata-rich.html`:
+
+```html
+<!doctype html>
+<html><head>
+  <title>Example Blog</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="/icons/touch.png">
+  <meta property="og:image" content="https://cdn.example.com/card.jpg">
+  <meta property="og:description" content="A description from OpenGraph.">
+  <link rel="alternate" type="application/rss+xml" href="/feed.xml">
+</head><body></body></html>
+```
+
+Create `LucidReader.Core.Tests/Fixtures/Html/metadata-sparse.html`:
+
+```html
+<!doctype html>
+<html><head><title>Nothing much</title></head><body><p>No metadata at all.</p></body></html>
+```
+
+Create `LucidReader.Core.Tests/Fixtures/Html/metadata-twitter.html`:
+
+```html
+<!doctype html>
+<html><head>
+  <meta name="twitter:image" content="/cards/twitter.png">
+  <meta name="description" content="A plain meta description.">
+  <link rel="shortcut icon" href="favicon.ico">
+</head><body></body></html>
+```
+
+Create `LucidReader.Core.Tests/Feeds/SiteMetadataExtractorTests.cs`:
+
+```csharp
+using LucidReader.Core.Feeds;
+using Xunit;
+
+namespace LucidReader.Core.Tests.Feeds;
+
+public class SiteMetadataExtractorTests
+{
+    private static readonly Uri Base = new("https://example.com/blog/post");
+
+    private static string Html(string name) =>
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Html", name));
+
+    [Fact]
+    public void An_icon_link_is_found_and_resolved_to_an_absolute_url()
+    {
+        var meta = SiteMetadataExtractor.Extract(Html("metadata-rich.html"), Base);
+
+        Assert.Equal("https://example.com/icons/favicon-32.png", meta.IconUrl);
+    }
+
+    [Fact]
+    public void An_open_graph_image_is_found()
+    {
+        var meta = SiteMetadataExtractor.Extract(Html("metadata-rich.html"), Base);
+
+        Assert.Equal("https://cdn.example.com/card.jpg", meta.ImageUrl);
+    }
+
+    [Fact]
+    public void An_open_graph_description_is_found()
+    {
+        var meta = SiteMetadataExtractor.Extract(Html("metadata-rich.html"), Base);
+
+        Assert.Equal("A description from OpenGraph.", meta.Description);
+    }
+
+    [Fact]
+    public void A_twitter_image_is_used_when_open_graph_is_absent()
+    {
+        var meta = SiteMetadataExtractor.Extract(Html("metadata-twitter.html"), Base);
+
+        Assert.Equal("https://example.com/cards/twitter.png", meta.ImageUrl);
+    }
+
+    [Fact]
+    public void A_shortcut_icon_relative_to_the_page_resolves_against_the_base()
+    {
+        var meta = SiteMetadataExtractor.Extract(Html("metadata-twitter.html"), Base);
+
+        Assert.Equal("https://example.com/blog/favicon.ico", meta.IconUrl);
+    }
+
+    [Fact]
+    public void A_plain_meta_description_is_used_when_open_graph_is_absent()
+    {
+        var meta = SiteMetadataExtractor.Extract(Html("metadata-twitter.html"), Base);
+
+        Assert.Equal("A plain meta description.", meta.Description);
+    }
+
+    [Fact]
+    public void A_page_with_no_metadata_yields_nulls_rather_than_throwing()
+    {
+        var meta = SiteMetadataExtractor.Extract(Html("metadata-sparse.html"), Base);
+
+        Assert.Null(meta.IconUrl);
+        Assert.Null(meta.ImageUrl);
+        Assert.Null(meta.Description);
+    }
+
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("data:image/png;base64,AAAA")]
+    [InlineData("file:///etc/passwd")]
+    public void An_image_or_icon_with_a_dangerous_scheme_is_refused(string url)
+    {
+        var html = $"<html><head><meta property=\"og:image\" content=\"{url}\">" +
+                   $"<link rel=\"icon\" href=\"{url}\"></head></html>";
+
+        var meta = SiteMetadataExtractor.Extract(html, Base);
+
+        Assert.Null(meta.ImageUrl);
+        Assert.Null(meta.IconUrl);
+    }
+
+    [Fact]
+    public void Entities_in_a_metadata_url_are_decoded()
+    {
+        var html = "<html><head><meta property=\"og:image\" " +
+                   "content=\"https://cdn.example.com/c.jpg?a=1&amp;b=2\"></head></html>";
+
+        var meta = SiteMetadataExtractor.Extract(html, Base);
+
+        Assert.Equal("https://cdn.example.com/c.jpg?a=1&b=2", meta.ImageUrl);
+    }
+
+    [Fact]
+    public void Garbage_input_does_not_throw()
+    {
+        var meta = SiteMetadataExtractor.Extract("<<<not html", Base);
+
+        Assert.Null(meta.IconUrl);
+    }
+}
+```
+
+The dangerous-scheme theory is not optional. These URLs come from remote pages and end up being fetched and cached, so the same allowlist discipline as everywhere else in this codebase applies at the point of extraction.
+
+- [ ] **Step 2: Run the tests to verify they fail, then write the extractor**
+
+```bash
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter SiteMetadataExtractorTests 2>&1 | tail -10
+```
+
+Create `LucidReader.Core/Feeds/SiteMetadata.cs` and `SiteMetadataExtractor.cs`. Reuse the approach `FeedAutodiscovery` already uses: a `GeneratedRegex` over `<link>` and `<meta>` tags with attribute extraction, `WebUtility.HtmlDecode` on values, resolution against the base URI, and an `http`/`https` allowlist. Do NOT pull in an HTML parser for this; the existing regex approach is the established pattern here and a missed tag costs one missing icon.
+
+Preference order, highest first. Icon: `rel="icon"`, then `rel="shortcut icon"`, then `rel="apple-touch-icon"`, then a `/favicon.ico` guess at the site root. Image: `og:image`, then `twitter:image`. Description: `og:description`, then `meta name="description"`.
+
+`FeedAutodiscovery` already extracts `<link>` attributes; factor that helper out and share it rather than writing a second copy that can drift.
+
+- [ ] **Step 3: Add migration V3**
+
+Append to `Migrations.All`. Migrations are append-only; do not edit V1 or V2.
+
+```csharp
+    private const string V3 = """
+        ALTER TABLE items ADD COLUMN image_url TEXT NULL;
+        """;
+```
+
+Add `ImageUrl` to `FeedItem`, to `RowMappers.ReadItem`, and to `ItemRepository`'s upsert parameter list. Treat it as publisher-owned, so it belongs in the `ON CONFLICT DO UPDATE` set alongside title and summary.
+
+Add a test that a V2 database migrates forward to V3 preserving its rows, mirroring the existing V1-to-V2 test.
+
+- [ ] **Step 4: Populate the feed icon at discovery time**
+
+Add `string? IconUrl` to `DiscoveredFeed`. In `FeedAutodiscovery.DiscoverAsync`, run `SiteMetadataExtractor.Extract` over the page body you have ALREADY downloaded and attach the icon to every feed discovered from that page.
+
+For the already-a-feed case there is no page to read, so fall back to `/favicon.ico` at the feed URL's host.
+
+Add a test proving discovery returns an icon URL.
+
+- [ ] **Step 5: Capture the article image during download**
+
+In `OfflineDownloader`, when the extracted-page path fetches article HTML, run the extractor over that SAME html and store the resulting image URL on the item. Add an `ItemRepository` method to set it, or extend `SetContentAsync`, whichever keeps the call sites honest.
+
+Do NOT fetch the page again. If the item took the feed-summary path there is no page and no image; leave it null.
+
+Add a test proving an item downloaded via the extracted path ends up with an `ImageUrl`, and one proving the summary path leaves it null.
+
+- [ ] **Step 6: Run the whole suite and commit**
+
+```bash
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj 2>&1 | tail -3
+git add LucidReader.Core LucidReader.Core.Tests
+git commit -m "feat(reader): extract site and article metadata from pages already fetched"
+```
+
+---
+
+## Task 8c: Render icons, thumbnails and hero images (UI)
+
+**Files:**
+- Modify: `LucidReader/Models/FeedTreeNode.cs`, `LucidReader/Models/ItemRow.cs`
+- Modify: `LucidReader/Views/MainWindow.axaml` (sidebar rows, item rows, reading header)
+- Modify: `LucidReader/Views/MainWindow.axaml.cs`, `MainWindow.Items.cs`, `MainWindow.Reading.cs`
+- Create: `LucidReader/Services/ImageResolver.cs`
+- Test: `LucidReader.Core.Tests/Ui/ImageResolverTests.cs`
+
+**Depends on Task 8a being complete** (it edits the same XAML) **and Task 8b** (which supplies the URLs).
+
+**Interfaces:**
+- Produces: `sealed class ImageResolver(IRemoteImageFetcher fetcher, Func<ReaderSettings> settings)` with `Task<string?> ResolveAsync(string? url, CancellationToken ct = default)`, returning a local cached path or null.
+
+Three surfaces, all fed by the same resolver:
+- A favicon beside each feed in the sidebar.
+- A thumbnail on the right of each item row.
+- A hero image above the article in the reading pane.
+
+**A deliberate departure, recorded so nobody later thinks it was an accident.** Mail has no list thumbnails. Reeder and NetNewsWire do, and the user chose them. The sidebar and reading pane stay Mail-like; the list gains a thumbnail.
+
+- [ ] **Step 1: Write the failing resolver tests**
+
+`ImageResolver` reuses `IRemoteImageFetcher`, the seam Task 5 introduced, so it is testable without Avalonia. Create `LucidReader.Core.Tests/Ui/ImageResolverTests.cs` covering: a valid http URL resolves to the fetcher's local path; a null or empty URL returns null; a `javascript:`, `data:` or `file:` URL is refused without reaching the fetcher; a fetch failure returns null rather than throwing; and `CacheImages = false` short-circuits before any fetch.
+
+That last one matters: the user's single image setting must govern favicons and cards exactly as it governs article images, which is what they asked for.
+
+- [ ] **Step 2: Write the resolver**
+
+Create `LucidReader/Services/ImageResolver.cs`. It is deliberately thin: allowlist, settings gate, delegate to the fetcher, swallow failures to null. All the caching, size limiting and eviction already live behind `IRemoteImageFetcher` from Task 5.
+
+- [ ] **Step 3: Add the properties the templates bind**
+
+`FeedTreeNode` gains `string? IconPath` and `bool HasIcon`. `ItemRow` gains `string? ThumbnailPath` and `bool HasThumbnail`. Both must raise change notification, because images resolve asynchronously AFTER the row is already on screen.
+
+That asynchrony is the whole design constraint here: rows must render immediately with a placeholder and fill in when the image arrives. Never block a list load on image fetching.
+
+- [ ] **Step 4: Render the three surfaces**
+
+Sidebar: a 16px icon before the feed name, with a neutral placeholder when absent so names stay aligned whether or not an icon loaded. Folders and smart rows keep their existing glyphs.
+
+Item row: a thumbnail on the right, roughly 56 by 56, rounded corners, only when one exists. When absent the text simply occupies the full width; do not leave a grey box.
+
+Reading pane: a hero image above the title when the item has one, capped at the reading measure, with the same rounded corners.
+
+- [ ] **Step 5: Resolve images without blocking the UI**
+
+After a feed tree or item list load completes, kick off resolution for the visible rows and assign paths as they arrive, on the UI thread. Bound the concurrency so a hundred-row list does not open a hundred connections, and make sure a list reload cancels in-flight resolution for rows that no longer exist, reusing the sequence-guard pattern Task 7 established rather than inventing a second one.
+
+- [ ] **Step 6: Verify through the harness and LOOK at it**
+
+Seed feeds and articles that genuinely have favicons and OpenGraph images. Capture screenshots of the sidebar with icons, the list with thumbnails, and the reading pane with a hero. Confirm rows still render instantly before images arrive, and that a feed with no icon does not disturb alignment.
+
+Report the screenshots and say honestly whether it looks right.
+
+- [ ] **Step 7: Run the suite and commit**
+
+---
+
+## Task 8d: Online feed search
+
+**Files:**
+- Create: `LucidReader.Core/Feeds/IFeedSearch.cs`, `LucidReader.Core/Feeds/FeedlyFeedSearch.cs`
+- Modify: `LucidReader.Core/Model/ReaderSettings.cs` (add `EnableOnlineFeedSearch`)
+- Modify: `LucidReader/ReaderServices.cs`
+- Test: `LucidReader.Core.Tests/Feeds/FeedlyFeedSearchTests.cs`
+
+**Interfaces:**
+- Produces:
+  - `readonly record struct FeedSearchResult(string FeedUrl, string? Title, string? SiteUrl, string? IconUrl, string? Description, int Subscribers)`
+  - `interface IFeedSearch { Task<IReadOnlyList<FeedSearchResult>> SearchAsync(string query, int limit, CancellationToken ct = default); }`
+  - `sealed class FeedlyFeedSearch(HttpClient http, Func<ReaderSettings> settings) : IFeedSearch`
+  - `ReaderSettings.EnableOnlineFeedSearch`, defaulting to **false**
+
+**This is the only feature in the reader that sends the user's data to a third party**, so it is off by default and the settings screen must say plainly what it does. Task 11 adds that toggle; Task 13 adds the search box to the Add Feed dialog.
+
+- [ ] **Step 1: Verify the endpoint before building against it**
+
+Feedly exposes a keyless search endpoint, believed to be:
+
+```
+GET https://cloud.feedly.com/v3/search/feeds?query=<term>&count=<n>
+```
+
+returning JSON with a `results` array whose entries carry `feedId` (prefixed `feed/`), `title`, `website`, `iconUrl`, `description` and `subscribers`.
+
+**Verify that with a real request before writing a parser against it.** If it now requires a key, is rate limited, or has changed shape, STOP and report rather than guessing. If it is unusable, say so and recommend either `feedsearch.dev` or dropping online search and keeping URL-based discovery only, which already works. Do not invent a fallback silently.
+
+- [ ] **Step 2: Write the failing tests**
+
+Cover, with `StubHttpHandler` and a captured real response body as a fixture: results map correctly, including stripping the `feed/` prefix from `feedId`; the setting being off returns empty WITHOUT any request being made (assert `handler.Requests` is empty, the same shape as the autodiscovery security test); a non-success status returns empty rather than throwing; malformed JSON returns empty rather than throwing; cancellation propagates; and a blank query returns empty without a request.
+
+The "setting off means no request" test is the one that matters most, because it is the difference between an opt-in and a lie.
+
+- [ ] **Step 3: Implement**
+
+Bound the response read like every other fetcher in this codebase. Reuse `FeedFetcher.UserAgentString`. Keep the JSON parsing tolerant: a missing field yields a null, not an exception.
+
+- [ ] **Step 4: Wire into `ReaderServices`** and add the setting.
+
+- [ ] **Step 5: Run the suite and commit**
 
 ---
 
