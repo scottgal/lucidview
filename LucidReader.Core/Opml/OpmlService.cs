@@ -1,3 +1,4 @@
+using LucidReader.Core.Feeds;
 using LucidReader.Core.Model;
 using LucidReader.Core.Storage;
 
@@ -16,13 +17,19 @@ public sealed record OpmlImportFailure(string FeedUrl, string ExceptionType, str
 /// FailedFeeds lists exactly the feeds that did not import, and why, so the
 /// UI can tell the user precisely what to retry and a developer can tell a
 /// collision apart from a bug, rather than reporting a single opaque count.
+///
+/// AddedFeedIds is the ids this import actually wrote, in order. The caller
+/// wants to fetch what it just imported and nothing else: a sweep over every
+/// never-fetched feed in the database would also re-fire feeds that have
+/// failed for weeks, bypassing the backoff that is holding them off.
 /// </summary>
 public readonly record struct OpmlImportResult(
     int FoldersCreated,
     int FeedsAdded,
     int FeedsSkipped,
     int FeedsFailed,
-    IReadOnlyList<OpmlImportFailure> FailedFeeds);
+    IReadOnlyList<OpmlImportFailure> FailedFeeds,
+    IReadOnlyList<long> AddedFeedIds);
 
 public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
 {
@@ -47,6 +54,14 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
     /// re-running it after a partial failure is always safe and cheap, which
     /// is why this does not attempt to roll every write back into one
     /// transaction. Cancellation is the only thing that aborts outright.
+    ///
+    /// Every xmlUrl is put through <see cref="FeedUrlPolicy"/> before it is
+    /// written. An OPML file is attacker-supplied and every feed it adds gets
+    /// fetched unattended afterwards, so an address naming loopback, the
+    /// link-local metadata range or a private network is refused here rather
+    /// than stored and then requested. A refused address is counted as a
+    /// failure with its reason attached, so it is reported to the user
+    /// instead of vanishing.
     /// </summary>
     public async Task<OpmlImportResult> ImportAsync(string opml, CancellationToken ct = default)
     {
@@ -64,6 +79,7 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
         var skipped = 0;
         var failed = 0;
         var failures = new List<OpmlImportFailure>();
+        var addedIds = new List<long>();
 
         async Task ImportLevelAsync(IReadOnlyList<OpmlOutline> level, long? folderId, int depth)
         {
@@ -81,11 +97,16 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
                     {
                         skipped++;
                     }
+                    else if (!FeedUrlPolicy.TryValidate(feedUrl, out _, out var refusal))
+                    {
+                        failed++;
+                        failures.Add(new OpmlImportFailure(feedUrl, "RefusedAddress", $"Refused because {refusal}."));
+                    }
                     else
                     {
                         try
                         {
-                            await feeds.AddAsync(new Feed
+                            var feedId = await feeds.AddAsync(new Feed
                             {
                                 FeedUrl = feedUrl,
                                 SiteUrl = outline.SiteUrl,
@@ -93,6 +114,7 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
                                 FolderId = folderId
                             }, ct);
                             added++;
+                            addedIds.Add(feedId);
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException)
                         {
@@ -160,7 +182,7 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
 
         await ImportLevelAsync(outlines, null, 0);
 
-        return new OpmlImportResult(foldersCreated, added, skipped, failed, failures);
+        return new OpmlImportResult(foldersCreated, added, skipped, failed, failures, addedIds);
     }
 
     private static IEnumerable<string> CollectFeedUrls(IReadOnlyList<OpmlOutline> outlines)

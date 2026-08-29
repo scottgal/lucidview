@@ -153,6 +153,65 @@ public class AddFeedTests : IAsyncLifetime
             AddFeedInput.DescribeAdded(1, 1, 2));
     }
 
+    [Theory]
+    [InlineData("ftp://example.com/feed")]
+    [InlineData("file:///etc/passwd")]
+    [InlineData("javascript:alert(1)")]
+    public void An_address_with_an_unsupported_scheme_keeps_that_scheme(string typed) =>
+        Assert.Equal(typed, AddFeedInput.Normalise(typed));
+
+    [Fact]
+    public void A_bare_host_and_port_is_not_mistaken_for_a_scheme() =>
+        Assert.Equal("https://example.com:8080/feed", AddFeedInput.Normalise("example.com:8080/feed"));
+
+    [Fact]
+    public void An_unsupported_scheme_is_reported_as_such_rather_than_as_no_feeds_found() =>
+        Assert.Equal(
+            AddFeedInput.UnsupportedSchemeMessage,
+            AddFeedInput.DescribeAddressProblem(AddFeedInput.Normalise("ftp://example.com/feed")));
+
+    [Theory]
+    [InlineData("https://attacker:token@internal.corp/")]
+    [InlineData("http://admin@example.com/feed.xml")]
+    public void An_address_with_embedded_credentials_is_refused(string typed) =>
+        Assert.Equal(
+            AddFeedInput.CredentialsMessage,
+            AddFeedInput.DescribeAddressProblem(AddFeedInput.Normalise(typed)));
+
+    [Theory]
+    [InlineData("https://example.com/feed.xml")]
+    [InlineData("http://example.com/feed.xml")]
+    public void A_plain_web_address_has_no_problem_to_report(string typed) =>
+        Assert.Null(AddFeedInput.DescribeAddressProblem(AddFeedInput.Normalise(typed)));
+
+    [Fact]
+    public void The_first_failure_reason_is_carried_into_the_add_message() =>
+        Assert.Equal(
+            "Added 1 feed. 2 could not be added. First problem: SqliteException: constraint failed",
+            AddFeedInput.DescribeAdded(1, 0, 2, "SqliteException: constraint failed"));
+
+    [Fact]
+    public void The_import_message_names_the_feeds_that_failed()
+    {
+        Assert.Equal(
+            "Imported 0 feeds into 0 new folders. 2 could not be imported. " +
+            "Not imported: https://a.example/f, https://b.example/f.",
+            AddFeedInput.DescribeImport(0, 0, 0, 2, ["https://a.example/f", "https://b.example/f"]));
+
+        Assert.Equal(
+            "Imported 0 feeds into 0 new folders. 5 could not be imported. " +
+            "Not imported: a, b, c and 2 more.",
+            AddFeedInput.DescribeImport(0, 0, 0, 5, ["a", "b", "c", "d", "e"]));
+    }
+
+    [Fact]
+    public void The_queue_message_says_when_not_everything_went_in()
+    {
+        Assert.Equal(string.Empty, AddFeedInput.DescribeQueued(0, 0));
+        Assert.Equal(" Queued 3 for an immediate fetch.", AddFeedInput.DescribeQueued(3, 3));
+        Assert.Equal(" Queued 3 of 40 for an immediate fetch.", AddFeedInput.DescribeQueued(3, 40));
+    }
+
     [Fact]
     public void The_import_message_reports_folders_feeds_skips_and_failures()
     {

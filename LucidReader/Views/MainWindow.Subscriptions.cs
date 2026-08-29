@@ -31,6 +31,8 @@ public partial class MainWindow
         var added = 0;
         var skipped = 0;
         var failed = 0;
+        var queued = 0;
+        string? firstProblem = null;
 
         foreach (var discovered in dialog.Selected)
         {
@@ -57,35 +59,56 @@ public partial class MainWindow
                 added++;
 
                 // Fetch straight away, so the feed is not an empty row in the
-                // sidebar until the scheduler's next tick.
-                _services.Refresh.TryQueue(id, isManual: true);
+                // sidebar until the scheduler's next tick. The queue is
+                // bounded and can refuse, so the result is counted rather than
+                // assumed.
+                if (_services.Refresh.TryQueue(id, isManual: true)) queued++;
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                // Keep the first reason. A count on its own cannot tell a
+                // constraint violation from a genuine bug, and cancellation is
+                // not a per-feed failure at all, so it is left to propagate.
                 failed++;
+                firstProblem ??= $"{ex.GetType().Name}: {ex.Message}";
             }
         }
 
         await LoadFeedTreeAsync();
-        StatusMessage = AddFeedInput.DescribeAdded(added, skipped, failed);
+        StatusMessage = AddFeedInput.DescribeAdded(added, skipped, failed, firstProblem)
+                        + AddFeedInput.DescribeQueued(queued, added);
     }
 
     public async Task ImportOpmlAsync()
     {
-        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-        {
-            Title = "Import subscriptions from OPML",
-            AllowMultiple = false,
-            FileTypeFilter =
-            [
-                new FilePickerFileType("OPML") { Patterns = ["*.opml", "*.xml"] }
-            ]
-        });
-
-        if (files.Count == 0) return;
-
         try
         {
+            // Inside the try: this is an async void handler's task, so an
+            // exception from the picker itself (no storage provider, a broken
+            // desktop portal) would otherwise reach the unhandled path rather
+            // than the status bar.
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Import subscriptions from OPML",
+                AllowMultiple = false,
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("OPML") { Patterns = ["*.opml", "*.xml"] }
+                ]
+            });
+
+            if (files.Count == 0) return;
+
+            // Not every storage provider reports a size; when one does not,
+            // the read below is the same unbounded one it always was, which is
+            // no worse than before and is the only option available.
+            var size = (await files[0].GetBasicPropertiesAsync()).Size;
+            if (size is { } bytes && bytes > AddFeedInput.MaxOpmlBytes)
+            {
+                StatusMessage = AddFeedInput.OpmlTooLargeMessage((long)bytes);
+                return;
+            }
+
             string opml;
             await using (var stream = await files[0].OpenReadAsync())
             using (var reader = new StreamReader(stream))
@@ -95,16 +118,24 @@ public partial class MainWindow
             var result = await service.ImportAsync(opml);
 
             await LoadFeedTreeAsync();
-            StatusMessage = AddFeedInput.DescribeImport(
-                result.FoldersCreated, result.FeedsAdded, result.FeedsSkipped, result.FeedsFailed);
 
             // An imported feed has never been fetched, so nothing would appear
             // in the item list until the scheduler got round to it. Queue the
-            // ones with no successful fetch behind them, which also covers a
-            // re-import that is filling in feeds a previous run failed on.
-            foreach (var feed in await _services.Feeds.GetAllAsync())
-                if (feed.IsEnabled && feed.LastSuccessUtc is null)
-                    _services.Refresh.TryQueue(feed.Id, isManual: true);
+            // ones this import actually added, and only those: a sweep over
+            // every never-fetched feed in the database would also re-fire
+            // feeds that have been failing for weeks, walking straight past
+            // the backoff that is holding them off.
+            var queued = 0;
+            foreach (var id in result.AddedFeedIds)
+                if (_services.Refresh.TryQueue(id, isManual: true)) queued++;
+
+            StatusMessage = AddFeedInput.DescribeImport(
+                                result.FoldersCreated,
+                                result.FeedsAdded,
+                                result.FeedsSkipped,
+                                result.FeedsFailed,
+                                result.FailedFeeds.Select(f => f.FeedUrl).ToList())
+                            + AddFeedInput.DescribeQueued(queued, result.AddedFeedIds.Count);
         }
         catch (OpmlParseException ex)
         {
@@ -118,18 +149,20 @@ public partial class MainWindow
 
     public async Task ExportOpmlAsync()
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title = "Export subscriptions as OPML",
-            SuggestedFileName = "lucidreader-subscriptions.opml",
-            DefaultExtension = "opml",
-            FileTypeChoices = [new FilePickerFileType("OPML") { Patterns = ["*.opml"] }]
-        });
-
-        if (file is null) return;
-
         try
         {
+            // Inside the try for the same reason as the import picker: a
+            // failure to even show the dialog belongs in the status bar.
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export subscriptions as OPML",
+                SuggestedFileName = "lucidreader-subscriptions.opml",
+                DefaultExtension = "opml",
+                FileTypeChoices = [new FilePickerFileType("OPML") { Patterns = ["*.opml"] }]
+            });
+
+            if (file is null) return;
+
             var service = new OpmlService(_services.Folders, _services.Feeds);
             var opml = await service.ExportAsync(DateTimeOffset.UtcNow);
 

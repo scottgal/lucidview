@@ -235,4 +235,47 @@ public class OpmlServiceTests : IAsyncLifetime
 
         Assert.DoesNotContain(await _folders.GetAllAsync(), f => f.Name == "Empty container");
     }
+
+    /// <summary>
+    /// An OPML file arrives from outside and every feed it adds is fetched
+    /// unattended straight afterwards, so an address naming the cloud metadata
+    /// endpoint or something on loopback must not reach the database at all.
+    /// </summary>
+    [Theory]
+    [InlineData("http://169.254.169.254/latest/meta-data/iam/security-credentials/")]
+    [InlineData("http://127.0.0.1:8080/admin/shutdown")]
+    [InlineData("http://192.168.0.1/feed")]
+    [InlineData("file:///etc/passwd")]
+    [InlineData("https://attacker:token@internal.example/feed.xml")]
+    public async Task An_address_the_url_policy_refuses_is_not_imported(string url)
+    {
+        var opml =
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><opml version=\"2.0\">" +
+            "<head><title>Hostile</title></head><body>" +
+            $"<outline text=\"Bad\" xmlUrl=\"{url}\"/>" +
+            "<outline text=\"Good\" xmlUrl=\"https://good.example/feed.xml\"/>" +
+            "</body></opml>";
+
+        var result = await _service.ImportAsync(opml);
+
+        Assert.Equal(1, result.FeedsAdded);
+        Assert.Equal(1, result.FeedsFailed);
+        Assert.Equal(url, Assert.Single(result.FailedFeeds).FeedUrl);
+        Assert.Equal("RefusedAddress", result.FailedFeeds[0].ExceptionType);
+
+        var stored = await _feeds.GetAllAsync();
+        Assert.Equal("https://good.example/feed.xml", Assert.Single(stored).FeedUrl);
+    }
+
+    [Fact]
+    public async Task The_result_names_the_ids_this_import_added()
+    {
+        var result = await _service.ImportAsync(Opml("flat.opml"));
+
+        var stored = await _feeds.GetAllAsync();
+        Assert.Equal(result.FeedsAdded, result.AddedFeedIds.Count);
+        Assert.Equal(
+            stored.Select(f => f.Id).OrderBy(id => id),
+            result.AddedFeedIds.OrderBy(id => id));
+    }
 }

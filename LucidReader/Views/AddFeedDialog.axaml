@@ -59,13 +59,26 @@
             checkbox list rather than a single-selection picker, and every
             discovered feed starts ticked because subscribing to what you
             asked for is the common case.
+
+            The CheckBox is stretched to fill its row, and the row is stretched
+            to fill the list, so a click anywhere on a row toggles it. Left as
+            an auto-width CheckBox, clicking the row highlighted it and did
+            nothing else, so unticking a feed meant hitting the small box
+            exactly.
         -->
         <Border Grid.Row="3" Classes="settings-card">
             <ListBox x:Name="DiscoveredList" Background="Transparent" BorderThickness="0" Margin="4">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    </Style>
+                </ListBox.Styles>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                  Content="{Binding Label}" />
+                                  Content="{Binding Label}"
+                                  HorizontalAlignment="Stretch"
+                                  HorizontalContentAlignment="Left" />
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
