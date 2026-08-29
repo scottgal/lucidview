@@ -1,5 +1,8 @@
 # ***lucid*VIEW**
 
+> NOTE: This project uses libraries which now require an OSMF https://opensourcemaintenancefee.org/ as such no further development will be done with the current dependencies
+
+
 **The cross-platform markdown viewer that doesn't wrap a browser.** Native
 Avalonia rendering, mermaid diagrams via the bundled Naiad engine, real
 print, PDF export, seven themes, and a self-documenting in-app User Manual.
