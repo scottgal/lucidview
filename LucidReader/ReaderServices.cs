@@ -171,7 +171,8 @@ public sealed class ReaderServices : IAsyncDisposable
             Current,
             time,
             downloadConcurrency,
-            imageCache: new AvaloniaArticleImageCache(imageCache, Current));
+            imageCache: new AvaloniaArticleImageCache(
+                new ImageCacheServiceRemoteImageFetcher(imageCache), Current));
 
         var retention = new RetentionService(database, feeds, Current, time);
 
