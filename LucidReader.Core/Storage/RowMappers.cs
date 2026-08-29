@@ -102,7 +102,8 @@ internal static class RowMappers
         IsStarred = reader.GetBool("is_starred"),
         FirstSeenUtc = reader.GetDate("first_seen_utc"),
         OfflineState = (Model.OfflineState)reader.GetInt32(reader.GetOrdinal("offline_state")),
-        OfflineError = reader.GetNullableString("offline_error")
+        OfflineError = reader.GetNullableString("offline_error"),
+        ImageUrl = reader.GetNullableString("image_url")
     };
 
     public static Folder ReadFolder(SqliteDataReader reader) => new()

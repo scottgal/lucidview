@@ -167,6 +167,52 @@ public class FeedAutodiscoveryTests
         Assert.Equal("https://example.com/feed?a=1&b=2", one.FeedUrl);
     }
 
+    // --- Site icon (Task 8b) ---
+    //
+    // FeedAutodiscovery already downloads the site page to find feed links;
+    // the favicon is in that same HTML, so no second fetch is needed to
+    // populate DiscoveredFeed.IconUrl.
+
+    [Fact]
+    public async Task A_discovered_feed_carries_the_site_icon_found_on_the_page()
+    {
+        var handler = StubHttpHandler.Returning(
+            HttpStatusCode.OK, Html("metadata-rich.html"), mediaType: "text/html");
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/");
+
+        var one = Assert.Single(found);
+        Assert.Equal("https://example.com/icons/favicon-32.png", one.IconUrl);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task A_page_declaring_no_icon_falls_back_to_a_favicon_ico_guess_at_the_site_root()
+    {
+        var handler = StubHttpHandler.Returning(
+            HttpStatusCode.OK, Html("single-feed.html"), mediaType: "text/html");
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/blog");
+
+        var one = Assert.Single(found);
+        Assert.Equal("https://example.com/favicon.ico", one.IconUrl);
+    }
+
+    [Fact]
+    public async Task An_already_a_feed_url_gets_a_favicon_ico_guess_since_there_is_no_page_to_read()
+    {
+        var handler = StubHttpHandler.Returning(
+            HttpStatusCode.OK, Fixtures.Feed("rss2-simple.xml"), mediaType: "application/rss+xml");
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/feed.xml");
+
+        var one = Assert.Single(found);
+        Assert.Equal("https://example.com/favicon.ico", one.IconUrl);
+    }
+
     // --- rel token matching ---
 
     [Fact]

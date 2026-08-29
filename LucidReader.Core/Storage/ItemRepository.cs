@@ -35,11 +35,11 @@ public sealed class ItemRepository(ReaderDatabase db)
         INSERT INTO items (
             feed_id, guid, link, title, author, published_utc, updated_utc,
             summary, content_markdown, content_source, is_read, is_starred,
-            first_seen_utc, offline_state, offline_error)
+            first_seen_utc, offline_state, offline_error, image_url)
         SELECT
             $feedId, $guid, $link, $title, $author, $published, $updated,
             $summary, $content, $contentSource, $isRead, $isStarred,
-            $firstSeen, $offlineState, $offlineError
+            $firstSeen, $offlineState, $offlineError, $imageUrl
         WHERE NOT EXISTS (
             SELECT 1 FROM item_tombstones t
             WHERE t.feed_id = $feedId AND t.guid = $guid
@@ -50,7 +50,8 @@ public sealed class ItemRepository(ReaderDatabase db)
             author = excluded.author,
             published_utc = excluded.published_utc,
             updated_utc = excluded.updated_utc,
-            summary = excluded.summary;
+            summary = excluded.summary,
+            image_url = excluded.image_url;
         """;
 
     /// <summary>
@@ -226,22 +227,35 @@ public sealed class ItemRepository(ReaderDatabase db)
         db.WriteAsync("UPDATE items SET is_read = 1 WHERE feed_id = $feedId AND is_read = 0;",
             new Dictionary<string, object?> { ["$feedId"] = feedId }, ct);
 
+    /// <summary>
+    /// imageUrl defaults to null and, when omitted, leaves the column
+    /// untouched rather than clobbering a previously-captured image: only
+    /// the extracted-page download path in OfflineDownloader ever has an
+    /// image to offer, and the feed-summary path must not blank out an
+    /// image a prior extracted download already stored for this item.
+    /// </summary>
     public Task SetContentAsync(
-        long id, string markdown, ContentSource source, CancellationToken ct = default) =>
+        long id,
+        string markdown,
+        ContentSource source,
+        string? imageUrl = null,
+        CancellationToken ct = default) =>
         db.WriteAsync(
             """
             UPDATE items SET
                 content_markdown = $content,
                 content_source = $source,
                 offline_state = 2,
-                offline_error = NULL
+                offline_error = NULL,
+                image_url = COALESCE($imageUrl, image_url)
             WHERE id = $id;
             """,
             new Dictionary<string, object?>
             {
                 ["$id"] = id,
                 ["$content"] = markdown,
-                ["$source"] = (int)source
+                ["$source"] = (int)source,
+                ["$imageUrl"] = imageUrl
             }, ct);
 
     public Task SetOfflineFailedAsync(long id, string error, CancellationToken ct = default) =>
@@ -290,6 +304,7 @@ public sealed class ItemRepository(ReaderDatabase db)
         ["$isStarred"] = item.IsStarred ? 1 : 0,
         ["$firstSeen"] = item.FirstSeenUtc.ToDbString(),
         ["$offlineState"] = (int)item.OfflineState,
-        ["$offlineError"] = item.OfflineError
+        ["$offlineError"] = item.OfflineError,
+        ["$imageUrl"] = item.ImageUrl
     };
 }

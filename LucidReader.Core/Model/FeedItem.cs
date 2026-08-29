@@ -18,4 +18,5 @@ public sealed record FeedItem
     public DateTimeOffset FirstSeenUtc { get; init; }
     public OfflineState OfflineState { get; init; }
     public string? OfflineError { get; init; }
+    public string? ImageUrl { get; init; }
 }

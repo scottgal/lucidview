@@ -1,10 +1,9 @@
-using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace LucidReader.Core.Feeds;
 
-public readonly record struct DiscoveredFeed(string FeedUrl, string? Title);
+public readonly record struct DiscoveredFeed(string FeedUrl, string? Title, string? IconUrl);
 
 /// <summary>
 /// Turns whatever the user pasted into feed URLs worth subscribing to.
@@ -89,15 +88,26 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
             return Array.Empty<DiscoveredFeed>();
         }
 
-        // Already a feed? Then there is nothing to discover.
+        // Already a feed? Then there is nothing to discover. There is also no
+        // page here for SiteMetadataExtractor to read, so the icon is a bare
+        // /favicon.ico guess at the feed URL's own host - a URL to record,
+        // not a fetch to perform; whether it actually exists is the
+        // rendering layer's problem.
         var parser = new FeedParser();
         if (parser.CanParse(body))
         {
             string? title = null;
             try { title = parser.Parse(body, effectiveUri).Title; }
             catch (FeedParseException) { }
-            return [new DiscoveredFeed(effectiveUri.ToString(), title)];
+            return [new DiscoveredFeed(effectiveUri.ToString(), title, FaviconGuess(effectiveUri))];
         }
+
+        // The page body is already in hand for feed-link discovery, so the
+        // same body is read again in memory (no second fetch) for the site
+        // icon: FeedAutodiscovery downloads this page anyway, and the
+        // favicon link is in the same <head>.
+        var siteMetadata = SiteMetadataExtractor.Extract(body, effectiveUri);
+        var siteIcon = siteMetadata.IconUrl ?? FaviconGuess(effectiveUri);
 
         var found = new List<DiscoveredFeed>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -122,11 +132,14 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
             var linkTitle = AttributeValue(tag, "title");
             found.Add(new DiscoveredFeed(
                 absolute.ToString(),
-                linkTitle.Length > 0 ? linkTitle : null));
+                linkTitle.Length > 0 ? linkTitle : null,
+                siteIcon));
         }
 
         return found;
     }
+
+    private static string FaviconGuess(Uri uri) => $"{uri.Scheme}://{uri.Authority}/favicon.ico";
 
     /// <summary>
     /// Reads the body a chunk at a time and abandons the read the moment the
@@ -173,22 +186,10 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
     /// also false-positive on any token that happens to contain the word.
     /// </summary>
     private static bool HasAlternateToken(string rel) =>
-        rel.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-            .Any(token => token.Equals("alternate", StringComparison.OrdinalIgnoreCase));
+        HtmlAttributeParsing.HasToken(rel, "alternate");
 
-    private static string AttributeValue(string tag, string attribute)
-    {
-        var match = Regex.Match(
-            tag,
-            attribute + @"\s*=\s*(?:""(?<v>[^""]*)""|'(?<v>[^']*)'|(?<v>[^\s>]+))",
-            RegexOptions.IgnoreCase);
-        if (!match.Success) return string.Empty;
-
-        // Sites (WordPress especially) routinely emit entity-encoded hrefs,
-        // e.g. href="/feed?a=1&amp;b=2". Left undecoded, that "&amp;" is
-        // baked literally into the resolved feed URL's query string.
-        return WebUtility.HtmlDecode(match.Groups["v"].Value.Trim());
-    }
+    private static string AttributeValue(string tag, string attribute) =>
+        HtmlAttributeParsing.AttributeValue(tag, attribute);
 
     [GeneratedRegex(@"<link\b[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex LinkTagPattern();

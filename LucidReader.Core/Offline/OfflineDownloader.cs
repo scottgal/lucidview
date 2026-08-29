@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using LucidReader.Core.Feeds;
 using LucidReader.Core.Model;
 using LucidReader.Core.Storage;
 using MarkdownViewer.Services;
@@ -248,7 +249,12 @@ public sealed class OfflineDownloader : IAsyncDisposable
         {
             var markdown = await _converter.ConvertAsync(html, new Uri(item.Link), ct);
             markdown = await CacheImagesAsync(markdown, item.Link, ct);
-            await _items.SetContentAsync(itemId, markdown, ContentSource.Extracted, ct);
+
+            // Reads the SAME article html the converter above just consumed -
+            // no second fetch. SiteMetadataExtractor.Extract is pure parsing
+            // over a string already in memory.
+            var imageUrl = SiteMetadataExtractor.Extract(html, new Uri(item.Link)).ImageUrl;
+            await _items.SetContentAsync(itemId, markdown, ContentSource.Extracted, imageUrl, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -260,6 +266,15 @@ public sealed class OfflineDownloader : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Stores content that came from the feed's own summary, not a fetched
+    /// article page - the stub-with-no-link case and the
+    /// already-complete-feed-content case in DownloadCoreAsync. There is no
+    /// page here for SiteMetadataExtractor to read, so no image is ever
+    /// captured on this path: SetContentAsync is called with no imageUrl,
+    /// which leaves any existing image_url column untouched rather than
+    /// blanking it.
+    /// </summary>
     private async Task StoreAsync(
         long itemId,
         string? html,
@@ -278,7 +293,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
             var uri = Uri.TryCreate(link, UriKind.Absolute, out var parsed) ? parsed : null;
             var markdown = await _converter.ConvertAsync(html, uri, ct);
             markdown = await CacheImagesAsync(markdown, link, ct);
-            await _items.SetContentAsync(itemId, markdown, source, ct);
+            await _items.SetContentAsync(itemId, markdown, source, ct: ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

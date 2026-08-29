@@ -148,6 +148,70 @@ public class SchemaMigratorTests
         Assert.Contains("item_tombstones", tables);
     }
 
+    /// <summary>
+    /// Mirrors Migrating_an_existing_V1_database_forward_preserves_its_data:
+    /// applies V1 and V2 SQL directly and stamps user_version = 2, bypassing
+    /// SchemaMigrator so V3 is not silently applied to what is meant to
+    /// represent a pre-V3 database. Then runs the real migrator and checks
+    /// the pre-existing row survives and the new image_url column exists and
+    /// is null for it.
+    /// </summary>
+    [Fact]
+    public async Task Migrating_an_existing_V2_database_forward_preserves_its_data()
+    {
+        using var db = new TempDatabase();
+        await using var connection = db.Open();
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = Migrations.All[0];
+            await command.ExecuteNonQueryAsync();
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = Migrations.All[1];
+            await command.ExecuteNonQueryAsync();
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA user_version = 2;";
+            await command.ExecuteNonQueryAsync();
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "INSERT INTO feeds (feed_url, is_enabled) VALUES ('https://example.com/feed.xml', 1);";
+            await command.ExecuteNonQueryAsync();
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                """
+                INSERT INTO items (feed_id, guid, title, first_seen_utc)
+                VALUES (1, 'guid-1', 'Pre-existing item', '2026-08-28T00:00:00Z');
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var version = await SchemaMigrator.MigrateAsync(connection);
+
+        Assert.Equal(Migrations.All.Count, version);
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT title FROM items WHERE feed_id = 1 AND guid = 'guid-1';";
+            Assert.Equal("Pre-existing item", await command.ExecuteScalarAsync());
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            // The new nullable column exists and is null for a row that
+            // predates it, rather than the ALTER TABLE having failed silently
+            // or the row having been dropped.
+            command.CommandText = "SELECT image_url FROM items WHERE feed_id = 1 AND guid = 'guid-1';";
+            Assert.Equal(DBNull.Value, await command.ExecuteScalarAsync());
+        }
+    }
+
     private static async Task<List<string>> ReadTableNamesAsync(SqliteConnection connection)
     {
         var names = new List<string>();

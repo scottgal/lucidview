@@ -234,6 +234,45 @@ public class OfflineDownloaderTests : IAsyncLifetime
         Assert.Equal(id, results[0].Id);
     }
 
+    // --- Article image capture (Task 8b) ---
+    //
+    // ArticleFetcher already downloads the article page for full-text
+    // extraction; the OpenGraph image is in that same HTML, so no second
+    // fetch is needed to populate FeedItem.ImageUrl.
+
+    [Fact]
+    public async Task An_item_downloaded_via_the_extracted_path_captures_its_open_graph_image()
+    {
+        var articleHtml =
+            "<html><head><meta property=\"og:image\" content=\"https://cdn.example.com/card.jpg\">" +
+            "</head><body>" + LongArticle() + "</body></html>";
+        var handler = StubHttpHandler.Returning(HttpStatusCode.OK, articleHtml, mediaType: "text/html");
+        await using var downloader = CreateDownloader(handler);
+        var id = await AddItemAsync("<p>Short teaser.</p>");
+
+        await downloader.DownloadNowAsync(id);
+
+        Assert.Single(handler.Requests);
+        var item = await _items.GetAsync(id);
+        Assert.Equal(ContentSource.Extracted, item!.ContentSource);
+        Assert.Equal("https://cdn.example.com/card.jpg", item.ImageUrl);
+    }
+
+    [Fact]
+    public async Task An_item_downloaded_via_the_summary_path_leaves_the_image_null()
+    {
+        var handler = StubHttpHandler.Returning(HttpStatusCode.OK, "<html>full page</html>");
+        await using var downloader = CreateDownloader(handler);
+        var id = await AddItemAsync(LongArticle());
+
+        await downloader.DownloadNowAsync(id);
+
+        Assert.Empty(handler.Requests);
+        var item = await _items.GetAsync(id);
+        Assert.Equal(ContentSource.Feed, item!.ContentSource);
+        Assert.Null(item.ImageUrl);
+    }
+
     // --- Timeout handling ---
     //
     // Mostlylucid.Ephemeral 3.0.0's EphemeralWorkCoordinator does not actually

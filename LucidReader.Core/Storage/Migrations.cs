@@ -6,7 +6,7 @@ namespace LucidReader.Core.Storage;
 /// </summary>
 public static class Migrations
 {
-    public static IReadOnlyList<string> All { get; } = new[] { V1, V2 };
+    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3 };
 
     private const string V1 = """
         CREATE TABLE folders (
@@ -133,5 +133,16 @@ public static class Migrations
         );
 
         CREATE INDEX ix_item_tombstones_deleted ON item_tombstones(deleted_utc);
+        """;
+
+    // image_url: the article's social-card image (OpenGraph/Twitter),
+    // captured by SiteMetadataExtractor from HTML OfflineDownloader already
+    // fetched for full-text extraction - never a page fetched on purpose for
+    // this. Publisher-owned, so ItemRepository's upsert overwrites it on
+    // conflict alongside title and summary, unlike the reader-owned columns
+    // (is_read, is_starred, content_markdown, offline_state) upsert never
+    // touches.
+    private const string V3 = """
+        ALTER TABLE items ADD COLUMN image_url TEXT NULL;
         """;
 }
