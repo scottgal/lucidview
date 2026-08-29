@@ -1,14 +1,19 @@
+using LucidReader.Core.Model;
 using LucidReader.Models;
+using LucidReader.Services;
 
 namespace LucidReader.Views;
 
 /// <summary>
-/// The reading pane. Minimal for Task 6: a compiling no-op that a later task
-/// modifies to actually render the selected article. The properties here are
-/// stubs the XAML reading pane binds to (ArticleTitle, ArticleMeta,
-/// ArticleMarkdown, the offline badge and FetchFullArticleCommand); a later
-/// task replaces the backing fields with real values driven by the selected
-/// ItemRow.
+/// The reading pane. Renders whatever ShowArticleAsync is given (called from
+/// OnItemSelectedAsync in MainWindow.Items.cs, which also owns the mark-read
+/// dwell; nothing here duplicates that).
+///
+/// Every link the reading pane surfaces, whether clicked inside the rendered
+/// markdown or via "open original", came from remote feed content and is
+/// therefore attacker-controlled. Both paths route through SafeLinkOpener's
+/// http/https allowlist rather than handing a raw string to the platform's
+/// "open this" mechanism.
 /// </summary>
 public partial class MainWindow
 {
@@ -22,45 +27,121 @@ public partial class MainWindow
     public string ArticleTitle
     {
         get => _articleTitle;
-        set { if (_articleTitle == value) return; _articleTitle = value; Raise(); }
+        private set { if (_articleTitle == value) return; _articleTitle = value; Raise(); }
     }
 
     public string ArticleMeta
     {
         get => _articleMeta;
-        set { if (_articleMeta == value) return; _articleMeta = value; Raise(); }
+        private set { if (_articleMeta == value) return; _articleMeta = value; Raise(); }
     }
 
     public string ArticleMarkdown
     {
         get => _articleMarkdown;
-        set { if (_articleMarkdown == value) return; _articleMarkdown = value; Raise(); }
+        private set { if (_articleMarkdown == value) return; _articleMarkdown = value; Raise(); }
     }
 
     public bool ShowOfflineBadge
     {
         get => _showOfflineBadge;
-        set { if (_showOfflineBadge == value) return; _showOfflineBadge = value; Raise(); }
+        private set { if (_showOfflineBadge == value) return; _showOfflineBadge = value; Raise(); }
     }
 
     public string OfflineBadgeText
     {
         get => _offlineBadgeText;
-        set { if (_offlineBadgeText == value) return; _offlineBadgeText = value; Raise(); }
+        private set { if (_offlineBadgeText == value) return; _offlineBadgeText = value; Raise(); }
     }
 
     public bool CanFetchFullArticle
     {
         get => _canFetchFullArticle;
-        set { if (_canFetchFullArticle == value) return; _canFetchFullArticle = value; Raise(); }
+        private set { if (_canFetchFullArticle == value) return; _canFetchFullArticle = value; Raise(); }
     }
 
-    /// <summary>Stub: a later task wires this to OfflineDownloader.DownloadNowAsync.</summary>
-    public RelayCommand FetchFullArticleCommand { get; } = new(() => { });
+    // Assigned in MainWindow's constructor (MainWindow.axaml.cs), which runs
+    // after this partial's fields are initialised, so the command can close
+    // over FetchFullArticleAsync as a bound instance method.
+    public RelayCommand FetchFullArticleCommand { get; private set; } = null!;
 
-    // CA1822 suppressed on purpose: a later task fills this in with a real
-    // body that reads _services and other instance state.
-#pragma warning disable CA1822
-    public Task ShowArticleAsync(ItemRow? row) => Task.CompletedTask;
-#pragma warning restore CA1822
+    public async Task ShowArticleAsync(ItemRow? row)
+    {
+        if (row is null)
+        {
+            ArticleTitle = string.Empty;
+            ArticleMeta = string.Empty;
+            ArticleMarkdown = string.Empty;
+            ShowOfflineBadge = false;
+            CanFetchFullArticle = false;
+            return;
+        }
+
+        // Re-read rather than trusting the row: the download may have completed
+        // since the list was populated.
+        var item = await _services.Items.GetAsync(row.Id) ?? row.Item;
+
+        ArticleTitle = string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title!;
+
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(item.Author)) parts.Add(item.Author!);
+        parts.Add(row.FeedName);
+        if (item.PublishedUtc is { } published)
+            parts.Add(published.ToLocalTime().ToString("f"));
+        ArticleMeta = string.Join("  ·  ", parts);
+
+        ArticleMarkdown = item.ContentMarkdown
+            ?? item.Summary
+            ?? "This article has no content yet.";
+
+        (ShowOfflineBadge, OfflineBadgeText, CanFetchFullArticle) = item.OfflineState switch
+        {
+            OfflineState.Downloaded when item.ContentSource == ContentSource.Extracted =>
+                (false, string.Empty, false),
+            OfflineState.Downloaded =>
+                (true, "Showing the summary the feed provided.", item.Link is not null),
+            OfflineState.Failed =>
+                (true, "The full article could not be downloaded. " + (item.OfflineError ?? string.Empty), true),
+            OfflineState.Pending =>
+                (true, "Downloading the full article...", false),
+            _ =>
+                (true, "Showing the summary the feed provided.", item.Link is not null)
+        };
+    }
+
+    public async Task FetchFullArticleAsync()
+    {
+        if (SelectedItemRow is not { } row) return;
+
+        StatusMessage = "Fetching the full article...";
+        try
+        {
+            await _services.Downloader.DownloadNowAsync(row.Id);
+            await ShowArticleAsync(row);
+            StatusMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Could not fetch the article: " + ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Every link in the reading pane came from a remote feed, so it goes
+    /// through the allowlist rather than straight to the platform opener.
+    /// </summary>
+    private void OnArticleLinkClicked(object? sender, LiveMarkdown.Avalonia.LinkClickedEventArgs e)
+    {
+        if (!_services.Settings.OpenLinksExternally) return;
+
+        if (!SafeLinkOpener.TryOpen(e.HRef?.ToString(), out var reason))
+            StatusMessage = reason ?? "That link could not be opened.";
+    }
+
+    public void OpenOriginalArticle()
+    {
+        var link = SelectedItemRow?.Item.Link;
+        if (!SafeLinkOpener.TryOpen(link, out var reason))
+            StatusMessage = reason ?? "This article has no link to open.";
+    }
 }

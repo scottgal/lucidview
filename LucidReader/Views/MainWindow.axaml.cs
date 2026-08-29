@@ -59,6 +59,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         InitializeComponent();
         DataContext = this;
 
+        FetchFullArticleCommand = new RelayCommand(FetchFullArticleAsync);
+
+        // this.ReadingPane (the generated named-field access) is null here:
+        // this window's InitializeComponent only calls AvaloniaXamlLoader.Load,
+        // it does not go through the generated overload that also populates
+        // named fields, so the control has to be looked up explicitly.
+        var readingPane = this.FindControl<Mostlylucid.LucidView.Markdown.LucidMarkdownView>("ReadingPane");
+        if (readingPane is not null)
+            readingPane.LinkClick += OnArticleLinkClicked;
+
         _theme = new ThemeService(Application.Current!);
         ApplySettings(_services.Settings);
 
