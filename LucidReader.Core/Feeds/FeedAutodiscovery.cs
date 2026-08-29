@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace LucidReader.Core.Feeds;
@@ -14,6 +16,9 @@ public readonly record struct DiscoveredFeed(string FeedUrl, string? Title);
 /// </summary>
 public sealed partial class FeedAutodiscovery(HttpClient http)
 {
+    private const int MaxDiscoveryBytes = 8 * 1024 * 1024;
+    private const int ReadBufferSize = 8192;
+
     private static readonly string[] FeedMediaTypes =
     [
         "application/rss+xml",
@@ -32,6 +37,7 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
             return Array.Empty<DiscoveredFeed>();
 
         string body;
+        Uri effectiveUri;
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
@@ -40,10 +46,39 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
                 "Accept",
                 "application/atom+xml, application/rss+xml, text/html;q=0.9, */*;q=0.8");
 
-            using var response = await http.SendAsync(request, ct);
+            // ResponseHeadersRead, not the default ResponseContentRead: the
+            // latter buffers the whole body before this method gets a chance
+            // to look at it, which is the same unbounded-buffering gap
+            // ArticleFetcher and FeedFetcher had to close. This class is the
+            // most exposed of the three - it fires straight off a string the
+            // user pasted, with no prior evidence the target is even
+            // feed-shaped - so it needs the same bound.
+            using var response = await http.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, ct);
             if (!response.IsSuccessStatusCode) return Array.Empty<DiscoveredFeed>();
 
-            body = await response.Content.ReadAsStringAsync(ct);
+            // Redirects (bare domain to www, http upgraded to https, etc.)
+            // mean the URL we end up reading is not always the one we asked
+            // for. Relative hrefs in the page, and the feed's own URL when
+            // the page IS the feed, must resolve against wherever the
+            // response actually came from, or a relative link resolves
+            // against the wrong host and produces a subscription that 404s.
+            // A redirect to a non-http(s) scheme is not re-checked here: the
+            // BCL's handler pipeline refuses to follow one before this code
+            // ever sees a response, so that protection is implicit rather
+            // than something this method needs to duplicate.
+            effectiveUri = response.RequestMessage?.RequestUri ?? uri;
+
+            // Cheap early rejection when the server declares its length up
+            // front. Most HTML is served chunked, which never sets
+            // Content-Length, so this alone is not the real cap - see
+            // ReadBoundedAsync for the one that actually is.
+            if (response.Content.Headers.ContentLength > MaxDiscoveryBytes)
+                return Array.Empty<DiscoveredFeed>();
+
+            var bounded = await ReadBoundedAsync(response.Content, ct);
+            if (bounded is null) return Array.Empty<DiscoveredFeed>();
+            body = bounded;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -59,9 +94,9 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         if (parser.CanParse(body))
         {
             string? title = null;
-            try { title = parser.Parse(body, uri).Title; }
+            try { title = parser.Parse(body, effectiveUri).Title; }
             catch (FeedParseException) { }
-            return [new DiscoveredFeed(uri.ToString(), title)];
+            return [new DiscoveredFeed(effectiveUri.ToString(), title)];
         }
 
         var found = new List<DiscoveredFeed>();
@@ -71,7 +106,7 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         {
             var tag = match.Value;
 
-            if (!AttributeValue(tag, "rel").Contains("alternate", StringComparison.OrdinalIgnoreCase))
+            if (!HasAlternateToken(AttributeValue(tag, "rel")))
                 continue;
 
             var type = AttributeValue(tag, "type");
@@ -80,7 +115,7 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
 
             var href = AttributeValue(tag, "href");
             if (href.Length == 0) continue;
-            if (!Uri.TryCreate(uri, href, out var absolute)) continue;
+            if (!Uri.TryCreate(effectiveUri, href, out var absolute)) continue;
             if (absolute.Scheme != Uri.UriSchemeHttp && absolute.Scheme != Uri.UriSchemeHttps) continue;
             if (!seen.Add(absolute.ToString())) continue;
 
@@ -93,13 +128,66 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         return found;
     }
 
+    /// <summary>
+    /// Reads the body a chunk at a time and abandons the read the moment the
+    /// total exceeds MaxDiscoveryBytes, rather than calling
+    /// HttpContent.ReadAsStringAsync and trusting Content-Length: a chunked
+    /// response never sets that header, so the fast-path check above is
+    /// skipped entirely and an unbounded read would buffer whatever the
+    /// server sends. Mirrors ArticleFetcher.ReadBoundedAsync.
+    /// </summary>
+    private static async Task<string?> ReadBoundedAsync(HttpContent content, CancellationToken ct)
+    {
+        await using var stream = await content.ReadAsStreamAsync(ct);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[ReadBufferSize];
+
+        int read;
+        while ((read = await stream.ReadAsync(chunk, ct)) > 0)
+        {
+            buffer.Write(chunk, 0, read);
+            if (buffer.Length > MaxDiscoveryBytes) return null;
+        }
+
+        var encoding = GetEncoding(content.Headers.ContentType?.CharSet) ?? Encoding.UTF8;
+        return encoding.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
+    }
+
+    private static Encoding? GetEncoding(string? charset)
+    {
+        if (string.IsNullOrWhiteSpace(charset)) return null;
+        try
+        {
+            return Encoding.GetEncoding(charset.Trim('"'));
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// "alternate" must be a whitespace-separated token in rel, not merely a
+    /// substring: rel is a space-separated list per the HTML spec (a link can
+    /// legitimately be rel="alternate home"), and a substring check would
+    /// also false-positive on any token that happens to contain the word.
+    /// </summary>
+    private static bool HasAlternateToken(string rel) =>
+        rel.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .Any(token => token.Equals("alternate", StringComparison.OrdinalIgnoreCase));
+
     private static string AttributeValue(string tag, string attribute)
     {
         var match = Regex.Match(
             tag,
             attribute + @"\s*=\s*(?:""(?<v>[^""]*)""|'(?<v>[^']*)'|(?<v>[^\s>]+))",
             RegexOptions.IgnoreCase);
-        return match.Success ? match.Groups["v"].Value.Trim() : string.Empty;
+        if (!match.Success) return string.Empty;
+
+        // Sites (WordPress especially) routinely emit entity-encoded hrefs,
+        // e.g. href="/feed?a=1&amp;b=2". Left undecoded, that "&amp;" is
+        // baked literally into the resolved feed URL's query string.
+        return WebUtility.HtmlDecode(match.Groups["v"].Value.Trim());
     }
 
     [GeneratedRegex(@"<link\b[^>]*>", RegexOptions.IgnoreCase)]

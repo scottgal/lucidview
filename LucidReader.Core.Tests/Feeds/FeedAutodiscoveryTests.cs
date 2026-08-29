@@ -94,4 +94,91 @@ public class FeedAutodiscoveryTests
         Assert.Empty(await discovery.DiscoverAsync(input));
         Assert.Empty(handler.Requests);
     }
+
+    // --- Size bound ---
+    //
+    // ArticleFetcher and FeedFetcher already solved exactly this problem: an
+    // unbounded ReadAsStringAsync buffers a chunked response, which never
+    // sets Content-Length, with no cap at all. FeedAutodiscovery is the most
+    // exposed of the three - it fires straight off a string the user pasted,
+    // with no prior evidence the target is even feed-shaped.
+
+    [Fact]
+    public async Task A_chunked_response_over_the_size_cap_is_rejected_not_buffered()
+    {
+        // No Content-Length header at all - the shape a chunked response
+        // takes - so the fast Content-Length pre-check cannot fire; only the
+        // streaming bound can reject this.
+        var handler = StubHttpHandler.ReturningUnboundedLength(9 * 1024 * 1024);
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/blog")
+            .WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Empty(found);
+    }
+
+    // --- Redirects ---
+
+    [Fact]
+    public async Task Relative_links_resolve_against_the_post_redirect_url_not_the_original()
+    {
+        var handler = StubHttpHandler.Returning(
+            HttpStatusCode.OK,
+            Html("single-feed.html"),
+            mediaType: "text/html",
+            finalRequestUri: new Uri("https://www.example.com/blog"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/blog");
+
+        var one = Assert.Single(found);
+        Assert.Equal("https://www.example.com/feed.xml", one.FeedUrl);
+    }
+
+    [Fact]
+    public async Task An_already_a_feed_url_is_reported_as_the_post_redirect_url()
+    {
+        var handler = StubHttpHandler.Returning(
+            HttpStatusCode.OK,
+            Fixtures.Feed("rss2-simple.xml"),
+            mediaType: "application/rss+xml",
+            finalRequestUri: new Uri("https://www.example.com/feed.xml"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/feed.xml");
+
+        var one = Assert.Single(found);
+        Assert.Equal("https://www.example.com/feed.xml", one.FeedUrl);
+    }
+
+    // --- HTML entities in hrefs ---
+
+    [Fact]
+    public async Task An_html_entity_encoded_href_is_decoded_before_being_resolved()
+    {
+        var handler = StubHttpHandler.Returning(
+            HttpStatusCode.OK, Html("entity-encoded-href.html"), mediaType: "text/html");
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/blog");
+
+        var one = Assert.Single(found);
+        Assert.Equal("https://example.com/feed?a=1&b=2", one.FeedUrl);
+    }
+
+    // --- rel token matching ---
+
+    [Fact]
+    public async Task Rel_matching_is_token_based_not_a_substring_check()
+    {
+        var handler = StubHttpHandler.Returning(
+            HttpStatusCode.OK, Html("rel-token-boundary.html"), mediaType: "text/html");
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/blog");
+
+        var one = Assert.Single(found);
+        Assert.Equal("https://example.com/feed.xml", one.FeedUrl);
+    }
 }

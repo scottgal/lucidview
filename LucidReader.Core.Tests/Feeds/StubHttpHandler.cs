@@ -29,7 +29,8 @@ public sealed class StubHttpHandler : HttpMessageHandler
         string? body = null,
         string? etag = null,
         string? lastModified = null,
-        string? mediaType = null) =>
+        string? mediaType = null,
+        Uri? finalRequestUri = null) =>
         new(_ =>
         {
             var response = new HttpResponseMessage(status);
@@ -39,6 +40,14 @@ public sealed class StubHttpHandler : HttpMessageHandler
             if (etag is not null) response.Headers.TryAddWithoutValidation("ETag", etag);
             if (lastModified is not null)
                 response.Content?.Headers.TryAddWithoutValidation("Last-Modified", lastModified);
+            // Simulates the request URI HttpClient reports after following
+            // redirects: real redirect-following handlers set
+            // response.RequestMessage to the final request, not the one the
+            // caller originally issued. This stub never follows redirects
+            // itself, so a test that needs "the final URI differs from the
+            // one we started with" sets this directly.
+            if (finalRequestUri is not null)
+                response.RequestMessage = new HttpRequestMessage(HttpMethod.Get, finalRequestUri);
             return response;
         });
 
