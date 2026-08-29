@@ -4,7 +4,9 @@ using LucidReader.Core.Model;
 using LucidReader.Core.Offline;
 using LucidReader.Core.Storage;
 using LucidReader.Core.Sync;
+using LucidReader.Services;
 using MarkdownViewer.Services;
+using Mostlylucid.LucidView.Markdown.Services;
 
 namespace LucidReader;
 
@@ -20,6 +22,7 @@ public sealed class ReaderServices : IAsyncDisposable
 {
     private readonly string _settingsPath;
     private readonly HttpClient _http;
+    private readonly ImageCacheService _imageCache;
     private readonly PeriodicTimer? _retentionTimer;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly Task _retentionLoop;
@@ -48,6 +51,7 @@ public sealed class ReaderServices : IAsyncDisposable
         string settingsPath,
         ReaderSettings settings,
         HttpClient http,
+        ImageCacheService imageCache,
         ReaderDatabase database,
         FolderRepository folders,
         FeedRepository feeds,
@@ -64,6 +68,7 @@ public sealed class ReaderServices : IAsyncDisposable
         _settingsPath = settingsPath;
         _settings = settings;
         _http = http;
+        _imageCache = imageCache;
         Database = database;
         Folders = folders;
         Feeds = feeds;
@@ -157,18 +162,21 @@ public sealed class ReaderServices : IAsyncDisposable
 
         var scheduler = new RefreshScheduler(feeds, refresh, time);
 
+        var imageCache = new ImageCacheService();
+
         var downloader = new OfflineDownloader(
             items, feeds,
             new ArticleFetcher(http),
             ResolveConverter(),
             Current,
             time,
-            downloadConcurrency);
+            downloadConcurrency,
+            imageCache: new AvaloniaArticleImageCache(imageCache, Current));
 
         var retention = new RetentionService(database, feeds, Current, time);
 
         built = new ReaderServices(
-            setPath, settings, http, database, folders, feeds, items, search,
+            setPath, settings, http, imageCache, database, folders, feeds, items, search,
             tags, refresh, scheduler, downloader, retention,
             fetchConcurrency, downloadConcurrency)
         {
@@ -302,6 +310,7 @@ public sealed class ReaderServices : IAsyncDisposable
         await Database.DisposeAsync();
 
         _http.Dispose();
+        _imageCache.Dispose();
         _shutdown.Dispose();
         _downloadQueueSignal.Dispose();
     }

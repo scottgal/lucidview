@@ -45,6 +45,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
     private readonly IHtmlToMarkdownService _converter;
     private readonly Func<ReaderSettings> _settings;
     private readonly TimeSpan _maxFetchDuration;
+    private readonly IArticleImageCache? _imageCache;
     private readonly EphemeralWorkCoordinator<long> _coordinator;
     private readonly ConcurrentDictionary<long, byte> _inFlight = new();
 
@@ -56,7 +57,8 @@ public sealed class OfflineDownloader : IAsyncDisposable
         Func<ReaderSettings> settings,
         TimeProvider timeProvider,
         int maxConcurrency = 2,
-        TimeSpan? maxFetchDuration = null)
+        TimeSpan? maxFetchDuration = null,
+        IArticleImageCache? imageCache = null)
     {
         _items = items;
         _feeds = feeds;
@@ -64,6 +66,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
         _converter = converter;
         _settings = settings;
         _maxFetchDuration = maxFetchDuration ?? MaxArticleFetchDuration;
+        _imageCache = imageCache;
 
         _coordinator = new EphemeralWorkCoordinator<long>(
             RunAsync,
@@ -244,6 +247,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
         try
         {
             var markdown = await _converter.ConvertAsync(html, new Uri(item.Link), ct);
+            markdown = await CacheImagesAsync(markdown, item.Link, ct);
             await _items.SetContentAsync(itemId, markdown, ContentSource.Extracted, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -273,6 +277,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
         {
             var uri = Uri.TryCreate(link, UriKind.Absolute, out var parsed) ? parsed : null;
             var markdown = await _converter.ConvertAsync(html, uri, ct);
+            markdown = await CacheImagesAsync(markdown, link, ct);
             await _items.SetContentAsync(itemId, markdown, source, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -282,6 +287,30 @@ public sealed class OfflineDownloader : IAsyncDisposable
         catch (Exception ex)
         {
             await _items.SetOfflineFailedAsync(itemId, ex.Message, ct);
+        }
+    }
+
+    /// <summary>
+    /// Rewrites remote image references to local cached copies when an image
+    /// cache is configured. Best effort by design: a caching failure must not
+    /// cost the user the article, which is the whole point of downloading it.
+    /// </summary>
+    private async Task<string> CacheImagesAsync(string markdown, string? link, CancellationToken ct)
+    {
+        if (_imageCache is null) return markdown;
+
+        try
+        {
+            var baseUri = Uri.TryCreate(link, UriKind.Absolute, out var parsed) ? parsed : null;
+            return await _imageCache.RewriteAsync(markdown, baseUri, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return markdown;
         }
     }
 
