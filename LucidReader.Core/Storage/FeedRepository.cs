@@ -5,7 +5,7 @@ namespace LucidReader.Core.Storage;
 
 public class FeedRepository(ReaderDatabase db)
 {
-    public Task<long> AddAsync(Feed feed, CancellationToken ct = default) =>
+    public virtual Task<long> AddAsync(Feed feed, CancellationToken ct = default) =>
         db.WriteReturningIdAsync(
             """
             INSERT INTO feeds (

@@ -1,3 +1,4 @@
+using System.Text;
 using LucidReader.Core.Model;
 using LucidReader.Core.Opml;
 using LucidReader.Core.Storage;
@@ -30,6 +31,33 @@ public class OpmlServiceTests : IAsyncLifetime
 
     private static string Opml(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Opml", name));
+
+    private static string DeeplyNestedOpml(int depth)
+    {
+        var builder = new StringBuilder();
+        builder.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><opml version=\"2.0\">")
+            .Append("<head><title>Deep</title></head><body>");
+        for (var i = 0; i < depth; i++)
+            builder.Append("<outline text=\"L").Append(i).Append("\">");
+        builder.Append("<outline text=\"Leaf\" xmlUrl=\"https://leaf.example/feed.xml\"/>");
+        for (var i = 0; i < depth; i++)
+            builder.Append("</outline>");
+        builder.Append("</body></opml>");
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Throws on one chosen feed URL so tests can simulate a write failure
+    /// partway through an import without a database fault to engineer.
+    /// AddAsync is virtual on FeedRepository for exactly this purpose.
+    /// </summary>
+    private sealed class FailingFeedRepository(ReaderDatabase db, string urlToFail) : FeedRepository(db)
+    {
+        public override Task<long> AddAsync(Feed feed, CancellationToken ct = default) =>
+            string.Equals(feed.FeedUrl, urlToFail, StringComparison.OrdinalIgnoreCase)
+                ? throw new InvalidOperationException("Simulated write failure.")
+                : base.AddAsync(feed, ct);
+    }
 
     [Fact]
     public async Task Importing_a_flat_export_adds_every_feed_at_the_top_level()
@@ -98,6 +126,47 @@ public class OpmlServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_feed_outline_with_children_imports_both_the_feed_and_its_children()
+    {
+        var result = await _service.ImportAsync(Opml("nested-feed.opml"));
+
+        Assert.Equal(2, result.FeedsAdded);
+        Assert.Equal(0, result.FeedsFailed);
+
+        var feedUrls = (await _feeds.GetAllAsync()).Select(f => f.FeedUrl).ToList();
+        Assert.Contains("https://parent.example/feed.xml", feedUrls);
+        Assert.Contains("https://child.example/feed.xml", feedUrls);
+    }
+
+    [Fact]
+    public async Task A_feed_that_fails_to_write_is_counted_and_the_rest_still_import()
+    {
+        var failingFeeds = new FailingFeedRepository(_db, "https://another.example/atom.xml");
+        var service = new OpmlService(_folders, failingFeeds);
+
+        var result = await service.ImportAsync(Opml("flat.opml"));
+
+        Assert.Equal(1, result.FeedsAdded);
+        Assert.Equal(1, result.FeedsFailed);
+        Assert.Contains("https://another.example/atom.xml", result.FailedFeedUrls);
+
+        var stored = await failingFeeds.GetAllAsync();
+        var storedFeed = Assert.Single(stored);
+        Assert.Equal("https://example.com/feed.xml", storedFeed.FeedUrl);
+    }
+
+    [Fact]
+    public async Task Nesting_deeper_than_the_depth_limit_writes_nothing()
+    {
+        var opml = DeeplyNestedOpml(150);
+
+        await Assert.ThrowsAsync<OpmlParseException>(() => _service.ImportAsync(opml));
+
+        Assert.Empty(await _feeds.GetAllAsync());
+        Assert.Empty(await _folders.GetAllAsync());
+    }
+
+    [Fact]
     public async Task Importing_the_same_folder_name_twice_reuses_the_folder()
     {
         await _service.ImportAsync(Opml("foldered.opml"));
@@ -114,12 +183,36 @@ public class OpmlServiceTests : IAsyncLifetime
 
         using var second = new TempDatabase();
         await using var db2 = await ReaderDatabase.OpenAsync(second.Path);
-        var service2 = new OpmlService(new FolderRepository(db2), new FeedRepository(db2));
+        var folders2 = new FolderRepository(db2);
+        var feeds2 = new FeedRepository(db2);
+        var service2 = new OpmlService(folders2, feeds2);
 
         var result = await service2.ImportAsync(exported);
 
         Assert.Equal(4, result.FeedsAdded);
         Assert.Equal(2, result.FoldersCreated);
+
+        // Counts alone would pass even if feeds ended up under the wrong
+        // folder, so assert the actual membership survived the round trip.
+        var reimportedFolders = await folders2.GetAllAsync();
+        var reimportedFeeds = await feeds2.GetAllAsync();
+
+        var news = reimportedFolders.Single(f => f.Name == "News");
+        var personal = reimportedFolders.Single(f => f.Name == "Personal");
+
+        var newsUrls = reimportedFeeds.Where(f => f.FolderId == news.Id)
+            .Select(f => f.FeedUrl).ToList();
+        Assert.Equal(2, newsUrls.Count);
+        Assert.Contains("https://news.example/world.xml", newsUrls);
+        Assert.Contains("https://news.example/tech.xml", newsUrls);
+
+        var personalFeed = Assert.Single(
+            reimportedFeeds.Where(f => f.FolderId == personal.Id));
+        Assert.Equal("https://friend.example/feed.xml", personalFeed.FeedUrl);
+
+        var looseFeed = Assert.Single(
+            reimportedFeeds.Where(f => f.FolderId is null));
+        Assert.Equal("https://loose.example/feed.xml", looseFeed.FeedUrl);
     }
 
     [Fact]

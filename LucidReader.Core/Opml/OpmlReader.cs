@@ -4,6 +4,12 @@ namespace LucidReader.Core.Opml;
 
 public static class OpmlReader
 {
+    // A guard against pathological or malicious nesting: without a limit,
+    // recursive descent risks a StackOverflowException, which cannot be
+    // caught and takes the whole process down rather than failing the
+    // import cleanly. No real export nests anywhere near this deep.
+    private const int MaxDepth = 100;
+
     public static IReadOnlyList<OpmlOutline> Parse(string opml)
     {
         XDocument document;
@@ -30,8 +36,12 @@ public static class OpmlReader
         return ReadOutlines(body);
     }
 
-    private static IReadOnlyList<OpmlOutline> ReadOutlines(XElement parent)
+    private static IReadOnlyList<OpmlOutline> ReadOutlines(XElement parent, int depth = 0)
     {
+        if (depth > MaxDepth)
+            throw new OpmlParseException(
+                $"The OPML file is nested more than {MaxDepth} levels deep.");
+
         var results = new List<OpmlOutline>();
 
         foreach (var element in parent.Elements().Where(e =>
@@ -48,7 +58,7 @@ public static class OpmlReader
             var feedUrl = Attribute(element, "xmlUrl");
             var siteUrl = Attribute(element, "htmlUrl");
 
-            results.Add(new OpmlOutline(title, feedUrl, siteUrl, ReadOutlines(element)));
+            results.Add(new OpmlOutline(title, feedUrl, siteUrl, ReadOutlines(element, depth + 1)));
         }
 
         return results;

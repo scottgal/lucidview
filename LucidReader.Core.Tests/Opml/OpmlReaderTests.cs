@@ -1,3 +1,4 @@
+using System.Text;
 using LucidReader.Core.Opml;
 using Xunit;
 
@@ -7,6 +8,20 @@ public class OpmlReaderTests
 {
     private static string Opml(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Opml", name));
+
+    private static string DeeplyNestedOpml(int depth)
+    {
+        var builder = new StringBuilder();
+        builder.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><opml version=\"2.0\">")
+            .Append("<head><title>Deep</title></head><body>");
+        for (var i = 0; i < depth; i++)
+            builder.Append("<outline text=\"L").Append(i).Append("\">");
+        builder.Append("<outline text=\"Leaf\" xmlUrl=\"https://leaf.example/feed.xml\"/>");
+        for (var i = 0; i < depth; i++)
+            builder.Append("</outline>");
+        builder.Append("</body></opml>");
+        return builder.ToString();
+    }
 
     [Fact]
     public void A_flat_export_yields_one_outline_per_feed()
@@ -62,6 +77,25 @@ public class OpmlReaderTests
         var inner = Assert.Single(outer.Children);
         Assert.Equal("Inner", inner.Title);
         Assert.Equal("Deep feed", Assert.Single(inner.Children).Title);
+    }
+
+    [Fact]
+    public void A_feed_outline_with_children_keeps_both_the_feed_and_its_children()
+    {
+        var outlines = OpmlReader.Parse(Opml("nested-feed.opml"));
+
+        var parent = Assert.Single(outlines);
+        Assert.Equal("https://parent.example/feed.xml", parent.FeedUrl);
+        var child = Assert.Single(parent.Children);
+        Assert.Equal("https://child.example/feed.xml", child.FeedUrl);
+    }
+
+    [Fact]
+    public void Nesting_deeper_than_the_depth_limit_is_rejected()
+    {
+        var opml = DeeplyNestedOpml(150);
+
+        Assert.Throws<OpmlParseException>(() => OpmlReader.Parse(opml));
     }
 
     [Fact]

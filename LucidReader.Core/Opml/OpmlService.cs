@@ -3,10 +3,26 @@ using LucidReader.Core.Storage;
 
 namespace LucidReader.Core.Opml;
 
-public readonly record struct OpmlImportResult(int FoldersCreated, int FeedsAdded, int FeedsSkipped);
+/// <summary>
+/// FailedFeedUrls lists exactly the feeds that did not import because a
+/// write threw, so the UI can tell the user precisely what to retry rather
+/// than reporting a single opaque failure.
+/// </summary>
+public readonly record struct OpmlImportResult(
+    int FoldersCreated,
+    int FeedsAdded,
+    int FeedsSkipped,
+    int FeedsFailed,
+    IReadOnlyList<string> FailedFeedUrls);
 
 public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
 {
+    // Mirrors OpmlReader's own guard. OpmlReader.Parse already enforces this
+    // before ImportAsync ever sees an outline tree, but this recursion has
+    // its own guard too rather than trusting that invariant to hold forever,
+    // since an OpmlOutline tree could in principle be built some other way.
+    private const int MaxDepth = 100;
+
     /// <summary>
     /// Imports subscriptions. Parsing happens first and completely, so a file
     /// that turns out not to be OPML cannot leave a half-imported list behind.
@@ -15,6 +31,13 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
     /// flattened onto their outermost folder rather than dropped, because a
     /// feed the user can find in the wrong folder beats a feed that silently
     /// did not import.
+    ///
+    /// A write failure on one feed or folder does not abort the whole import:
+    /// it is counted and reported in the result, and the rest keeps going.
+    /// Import is idempotent (an already-subscribed feed is skipped), so
+    /// re-running it after a partial failure is always safe and cheap, which
+    /// is why this does not attempt to roll every write back into one
+    /// transaction. Cancellation is the only thing that aborts outright.
     /// </summary>
     public async Task<OpmlImportResult> ImportAsync(string opml, CancellationToken ct = default)
     {
@@ -30,27 +53,52 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
         var foldersCreated = 0;
         var added = 0;
         var skipped = 0;
+        var failed = 0;
+        var failedUrls = new List<string>();
 
-        async Task ImportLevelAsync(IReadOnlyList<OpmlOutline> level, long? folderId, string? folderName)
+        async Task ImportLevelAsync(IReadOnlyList<OpmlOutline> level, long? folderId, int depth)
         {
+            if (depth > MaxDepth)
+                throw new OpmlParseException(
+                    $"The OPML outline tree is nested more than {MaxDepth} levels deep.");
+
             foreach (var outline in level)
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (outline.FeedUrl is { } feedUrl)
                 {
                     if (!existing.Add(feedUrl))
                     {
                         skipped++;
-                        continue;
+                    }
+                    else
+                    {
+                        try
+                        {
+                            await feeds.AddAsync(new Feed
+                            {
+                                FeedUrl = feedUrl,
+                                SiteUrl = outline.SiteUrl,
+                                Title = outline.Title,
+                                FolderId = folderId
+                            }, ct);
+                            added++;
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            failed++;
+                            failedUrls.Add(feedUrl);
+                        }
                     }
 
-                    await feeds.AddAsync(new Feed
-                    {
-                        FeedUrl = feedUrl,
-                        SiteUrl = outline.SiteUrl,
-                        Title = outline.Title,
-                        FolderId = folderId
-                    }, ct);
-                    added++;
+                    // A feed outline can also be a container: some exporters
+                    // nest child subscriptions under a parent feed rather than
+                    // a plain folder outline. Keep descending so those
+                    // children are not silently dropped.
+                    if (outline.Children.Count > 0)
+                        await ImportLevelAsync(outline.Children, folderId, depth + 1);
+
                     continue;
                 }
 
@@ -60,24 +108,55 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
                 // creating a second level the schema cannot represent.
                 if (folderId is not null)
                 {
-                    await ImportLevelAsync(outline.Children, folderId, folderName);
+                    await ImportLevelAsync(outline.Children, folderId, depth + 1);
                     continue;
                 }
 
-                if (!existingFolders.TryGetValue(outline.Title, out var id))
+                long id;
+                if (existingFolders.TryGetValue(outline.Title, out var existingId))
                 {
-                    id = await folders.AddAsync(outline.Title, null, ct);
-                    existingFolders[outline.Title] = id;
-                    foldersCreated++;
+                    id = existingId;
+                }
+                else
+                {
+                    try
+                    {
+                        id = await folders.AddAsync(outline.Title, null, ct);
+                        existingFolders[outline.Title] = id;
+                        foldersCreated++;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // Without a folder, the feeds nested under it cannot be
+                        // placed anywhere sensible. Count every feed in the
+                        // subtree as failed rather than silently reparenting
+                        // them to the top level or losing them outright.
+                        foreach (var url in CollectFeedUrls(outline.Children))
+                        {
+                            failed++;
+                            failedUrls.Add(url);
+                        }
+                        continue;
+                    }
                 }
 
-                await ImportLevelAsync(outline.Children, id, outline.Title);
+                await ImportLevelAsync(outline.Children, id, depth + 1);
             }
         }
 
-        await ImportLevelAsync(outlines, null, null);
+        await ImportLevelAsync(outlines, null, 0);
 
-        return new OpmlImportResult(foldersCreated, added, skipped);
+        return new OpmlImportResult(foldersCreated, added, skipped, failed, failedUrls);
+    }
+
+    private static IEnumerable<string> CollectFeedUrls(IReadOnlyList<OpmlOutline> outlines)
+    {
+        foreach (var outline in outlines)
+        {
+            if (outline.FeedUrl is { } url) yield return url;
+            foreach (var nested in CollectFeedUrls(outline.Children))
+                yield return nested;
+        }
     }
 
     public async Task<string> ExportAsync(DateTimeOffset nowUtc, CancellationToken ct = default)

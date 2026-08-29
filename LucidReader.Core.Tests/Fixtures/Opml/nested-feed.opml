@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head><title>Nested feed export</title></head>
+  <body>
+    <outline text="Parent feed" type="rss" xmlUrl="https://parent.example/feed.xml">
+      <outline text="Child feed" type="rss" xmlUrl="https://child.example/feed.xml"/>
+    </outline>
+  </body>
+</opml>
