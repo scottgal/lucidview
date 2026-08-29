@@ -55,8 +55,9 @@
                 <TextBox Grid.Column="1" x:Name="SearchBox"
                          Watermark="Search all articles"
                          VerticalAlignment="Center"
-                         HorizontalAlignment="Center"
-                         Width="360"
+                         HorizontalAlignment="Stretch"
+                         MinWidth="120"
+                         MaxWidth="360"
                          Text="{Binding SearchText, Mode=TwoWay}" />
 
                 <Button Grid.Column="2" x:Name="SettingsButton" Content="Settings" Classes="row-toolbar"
