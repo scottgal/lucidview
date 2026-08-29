@@ -27,14 +27,21 @@
         <KeyBinding Gesture="Shift+R" Command="{Binding RefreshAllCommand}" />
         <KeyBinding Gesture="O" Command="{Binding OpenOriginalCommand}" />
         <KeyBinding Gesture="OemQuestion" Command="{Binding FocusSearchCommand}" />
-        <KeyBinding Gesture="Ctrl+F" Command="{Binding FindInArticleCommand}" />
-        <KeyBinding Gesture="Ctrl+N" Command="{Binding AddFeedCommand}" />
-        <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
         <KeyBinding Gesture="T" Command="{Binding EditTagsCommand}" />
-        <!-- Ctrl+S: no dedicated "export" gesture is established elsewhere in
-             this app, and Ctrl+S/"save as" is the closest existing platform
-             convention for writing the current article out to a file. -->
-        <KeyBinding Gesture="Ctrl+S" Command="{Binding ExportArticleCommand}" />
+        <!--
+            The Find-in-article, Add-feed, Settings and Export shortcuts are
+            NOT declared here: this app is styled after macOS Mail for a
+            Mac-first audience, where those gestures take Command, not
+            Control (Cmd+, for settings especially is a system-wide
+            convention). A static XAML Gesture string can only hardcode one
+            modifier, so they are added in code
+            (MainWindow.Actions.cs, ConfigurePlatformKeyBindings) using
+            Avalonia's own PlatformSettings.HotkeyConfiguration.CommandModifiers,
+            which resolves to Meta on macOS and Control elsewhere. Export
+            uses that same modifier plus S; there's no dedicated "export"
+            convention, and platform-Save is the closest existing one for
+            writing the current article out to a file.
+        -->
     </Window.KeyBindings>
 
     <Grid RowDefinitions="Auto,*,Auto">

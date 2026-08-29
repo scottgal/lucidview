@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using LucidReader.Models;
 using LucidReader.Services;
@@ -52,6 +53,31 @@ public partial class MainWindow
 
     private static ItemRow? RowFromSender(object? sender) =>
         (sender as Avalonia.StyledElement)?.DataContext as ItemRow;
+
+    /// <summary>
+    /// Find-in-article, Add-feed, Settings and Export cannot be declared as
+    /// static Gesture strings in MainWindow.axaml: this app is styled after
+    /// macOS Mail for a Mac-first audience, and on macOS those four take
+    /// Command, not Control (Cmd+, for settings is a system-wide convention
+    /// every Mac app honours; Ctrl+, would simply read as broken there).
+    /// Rather than hardcode either modifier, or branch on OperatingSystem,
+    /// this reads Avalonia's own notion of "the modifier for this platform" -
+    /// PlatformSettings.HotkeyConfiguration.CommandModifiers, which the
+    /// platform backend sets to Meta on macOS and Control on Windows/Linux -
+    /// so the same four bindings are correct everywhere. Called once from
+    /// the constructor (MainWindow.axaml.cs); the letter-only bindings
+    /// (J, K, N, P, M, S, R, O, T) stay in XAML because they have no
+    /// platform convention to defer to.
+    /// </summary>
+    private void ConfigurePlatformKeyBindings()
+    {
+        var commandModifier = PlatformSettings?.HotkeyConfiguration.CommandModifiers ?? KeyModifiers.Control;
+
+        KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.F, commandModifier), Command = FindInArticleCommand });
+        KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.N, commandModifier), Command = AddFeedCommand });
+        KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.OemComma, commandModifier), Command = OpenSettingsCommand });
+        KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.S, commandModifier), Command = ExportArticleCommand });
+    }
 
     private RelayCommand? _nextItem, _previousItem, _nextUnread, _previousUnread;
     private RelayCommand? _toggleRead, _toggleStar, _refreshCurrent, _refreshAll;

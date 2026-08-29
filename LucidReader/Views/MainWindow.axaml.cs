@@ -60,6 +60,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         DataContext = this;
 
         FetchFullArticleCommand = new RelayCommand(FetchFullArticleAsync);
+        ConfigurePlatformKeyBindings();
 
         // this.ReadingPane (the generated named-field access) is null here:
         // this window's InitializeComponent only calls AvaloniaXamlLoader.Load,
