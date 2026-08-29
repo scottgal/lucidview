@@ -46,6 +46,7 @@ actions:
 
   - type: Screenshot
     value: 01-discovered
+    window_id: "Add Feed"
     description: The discovery result, for eyeballing which feeds came back
 
   - type: Click
