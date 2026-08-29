@@ -59,11 +59,11 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Build FULL
         run: dotnet build MarkdownViewer.Full/MarkdownViewer.Full.csproj -c Debug
+      # Single line on purpose: this job's matrix includes windows-latest, where
+      # the default shell is pwsh and a trailing backslash is not a line
+      # continuation. A multi-line form here has failed every Windows run.
       - name: Test FULL (skip heavy)
-        run: |
-          dotnet test MarkdownViewer.Full.Tests/MarkdownViewer.Full.Tests.csproj \
-            -c Debug \
-            --filter "Category!=RequiresLlm&Category!=RequiresPlaywright"
+        run: dotnet test MarkdownViewer.Full.Tests/MarkdownViewer.Full.Tests.csproj -c Debug --filter "Category!=RequiresLlm&Category!=RequiresPlaywright"
 
   # Quick smoke test - ensure it can be published
   publish-test:
