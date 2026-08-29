@@ -52,6 +52,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     /// parameterless constructor just to silence the warning; that would
     /// let the window be constructed without a ReaderServices and crash on
     /// first use of _services.
+    ///
+    /// InitializeComponent below is the one the XAML compiler generates, which
+    /// both loads the XAML and assigns every x:Name backing field. Do not add a
+    /// hand-written `private void InitializeComponent() =>
+    /// AvaloniaXamlLoader.Load(this);` here: it does not override the generated
+    /// method, it shadows it, so the XAML still loads but every named field
+    /// stays null. This file carried exactly that for several tasks, and the
+    /// same mistake in FeedSettingsDialog crashed the app on open.
     /// </summary>
     public MainWindow(ReaderServices services)
     {
@@ -62,10 +70,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         FetchFullArticleCommand = new RelayCommand(FetchFullArticleAsync);
         ConfigurePlatformKeyBindings();
 
-        // this.ReadingPane (the generated named-field access) is null here:
-        // this window's InitializeComponent only calls AvaloniaXamlLoader.Load,
-        // it does not go through the generated overload that also populates
-        // named fields, so the control has to be looked up explicitly.
+        // FindControl rather than the generated ReadingPane field only because
+        // the pane is optional to this constructor: it is the one named control
+        // whose absence should not throw. The generated fields are populated by
+        // now, so anything else can be reached directly.
         var readingPane = this.FindControl<Mostlylucid.LucidView.Markdown.LucidMarkdownView>("ReadingPane");
         if (readingPane is not null)
             readingPane.LinkClick += OnArticleLinkClicked;
@@ -100,7 +108,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
-    private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
     /// <summary>
     /// Two collapsible groups, the way Mail groups Favourites and mailboxes:
