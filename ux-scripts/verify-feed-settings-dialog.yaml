@@ -1,0 +1,95 @@
+name: verify-feed-settings-dialog
+description: Right-click a feed, open Feed settings, verify inherited labels, then verify the unsubscribe confirmation (cancelled, not confirmed)
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2000"
+    description: Wait for app startup
+
+  - type: Screenshot
+    value: 00-main-window
+
+  - type: RightClick
+    target: "text=Alpha Feed"
+    description: Open the feed context menu on Alpha Feed
+
+  - type: Wait
+    value: "300"
+
+  - type: Screenshot
+    value: 01-context-menu
+    composite: true
+
+  - type: Click
+    target: "text='Feed settings...'"
+    description: Open the per-feed settings dialog
+
+  - type: Wait
+    value: "400"
+    description: Wait for the dialog to open and be tracked
+
+  - type: Screenshot
+    value: 02-feed-settings-dialog
+    window_id: "Feed Settings"
+
+  - type: Expect
+    target: InheritedRefreshIntervalText
+    window_id: "Feed Settings"
+    matcher: HasText
+    value: "Use the global setting (30 minutes)"
+
+  - type: Expect
+    target: InheritedAutoDownloadText
+    window_id: "Feed Settings"
+    matcher: HasText
+    value: "Use the global setting (on)"
+
+  - type: Expect
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+    matcher: IsUnchecked
+    description: Alpha Feed has no overrides yet, so every switch should open off
+
+  - type: Click
+    target: CancelButton
+    window_id: "Feed Settings"
+    description: Cancel without saving
+
+  - type: Wait
+    value: "300"
+
+  - type: RightClick
+    target: "text=Alpha Feed"
+    description: Reopen the context menu to reach Unsubscribe
+
+  - type: Wait
+    value: "300"
+
+  - type: Click
+    target: "text=Unsubscribe"
+    description: Trigger the unsubscribe confirmation
+
+  - type: Wait
+    value: "400"
+
+  - type: Screenshot
+    value: 03-unsubscribe-confirm
+    window_id: Unsubscribe
+
+  - type: Expect
+    target: MessageText
+    window_id: Unsubscribe
+    matcher: ContainsText
+    value: "Alpha Feed"
+
+  - type: Click
+    target: CancelButton
+    window_id: Unsubscribe
+    description: Cancel - must not actually delete the feed
+
+  - type: Wait
+    value: "300"
+
+  - type: Screenshot
+    value: 04-after-cancel

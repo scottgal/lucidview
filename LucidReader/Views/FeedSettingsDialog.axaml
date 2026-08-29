@@ -1,0 +1,153 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LucidReader.Views.FeedSettingsDialog"
+        Title="Feed Settings"
+        Width="520" Height="560"
+        MinWidth="460" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ListBackgroundBrush}">
+
+    <!--
+        Same "macOS System Settings" card shape as SettingsDialog: rounded
+        Border.settings-card groups with Grid.settings-row rows inside,
+        separated by the app's global Rectangle.hairline. Scoped locally
+        here rather than promoted to Styles/Reader.axaml for the same
+        reason SettingsDialog keeps its own copy - this shape only makes
+        sense inside a dialog like this one.
+    -->
+    <Window.Styles>
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="Grid.settings-row">
+            <Setter Property="Margin" Value="12,10,12,10" />
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20,16,20,16" RowDefinitions="Auto,*,Auto">
+
+        <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,12">
+            <TextBlock x:Name="DisplayTitleText" Classes="row-title" FontSize="16" />
+            <TextBlock x:Name="FeedUrlText" Classes="row-secondary" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="14">
+
+                <!-- ================= Identity ================= -->
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="Auto,*">
+                            <TextBlock Grid.Column="0" Text="Name" VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <TextBox Grid.Column="1" x:Name="TitleOverrideBox" Watermark="Use the feed's own title" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="Auto,*">
+                            <TextBlock Grid.Column="0" Text="Folder" VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <ComboBox Grid.Column="1" x:Name="FolderCombo" HorizontalAlignment="Stretch" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Feed enabled" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="EnabledCheck" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!--
+                    Four overridable settings. Each follows the same
+                    "override switch gates an editor" shape: the CheckBox
+                    turns the per-feed value on or off, and the label below
+                    always shows what the global is currently set to, so
+                    the user can see exactly what they would be overriding
+                    even while the override is off.
+                -->
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Text="Custom refresh interval" />
+                                <TextBlock x:Name="InheritedRefreshIntervalText" Classes="row-secondary" />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="OverrideRefreshIntervalCheck"
+                                      IsCheckedChanged="OnOverrideChanged" />
+                        </Grid>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto" Margin="12,0,12,10">
+                            <TextBlock Grid.Column="0" Text="Check every" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <NumericUpDown x:Name="RefreshIntervalBox"
+                                               Minimum="5" Maximum="1440" Increment="5"
+                                               FormatString="0" Width="110" />
+                                <TextBlock Text="minutes" VerticalAlignment="Center" Classes="row-secondary" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Text="Custom offline download" />
+                                <TextBlock x:Name="InheritedAutoDownloadText" Classes="row-secondary" />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="OverrideAutoDownloadCheck"
+                                      IsCheckedChanged="OnOverrideChanged" />
+                        </Grid>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto" Margin="12,0,12,10">
+                            <TextBlock Grid.Column="0" Text="Download new articles for offline reading" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="AutoDownloadCheck" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Text="Custom full-text fetching" />
+                                <TextBlock x:Name="InheritedFetchFullTextText" Classes="row-secondary" />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="OverrideFetchFullTextCheck"
+                                      IsCheckedChanged="OnOverrideChanged" />
+                        </Grid>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto" Margin="12,0,12,10">
+                            <TextBlock Grid.Column="0" Text="Fetch full article text, not just the feed summary" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="FetchFullTextCheck" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Text="Custom retention" />
+                                <TextBlock x:Name="InheritedRetentionText" Classes="row-secondary" />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="OverrideRetentionCheck"
+                                      IsCheckedChanged="OnOverrideChanged" />
+                        </Grid>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto" Margin="12,0,12,10">
+                            <TextBlock Grid.Column="0" Text="Keep read articles for" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <NumericUpDown x:Name="RetentionDaysBox"
+                                               Minimum="0" Maximum="3650" Increment="1"
+                                               FormatString="0" Width="110" />
+                                <TextBlock Text="days" VerticalAlignment="Center" Classes="row-secondary" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+            <Button x:Name="CancelButton" Content="Cancel" Click="OnCancel" Width="80" IsCancel="True" />
+            <Button x:Name="OkButton" Content="Save" Click="OnOk" Width="80" Classes="accent" IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</Window>

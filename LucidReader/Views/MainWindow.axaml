@@ -119,6 +119,26 @@
                                             <DataTemplate>
                                                 <Border Classes="node-row" Classes.selected="{Binding IsSelected}"
                                                         PointerPressed="OnFeedNodePointerPressed">
+                                                    <!--
+                                                        Feed-only actions (Task 12): the context menu itself is
+                                                        shown for every row (folders and smart rows get one too,
+                                                        harmlessly empty of feed-specific items would be worse
+                                                        than just not opening), but each command bails out on a
+                                                        null FeedId, so choosing one of these on a folder or a
+                                                        smart row does nothing rather than throwing.
+                                                    -->
+                                                    <Border.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="Refresh" Click="OnRefreshFeedClicked" />
+                                                            <MenuItem Header="Rename" Click="OnRenameFeedClicked" />
+                                                            <Separator />
+                                                            <MenuItem Header="Mark all read" Click="OnMarkFeedReadClicked" />
+                                                            <Separator />
+                                                            <MenuItem Header="Feed settings..." Click="OnFeedSettingsClicked" />
+                                                            <Separator />
+                                                            <MenuItem Header="Unsubscribe" Click="OnUnsubscribeFeedClicked" />
+                                                        </ContextMenu>
+                                                    </Border.ContextMenu>
                                                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="{Binding Indent}">
                                                         <!--
                                                             16px favicon slot, always reserved (Width fixed
