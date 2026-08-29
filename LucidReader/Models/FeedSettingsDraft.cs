@@ -1,6 +1,6 @@
 using LucidReader.Core.Model;
 
-namespace LucidReader.Views;
+namespace LucidReader.Models;
 
 /// <summary>
 /// A plain, Avalonia-free holder for every editable value in the per-feed
@@ -30,7 +30,11 @@ public sealed class FeedSettingsDraft
         _original = feed;
         _globals = globals;
 
-        DisplayTitle = feed.Title ?? feed.FeedUrl;
+        // Feed.DisplayTitle already encodes the override-then-title-then-URL
+        // order. Reading feed.Title directly here showed the raw feed URL as
+        // the dialog header for a feed that has a user override but no
+        // publisher title yet.
+        DisplayTitle = feed.DisplayTitle;
         FeedUrl = feed.FeedUrl;
         TitleOverride = feed.TitleOverride ?? string.Empty;
         FolderId = feed.FolderId;

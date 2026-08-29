@@ -269,6 +269,27 @@ public class ItemRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Counting_a_feed_counts_read_and_unread_rows_of_that_feed_only()
+    {
+        var otherFeedId = await new FeedRepository(_db).AddAsync(
+            new Feed { FeedUrl = "https://other.example.com/feed.xml", Title = "Other" });
+
+        await _items.UpsertAsync(NewItem("guid-1"));
+        await _items.UpsertAsync(NewItem("guid-2"));
+        await _items.UpsertAsync(NewItem("guid-3") with { FeedId = otherFeedId });
+        await _items.MarkFeedReadAsync(_feedId);
+
+        Assert.Equal(2, await _items.GetCountAsync(_feedId));
+        Assert.Equal(1, await _items.GetCountAsync(otherFeedId));
+    }
+
+    [Fact]
+    public async Task Counting_a_feed_with_no_stored_articles_returns_zero()
+    {
+        Assert.Equal(0, await _items.GetCountAsync(_feedId));
+    }
+
+    [Fact]
     public async Task A_query_with_an_unset_limit_does_not_silently_return_zero_rows()
     {
         // ItemQuery is a positional record struct: default(ItemQuery) - and any

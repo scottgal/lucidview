@@ -155,6 +155,68 @@ public class FeedRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Setting_a_title_override_leaves_the_publisher_title_alone()
+    {
+        var id = await _feeds.AddAsync(NewFeed());
+
+        await _feeds.UpdateTitleOverrideAsync(id, "My name for it");
+
+        var loaded = await _feeds.GetAsync(id);
+        Assert.Equal("My name for it", loaded!.TitleOverride);
+        Assert.Equal("Example", loaded.Title);
+        Assert.Equal("My name for it", loaded.DisplayTitle);
+    }
+
+    [Fact]
+    public async Task Clearing_a_title_override_falls_back_to_the_publisher_title()
+    {
+        var id = await _feeds.AddAsync(NewFeed() with { TitleOverride = "My name for it" });
+
+        await _feeds.UpdateTitleOverrideAsync(id, null);
+
+        var loaded = await _feeds.GetAsync(id);
+        Assert.Null(loaded!.TitleOverride);
+        Assert.Equal("Example", loaded.Title);
+        Assert.Equal("Example", loaded.DisplayTitle);
+    }
+
+    [Fact]
+    public async Task A_blank_title_override_is_stored_as_written_and_never_touches_the_title()
+    {
+        var id = await _feeds.AddAsync(NewFeed() with { TitleOverride = "My name for it" });
+
+        await _feeds.UpdateTitleOverrideAsync(id, "   ");
+
+        var loaded = await _feeds.GetAsync(id);
+        Assert.Equal("   ", loaded!.TitleOverride);
+        Assert.Equal("Example", loaded.Title);
+
+        // DisplayTitle treats whitespace as no override at all, so a blank
+        // one still reads as the feed's own title.
+        Assert.Equal("Example", loaded.DisplayTitle);
+    }
+
+    [Fact]
+    public async Task A_title_override_write_leaves_every_other_column_alone()
+    {
+        var folderId = await _folders.AddAsync("News");
+        var id = await _feeds.AddAsync(NewFeed() with
+        {
+            FolderId = folderId,
+            RefreshIntervalMinutes = 15,
+            IsEnabled = false
+        });
+
+        await _feeds.UpdateTitleOverrideAsync(id, "Renamed");
+
+        var loaded = await _feeds.GetAsync(id);
+        Assert.Equal(folderId, loaded!.FolderId);
+        Assert.Equal("https://example.com", loaded.SiteUrl);
+        Assert.Equal(15, loaded.RefreshIntervalMinutes);
+        Assert.False(loaded.IsEnabled);
+    }
+
+    [Fact]
     public async Task Deleting_a_folder_orphans_its_feeds_rather_than_deleting_them()
     {
         var folderId = await _folders.AddAsync("News");

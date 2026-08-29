@@ -1,5 +1,5 @@
 using LucidReader.Core.Model;
-using LucidReader.Views;
+using LucidReader.Models;
 using Xunit;
 
 namespace LucidReader.Core.Tests.Ui;
@@ -20,6 +20,20 @@ public class FeedSettingsDraftTests
         Assert.False(dialog.OverrideAutoDownload);
         Assert.False(dialog.OverrideFetchFullText);
         Assert.False(dialog.OverrideRetention);
+    }
+
+    [Fact]
+    public void The_header_shows_the_override_when_the_feed_has_no_publisher_title_yet()
+    {
+        var dialog = Dialog(new Feed
+        {
+            Id = 7,
+            FeedUrl = "https://example.com/feed.xml",
+            Title = null,
+            TitleOverride = "My name for it"
+        });
+
+        Assert.Equal("My name for it", dialog.DisplayTitle);
     }
 
     [Fact]

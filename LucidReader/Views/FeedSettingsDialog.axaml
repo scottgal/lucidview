@@ -17,6 +17,26 @@
         reason SettingsDialog keeps its own copy - this shape only makes
         sense inside a dialog like this one.
     -->
+    <!--
+        The checkboxes and the Save button pick their fill from the base
+        theme's accent, which on this platform is not the blue the rest of
+        the app selects with (AccentSelectionBrush, see Styles/Reader.axaml).
+        Rebinding the theme's accent keys to that same colour here keeps the
+        dialog in the app's palette instead of the platform's.
+    -->
+    <Window.Resources>
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="AccentButtonBackground" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="{DynamicResource AccentSelectionColor}" />
+        <SolidColorBrush x:Key="AccentButtonBorderBrush" Color="{DynamicResource AccentSelectionColor}" />
+    </Window.Resources>
+
     <Window.Styles>
         <Style Selector="Border.settings-card">
             <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />

@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using LucidReader.Core.Model;
+using LucidReader.Models;
 
 namespace LucidReader.Views;
 
@@ -13,18 +14,22 @@ namespace LucidReader.Views;
 /// constructed in a unit test in this repo - see FeedSettingsDraftTests for
 /// the part that actually matters.
 ///
-/// Has a public parameterless constructor purely so the generated
-/// InitializeComponent() populates every x:Name field, matching
-/// ConfirmDialog, InputDialog and SettingsDialog.
+/// The public parameterless constructor is there for the XAML runtime
+/// loader, which needs one to construct the type; the real entry point is
+/// the three-argument constructor below, which chains through it.
 /// </summary>
 public partial class FeedSettingsDialog : Window
 {
+    /// <summary>
+    /// Draft is non-nullable, so this has to leave something in it. An empty
+    /// Feed and the default globals are enough: the three-argument
+    /// constructor immediately replaces it with the real one, and the loader
+    /// never reads it.
+    /// </summary>
     public FeedSettingsDialog()
     {
         InitializeComponent();
-        Draft = new FeedSettingsDraft(
-            new Feed { FeedUrl = "https://example.com/feed.xml" },
-            ReaderSettings.Defaults);
+        Draft = new FeedSettingsDraft(new Feed { FeedUrl = string.Empty }, ReaderSettings.Defaults);
     }
 
     public FeedSettingsDialog(Feed feed, ReaderSettings globals, IReadOnlyList<Folder> folders) : this()

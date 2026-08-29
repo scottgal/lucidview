@@ -168,6 +168,27 @@ public class FeedRepository(ReaderDatabase db)
             ct);
 
     /// <summary>
+    /// Writes only the user-owned title override, the column Feed.DisplayTitle
+    /// prefers over the publisher's own title. A rename must come through here
+    /// rather than through UpdateTitleAndSiteUrlAsync: that one writes
+    /// feeds.title, which FeedRefreshService re-adopts from the feed's own
+    /// content on every successful refresh, so a rename written there is
+    /// reverted on the next poll (and invisible straight away if an override
+    /// already exists). Null clears the override, which is what "go back to
+    /// the feed's own title" means.
+    /// </summary>
+    public Task UpdateTitleOverrideAsync(
+        long feedId, string? titleOverride, CancellationToken ct = default) =>
+        db.WriteAsync(
+            "UPDATE feeds SET title_override = $titleOverride WHERE id = $id;",
+            new Dictionary<string, object?>
+            {
+                ["$id"] = feedId,
+                ["$titleOverride"] = titleOverride
+            },
+            ct);
+
+    /// <summary>
     /// Enables or disables a feed as a deliberate action (a manual toggle, or
     /// a user re-enabling a feed FeedRefreshService auto-paused). Like the
     /// title and site link adoption above, this must not write back a whole

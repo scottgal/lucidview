@@ -86,6 +86,14 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
     /// </summary>
     public bool ShowIconPlaceholder => Kind == FeedTreeNodeKind.Feed && !HasIcon;
 
+    /// <summary>
+    /// True only for a real feed row. Gates the feed-only context-menu items
+    /// (MainWindow.axaml): every one of those handlers bails out on a null
+    /// FeedId, so on a folder or a smart row they were offered but did
+    /// nothing at all when clicked. Hiding them says so up front.
+    /// </summary>
+    public bool IsFeed => Kind == FeedTreeNodeKind.Feed;
+
     public bool HasUnread => _unreadCount > 0;
     public string UnreadLabel => _unreadCount > 0 ? _unreadCount.ToString() : string.Empty;
     public bool HasProblem => ConsecutiveFailures > 0 || IsAutoPaused;

@@ -185,11 +185,7 @@ public partial class MainWindow
             return;
         }
 
-        StatusMessage = "Refreshing...";
-        var outcome = await _services.Refresh.RefreshNowAsync(feedId);
-        await AfterRefreshAsync(outcome.Success
-            ? outcome.NotModified ? "No changes." : $"{outcome.NewItemCount} new articles."
-            : "Refresh failed: " + outcome.Error);
+        await RefreshFeedAsync(feedId);
     }
 
     private async Task RefreshAllAsync()

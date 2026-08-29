@@ -20,7 +20,12 @@
                     <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#F0EBEBED" />
                     <SolidColorBrush x:Key="ListBackgroundBrush" Color="#FFFFFFFF" />
                     <SolidColorBrush x:Key="ReadingBackgroundBrush" Color="#FFFFFFFF" />
-                    <SolidColorBrush x:Key="AccentSelectionBrush" Color="#FF0A84FF" />
+                    <!-- The macOS blue the whole app selects with. Exposed as a
+                         Color as well as a brush so a dialog can build the theme's
+                         own accent brushes (checkbox fills, the accent button) from
+                         it rather than inheriting the platform accent. -->
+                    <Color x:Key="AccentSelectionColor">#FF0A84FF</Color>
+                    <SolidColorBrush x:Key="AccentSelectionBrush" Color="{StaticResource AccentSelectionColor}" />
                     <SolidColorBrush x:Key="AccentSelectionInactiveBrush" Color="#33000000" />
                     <SolidColorBrush x:Key="RowHoverBrush" Color="#0A000000" />
                     <SolidColorBrush x:Key="UnreadDotBrush" Color="#FF0A84FF" />
@@ -35,7 +40,8 @@
                     <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#F02C2C2E" />
                     <SolidColorBrush x:Key="ListBackgroundBrush" Color="#FF1C1C1E" />
                     <SolidColorBrush x:Key="ReadingBackgroundBrush" Color="#FF1C1C1E" />
-                    <SolidColorBrush x:Key="AccentSelectionBrush" Color="#FF0A84FF" />
+                    <Color x:Key="AccentSelectionColor">#FF0A84FF</Color>
+                    <SolidColorBrush x:Key="AccentSelectionBrush" Color="{StaticResource AccentSelectionColor}" />
                     <SolidColorBrush x:Key="AccentSelectionInactiveBrush" Color="#40FFFFFF" />
                     <SolidColorBrush x:Key="RowHoverBrush" Color="#14FFFFFF" />
                     <SolidColorBrush x:Key="UnreadDotBrush" Color="#FF409CFF" />

@@ -280,6 +280,23 @@ public sealed class ItemRepository(ReaderDatabase db)
         }, ct);
 
     /// <summary>
+    /// How many stored articles a feed has, for callers that only need the
+    /// number (the unsubscribe confirmation, say). Counting in SQL rather than
+    /// via QueryAsync matters here: QueryAsync's SELECT i.* pulls every row's
+    /// content_markdown, the full article body, so counting through it would
+    /// materialise the whole feed's text just to get a total, and would be
+    /// capped by whatever page size the caller passed.
+    /// </summary>
+    public Task<int> GetCountAsync(long feedId, CancellationToken ct = default) =>
+        db.QueryAsync(async connection =>
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT count(*) FROM items WHERE feed_id = $feedId;";
+            command.Parameters.AddWithValue("$feedId", feedId);
+            return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
+        }, ct);
+
+    /// <summary>
     /// Counts a feed's rows on the given connection and transaction, rather than
     /// through db.QueryAsync's own short-lived connection, so a caller can take
     /// this count as part of a larger atomic sequence (see UpsertManyAsync).

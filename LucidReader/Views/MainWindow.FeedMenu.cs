@@ -1,4 +1,3 @@
-using LucidReader.Core.Storage;
 using LucidReader.Models;
 
 namespace LucidReader.Views;
@@ -30,8 +29,16 @@ public partial class MainWindow
 
     private async void OnRefreshFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (NodeFromSender(sender)?.FeedId is not { } feedId) return;
+        if (NodeFromSender(sender)?.FeedId is { } feedId) await RefreshFeedAsync(feedId);
+    }
 
+    /// <summary>
+    /// The single refresh-one-feed path, shared by the context menu above and
+    /// by RefreshCurrentFeedAsync (MainWindow.Actions.cs), which reaches it
+    /// from the sidebar selection instead.
+    /// </summary>
+    private async Task RefreshFeedAsync(long feedId)
+    {
         StatusMessage = "Refreshing...";
         var outcome = await _services.Refresh.RefreshNowAsync(feedId);
         await AfterRefreshAsync(outcome.Success
@@ -88,9 +95,27 @@ public partial class MainWindow
         var dialog = new FeedSettingsDialog(feed, _services.Settings, folders);
         await dialog.ShowDialog(this);
 
-        if (dialog.Result is not { } updated) return;
+        if (dialog.Result is not { } draft) return;
 
-        if (updated.IsEnabled != feed.IsEnabled)
+        // Re-read the row before saving. A refresh that completed while the
+        // dialog was open may have adopted a new publisher title or site URL
+        // (UpdateTitleAndSiteUrlAsync), and UpdateAsync writes both columns;
+        // saving the pre-dialog snapshot would roll that adoption back. Only
+        // the fields the dialog actually edits are carried over onto the
+        // fresh row.
+        var current = await _services.Feeds.GetAsync(feedId) ?? feed;
+        var updated = current with
+        {
+            FolderId = draft.FolderId,
+            TitleOverride = draft.TitleOverride,
+            IsEnabled = draft.IsEnabled,
+            RefreshIntervalMinutes = draft.RefreshIntervalMinutes,
+            AutoDownload = draft.AutoDownload,
+            FetchFullText = draft.FetchFullText,
+            RetentionDays = draft.RetentionDays
+        };
+
+        if (updated.IsEnabled != current.IsEnabled)
             await _services.Feeds.SetEnabledAsync(feedId, updated.IsEnabled);
 
         // UpdateAsync writes folder, title override, icon, is_enabled and the
@@ -104,9 +129,11 @@ public partial class MainWindow
 
     /// <summary>
     /// A fast rename that does not require opening the full settings
-    /// dialog, the way Mail lets you rename a mailbox in place. Writes
-    /// through UpdateTitleAndSiteUrlAsync so the feed's discovered site URL
-    /// (used for favicon resolution) survives the rename untouched.
+    /// dialog, the way Mail lets you rename a mailbox in place. Writes the
+    /// user-owned title_override column only: feeds.title belongs to the
+    /// publisher, so a name written there would be overwritten by the next
+    /// successful refresh, and would be invisible from the start on a feed
+    /// that already has an override, since DisplayTitle prefers it.
     /// </summary>
     public async Task RenameFeedAsync(long feedId)
     {
@@ -121,10 +148,9 @@ public partial class MainWindow
         // an empty title" - the same null-means-inherit idea as the
         // settings dialog's overrides, just for this one field.
         var trimmed = entered.Trim();
-        await _services.Feeds.UpdateTitleAndSiteUrlAsync(
+        await _services.Feeds.UpdateTitleOverrideAsync(
             feedId,
-            string.IsNullOrEmpty(trimmed) ? feed.Title : trimmed,
-            feed.SiteUrl);
+            string.IsNullOrWhiteSpace(trimmed) ? null : trimmed);
 
         await LoadFeedTreeAsync();
         StatusMessage = "Feed renamed.";
@@ -148,18 +174,23 @@ public partial class MainWindow
         var feed = await _services.Feeds.GetAsync(feedId);
         if (feed is null) return;
 
-        var items = await _services.Items.QueryAsync(
-            new ItemQuery(feedId, null, ItemFilter.All, 10000, 0));
+        var storedCount = await _services.Items.GetCountAsync(feedId);
 
         var confirm = new ConfirmDialog(
             "Unsubscribe",
-            $"Remove \"{feed.DisplayTitle}\" and its {items.Count} stored " +
-            (items.Count == 1 ? "article" : "articles") + "? This cannot be undone.",
+            $"Remove \"{feed.DisplayTitle}\" and its {storedCount} stored " +
+            (storedCount == 1 ? "article" : "articles") + "? This cannot be undone.",
             "Unsubscribe");
         await confirm.ShowDialog(this);
         if (!confirm.Confirmed) return;
 
         await _services.Feeds.DeleteAsync(feedId);
+
+        // Drop the selection first if it points at the feed that just went
+        // away. Reloading the tree with it still set leaves the middle pane
+        // bound to a deleted feed id: no rows, and no row to click back to.
+        if (SelectedFeedNode?.FeedId == feedId) SelectedFeedNode = null;
+
         await LoadFeedTreeAsync();
         await LoadItemsAsync();
         StatusMessage = $"Unsubscribed from {feed.DisplayTitle}.";

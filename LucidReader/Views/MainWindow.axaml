@@ -132,23 +132,29 @@
                                                 <Border Classes="node-row" Classes.selected="{Binding IsSelected}"
                                                         PointerPressed="OnFeedNodePointerPressed">
                                                     <!--
-                                                        Feed-only actions (Task 12): the context menu itself is
-                                                        shown for every row (folders and smart rows get one too,
-                                                        harmlessly empty of feed-specific items would be worse
-                                                        than just not opening), but each command bails out on a
-                                                        null FeedId, so choosing one of these on a folder or a
-                                                        smart row does nothing rather than throwing.
+                                                        Feed-only actions (Task 12). The same template renders
+                                                        smart rows, folders and feeds, so the ContextMenu is
+                                                        attached to every row, but each item here acts on a
+                                                        FeedId and its handler bails out when there is none.
+                                                        Offering them on a folder or a smart row would mean a
+                                                        click that does nothing and says nothing, so every item
+                                                        is gated on FeedTreeNode.IsFeed instead.
                                                     -->
                                                     <Border.ContextMenu>
                                                         <ContextMenu>
-                                                            <MenuItem Header="Refresh" Click="OnRefreshFeedClicked" />
-                                                            <MenuItem Header="Rename" Click="OnRenameFeedClicked" />
-                                                            <Separator />
-                                                            <MenuItem Header="Mark all read" Click="OnMarkFeedReadClicked" />
-                                                            <Separator />
-                                                            <MenuItem Header="Feed settings..." Click="OnFeedSettingsClicked" />
-                                                            <Separator />
-                                                            <MenuItem Header="Unsubscribe" Click="OnUnsubscribeFeedClicked" />
+                                                            <MenuItem Header="Refresh" Click="OnRefreshFeedClicked"
+                                                                      IsVisible="{Binding IsFeed}" />
+                                                            <MenuItem Header="Rename" Click="OnRenameFeedClicked"
+                                                                      IsVisible="{Binding IsFeed}" />
+                                                            <Separator IsVisible="{Binding IsFeed}" />
+                                                            <MenuItem Header="Mark all read" Click="OnMarkFeedReadClicked"
+                                                                      IsVisible="{Binding IsFeed}" />
+                                                            <Separator IsVisible="{Binding IsFeed}" />
+                                                            <MenuItem Header="Feed settings..." Click="OnFeedSettingsClicked"
+                                                                      IsVisible="{Binding IsFeed}" />
+                                                            <Separator IsVisible="{Binding IsFeed}" />
+                                                            <MenuItem Header="Unsubscribe" Click="OnUnsubscribeFeedClicked"
+                                                                      IsVisible="{Binding IsFeed}" />
                                                         </ContextMenu>
                                                     </Border.ContextMenu>
                                                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="{Binding Indent}">

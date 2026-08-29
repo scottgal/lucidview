@@ -21,6 +21,14 @@ public class FeedTreeNodeTests
     }
 
     [Fact]
+    public void Only_a_feed_row_reports_IsFeed()
+    {
+        Assert.True(new FeedTreeNode { Title = "Feed", Kind = FeedTreeNodeKind.Feed }.IsFeed);
+        Assert.False(new FeedTreeNode { Title = "Folder", Kind = FeedTreeNodeKind.Folder }.IsFeed);
+        Assert.False(new FeedTreeNode { Title = "Unread", Kind = FeedTreeNodeKind.Smart }.IsFeed);
+    }
+
+    [Fact]
     public void A_feed_inside_a_folder_is_indented_but_a_folder_is_not()
     {
         var feedInFolder = new FeedTreeNode
