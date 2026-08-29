@@ -120,8 +120,20 @@
                 <Setter Property="Foreground" Value="{DynamicResource RowSecondaryBrush}" />
                 <Setter Property="Template">
                     <ControlTemplate>
+                        <!--
+                            Padding is a literal here, not {TemplateBinding
+                            Padding}. Fluent ships a plain Style for
+                            RadioButton, and a Style outranks a ControlTheme
+                            setter, so the Padding set above was losing to it:
+                            segments rendered with about 4px of side padding
+                            instead of 12, and the content sat off centre
+                            inside them (the checked "All" pill had 9px on the
+                            left and 0 on the right). MinWidth keeps a short
+                            label from collapsing to a stub next to longer
+                            ones.
+                        -->
                         <Border Name="PART_Segment" CornerRadius="5" Background="Transparent"
-                                Padding="{TemplateBinding Padding}">
+                                Padding="14,5" MinWidth="62">
                             <ContentPresenter Content="{TemplateBinding Content}"
                                               TextBlock.Foreground="{TemplateBinding Foreground}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
