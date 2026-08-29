@@ -1,15 +1,128 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:md="clr-namespace:Mostlylucid.LucidView.Markdown;assembly=Mostlylucid.LucidView.Markdown"
         x:Class="LucidReader.Views.MainWindow"
         Title="lucidREADER"
-        Width="1100" Height="750"
-        MinWidth="600" MinHeight="450"
-        WindowStartupLocation="CenterScreen">
+        Width="1280" Height="820"
+        MinWidth="820" MinHeight="520">
 
-    <Grid>
-        <TextBlock x:Name="StatusTextBlock"
-                   Text="{Binding StatusText}"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center" />
+    <Window.KeyBindings>
+        <KeyBinding Gesture="J" Command="{Binding NextItemCommand}" />
+        <KeyBinding Gesture="K" Command="{Binding PreviousItemCommand}" />
+        <KeyBinding Gesture="N" Command="{Binding NextUnreadCommand}" />
+        <KeyBinding Gesture="P" Command="{Binding PreviousUnreadCommand}" />
+        <KeyBinding Gesture="M" Command="{Binding ToggleReadCommand}" />
+        <KeyBinding Gesture="S" Command="{Binding ToggleStarCommand}" />
+        <KeyBinding Gesture="R" Command="{Binding RefreshCurrentFeedCommand}" />
+        <KeyBinding Gesture="Shift+R" Command="{Binding RefreshAllCommand}" />
+        <KeyBinding Gesture="O" Command="{Binding OpenOriginalCommand}" />
+        <KeyBinding Gesture="OemQuestion" Command="{Binding FocusSearchCommand}" />
+        <KeyBinding Gesture="Ctrl+F" Command="{Binding FindInArticleCommand}" />
+        <KeyBinding Gesture="Ctrl+N" Command="{Binding AddFeedCommand}" />
+        <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
+    </Window.KeyBindings>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <Border Grid.Row="0" Padding="8,6" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                    <Button x:Name="AddFeedButton" Content="Add feed"
+                            Command="{Binding AddFeedCommand}" />
+                    <Button x:Name="RefreshAllButton" Content="Refresh all"
+                            Command="{Binding RefreshAllCommand}" />
+                </StackPanel>
+
+                <TextBox Grid.Column="1" x:Name="SearchBox" Margin="12,0"
+                         Watermark="Search all articles"
+                         Text="{Binding SearchText, Mode=TwoWay}" />
+
+                <Button Grid.Column="2" x:Name="SettingsButton" Content="Settings"
+                        Command="{Binding OpenSettingsCommand}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="260,4,340,4,*">
+
+            <ListBox Grid.Column="0" x:Name="FeedTree"
+                     ItemsSource="{Binding FeedNodes}"
+                     SelectedItem="{Binding SelectedFeedNode, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="{Binding Indent}">
+                            <TextBlock Grid.Column="1" Text="{Binding Title}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="2" Text="!" Margin="4,0"
+                                       IsVisible="{Binding HasProblem}"
+                                       ToolTip.Tip="{Binding LastError}" />
+                            <TextBlock Grid.Column="3" Text="{Binding UnreadLabel}"
+                                       IsVisible="{Binding HasUnread}" Opacity="0.7" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+            <Grid Grid.Column="2" RowDefinitions="Auto,*">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="4" Margin="6">
+                    <RadioButton x:Name="FilterAll" Content="All" GroupName="ItemFilter"
+                                 IsChecked="{Binding IsFilterAll, Mode=TwoWay}" />
+                    <RadioButton x:Name="FilterUnread" Content="Unread" GroupName="ItemFilter"
+                                 IsChecked="{Binding IsFilterUnread, Mode=TwoWay}" />
+                    <RadioButton x:Name="FilterStarred" Content="Starred" GroupName="ItemFilter"
+                                 IsChecked="{Binding IsFilterStarred, Mode=TwoWay}" />
+                </StackPanel>
+
+                <ListBox Grid.Row="1" x:Name="ItemList"
+                         ItemsSource="{Binding ItemRows}"
+                         SelectedItem="{Binding SelectedItemRow, Mode=TwoWay}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
+                                <TextBlock Grid.Column="0" Text="{Binding StarGlyph}" Margin="0,0,6,0" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Title}"
+                                               FontWeight="{Binding TitleWeight}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding FeedName}" Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Text="{Binding RelativeDate}"
+                                           Opacity="0.6" FontSize="11" VerticalAlignment="Top" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
+
+            <ScrollViewer Grid.Column="4" x:Name="ReadingScroll">
+                <StackPanel Margin="24,16" MaxWidth="{Binding ColumnWidth}">
+                    <TextBlock x:Name="ArticleTitleText" Text="{Binding ArticleTitle}"
+                               FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock x:Name="ArticleMetaText" Text="{Binding ArticleMeta}"
+                               Opacity="0.65" Margin="0,4,0,2" TextWrapping="Wrap" />
+                    <Border x:Name="OfflineBadge" IsVisible="{Binding ShowOfflineBadge}"
+                            Padding="6,3" Margin="0,4" CornerRadius="3"
+                            Background="{DynamicResource SystemControlBackgroundListLowBrush}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding OfflineBadgeText}" FontSize="11" />
+                            <Button x:Name="FetchFullArticleButton" Content="Fetch full article"
+                                    FontSize="11" Padding="6,0"
+                                    IsVisible="{Binding CanFetchFullArticle}"
+                                    Command="{Binding FetchFullArticleCommand}" />
+                        </StackPanel>
+                    </Border>
+                    <md:LucidMarkdownView x:Name="ReadingPane" Markdown="{Binding ArticleMarkdown}" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <Border Grid.Row="2" Padding="8,4" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+            <TextBlock x:Name="StatusText" Text="{Binding StatusMessage}" FontSize="11" Opacity="0.75" />
+        </Border>
     </Grid>
 </Window>

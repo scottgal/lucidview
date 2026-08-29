@@ -1,9 +1,13 @@
+using LucidReader.Models;
+
 namespace LucidReader.Views;
 
 /// <summary>
-/// The item list. Minimal for Task 1: loads nothing beyond a compiling
-/// no-op, so later tasks can MODIFY this file (rather than create it) without
-/// hitting a CS0102 duplicate-member error against MainWindow.axaml.cs.
+/// The item list. Minimal for Task 6: loads nothing beyond a compiling
+/// no-op, so later tasks (7-11) can MODIFY this file (rather than create it)
+/// without hitting a CS0102 duplicate-member error against MainWindow.axaml.cs.
+/// A later task fills ItemRows from SelectedFeedNode / SearchText / CurrentFilter
+/// and populates ItemRows on the window.
 /// </summary>
 public partial class MainWindow
 {
@@ -14,5 +18,8 @@ public partial class MainWindow
     public Task LoadItemsAsync() => Task.CompletedTask;
 
     private Task OnItemSelectedAsync(ItemRow? row) => Task.CompletedTask;
+
+    /// <summary>Stub: a later task re-queries ItemRows against SearchText.</summary>
+    private Task OnSearchTextChangedAsync() => Task.CompletedTask;
 #pragma warning restore CA1822
 }

@@ -1,5 +1,15 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
+using LucidReader.Core.Model;
+using LucidReader.Core.Storage;
+using LucidReader.Models;
+using MarkdownViewer.Models;
+using MarkdownViewer.Services;
 
 namespace LucidReader.Views;
 
@@ -9,37 +19,194 @@ namespace LucidReader.Views;
 /// AvaloniaObject already implements INotifyPropertyChanged, so a `new` event
 /// here hides rather than overrides that base implementation. Verified
 /// through the Mostlylucid.Avalonia.UITesting harness (--ux-repl), not a
-/// unit test that constructs a Window: see task-1-report.md for the
-/// transcript. If that verification ever regresses, the fix is not to fight
-/// the base class further: move mutable state onto a plain non-Avalonia
-/// DataContext object, or use Avalonia's own styled/direct properties
-/// instead.
+/// unit test that constructs a Window: see task-6-report.md for the
+/// transcript, including the ObservableCollection-binding check.
+///
+/// This file (Task 6) provides the shell: named controls, theme application
+/// and feed-tree loading. The article properties and every ICommand are
+/// still stubs here; Tasks 7-11 fill them in in the sibling partial files
+/// (MainWindow.Items.cs, MainWindow.Reading.cs, MainWindow.Actions.cs).
 /// </summary>
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly ReaderServices _services;
-    private string _statusText = "Ready";
+    private readonly ThemeService _theme;
+    private readonly Action<ReaderSettings> _onSettingsChanged;
 
-    public new event PropertyChangedEventHandler? PropertyChanged;
+    private FeedTreeNode? _selectedFeedNode;
+    private ItemRow? _selectedItemRow;
+    private string _searchText = string.Empty;
+    private string _statusMessage = string.Empty;
+    private ItemFilter _filter = ItemFilter.All;
 
     public MainWindow(ReaderServices services)
     {
         _services = services;
-        DataContext = this;
         InitializeComponent();
+        DataContext = this;
+
+        _theme = new ThemeService(Application.Current!);
+        ApplySettings(_services.Settings);
+
+        _onSettingsChanged = settings => Dispatcher.UIThread.Post(() => ApplySettings(settings));
+        _services.SettingsChanged += _onSettingsChanged;
+
+        Opened += async (_, _) => await OnOpenedAsync();
+        Closing += (_, _) => _services.SettingsChanged -= _onSettingsChanged;
     }
 
-    public string StatusText
+    private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    public ObservableCollection<FeedTreeNode> FeedNodes { get; } = [];
+    public ObservableCollection<ItemRow> ItemRows { get; } = [];
+
+    public double ColumnWidth => _services.Settings.ColumnWidth;
+
+    public FeedTreeNode? SelectedFeedNode
     {
-        get => _statusText;
+        get => _selectedFeedNode;
         set
         {
-            if (_statusText == value) return;
-            _statusText = value;
-            OnPropertyChanged(nameof(StatusText));
+            if (ReferenceEquals(_selectedFeedNode, value)) return;
+            _selectedFeedNode = value;
+            Raise();
+            _ = LoadItemsAsync();
         }
     }
 
-    protected void OnPropertyChanged(string propertyName) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    public ItemRow? SelectedItemRow
+    {
+        get => _selectedItemRow;
+        set
+        {
+            if (ReferenceEquals(_selectedItemRow, value)) return;
+            _selectedItemRow = value;
+            Raise();
+            _ = OnItemSelectedAsync(value);
+        }
+    }
+
+    public string SearchText
+    {
+        get => _searchText;
+        set { if (_searchText == value) return; _searchText = value; Raise(); _ = OnSearchTextChangedAsync(); }
+    }
+
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        set { if (_statusMessage == value) return; _statusMessage = value; Raise(); }
+    }
+
+    public bool IsFilterAll
+    {
+        get => _filter == ItemFilter.All;
+        set { if (value) SetFilter(ItemFilter.All); }
+    }
+
+    public bool IsFilterUnread
+    {
+        get => _filter == ItemFilter.Unread;
+        set { if (value) SetFilter(ItemFilter.Unread); }
+    }
+
+    public bool IsFilterStarred
+    {
+        get => _filter == ItemFilter.Starred;
+        set { if (value) SetFilter(ItemFilter.Starred); }
+    }
+
+    private void SetFilter(ItemFilter filter)
+    {
+        if (_filter == filter) return;
+        _filter = filter;
+        Raise(nameof(IsFilterAll));
+        Raise(nameof(IsFilterUnread));
+        Raise(nameof(IsFilterStarred));
+        _ = LoadItemsAsync();
+    }
+
+    protected ItemFilter CurrentFilter => _filter;
+
+    private async Task OnOpenedAsync()
+    {
+        if (_services.StartupWarning is { } warning)
+            StatusMessage = "Storage maintenance could not run: " + warning.Message;
+
+        await LoadFeedTreeAsync();
+    }
+
+    private void ApplySettings(ReaderSettings settings)
+    {
+        _theme.ApplyTheme(Enum.TryParse<AppTheme>(settings.Theme, true, out var parsed)
+            ? parsed
+            : AppTheme.Auto);
+        Raise(nameof(ColumnWidth));
+    }
+
+    /// <summary>
+    /// Rebuilds the whole tree: three smart rows, then folders with their feeds
+    /// nested under them, then feeds with no folder.
+    /// </summary>
+    public async Task LoadFeedTreeAsync()
+    {
+        var folders = await _services.Folders.GetAllAsync();
+        var feeds = await _services.Feeds.GetAllAsync();
+
+        var unreadByFeed = new Dictionary<long, int>();
+        foreach (var feed in feeds)
+            unreadByFeed[feed.Id] = await _services.Items.GetUnreadCountAsync(feed.Id);
+
+        FeedNodes.Clear();
+
+        FeedNodes.Add(new FeedTreeNode
+        {
+            Title = "All items", Kind = FeedTreeNodeKind.Smart, SmartFilter = ItemFilter.All
+        });
+        FeedNodes.Add(new FeedTreeNode
+        {
+            Title = "Unread", Kind = FeedTreeNodeKind.Smart, SmartFilter = ItemFilter.Unread,
+            UnreadCount = unreadByFeed.Values.Sum()
+        });
+        FeedNodes.Add(new FeedTreeNode
+        {
+            Title = "Starred", Kind = FeedTreeNodeKind.Smart, SmartFilter = ItemFilter.Starred
+        });
+
+        foreach (var folder in folders)
+        {
+            var children = feeds.Where(f => f.FolderId == folder.Id).ToList();
+
+            FeedNodes.Add(new FeedTreeNode
+            {
+                Title = folder.Name,
+                Kind = FeedTreeNodeKind.Folder,
+                FolderId = folder.Id,
+                UnreadCount = children.Sum(f => unreadByFeed.GetValueOrDefault(f.Id))
+            });
+
+            foreach (var feed in children) FeedNodes.Add(ToNode(feed, unreadByFeed));
+        }
+
+        foreach (var feed in feeds.Where(f => f.FolderId is null))
+            FeedNodes.Add(ToNode(feed, unreadByFeed));
+    }
+
+    private static FeedTreeNode ToNode(Feed feed, IReadOnlyDictionary<long, int> unread) => new()
+    {
+        Title = feed.DisplayTitle,
+        Kind = FeedTreeNodeKind.Feed,
+        FeedId = feed.Id,
+        FolderId = feed.FolderId,
+        UnreadCount = unread.GetValueOrDefault(feed.Id),
+        ConsecutiveFailures = feed.ConsecutiveFailures,
+        LastError = feed.LastError,
+        IsAutoPaused = feed.AutoPausedUtc is not null,
+        IsEnabled = feed.IsEnabled
+    };
+
+    public new event PropertyChangedEventHandler? PropertyChanged;
+
+    protected void Raise([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
