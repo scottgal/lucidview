@@ -137,4 +137,100 @@ public class FeedlyFeedSearchTests
         Assert.Equal(0, one.Subscribers);
         Assert.Null(one.Description);
     }
+
+    [Fact]
+    public async Task A_result_missing_title_website_and_iconUrl_yields_nulls_not_an_exception()
+    {
+        const string body = """
+            {"results":[{"feedId":"feed/https://ok.example.com/rss","subscribers":42,"description":"d"}]}
+            """;
+        var handler = StubHttpHandler.Returning(HttpStatusCode.OK, body, mediaType: "application/json");
+        var search = new FeedlyFeedSearch(handler.CreateClient(), Enabled);
+
+        var one = Assert.Single(await search.SearchAsync("dotnet", 1));
+        Assert.Equal("https://ok.example.com/rss", one.FeedUrl);
+        Assert.Null(one.Title);
+        Assert.Null(one.SiteUrl);
+        Assert.Null(one.IconUrl);
+        Assert.Equal(42, one.Subscribers);
+        Assert.Equal("d", one.Description);
+    }
+
+    // --- Query encoding ---
+    //
+    // Uri.EscapeDataString percent-encodes &, # and other characters that
+    // would otherwise be interpreted as query-string structure. Nothing
+    // exercised this before: a regression to naive string interpolation
+    // would pass every other test while letting a search term smuggle an
+    // extra query parameter into the request.
+
+    [Fact]
+    public async Task A_query_containing_ampersand_and_hash_is_percent_encoded_with_no_injected_parameter()
+    {
+        const string body = """{"results":[]}""";
+        var handler = StubHttpHandler.Returning(HttpStatusCode.OK, body, mediaType: "application/json");
+        var search = new FeedlyFeedSearch(handler.CreateClient(), Enabled);
+
+        const string query = "rust&evil=1#frag";
+        await search.SearchAsync(query, 3);
+
+        var sentUri = Assert.Single(handler.Requests).RequestUri!;
+        var rawQuery = sentUri.Query.TrimStart('?');
+        var parameters = rawQuery.Split('&');
+
+        // Exactly two parameters were sent - query and count - proving the
+        // & and # inside the search term did not get interpreted as
+        // query-string structure and inject a third.
+        Assert.Equal(2, parameters.Length);
+        Assert.StartsWith("query=", parameters[0]);
+        Assert.StartsWith("count=", parameters[1]);
+
+        Assert.Contains("%26", sentUri.Query);
+        Assert.Contains("%23", sentUri.Query);
+
+        var sentQueryValue = Uri.UnescapeDataString(parameters[0]["query=".Length..]);
+        Assert.Equal(query, sentQueryValue);
+    }
+
+    // --- JSON shape tolerance ---
+    //
+    // Every case below must return empty rather than throw. Some do so by
+    // skipping one bad entry and keeping the rest; others - a null entry, or
+    // a body whose root is not an object - hit the broad catch in
+    // SearchAsync and return an empty list for the whole call, which still
+    // satisfies "never throws" even though it does not salvage a sibling
+    // valid entry in the same response.
+
+    [Fact]
+    public async Task A_null_entry_in_results_returns_empty_rather_than_throwing()
+    {
+        const string body = """
+            {"results":[null,{"feedId":"feed/https://ok.example.com/rss","title":"OK"}]}
+            """;
+        var handler = StubHttpHandler.Returning(HttpStatusCode.OK, body, mediaType: "application/json");
+        var search = new FeedlyFeedSearch(handler.CreateClient(), Enabled);
+
+        Assert.Empty(await search.SearchAsync("dotnet", 2));
+    }
+
+    [Fact]
+    public async Task A_body_with_no_results_key_returns_empty_rather_than_throwing()
+    {
+        const string body = """{"success":true}""";
+        var handler = StubHttpHandler.Returning(HttpStatusCode.OK, body, mediaType: "application/json");
+        var search = new FeedlyFeedSearch(handler.CreateClient(), Enabled);
+
+        Assert.Empty(await search.SearchAsync("dotnet", 3));
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("42")]
+    public async Task A_valid_but_non_object_top_level_body_returns_empty_rather_than_throwing(string body)
+    {
+        var handler = StubHttpHandler.Returning(HttpStatusCode.OK, body, mediaType: "application/json");
+        var search = new FeedlyFeedSearch(handler.CreateClient(), Enabled);
+
+        Assert.Empty(await search.SearchAsync("dotnet", 3));
+    }
 }
