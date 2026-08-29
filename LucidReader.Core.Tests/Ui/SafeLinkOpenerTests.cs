@@ -61,4 +61,31 @@ public class SafeLinkOpenerTests
     {
         Assert.False(SafeLinkOpener.IsSafe("https://example.com/\njavascript:alert(1)"));
     }
+
+    [Theory]
+    [InlineData("https://example.com/\"--gpu-launcher=calc.exe", "%22--gpu-launcher=calc.exe")]
+    [InlineData("https://example.com/ --flag=1", "%20--flag=1")]
+    [InlineData("https://example.com/`whoami`|ls&calc", "%60whoami%60%7Cls&calc")]
+    public void The_string_handed_to_the_opener_is_the_percent_encoded_absolute_uri_not_the_raw_string(
+        string url, string expectedEncodedSuffix)
+    {
+        Assert.True(SafeLinkOpener.IsSafe(url));
+
+        Assert.True(SafeLinkOpener.TryGetSafeUri(url, out var uri));
+        Assert.NotNull(uri);
+        Assert.EndsWith(expectedEncodedSuffix, uri!.AbsoluteUri, StringComparison.Ordinal);
+
+        // The raw string still contains the dangerous literal character;
+        // what matters is that TryOpen never hands this string to the
+        // process launcher, only uri.AbsoluteUri does.
+        Assert.NotEqual(uri.AbsoluteUri, url);
+    }
+
+    [Theory]
+    [InlineData("https://accounts.google.com@evil.com/")]
+    [InlineData("http://user:password@example.com/")]
+    public void A_url_with_embedded_credentials_is_refused(string url)
+    {
+        Assert.False(SafeLinkOpener.IsSafe(url));
+    }
 }
