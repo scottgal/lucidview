@@ -40,8 +40,10 @@ jobs:
     - name: Test MarkdownViewer.Tests
       run: dotnet test MarkdownViewer.Tests/MarkdownViewer.Tests.csproj --verbosity normal
 
-    - name: Test MarkdownViewer.Full.Tests
-      run: dotnet test MarkdownViewer.Full.Tests/MarkdownViewer.Full.Tests.csproj --verbosity normal --filter "Category!=RequiresLlm&Category!=RequiresPlaywright"
+    # MarkdownViewer.Full.Tests is deliberately NOT run here. The build-full job
+    # already runs it, with the same filter, across the same three platforms.
+    # Running it in both jobs only doubled the exposure to a flaky test without
+    # adding coverage.
 
   build-full:
     name: Build FULL (${{ matrix.os }})
