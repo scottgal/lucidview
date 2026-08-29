@@ -27,6 +27,11 @@
 - **`ReaderDatabase.OpenAsync` must be called exactly once per process.** A second open of the same path throws `InvalidOperationException` by design.
 - lucidVIEW's suites must stay exactly at: `MarkdownViewer.Tests` 76 passed / 2 skipped, `MarkdownViewer.Full.Tests` 12 passed. `LucidReader.Core.Tests` must stay at 222 passed or grow.
 - No emdash characters in C# comments, XAML, or user-facing strings.
+- **UI is verified through the UITesting harness, never by constructing windows in xunit.** This repo ships `Mostlylucid.Avalonia.UITesting` (Debug-wired via `UseUITesting` in `Program.cs`), which gives three modes:
+  - `dotnet run --project LucidReader/LucidReader.csproj -- --ux-repl` for interactive development: `list`, `tree`, `get #Control.Prop`, `set`, `click`, `type`, `press`, `assert`, `describe` (screenshot plus ASCII art), `screenshot`, `waitfor`.
+  - `dotnet run --project LucidReader/LucidReader.csproj -- --ux-mcp --output screenshots` to drive the running app over JSON-RPC, which is the fastest loop when building a pane.
+  - `dotnet run --project LucidReader/LucidReader.csproj -- --ux-test --script <yaml> --output <dir>` for repeatable scripted runs.
+  Constructing an Avalonia `Window` inside a plain xunit test does not work here and must not be attempted. Anything worth asserting about a window is asserted through the harness. Anything worth unit testing must be extracted into a plain class with no Avalonia base type, which is better design regardless.
 - CI runs `LucidReader.Core.Tests` and `MarkdownViewer.Tests` in the `build` job and `MarkdownViewer.Full.Tests` in `build-full`. Any new test project must be added to CI, on a single line (the matrix includes windows-latest, where a trailing backslash is not a line continuation).
 
 ---
@@ -91,7 +96,7 @@ These were consciously deferred and are now in scope. Each is assigned to a task
 **New `Mostlylucid.LucidView.Content` addition**: image caching bridge, Avalonia-free.
 - `IArticleImageCache.cs`: the interface Core's download path calls.
 
-**New `LucidReader.Tests/`**: UI tests via the Debug-only harness.
+**New `LucidReader.Core.Tests/Ui/`**: UI tests via the Debug-only harness.
 **New `ux-scripts/reader-*.yaml`**: UI driving scripts.
 
 ---
@@ -2301,7 +2306,7 @@ git commit -m "feat(reader): cache article images for offline reading"
 - Rewrite: `LucidReader/Views/MainWindow.axaml`
 - Rewrite: `LucidReader/Views/MainWindow.axaml.cs`
 - Create: `LucidReader/Models/FeedTreeNode.cs`, `LucidReader/Models/ItemRow.cs`
-- Test: `LucidReader.Tests/LucidReader.Tests.csproj`, `LucidReader.Tests/ShellLayoutTests.cs`
+- Test: `LucidReader.Core.Tests/LucidReader.Core.Tests.csproj`, `LucidReader.Core.Tests/Ui/ShellLayoutTests.cs`
 
 **Interfaces:**
 - Consumes: `ReaderServices` (Task 1).
@@ -2440,87 +2445,38 @@ public sealed class ItemRow : INotifyPropertyChanged
 
 - [ ] **Step 3: Write the failing shell tests**
 
-Create the test project `LucidReader.Tests/LucidReader.Tests.csproj`. It references the app, so it can construct windows in a headless Avalonia session:
+Two kinds of coverage, and it matters which is which.
 
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="Avalonia.Headless" Version="11.3.12" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\LucidReader\LucidReader.csproj" />
-  </ItemGroup>
-</Project>
+**Plain unit tests** for anything that is not a window: `ItemRow.FormatRelative` and `FeedTreeNode` are ordinary classes and belong in `LucidReader.Core.Tests` alongside the engine tests. No Avalonia session, no window.
+
+**Harness verification** for the window itself. Do NOT construct `MainWindow` in a test. Drive the running app instead:
+
+```bash
+dotnet run --project LucidReader/LucidReader.csproj -- --ux-repl
 ```
 
-Create `LucidReader.Tests/ShellLayoutTests.cs`:
+then, in the REPL:
+
+```
+list                      # every named control, proves FeedTree/ItemList/ReadingPane/SearchBox/StatusText exist
+tree                      # the visual tree, proves the three-pane layout is actually laid out
+describe 01-empty-shell   # screenshot plus ASCII art, so you can SEE it
+```
+
+Record what `list` and `describe` showed in your report. A pane that exists in XAML but renders at zero width is exactly the failure a construction test would miss and `describe` catches.
+
+Create the plain unit tests in `LucidReader.Core.Tests/Ui/ItemRowTests.cs`:
+
+
 
 ```csharp
-using Avalonia.Controls;
-using Avalonia.Headless.XUnit;
-using LucidReader;
 using LucidReader.Models;
-using LucidReader.Views;
 using Xunit;
 
-namespace LucidReader.Tests;
+namespace LucidReader.Core.Tests.Ui;
 
-public class ShellLayoutTests
+public class ItemRowTests
 {
-    private static (string db, string settings, string dir) TempPaths()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "lucidreader-uitests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        return (Path.Combine(dir, "reader.db"), Path.Combine(dir, "settings.json"), dir);
-    }
-
-    [AvaloniaFact]
-    public async Task The_window_exposes_the_three_panes_and_the_search_box()
-    {
-        var (db, settings, dir) = TempPaths();
-        try
-        {
-            await using var services = await ReaderServices.StartAsync(db, settings);
-            var window = new MainWindow(services);
-
-            Assert.NotNull(window.FindControl<Control>("FeedTree"));
-            Assert.NotNull(window.FindControl<Control>("ItemList"));
-            Assert.NotNull(window.FindControl<Control>("ReadingPane"));
-            Assert.NotNull(window.FindControl<Control>("SearchBox"));
-            Assert.NotNull(window.FindControl<Control>("StatusText"));
-        }
-        finally { Directory.Delete(dir, true); }
-    }
-
-    [AvaloniaFact]
-    public async Task The_feed_tree_starts_with_the_three_smart_rows()
-    {
-        var (db, settings, dir) = TempPaths();
-        try
-        {
-            await using var services = await ReaderServices.StartAsync(db, settings);
-            var window = new MainWindow(services);
-            await window.LoadFeedTreeAsync();
-
-            var titles = window.FeedNodes
-                .Where(n => n.Kind == FeedTreeNodeKind.Smart)
-                .Select(n => n.Title)
-                .ToList();
-
-            Assert.Equal(new[] { "All items", "Unread", "Starred" }, titles);
-        }
-        finally { Directory.Delete(dir, true); }
-    }
-
     [Theory]
     [InlineData(0, "just now")]
     [InlineData(30, "30m")]
@@ -2530,9 +2486,7 @@ public class ShellLayoutTests
     {
         var now = DateTimeOffset.Parse("2026-08-29T12:00:00Z");
 
-        var text = ItemRow.FormatRelative(now.AddMinutes(-minutesAgo), now);
-
-        Assert.Equal(expected, text);
+        Assert.Equal(expected, ItemRow.FormatRelative(now.AddMinutes(-minutesAgo), now));
     }
 
     [Fact]
@@ -2542,20 +2496,43 @@ public class ShellLayoutTests
 
         Assert.Equal("just now", ItemRow.FormatRelative(now.AddHours(3), now));
     }
+
+    [Fact]
+    public void An_old_item_falls_back_to_an_absolute_date()
+    {
+        var now = DateTimeOffset.Parse("2026-08-29T12:00:00Z");
+
+        Assert.Contains("2026", ItemRow.FormatRelative(now.AddDays(-40), now));
+    }
+
+    [Fact]
+    public void Marking_a_row_read_flips_its_weight()
+    {
+        var row = new ItemRow
+        {
+            Item = new LucidReader.Core.Model.FeedItem
+            {
+                FeedId = 1, Guid = "g", FirstSeenUtc = DateTimeOffset.UtcNow
+            },
+            FeedName = "Example"
+        };
+
+        Assert.Equal("SemiBold", row.TitleWeight);
+        row.IsRead = true;
+        Assert.Equal("Normal", row.TitleWeight);
+    }
 }
 ```
 
-The future-dated test is not hypothetical: feeds routinely publish items with clock-skewed or plain wrong timestamps, and "-3h ago" in the list looks broken.
+The future-dated test is not hypothetical: feeds routinely publish clock-skewed timestamps, and "-3h ago" in the list looks broken.
 
 - [ ] **Step 4: Run the tests to verify they fail**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj 2>&1 | tail -10
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter ItemRowTests 2>&1 | tail -10
 ```
 
-Expected: compilation failure.
-
-If `Avalonia.Headless.XUnit` turns out not to work cleanly with this Avalonia version, drop the two `[AvaloniaFact]` tests down to constructing the models only and rely on the Task 15 UI scripts for real window coverage. Say so in your report if you do; do not silently delete coverage.
+Expected: compilation failure, `ItemRow` does not exist.
 
 - [ ] **Step 5: Write the window XAML**
 
@@ -2899,7 +2876,7 @@ The remaining members the XAML binds (`ItemRows` loading, article properties, an
 - [ ] **Step 7: Run the tests and confirm the app starts**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj 2>&1 | tail -5
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj 2>&1 | tail -5
 dotnet build LucidReader/LucidReader.csproj 2>&1 | tail -3
 ```
 
@@ -2907,10 +2884,10 @@ Expected: tests pass, build clean.
 
 - [ ] **Step 8: Add the test project to CI and commit**
 
-Add `LucidReader.Tests` to the `build` job in `.github/workflows/ci.yml`, on a single line.
+CI already runs LucidReader.Core.Tests, which now also covers the app project plain classes, so no new test project needs wiring. Add a build step for LucidReader/LucidReader.csproj on a single line if Task 1 did not already add one.
 
 ```bash
-git add LucidReader LucidReader.Tests .github/workflows/ci.yml
+git add LucidReader LucidReader.Core.Tests .github/workflows/ci.yml
 git commit -m "feat(reader): three-pane shell"
 ```
 
@@ -2920,7 +2897,7 @@ git commit -m "feat(reader): three-pane shell"
 
 **Files:**
 - Create: `LucidReader/Views/MainWindow.Items.cs`
-- Test: `LucidReader.Tests/ItemListTests.cs`
+- Test: `LucidReader.Core.Tests/Ui/ItemListTests.cs`
 
 **Interfaces:**
 - Consumes: `ItemRepository.QueryAsync`, `ItemQuery`, `ItemFilter`, `SelectedFeedNode` (Task 6).
@@ -2930,14 +2907,14 @@ git commit -m "feat(reader): three-pane shell"
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `LucidReader.Tests/ItemListTests.cs`:
+Create `LucidReader.Core.Tests/Ui/ItemListTests.cs`:
 
 ```csharp
 using LucidReader.Core.Model;
 using LucidReader.Core.Storage;
 using Xunit;
 
-namespace LucidReader.Tests;
+namespace LucidReader.Core.Tests.Ui;
 
 public class ItemListTests : IAsyncLifetime
 {
@@ -3013,7 +2990,7 @@ public class ItemListTests : IAsyncLifetime
 - [ ] **Step 2: Run the tests to verify they pass or fail as expected**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter ItemListTests 2>&1 | tail -5
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter ItemListTests 2>&1 | tail -5
 ```
 
 These exercise Core through the composition root, so they should pass immediately. They exist to pin the query shapes the UI relies on before the UI is written; if `BuildQuery` later produces a different shape these are the tests that notice.
@@ -3159,8 +3136,8 @@ public partial class MainWindow
 - [ ] **Step 4: Run the suite and commit**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj 2>&1 | tail -3
-git add LucidReader/Views/MainWindow.Items.cs LucidReader.Tests/ItemListTests.cs
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj 2>&1 | tail -3
+git add LucidReader/Views/MainWindow.Items.cs LucidReader.Core.Tests/Ui/ItemListTests.cs
 git commit -m "feat(reader): item list with mark-as-read dwell"
 ```
 
@@ -3171,7 +3148,7 @@ git commit -m "feat(reader): item list with mark-as-read dwell"
 **Files:**
 - Create: `LucidReader/Views/MainWindow.Reading.cs`
 - Create: `LucidReader/Services/SafeLinkOpener.cs`
-- Test: `LucidReader.Tests/SafeLinkOpenerTests.cs`
+- Test: `LucidReader.Core.Tests/Ui/SafeLinkOpenerTests.cs`
 
 **Interfaces:**
 - Produces:
@@ -3186,13 +3163,13 @@ Nothing may open, launch, or follow a URL from feed content without going throug
 
 - [ ] **Step 1: Write the failing security tests**
 
-Create `LucidReader.Tests/SafeLinkOpenerTests.cs`:
+Create `LucidReader.Core.Tests/Ui/SafeLinkOpenerTests.cs`:
 
 ```csharp
 using LucidReader.Services;
 using Xunit;
 
-namespace LucidReader.Tests;
+namespace LucidReader.Core.Tests.Ui;
 
 public class SafeLinkOpenerTests
 {
@@ -3260,7 +3237,7 @@ The `mailto:` case is deliberately refused. It is not dangerous in the way `java
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter SafeLinkOpenerTests 2>&1 | tail -10
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter SafeLinkOpenerTests 2>&1 | tail -10
 ```
 
 Expected: compilation failure.
@@ -3475,7 +3452,7 @@ Wire `LucidMarkdownView.LinkClick` to `OnArticleLinkClicked` in the window const
 - [ ] **Step 5: Run the tests to verify they pass**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter SafeLinkOpenerTests 2>&1 | tail -5
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter SafeLinkOpenerTests 2>&1 | tail -5
 ```
 
 Expected: 25 passed.
@@ -3483,7 +3460,7 @@ Expected: 25 passed.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add LucidReader/Views/MainWindow.Reading.cs LucidReader/Services/SafeLinkOpener.cs LucidReader.Tests/SafeLinkOpenerTests.cs
+git add LucidReader/Views/MainWindow.Reading.cs LucidReader/Services/SafeLinkOpener.cs LucidReader.Core.Tests/Ui/SafeLinkOpenerTests.cs
 git commit -m "feat(reader): reading pane with an allowlist for feed links"
 ```
 
@@ -3493,7 +3470,7 @@ git commit -m "feat(reader): reading pane with an allowlist for feed links"
 
 **Files:**
 - Create: `LucidReader/Views/MainWindow.Actions.cs`
-- Test: `LucidReader.Tests/ItemActionsTests.cs`
+- Test: `LucidReader.Core.Tests/Ui/ItemActionsTests.cs`
 
 **Interfaces:**
 - Produces, on `MainWindow`: every `ICommand` the XAML `KeyBindings` bind (`NextItemCommand`, `PreviousItemCommand`, `NextUnreadCommand`, `PreviousUnreadCommand`, `ToggleReadCommand`, `ToggleStarCommand`, `RefreshCurrentFeedCommand`, `RefreshAllCommand`, `OpenOriginalCommand`, `FocusSearchCommand`, `FindInArticleCommand`, `AddFeedCommand`, `OpenSettingsCommand`, `FetchFullArticleCommand`, `ExportArticleCommand`, `EditTagsCommand`), plus `internal int FindNextIndex(int current, bool forward, bool unreadOnly)` exposed for testing the navigation rules without a window.
@@ -3502,13 +3479,13 @@ git commit -m "feat(reader): reading pane with an allowlist for feed links"
 
 - [ ] **Step 1: Write the failing navigation tests**
 
-Navigation is the part with real logic; the rest is one-line command bodies. Create `LucidReader.Tests/ItemActionsTests.cs`:
+Navigation is the part with real logic; the rest is one-line command bodies. Create `LucidReader.Core.Tests/Ui/ItemActionsTests.cs`:
 
 ```csharp
 using LucidReader.Views;
 using Xunit;
 
-namespace LucidReader.Tests;
+namespace LucidReader.Core.Tests.Ui;
 
 public class ItemActionsTests
 {
@@ -3581,7 +3558,7 @@ Not wrapping is a deliberate choice: wrapping from the last item back to the fir
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter ItemActionsTests 2>&1 | tail -10
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter ItemActionsTests 2>&1 | tail -10
 ```
 
 Expected: compilation failure.
@@ -3796,13 +3773,13 @@ Add a test to `ItemActionsTests` proving the round trip: set tags on an item, re
 - [ ] **Step 5: Run the tests and commit**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter ItemActionsTests 2>&1 | tail -5
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter ItemActionsTests 2>&1 | tail -5
 ```
 
 Expected: 10 passed.
 
 ```bash
-git add LucidReader/Views LucidReader.Tests/ItemActionsTests.cs
+git add LucidReader/Views LucidReader.Core.Tests/Ui/ItemActionsTests.cs
 git commit -m "feat(reader): item actions, keyboard navigation, tags and markdown export"
 ```
 
@@ -3812,7 +3789,7 @@ git commit -m "feat(reader): item actions, keyboard navigation, tags and markdow
 
 **Files:**
 - Create: `LucidReader/Views/MainWindow.Search.cs`
-- Test: `LucidReader.Tests/SearchTests.cs`
+- Test: `LucidReader.Core.Tests/Ui/SearchTests.cs`
 
 **Interfaces:**
 - Consumes: `SearchRepository.SearchAsync`.
@@ -3822,13 +3799,13 @@ Typing in the search box replaces the item list with results across every feed. 
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `LucidReader.Tests/SearchTests.cs`:
+Create `LucidReader.Core.Tests/Ui/SearchTests.cs`:
 
 ```csharp
 using LucidReader.Core.Model;
 using Xunit;
 
-namespace LucidReader.Tests;
+namespace LucidReader.Core.Tests.Ui;
 
 public class SearchTests : IAsyncLifetime
 {
@@ -3979,8 +3956,8 @@ Note for whoever writes the settings screen later: `SearchRepository` quotes eve
 - [ ] **Step 3: Run the tests and commit**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter SearchTests 2>&1 | tail -5
-git add LucidReader/Views/MainWindow.Search.cs LucidReader.Tests/SearchTests.cs
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter SearchTests 2>&1 | tail -5
+git add LucidReader/Views/MainWindow.Search.cs LucidReader.Core.Tests/Ui/SearchTests.cs
 git commit -m "feat(reader): full-text search across every feed"
 ```
 
@@ -3991,78 +3968,68 @@ git commit -m "feat(reader): full-text search across every feed"
 **Files:**
 - Create: `LucidReader/Views/SettingsDialog.axaml`, `LucidReader/Views/SettingsDialog.axaml.cs`
 - Create: `LucidReader/Views/MainWindow.Settings.cs`
-- Test: `LucidReader.Tests/SettingsDialogTests.cs`
+- Test: `LucidReader.Core.Tests/Ui/SettingsDraftTests.cs`
 
 **Interfaces:**
 - Produces:
-  - `SettingsDialog(ReaderSettings current, RetentionService retention)` with `ReaderSettings? Result { get; }`, null when cancelled.
+  - `sealed class SettingsDraft` in `LucidReader/Models/SettingsDraft.cs`: a PLAIN class, no Avalonia base type, holding every editable value, with `SettingsDraft(ReaderSettings current)` and `ReaderSettings Apply()`. This is where the mapping and clamping live, and it is what the unit tests exercise.
+  - `SettingsDialog(ReaderSettings current, RetentionService retention)` with `SettingsDraft Draft { get; }` and `ReaderSettings? Result { get; }`, null when cancelled. The window is a thin shell over the draft.
   - On `MainWindow`: `Task ShowSettingsDialogAsync()`.
+
+**Why the draft is a separate class.** A dialog cannot be constructed in a unit test here, and the settings mapping is the part actually worth testing. Splitting it out means the mapping is testable as a plain object and the window is verified through the harness, which is the split this whole plan uses.
 
 Four groups, matching spec 6.1: Updates, Offline, Retention, Reading. The retention group shows the current database size and offers a manual clean-up, because the spec is explicit that a retention setting whose effect is invisible is one nobody trusts.
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `LucidReader.Tests/SettingsDialogTests.cs`:
+Create `LucidReader.Core.Tests/Ui/SettingsDraftTests.cs`:
 
 ```csharp
 using LucidReader.Core.Model;
-using LucidReader.Views;
+using LucidReader.Models;
 using Xunit;
 
-namespace LucidReader.Tests;
+namespace LucidReader.Core.Tests.Ui;
 
-public class SettingsDialogTests
+public class SettingsDraftTests
 {
     [Fact]
-    public void Cancelling_returns_null_so_nothing_is_saved()
+    public void Applying_returns_the_edited_settings()
     {
-        var dialog = new SettingsDialog(ReaderSettings.Defaults, null!);
+        var draft = new SettingsDraft(ReaderSettings.Defaults)
+        {
+            DefaultRefreshIntervalMinutes = 120,
+            AutoDownloadArticles = false,
+            Theme = "Dark"
+        };
 
-        dialog.Cancel();
+        var result = draft.Apply();
 
-        Assert.Null(dialog.Result);
-    }
-
-    [Fact]
-    public void Accepting_returns_the_edited_settings()
-    {
-        var dialog = new SettingsDialog(ReaderSettings.Defaults, null!);
-        dialog.DefaultRefreshIntervalMinutes = 120;
-        dialog.AutoDownloadArticles = false;
-        dialog.Theme = "Dark";
-
-        dialog.Accept();
-
-        Assert.NotNull(dialog.Result);
-        Assert.Equal(120, dialog.Result!.DefaultRefreshIntervalMinutes);
-        Assert.False(dialog.Result.AutoDownloadArticles);
-        Assert.Equal("Dark", dialog.Result.Theme);
+        Assert.Equal(120, result.DefaultRefreshIntervalMinutes);
+        Assert.False(result.AutoDownloadArticles);
+        Assert.Equal("Dark", result.Theme);
     }
 
     [Fact]
     public void Every_other_setting_survives_editing_one_of_them()
     {
         var original = ReaderSettings.Defaults with { MaxArticlesPerFeed = 123, FontSize = 19 };
-        var dialog = new SettingsDialog(original, null!);
+        var draft = new SettingsDraft(original) { DefaultRefreshIntervalMinutes = 45 };
 
-        dialog.DefaultRefreshIntervalMinutes = 45;
-        dialog.Accept();
+        var result = draft.Apply();
 
-        Assert.Equal(123, dialog.Result!.MaxArticlesPerFeed);
-        Assert.Equal(19, dialog.Result.FontSize);
+        Assert.Equal(123, result.MaxArticlesPerFeed);
+        Assert.Equal(19, result.FontSize);
     }
 
     [Fact]
-    public void A_refresh_interval_below_the_floor_is_clamped_on_accept()
+    public void A_refresh_interval_below_the_floor_is_clamped()
     {
-        var dialog = new SettingsDialog(ReaderSettings.Defaults, null!);
-        dialog.DefaultRefreshIntervalMinutes = 1;
-
-        dialog.Accept();
+        var draft = new SettingsDraft(ReaderSettings.Defaults) { DefaultRefreshIntervalMinutes = 1 };
 
         Assert.Equal(
             (int)ReaderSettings.MinimumRefreshInterval.TotalMinutes,
-            dialog.Result!.DefaultRefreshIntervalMinutes);
+            draft.Apply().DefaultRefreshIntervalMinutes);
     }
 
     [Theory]
@@ -4070,24 +4037,43 @@ public class SettingsDialogTests
     [InlineData(-5)]
     public void A_nonsense_concurrency_value_is_clamped_to_at_least_one(int value)
     {
-        var dialog = new SettingsDialog(ReaderSettings.Defaults, null!);
-        dialog.MaxConcurrentFetches = value;
+        var draft = new SettingsDraft(ReaderSettings.Defaults) { MaxConcurrentFetches = value };
 
-        dialog.Accept();
+        Assert.True(draft.Apply().MaxConcurrentFetches >= 1);
+    }
 
-        Assert.True(dialog.Result!.MaxConcurrentFetches >= 1);
+    [Fact]
+    public void A_draft_left_untouched_reproduces_the_original_exactly()
+    {
+        var original = ReaderSettings.Defaults with { FontSize = 17, Theme = "GitHub" };
+
+        Assert.Equal(original, new SettingsDraft(original).Apply());
     }
 
     [Fact]
     public void Human_readable_sizes_are_formatted_sensibly()
     {
-        Assert.Equal("0 bytes", SettingsDialog.FormatBytes(0));
-        Assert.Equal("512 bytes", SettingsDialog.FormatBytes(512));
-        Assert.Equal("1.0 KB", SettingsDialog.FormatBytes(1024));
-        Assert.Equal("1.5 MB", SettingsDialog.FormatBytes(1024 * 1024 * 3 / 2));
-        Assert.Equal("2.0 GB", SettingsDialog.FormatBytes(1024L * 1024 * 1024 * 2));
+        Assert.Equal("0 bytes", SettingsDraft.FormatBytes(0));
+        Assert.Equal("512 bytes", SettingsDraft.FormatBytes(512));
+        Assert.Equal("1.0 KB", SettingsDraft.FormatBytes(1024));
+        Assert.Equal("1.5 MB", SettingsDraft.FormatBytes(1024 * 1024 * 3 / 2));
+        Assert.Equal("2.0 GB", SettingsDraft.FormatBytes(1024L * 1024 * 1024 * 2));
     }
 }
+
+The round-trip test matters: it proves the draft carries every setting the dialog does not expose, so opening and closing settings cannot quietly reset something.
+
+**Then verify the actual dialog through the harness**, not through a test:
+
+```
+dotnet run --project LucidReader/LucidReader.csproj -- --ux-repl
+click SettingsButton
+list
+describe settings-dialog
+get #DefaultRefreshIntervalBox.Text
+```
+
+Report what `list` and `describe` showed.
 ```
 
 The clamp tests matter because the settings floor exists in `ReaderSettings.MinimumRefreshInterval` but nothing stops a dialog writing a smaller number straight into the file, where it would then be silently clamped per feed and confuse anyone reading the settings back.
@@ -4286,8 +4272,8 @@ That message is not a workaround for laziness: `EphemeralWorkCoordinator` fixes 
 - [ ] **Step 4: Run the tests and commit**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter SettingsDialogTests 2>&1 | tail -5
-git add LucidReader/Views/SettingsDialog.axaml LucidReader/Views/SettingsDialog.axaml.cs LucidReader/Views/MainWindow.Settings.cs LucidReader.Tests/SettingsDialogTests.cs
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter SettingsDraftTests 2>&1 | tail -5
+git add LucidReader/Views/SettingsDialog.axaml LucidReader/Views/SettingsDialog.axaml.cs LucidReader/Views/MainWindow.Settings.cs LucidReader.Core.Tests/Ui/SettingsDraftTests.cs
 git commit -m "feat(reader): global settings dialog"
 ```
 
@@ -4299,32 +4285,33 @@ git commit -m "feat(reader): global settings dialog"
 - Create: `LucidReader/Views/FeedSettingsDialog.axaml`, `.axaml.cs`
 - Create: `LucidReader/Views/MainWindow.FeedMenu.cs`
 - Modify: `LucidReader/Views/MainWindow.axaml` (context menu on the feed tree)
-- Test: `LucidReader.Tests/FeedSettingsDialogTests.cs`
+- Test: `LucidReader.Core.Tests/Ui/FeedSettingsDraftTests.cs`
 
 **Interfaces:**
 - Produces:
-  - `FeedSettingsDialog(Feed feed, ReaderSettings globals, IReadOnlyList<Folder> folders)` with `Feed? Result { get; }`.
+  - `sealed class FeedSettingsDraft` in `LucidReader/Models/FeedSettingsDraft.cs`: a PLAIN class holding the override toggles and values, with `FeedSettingsDraft(Feed feed, ReaderSettings globals)` and `Feed Apply()`. The inherit-versus-override rule lives here and is what the tests exercise.
+  - `FeedSettingsDialog(Feed feed, ReaderSettings globals, IReadOnlyList<Folder> folders)` with `FeedSettingsDraft Draft { get; }` and `Feed? Result { get; }`, a thin shell over the draft.
   - On `MainWindow`: `Task ShowFeedSettingsAsync(long feedId)`, `Task RenameFeedAsync(long feedId)`, `Task UnsubscribeAsync(long feedId)`, `Task MarkFeedReadAsync(long feedId)`.
 
 **The inheritance rule this dialog must express.** Each of the four inheritable settings shows as "Use the global setting (current value)" until the user explicitly overrides it. Turning an override off must write null, not the global's current value, or the feed stops following future changes to the global. That distinction is the entire point of the nullable columns and it is easy to destroy from a UI.
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `LucidReader.Tests/FeedSettingsDialogTests.cs`:
+Create `LucidReader.Core.Tests/Ui/FeedSettingsDraftTests.cs`:
 
 ```csharp
 using LucidReader.Core.Model;
 using LucidReader.Views;
 using Xunit;
 
-namespace LucidReader.Tests;
+namespace LucidReader.Core.Tests.Ui;
 
-public class FeedSettingsDialogTests
+public class FeedSettingsDraftTests
 {
     private static Feed Feed() => new() { Id = 7, FeedUrl = "https://example.com/feed.xml", Title = "Example" };
 
-    private static FeedSettingsDialog Dialog(Feed? feed = null) =>
-        new(feed ?? Feed(), ReaderSettings.Defaults, []);
+    private static FeedSettingsDraft Dialog(Feed? feed = null) =>
+        new(feed ?? Feed(), ReaderSettings.Defaults);
 
     [Fact]
     public void A_feed_with_no_overrides_opens_with_every_override_switched_off()
@@ -4344,9 +4331,9 @@ public class FeedSettingsDialogTests
         Assert.True(dialog.OverrideRefreshInterval);
 
         dialog.OverrideRefreshInterval = false;
-        dialog.Accept();
+        var applied = dialog.Apply();
 
-        Assert.Null(dialog.Result!.RefreshIntervalMinutes);
+        Assert.Null(applied.RefreshIntervalMinutes);
     }
 
     [Fact]
@@ -4356,9 +4343,9 @@ public class FeedSettingsDialogTests
         dialog.OverrideRefreshInterval = true;
         dialog.RefreshIntervalMinutes = 15;
 
-        dialog.Accept();
+        var applied = dialog.Apply();
 
-        Assert.Equal(15, dialog.Result!.RefreshIntervalMinutes);
+        Assert.Equal(15, applied.RefreshIntervalMinutes);
     }
 
     [Fact]
@@ -4368,9 +4355,9 @@ public class FeedSettingsDialogTests
         dialog.OverrideAutoDownload = true;
         dialog.AutoDownload = false;
 
-        dialog.Accept();
+        var applied = dialog.Apply();
 
-        Assert.False(dialog.Result!.AutoDownload);
+        Assert.False(applied.AutoDownload);
         Assert.NotNull(dialog.Result.AutoDownload);
     }
 
@@ -4378,7 +4365,7 @@ public class FeedSettingsDialogTests
     public void The_inherited_value_is_shown_so_the_user_knows_what_they_are_overriding()
     {
         var globals = ReaderSettings.Defaults with { DefaultRefreshIntervalMinutes = 45 };
-        var dialog = new FeedSettingsDialog(Feed(), globals, []);
+        var dialog = new FeedSettingsDraft(Feed(), globals);
 
         Assert.Contains("45", dialog.InheritedRefreshIntervalLabel);
     }
@@ -4389,20 +4376,9 @@ public class FeedSettingsDialogTests
         var dialog = Dialog(Feed() with { TitleOverride = "My name" });
         dialog.TitleOverride = "   ";
 
-        dialog.Accept();
+        var applied = dialog.Apply();
 
-        Assert.Null(dialog.Result!.TitleOverride);
-    }
-
-    [Fact]
-    public void Cancelling_returns_null()
-    {
-        var dialog = Dialog();
-        dialog.OverrideRefreshInterval = true;
-
-        dialog.Cancel();
-
-        Assert.Null(dialog.Result);
+        Assert.Null(applied.TitleOverride);
     }
 
     [Fact]
@@ -4411,9 +4387,9 @@ public class FeedSettingsDialogTests
         var feed = Feed() with { ETag = "\"abc\"", ConsecutiveFailures = 3, LastError = "boom" };
         var dialog = Dialog(feed);
 
-        dialog.Accept();
+        var applied = dialog.Apply();
 
-        Assert.Equal("\"abc\"", dialog.Result!.ETag);
+        Assert.Equal("\"abc\"", applied.ETag);
         Assert.Equal(3, dialog.Result.ConsecutiveFailures);
         Assert.Equal("boom", dialog.Result.LastError);
     }
@@ -4616,8 +4592,8 @@ Add a `ContextMenu` to the feed tree's `DataTemplate` in `MainWindow.axaml` with
 - [ ] **Step 4: Run the tests and commit**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter FeedSettingsDialogTests 2>&1 | tail -5
-git add LucidReader/Views LucidReader.Tests/FeedSettingsDialogTests.cs
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter FeedSettingsDraftTests 2>&1 | tail -5
+git add LucidReader/Views LucidReader.Core.Tests/Ui/FeedSettingsDraftTests.cs
 git commit -m "feat(reader): per-feed settings and feed context menu"
 ```
 
@@ -4629,7 +4605,7 @@ git commit -m "feat(reader): per-feed settings and feed context menu"
 - Create: `LucidReader/Views/AddFeedDialog.axaml`, `.axaml.cs`
 - Create: `LucidReader/Views/MainWindow.Subscriptions.cs`
 - Modify: `LucidReader/Views/MainWindow.axaml` (menu entries for OPML)
-- Test: `LucidReader.Tests/AddFeedTests.cs`
+- Test: `LucidReader.Core.Tests/Ui/AddFeedTests.cs`
 
 **Interfaces:**
 - Consumes: `FeedAutodiscovery` (Task 3), `OpmlService` (Task 4).
@@ -4641,14 +4617,14 @@ The user pastes either a feed URL or a site URL. Autodiscovery resolves it, and 
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `LucidReader.Tests/AddFeedTests.cs`:
+Create `LucidReader.Core.Tests/Ui/AddFeedTests.cs`:
 
 ```csharp
 using LucidReader.Core.Model;
 using LucidReader.Core.Opml;
 using Xunit;
 
-namespace LucidReader.Tests;
+namespace LucidReader.Core.Tests.Ui;
 
 public class AddFeedTests : IAsyncLifetime
 {
@@ -4994,8 +4970,8 @@ public partial class MainWindow
 - [ ] **Step 4: Run the tests and commit**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter AddFeedTests 2>&1 | tail -5
-git add LucidReader/Views LucidReader/ReaderServices.cs LucidReader.Tests/AddFeedTests.cs
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter AddFeedTests 2>&1 | tail -5
+git add LucidReader/Views LucidReader/ReaderServices.cs LucidReader.Core.Tests/Ui/AddFeedTests.cs
 git commit -m "feat(reader): add feeds by URL, OPML import and export"
 ```
 
@@ -5005,7 +4981,7 @@ git commit -m "feat(reader): add feeds by URL, OPML import and export"
 
 **Files:**
 - Create: `LucidReader/Views/MainWindow.Health.cs`
-- Test: `LucidReader.Tests/HealthTests.cs`
+- Test: `LucidReader.Core.Tests/Ui/HealthTests.cs`
 
 **Interfaces:**
 - Consumes: `RefreshScheduler.LastTickError`, `RefreshScheduler.ConsecutiveTickFailures`, `RefreshScheduler.IsRunning`, `Feed.AutoPausedUtc`, `FeedRepository.SetEnabledAsync`.
@@ -5015,14 +4991,14 @@ git commit -m "feat(reader): add feeds by URL, OPML import and export"
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `LucidReader.Tests/HealthTests.cs`:
+Create `LucidReader.Core.Tests/Ui/HealthTests.cs`:
 
 ```csharp
 using LucidReader.Core.Model;
 using LucidReader.Views;
 using Xunit;
 
-namespace LucidReader.Tests;
+namespace LucidReader.Core.Tests.Ui;
 
 public class HealthTests
 {
@@ -5175,8 +5151,8 @@ Call `StartHealthMonitoring()` from `OnOpenedAsync`, and stop the timer in the w
 - [ ] **Step 3: Run the tests and commit**
 
 ```bash
-dotnet test LucidReader.Tests/LucidReader.Tests.csproj --filter HealthTests 2>&1 | tail -5
-git add LucidReader/Views LucidReader.Tests/HealthTests.cs
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter HealthTests 2>&1 | tail -5
+git add LucidReader/Views LucidReader.Core.Tests/Ui/HealthTests.cs
 git commit -m "feat(reader): surface refresh health and let paused feeds resume"
 ```
 
