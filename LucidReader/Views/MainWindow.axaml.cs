@@ -91,7 +91,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-    public ObservableCollection<FeedTreeNode> FeedNodes { get; } = [];
+    /// <summary>
+    /// Two collapsible groups, the way Mail groups Favourites and mailboxes:
+    /// Favourites (the three smart rows) and Feeds (folders with their feeds
+    /// nested, then unfoldered feeds). Replaces the flat FeedNodes binding
+    /// from Task 6.
+    /// </summary>
+    public ObservableCollection<SidebarSection> Sidebar { get; } = [];
+
+    /// <summary>
+    /// Every node across every section, flattened. AdjustUnreadCount and
+    /// BuildQuery both need to look at "all nodes" without caring which
+    /// section a node lives in; keeping one flat view here means neither has
+    /// to walk Sidebar's two levels itself.
+    /// </summary>
+    private IEnumerable<FeedTreeNode> AllFeedTreeNodes => Sidebar.SelectMany(s => s.Nodes);
+
     public ObservableCollection<ItemRow> ItemRows { get; } = [];
 
     public double ColumnWidth => _services.Settings.ColumnWidth;
@@ -102,10 +117,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         set
         {
             if (ReferenceEquals(_selectedFeedNode, value)) return;
+
+            // The sidebar has no single shared ListBox to own selection, so
+            // this property is the one source of truth for which row looks
+            // selected; each FeedTreeNode's own IsSelected flag just mirrors it.
+            if (_selectedFeedNode is not null) _selectedFeedNode.IsSelected = false;
             _selectedFeedNode = value;
+            if (_selectedFeedNode is not null) _selectedFeedNode.IsSelected = true;
+
             Raise();
             _ = LoadItemsAsync();
         }
+    }
+
+    /// <summary>
+    /// Wired from a PointerPressed on each sidebar row's Border (see
+    /// MainWindow.axaml). Not a ListBox SelectedItem binding: the sidebar has
+    /// one ItemsControl per section, and two ListBoxes TwoWay-bound to the
+    /// same SelectedFeedNode would each try to reject the other's selection.
+    /// </summary>
+    private void OnFeedNodePointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if ((sender as Avalonia.StyledElement)?.DataContext is FeedTreeNode node)
+            SelectedFeedNode = node;
     }
 
     public ItemRow? SelectedItemRow
@@ -179,8 +213,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Rebuilds the whole tree: three smart rows, then folders with their feeds
-    /// nested under them, then feeds with no folder.
+    /// Rebuilds the sidebar into two sections: Favourites (the three smart
+    /// rows) and Feeds (folders with their feeds nested under them, then
+    /// feeds with no folder). Still assembled from the same flat queries as
+    /// Task 6; only the grouping into SidebarSection is new here.
     /// </summary>
     public async Task LoadFeedTreeAsync()
     {
@@ -191,27 +227,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         foreach (var feed in feeds)
             unreadByFeed[feed.Id] = await _services.Items.GetUnreadCountAsync(feed.Id);
 
-        FeedNodes.Clear();
-
-        FeedNodes.Add(new FeedTreeNode
+        var favourites = new SidebarSection { Title = "Favourites" };
+        favourites.Nodes.Add(new FeedTreeNode
         {
             Title = "All items", Kind = FeedTreeNodeKind.Smart, SmartFilter = ItemFilter.All
         });
-        FeedNodes.Add(new FeedTreeNode
+        favourites.Nodes.Add(new FeedTreeNode
         {
             Title = "Unread", Kind = FeedTreeNodeKind.Smart, SmartFilter = ItemFilter.Unread,
             UnreadCount = unreadByFeed.Values.Sum()
         });
-        FeedNodes.Add(new FeedTreeNode
+        favourites.Nodes.Add(new FeedTreeNode
         {
             Title = "Starred", Kind = FeedTreeNodeKind.Smart, SmartFilter = ItemFilter.Starred
         });
 
+        var feedsSection = new SidebarSection { Title = "Feeds" };
         foreach (var folder in folders)
         {
             var children = feeds.Where(f => f.FolderId == folder.Id).ToList();
 
-            FeedNodes.Add(new FeedTreeNode
+            feedsSection.Nodes.Add(new FeedTreeNode
             {
                 Title = folder.Name,
                 Kind = FeedTreeNodeKind.Folder,
@@ -219,11 +255,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 UnreadCount = children.Sum(f => unreadByFeed.GetValueOrDefault(f.Id))
             });
 
-            foreach (var feed in children) FeedNodes.Add(ToNode(feed, unreadByFeed));
+            foreach (var feed in children) feedsSection.Nodes.Add(ToNode(feed, unreadByFeed));
         }
 
         foreach (var feed in feeds.Where(f => f.FolderId is null))
-            FeedNodes.Add(ToNode(feed, unreadByFeed));
+            feedsSection.Nodes.Add(ToNode(feed, unreadByFeed));
+
+        Sidebar.Clear();
+        Sidebar.Add(favourites);
+        Sidebar.Add(feedsSection);
     }
 
     private static FeedTreeNode ToNode(Feed feed, IReadOnlyDictionary<long, int> unread) => new()

@@ -20,11 +20,27 @@ public sealed class ItemRow : INotifyPropertyChanged
     public long Id => Item.Id;
     public string Title => string.IsNullOrWhiteSpace(Item.Title) ? "Untitled" : Item.Title!;
 
+    /// <summary>
+    /// Plain-text preview shown under the title, the way Mail previews a
+    /// message body. Computed once when the row is built rather than bound
+    /// through a converter, since the source markdown/summary never changes
+    /// after the row exists.
+    /// </summary>
+    public string Snippet { get; init; } = string.Empty;
+
     public bool IsRead
     {
         get => _isRead;
-        set { if (_isRead == value) return; _isRead = value; Raise(); Raise(nameof(TitleWeight)); }
+        set { if (_isRead == value) return; _isRead = value; Raise(); Raise(nameof(TitleWeight)); Raise(nameof(IsUnread)); }
     }
+
+    /// <summary>
+    /// The unread-dot gutter binds to this rather than a binding-syntax
+    /// negation (<c>!IsRead</c>), since this project runs with reflection
+    /// bindings (AvaloniaUseCompiledBindingsByDefault is false) and an
+    /// explicit property is unambiguous either way.
+    /// </summary>
+    public bool IsUnread => !_isRead;
 
     public bool IsStarred
     {

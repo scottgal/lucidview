@@ -1,0 +1,240 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:LucidReader.Views.Controls">
+
+    <!--
+        Single home for the values every reading-list task from here on
+        inherits: brushes, the row corner radius and the row text styles.
+        Light and dark are both scoped under ThemeDictionaries because the
+        app follows the system appearance rather than offering a picker
+        (MainWindow.axaml.cs's ThemeService only ever applies Light, Dark or
+        the OS default).
+    -->
+    <Styles.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <!-- Translucent when TransparencyLevelHint actually gives us a
+                         blur behind it; still a legible flat panel when it falls
+                         back to opaque (Windows/Linux, or macOS with blur denied). -->
+                    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#F0EBEBED" />
+                    <SolidColorBrush x:Key="ListBackgroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="ReadingBackgroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="AccentSelectionBrush" Color="#FF0A84FF" />
+                    <SolidColorBrush x:Key="AccentSelectionInactiveBrush" Color="#33000000" />
+                    <SolidColorBrush x:Key="RowHoverBrush" Color="#0A000000" />
+                    <SolidColorBrush x:Key="UnreadDotBrush" Color="#FF0A84FF" />
+                    <SolidColorBrush x:Key="HairlineBrush" Color="#1F000000" />
+                    <SolidColorBrush x:Key="RowTitleBrush" Color="#FF1A1A1A" />
+                    <SolidColorBrush x:Key="RowSecondaryBrush" Color="#99000000" />
+                    <SolidColorBrush x:Key="RowSnippetBrush" Color="#80000000" />
+                    <SolidColorBrush x:Key="SectionHeaderBrush" Color="#8A000000" />
+                    <SolidColorBrush x:Key="SelectedTitleBrush" Color="#FFFFFFFF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#F02C2C2E" />
+                    <SolidColorBrush x:Key="ListBackgroundBrush" Color="#FF1C1C1E" />
+                    <SolidColorBrush x:Key="ReadingBackgroundBrush" Color="#FF1C1C1E" />
+                    <SolidColorBrush x:Key="AccentSelectionBrush" Color="#FF0A84FF" />
+                    <SolidColorBrush x:Key="AccentSelectionInactiveBrush" Color="#40FFFFFF" />
+                    <SolidColorBrush x:Key="RowHoverBrush" Color="#14FFFFFF" />
+                    <SolidColorBrush x:Key="UnreadDotBrush" Color="#FF409CFF" />
+                    <SolidColorBrush x:Key="HairlineBrush" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="RowTitleBrush" Color="#FFF2F2F2" />
+                    <SolidColorBrush x:Key="RowSecondaryBrush" Color="#99FFFFFF" />
+                    <SolidColorBrush x:Key="RowSnippetBrush" Color="#80FFFFFF" />
+                    <SolidColorBrush x:Key="SectionHeaderBrush" Color="#8AFFFFFF" />
+                    <SolidColorBrush x:Key="SelectedTitleBrush" Color="#FFFFFFFF" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!-- Mail's selection is an inset rounded rectangle, not a full-bleed
+                 bar: roughly 6px horizontal inset, 5px corner radius. -->
+            <Thickness x:Key="RowSelectionMargin">6,1</Thickness>
+            <CornerRadius x:Key="RowCornerRadius">5</CornerRadius>
+
+            <!-- ============ Inset rounded row selection ============ -->
+            <!--
+                Neither the default Avalonia Fluent template nor
+                FluentAvaloniaUI's ListBoxItem gives an inset selection out of
+                the box (both draw full-bleed), so this replaces the
+                container template rather than trying to reach into someone
+                else's template parts by name.
+            -->
+            <ControlTheme x:Key="ReaderListBoxItemTheme" TargetType="ListBoxItem">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Name="PART_SelectionBorder"
+                                Margin="{DynamicResource RowSelectionMargin}"
+                                CornerRadius="{DynamicResource RowCornerRadius}"
+                                Background="Transparent">
+                            <ContentPresenter Name="PART_ContentPresenter"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Padding="{TemplateBinding Padding}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+
+                <Style Selector="^:pointerover /template/ Border#PART_SelectionBorder">
+                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                </Style>
+                <Style Selector="^:selected /template/ Border#PART_SelectionBorder">
+                    <Setter Property="Background" Value="{DynamicResource AccentSelectionBrush}" />
+                </Style>
+            </ControlTheme>
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <!-- ================= Row and section typography ================= -->
+
+    <Style Selector="TextBlock.row-title">
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Foreground" Value="{DynamicResource RowTitleBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style Selector="TextBlock.row-secondary">
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="Foreground" Value="{DynamicResource RowSecondaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style Selector="TextBlock.row-snippet">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource RowSnippetBrush}" />
+        <Setter Property="LineHeight" Value="16" />
+    </Style>
+
+    <Style Selector="TextBlock.section-header">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource SectionHeaderBrush}" />
+    </Style>
+
+    <!-- A selected row's own text goes white-on-blue, like Mail, rather than
+         keeping the secondary greys that would lose contrast against the
+         accent fill. -->
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter TextBlock.row-title,
+                     ListBoxItem:selected /template/ ContentPresenter TextBlock.row-secondary,
+                     ListBoxItem:selected /template/ ContentPresenter TextBlock.row-snippet">
+        <Setter Property="Foreground" Value="{DynamicResource SelectedTitleBrush}" />
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <!-- ================= Hover row actions ================= -->
+
+    <Style Selector="controls|RowActions">
+        <Setter Property="IsVisible" Value="False" />
+        <Setter Property="Margin" Value="0,6,10,0" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover controls|RowActions">
+        <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="StackPanel.row-actions-bar">
+        <Setter Property="Background" Value="{DynamicResource ListBackgroundBrush}" />
+    </Style>
+
+    <Style Selector="Button.row-action">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.row-action:pointerover">
+        <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+    </Style>
+
+    <!-- ================= Sidebar node row ================= -->
+    <!-- A plain Border, not a ListBoxItem: see the remark in MainWindow.axaml
+         on why the sidebar uses one ItemsControl per section instead of a
+         shared-selection ListBox. Same inset-rounded-rectangle shape as the
+         item list's selection, so the two lists read as one visual system. -->
+    <Style Selector="Border.node-row">
+        <Setter Property="Margin" Value="{DynamicResource RowSelectionMargin}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RowCornerRadius}" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Border.node-row:pointerover">
+        <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+    </Style>
+    <Style Selector="Border.node-row.selected">
+        <Setter Property="Background" Value="{DynamicResource AccentSelectionBrush}" />
+    </Style>
+    <Style Selector="Border.node-row.selected TextBlock.row-title,
+                     Border.node-row.selected TextBlock.row-secondary">
+        <Setter Property="Foreground" Value="{DynamicResource SelectedTitleBrush}" />
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <!-- ================= Sidebar section header ================= -->
+
+    <!--
+        A section header is a ToggleButton purely for the checked/unchecked
+        state IsExpanded binds to; it must not look like one. Both the base
+        FluentAvaloniaUI theme's default (unchecked) and checked-state accent
+        fill are overridden here, since IsExpanded defaults to true, which
+        means the header would otherwise render as a full-bleed accent bar
+        the instant the window opens.
+    -->
+    <Style Selector="ToggleButton.sidebar-header">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="ToggleButton.sidebar-header:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.sidebar-header:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.sidebar-header:checked:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+    </Style>
+
+    <Style Selector="TextBlock.chevron">
+        <Setter Property="RenderTransform" Value="rotate(0deg)" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="TextBlock.chevron.collapsed">
+        <Setter Property="RenderTransform" Value="rotate(-90deg)" />
+    </Style>
+
+    <!-- ================= Reading pane header ================= -->
+
+    <Style Selector="TextBlock.article-title">
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.article-meta">
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Foreground" Value="{DynamicResource RowSecondaryBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Rectangle.hairline">
+        <Setter Property="Fill" Value="{DynamicResource HairlineBrush}" />
+        <Setter Property="Height" Value="1" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+
+    <!-- ================= Small toolbar buttons ================= -->
+    <Style Selector="Button.row-toolbar">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="8,4" />
+    </Style>
+</Styles>

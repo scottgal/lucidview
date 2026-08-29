@@ -14,6 +14,7 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
 {
     private int _unreadCount;
     private bool _isExpanded = true;
+    private bool _isSelected;
 
     public required string Title { get; init; }
     public FeedTreeNodeKind Kind { get; init; }
@@ -37,6 +38,19 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
     {
         get => _isExpanded;
         set { if (_isExpanded == value) return; _isExpanded = value; Raise(); }
+    }
+
+    /// <summary>
+    /// Drives the sidebar row's selected visual (Task 8a). The sidebar is
+    /// rendered as one ItemsControl per section rather than one shared
+    /// ListBox, since two ListBoxes TwoWay-bound to the same SelectedItem
+    /// source fight over it; a plain bool per node sidesteps that. Owned
+    /// exclusively by MainWindow.SelectedFeedNode's setter.
+    /// </summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set { if (_isSelected == value) return; _isSelected = value; Raise(); }
     }
 
     public bool HasUnread => _unreadCount > 0;

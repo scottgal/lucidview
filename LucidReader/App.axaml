@@ -6,5 +6,6 @@
 
     <Application.Styles>
         <sty:FluentAvaloniaTheme />
+        <StyleInclude Source="avares://lucidREADER/Styles/Reader.axaml" />
     </Application.Styles>
 </Application>

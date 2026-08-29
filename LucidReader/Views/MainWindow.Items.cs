@@ -77,7 +77,8 @@ public partial class MainWindow
                 IsRead = item.IsRead,
                 IsStarred = item.IsStarred,
                 RelativeDate = ItemRow.FormatRelative(
-                    item.PublishedUtc ?? item.FirstSeenUtc, now)
+                    item.PublishedUtc ?? item.FirstSeenUtc, now),
+                Snippet = Snippet.FromMarkdown(item.ContentMarkdown, item.Summary)
             });
         }
 
@@ -130,8 +131,20 @@ public partial class MainWindow
         // A manual toggle is an explicit user action; it must not be
         // silently reverted a moment later by a dwell timer that was
         // already running against the same row.
-        _dwell.CancelPending();
+        if (ReferenceEquals(row, SelectedItemRow)) _dwell.CancelPending();
 
+        await ToggleReadAsync(row);
+    }
+
+    /// <summary>
+    /// Shared by the M keybinding (via MarkSelectedReadAsync, always the
+    /// selected row) and the hover row actions (any row under the pointer,
+    /// selected or not). A row's own dwell only needs cancelling when it is
+    /// the one currently selected; MarkSelectedReadAsync already does that
+    /// before calling in.
+    /// </summary>
+    public async Task ToggleReadAsync(ItemRow row)
+    {
         var target = !row.IsRead;
         await _services.Items.SetReadAsync(row.Id, target);
         row.IsRead = target;
@@ -151,13 +164,15 @@ public partial class MainWindow
     /// </summary>
     private void AdjustUnreadCount(long feedId, int delta)
     {
-        foreach (var node in FeedNodes)
+        var allNodes = AllFeedTreeNodes.ToList();
+
+        foreach (var node in allNodes)
         {
             var affected = node.Kind switch
             {
                 FeedTreeNodeKind.Feed => node.FeedId == feedId,
                 FeedTreeNodeKind.Smart => node.SmartFilter == ItemFilter.Unread,
-                FeedTreeNodeKind.Folder => FeedNodes.Any(n =>
+                FeedTreeNodeKind.Folder => allNodes.Any(n =>
                     n.Kind == FeedTreeNodeKind.Feed && n.FeedId == feedId && n.FolderId == node.FolderId),
                 _ => false
             };

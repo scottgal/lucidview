@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="LucidReader.Views.Controls.RowActions"
+             HorizontalAlignment="Right"
+             VerticalAlignment="Top">
+
+    <!--
+        Purely a presentation control: it raises events and never touches
+        ReaderServices itself, so MainWindow stays the only thing in the app
+        that calls into the engine (SetReadAsync, SetStarredAsync,
+        SafeLinkOpener). Shown on pointer-over via a style selector defined in
+        Styles/Reader.axaml (targeting this control by type inside a
+        ListBoxItem:pointerover selector), not by tracking PointerEntered /
+        PointerExited here.
+    -->
+    <StackPanel Orientation="Horizontal" Spacing="2" Classes="row-actions-bar">
+        <Button x:Name="MarkReadButton" Classes="row-action" Click="OnMarkReadClick"
+                ToolTip.Tip="Mark read or unread">
+            <TextBlock Text="&#x25CF;" FontSize="11" />
+        </Button>
+        <Button x:Name="ToggleStarButton" Classes="row-action" Click="OnToggleStarClick"
+                ToolTip.Tip="Star or unstar">
+            <TextBlock Text="&#x2606;" FontSize="12" />
+        </Button>
+        <Button x:Name="OpenOriginalButton" Classes="row-action" Click="OnOpenOriginalClick"
+                ToolTip.Tip="Open the original article">
+            <TextBlock Text="&#x2197;" FontSize="12" />
+        </Button>
+    </StackPanel>
+</UserControl>

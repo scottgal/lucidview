@@ -1,10 +1,16 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:md="clr-namespace:Mostlylucid.LucidView.Markdown;assembly=Mostlylucid.LucidView.Markdown"
+        xmlns:controls="clr-namespace:LucidReader.Views.Controls"
         x:Class="LucidReader.Views.MainWindow"
         Title="lucidREADER"
         Width="1280" Height="820"
-        MinWidth="820" MinHeight="520">
+        MinWidth="820" MinHeight="520"
+        Background="{DynamicResource ListBackgroundBrush}"
+        TransparencyLevelHint="AcrylicBlur,Blur,None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="PreferSystemChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
 
     <Window.KeyBindings>
         <KeyBinding Gesture="J" Command="{Binding NextItemCommand}" />
@@ -22,51 +28,101 @@
         <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
     </Window.KeyBindings>
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="*,Auto">
 
-        <Border Grid.Row="0" Padding="8,6" BorderThickness="0,0,0,1"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
-                    <Button x:Name="AddFeedButton" Content="Add feed"
-                            Command="{Binding AddFeedCommand}" />
-                    <Button x:Name="RefreshAllButton" Content="Refresh all"
-                            Command="{Binding RefreshAllCommand}" />
-                </StackPanel>
+        <Grid Grid.Row="0" ColumnDefinitions="260,4,340,4,*">
 
-                <TextBox Grid.Column="1" x:Name="SearchBox" Margin="12,0"
-                         Watermark="Search all articles"
-                         Text="{Binding SearchText, Mode=TwoWay}" />
+            <!--
+                The sidebar is the one translucent surface (Task 8a Step 8):
+                it spans the full window height, including the strip the
+                traffic lights sit over, so the top padding below exists to
+                clear them rather than a guessed magic number colliding with
+                whatever the OS decides the title bar height is. The list and
+                reading panes stay opaque, exactly as Mail does it.
+            -->
+            <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}">
+                <DockPanel>
+                    <!--
+                        Top margin of 34 clears the macOS traffic lights: with
+                        ExtendClientAreaTitleBarHeightHint="-1" (platform
+                        default) and PreferSystemChrome, the OS draws the
+                        lights at a fixed height that this project has no API
+                        to read back, so 34 is a measured value against the
+                        harness screenshots below, not a guess.
+                    -->
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6"
+                                Margin="6,34,6,8">
+                        <Button x:Name="AddFeedButton" Content="Add feed" Classes="row-toolbar"
+                                Command="{Binding AddFeedCommand}" />
+                        <Button x:Name="RefreshAllButton" Content="Refresh all" Classes="row-toolbar"
+                                Command="{Binding RefreshAllCommand}" />
+                    </StackPanel>
 
-                <Button Grid.Column="2" x:Name="SettingsButton" Content="Settings"
-                        Command="{Binding OpenSettingsCommand}" />
-            </Grid>
-        </Border>
+                    <ScrollViewer>
+                        <ItemsControl x:Name="SidebarSections" ItemsSource="{Binding Sidebar}" Margin="0,0,0,12">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel IsVisible="{Binding IsVisible}">
+                                        <ToggleButton Classes="sidebar-header" IsChecked="{Binding IsExpanded, Mode=TwoWay}">
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <TextBlock Grid.Column="0" Text="&#x25BE;" Classes="chevron"
+                                                           Classes.collapsed="{Binding IsCollapsed}" Margin="0,0,6,0" />
+                                                <TextBlock Grid.Column="1" Text="{Binding HeaderText}" Classes="section-header" />
+                                                <TextBlock Grid.Column="2" Text="{Binding UnreadLabel}" Classes="section-header" />
+                                            </Grid>
+                                        </ToggleButton>
 
-        <Grid Grid.Row="1" ColumnDefinitions="260,4,340,4,*">
-
-            <ListBox Grid.Column="0" x:Name="FeedTree"
-                     ItemsSource="{Binding FeedNodes}"
-                     SelectedItem="{Binding SelectedFeedNode, Mode=TwoWay}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="{Binding Indent}">
-                            <TextBlock Grid.Column="1" Text="{Binding Title}"
-                                       TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="2" Text="!" Margin="4,0"
-                                       IsVisible="{Binding HasProblem}"
-                                       ToolTip.Tip="{Binding LastError}" />
-                            <TextBlock Grid.Column="3" Text="{Binding UnreadLabel}"
-                                       IsVisible="{Binding HasUnread}" Opacity="0.7" />
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                                        <!--
+                                            One ItemsControl (not ListBox) per section: two ListBoxes
+                                            TwoWay-bound to the same SelectedFeedNode would fight over
+                                            it, since each rejects a SelectedItem the other one owns.
+                                            Selection is instead a PointerPressed on the row Border
+                                            (MainWindow.axaml.cs.OnFeedNodePointerPressed), and the
+                                            row's own IsSelected flag drives the selected visual, kept
+                                            in sync by SelectedFeedNode's setter.
+                                        -->
+                                        <ItemsControl ItemsSource="{Binding Nodes}" IsVisible="{Binding IsExpanded}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Classes="node-row" Classes.selected="{Binding IsSelected}"
+                                                            PointerPressed="OnFeedNodePointerPressed">
+                                                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="{Binding Indent}">
+                                                            <TextBlock Grid.Column="0" Text="{Binding Title}" Classes="row-title" />
+                                                            <TextBlock Grid.Column="1" Text="!" Classes="row-secondary"
+                                                                       Margin="6,0,0,0"
+                                                                       IsVisible="{Binding HasProblem}"
+                                                                       ToolTip.Tip="{Binding LastError}" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding UnreadLabel}" Classes="row-secondary"
+                                                                       Margin="6,0,0,0"
+                                                                       IsVisible="{Binding HasUnread}" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
 
             <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
 
-            <Grid Grid.Column="2" RowDefinitions="Auto,*">
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="4" Margin="6">
+            <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*" Background="{DynamicResource ListBackgroundBrush}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBox Grid.Row="0" x:Name="SearchBox"
+                         Watermark="Search all articles"
+                         Margin="10,34,10,6"
+                         Text="{Binding SearchText, Mode=TwoWay}" />
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" Margin="8,0,8,6">
                     <RadioButton x:Name="FilterAll" Content="All" GroupName="ItemFilter"
                                  IsChecked="{Binding IsFilterAll, Mode=TwoWay}" />
                     <RadioButton x:Name="FilterUnread" Content="Unread" GroupName="ItemFilter"
@@ -75,21 +131,48 @@
                                  IsChecked="{Binding IsFilterStarred, Mode=TwoWay}" />
                 </StackPanel>
 
-                <ListBox Grid.Row="1" x:Name="ItemList"
+                <ListBox Grid.Row="2" x:Name="ItemList"
                          ItemsSource="{Binding ItemRows}"
-                         SelectedItem="{Binding SelectedItemRow, Mode=TwoWay}">
+                         SelectedItem="{Binding SelectedItemRow, Mode=TwoWay}"
+                         ItemContainerTheme="{StaticResource ReaderListBoxItemTheme}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
-                                <TextBlock Grid.Column="0" Text="{Binding StarGlyph}" Margin="0,0,6,0" />
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{Binding Title}"
-                                               FontWeight="{Binding TitleWeight}"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding FeedName}" Opacity="0.6" FontSize="11" />
+                            <!--
+                                Mail's row shape: an unread-dot gutter, a
+                                semibold single-line title, a secondary line
+                                (feed name left, relative date right), then up
+                                to two lines of plain-text snippet. RowActions
+                                sits over the top-right corner and is only
+                                made visible by the ListBoxItem:pointerover
+                                selector in Styles/Reader.axaml.
+                            -->
+                            <Grid ColumnDefinitions="18,*">
+                                <Ellipse Grid.Column="0" Width="7" Height="7"
+                                         Fill="{DynamicResource UnreadDotBrush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Top"
+                                         Margin="0,6,0,0"
+                                         IsVisible="{Binding IsUnread}" />
+
+                                <StackPanel Grid.Column="1" Spacing="3" Margin="0,10,12,10">
+                                    <TextBlock Text="{Binding Title}" Classes="row-title"
+                                               FontWeight="{Binding TitleWeight}" />
+
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <TextBlock Grid.Column="0" Text="{Binding FeedName}" Classes="row-secondary" />
+                                        <TextBlock Grid.Column="1" Text="{Binding StarGlyph}" Classes="row-secondary"
+                                                   IsVisible="{Binding IsStarred}" Margin="8,0,0,0" />
+                                        <TextBlock Grid.Column="2" Text="{Binding RelativeDate}" Classes="row-secondary"
+                                                   Margin="8,0,0,0" />
+                                    </Grid>
+
+                                    <TextBlock Text="{Binding Snippet}" Classes="row-snippet"
+                                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
-                                <TextBlock Grid.Column="2" Text="{Binding RelativeDate}"
-                                           Opacity="0.6" FontSize="11" VerticalAlignment="Top" />
+
+                                <controls:RowActions Grid.Column="1"
+                                                      MarkRead="OnRowMarkReadClicked"
+                                                      ToggleStar="OnRowToggleStarClicked"
+                                                      OpenOriginal="OnRowOpenOriginalClicked" />
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -98,31 +181,40 @@
 
             <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
 
-            <ScrollViewer Grid.Column="4" x:Name="ReadingScroll">
-                <StackPanel Margin="24,16" MaxWidth="{Binding ColumnWidth}">
-                    <TextBlock x:Name="ArticleTitleText" Text="{Binding ArticleTitle}"
-                               FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" />
-                    <TextBlock x:Name="ArticleMetaText" Text="{Binding ArticleMeta}"
-                               Opacity="0.65" Margin="0,4,0,2" TextWrapping="Wrap" />
+            <ScrollViewer Grid.Column="4" x:Name="ReadingScroll" Background="{DynamicResource ReadingBackgroundBrush}">
+                <StackPanel MaxWidth="{Binding ColumnWidth}" HorizontalAlignment="Left" Margin="32,34,32,24">
+                    <TextBlock x:Name="ArticleTitleText" Text="{Binding ArticleTitle}" Classes="article-title" />
+                    <TextBlock x:Name="ArticleMetaText" Text="{Binding ArticleMeta}" Classes="article-meta"
+                               Margin="0,6,0,0" />
+
                     <Border x:Name="OfflineBadge" IsVisible="{Binding ShowOfflineBadge}"
-                            Padding="6,3" Margin="0,4" CornerRadius="3"
-                            Background="{DynamicResource SystemControlBackgroundListLowBrush}">
+                            Padding="8,4" Margin="0,10,0,0" CornerRadius="4"
+                            Background="{DynamicResource RowHoverBrush}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="{Binding OfflineBadgeText}" FontSize="11" />
+                            <TextBlock Text="{Binding OfflineBadgeText}" Classes="row-secondary" />
                             <Button x:Name="FetchFullArticleButton" Content="Fetch full article"
                                     FontSize="11" Padding="6,0"
                                     IsVisible="{Binding CanFetchFullArticle}"
                                     Command="{Binding FetchFullArticleCommand}" />
                         </StackPanel>
                     </Border>
+
+                    <Rectangle Classes="hairline" Margin="0,16,0,16" />
+
                     <md:LucidMarkdownView x:Name="ReadingPane" Markdown="{Binding ArticleMarkdown}" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>
 
-        <Border Grid.Row="2" Padding="8,4" BorderThickness="0,1,0,0"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
-            <TextBlock x:Name="StatusText" Text="{Binding StatusMessage}" FontSize="11" Opacity="0.75" />
+        <Border Grid.Row="1" Padding="8,4" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource HairlineBrush}"
+                Background="{DynamicResource ListBackgroundBrush}">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" x:Name="StatusText" Text="{Binding StatusMessage}"
+                           Classes="row-secondary" />
+                <Button Grid.Column="1" x:Name="SettingsButton" Content="Settings" Classes="row-toolbar"
+                        Command="{Binding OpenSettingsCommand}" />
+            </Grid>
         </Border>
     </Grid>
 </Window>
