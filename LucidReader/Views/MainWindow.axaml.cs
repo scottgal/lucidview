@@ -86,6 +86,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             // an in-flight dwell could otherwise call SetReadAsync against a
             // disposing (or already-disposed) store.
             _dwell.CancelPending();
+            _iconCoordinator.Dispose();
+            _thumbnailCoordinator.Dispose();
+            _heroCoordinator.Dispose();
         };
     }
 
@@ -264,6 +267,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Sidebar.Clear();
         Sidebar.Add(favourites);
         Sidebar.Add(feedsSection);
+
+        // Fired without awaiting: the tree is already on screen with text
+        // and the neutral placeholder glyph, and favicons fill in as they
+        // resolve. See MainWindow.Images.cs.
+        _ = ResolveSidebarIconsAsync();
     }
 
     private static FeedTreeNode ToNode(Feed feed, IReadOnlyDictionary<long, int> unread) => new()
@@ -276,7 +284,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ConsecutiveFailures = feed.ConsecutiveFailures,
         LastError = feed.LastError,
         IsAutoPaused = feed.AutoPausedUtc is not null,
-        IsEnabled = feed.IsEnabled
+        IsEnabled = feed.IsEnabled,
+        IconUrl = feed.IconPath
     };
 
     public new event PropertyChangedEventHandler? PropertyChanged;

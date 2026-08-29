@@ -62,6 +62,7 @@ public sealed class ReaderServices : IAsyncDisposable
         RefreshScheduler scheduler,
         OfflineDownloader downloader,
         RetentionService retention,
+        ImageResolver images,
         int fetchConcurrency,
         int downloadConcurrency)
     {
@@ -79,6 +80,7 @@ public sealed class ReaderServices : IAsyncDisposable
         Scheduler = scheduler;
         Downloader = downloader;
         Retention = retention;
+        Images = images;
         ConfiguredFetchConcurrency = fetchConcurrency;
         ConfiguredDownloadConcurrency = downloadConcurrency;
 
@@ -103,6 +105,16 @@ public sealed class ReaderServices : IAsyncDisposable
     public RefreshScheduler Scheduler { get; }
     public OfflineDownloader Downloader { get; }
     public RetentionService Retention { get; }
+
+    /// <summary>
+    /// Resolves a favicon or OpenGraph image URL to a local cached path for
+    /// the sidebar/list/reading-pane surfaces (Task 8c). Built over the same
+    /// ImageCacheService instance and live settings func as
+    /// AvaloniaArticleImageCache, so the two share one on-disk cache and are
+    /// governed by the same CacheImages switch - there is no second image
+    /// pipeline here.
+    /// </summary>
+    public ImageResolver Images { get; }
 
     public int ConfiguredFetchConcurrency { get; }
     public int ConfiguredDownloadConcurrency { get; }
@@ -176,10 +188,12 @@ public sealed class ReaderServices : IAsyncDisposable
 
         var retention = new RetentionService(database, feeds, Current, time);
 
+        var images = new ImageResolver(new ImageCacheServiceRemoteImageFetcher(imageCache), Current);
+
         built = new ReaderServices(
             setPath, settings, http, imageCache, database, folders, feeds, items, search,
             tags, refresh, scheduler, downloader, retention,
-            fetchConcurrency, downloadConcurrency)
+            images, fetchConcurrency, downloadConcurrency)
         {
             StartupWarning = SchemaMigrator.LastIncrementalVacuumConversionError
         };

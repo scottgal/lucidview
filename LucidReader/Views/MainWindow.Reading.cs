@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using LucidReader.Core.Model;
 using LucidReader.Models;
 using LucidReader.Services;
@@ -23,6 +24,12 @@ public partial class MainWindow
     private bool _showOfflineBadge;
     private string _offlineBadgeText = string.Empty;
     private bool _canFetchFullArticle;
+    private string? _heroImagePath;
+
+    // Concurrency of 1 is deliberate: only one article's hero image is ever
+    // resolving at a time, unlike the sidebar/list coordinators which fan
+    // out across many rows.
+    private readonly ImageResolutionCoordinator _heroCoordinator = new(maxConcurrency: 1);
 
     public string ArticleTitle
     {
@@ -60,6 +67,20 @@ public partial class MainWindow
         private set { if (_canFetchFullArticle == value) return; _canFetchFullArticle = value; Raise(); }
     }
 
+    /// <summary>
+    /// Local cached path for the hero image above the article title, resolved
+    /// from <c>Item.ImageUrl</c>. Starts null on every article change - the
+    /// title and body render immediately - and is assigned later, on the UI
+    /// thread, once background resolution completes (MainWindow.Images.cs).
+    /// </summary>
+    public string? HeroImagePath
+    {
+        get => _heroImagePath;
+        private set { if (_heroImagePath == value) return; _heroImagePath = value; Raise(); Raise(nameof(HasHero)); }
+    }
+
+    public bool HasHero => !string.IsNullOrEmpty(_heroImagePath);
+
     // Assigned in MainWindow's constructor (MainWindow.axaml.cs), which runs
     // after this partial's fields are initialised, so the command can close
     // over FetchFullArticleAsync as a bound instance method.
@@ -67,6 +88,12 @@ public partial class MainWindow
 
     public async Task ShowArticleAsync(ItemRow? row)
     {
+        // Every article switch, including to no article at all, invalidates
+        // whatever hero resolution was in flight for the previous one - it
+        // targets a hero the reading pane no longer shows.
+        _heroCoordinator.CancelPending();
+        HeroImagePath = null;
+
         if (row is null)
         {
             ArticleTitle = string.Empty;
@@ -107,6 +134,19 @@ public partial class MainWindow
             _ =>
                 (true, "Showing the summary the feed provided.", item.Link is not null)
         };
+
+        // Fired without awaiting: the title and body are already rendered,
+        // and the hero image fills in above them once it resolves. Reads
+        // ImageUrl from the freshly re-read item, not the (possibly stale)
+        // row, for the same reason the content above does.
+        var imageUrl = item.ImageUrl;
+        var token = _heroCoordinator.StartBatch();
+        _ = _heroCoordinator.RunAsync(token, async ct =>
+        {
+            var local = await _services.Images.ResolveAsync(imageUrl, ct);
+            if (ct.IsCancellationRequested) return;
+            await Dispatcher.UIThread.InvokeAsync(() => HeroImagePath = local);
+        });
     }
 
     public async Task FetchFullArticleAsync()

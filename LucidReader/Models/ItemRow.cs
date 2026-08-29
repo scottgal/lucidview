@@ -13,6 +13,7 @@ public sealed class ItemRow : INotifyPropertyChanged
 {
     private bool _isRead;
     private bool _isStarred;
+    private string? _thumbnailPath;
 
     public required FeedItem Item { get; init; }
     public required string FeedName { get; init; }
@@ -54,6 +55,22 @@ public sealed class ItemRow : INotifyPropertyChanged
     /// on this row's current state.
     /// </summary>
     public bool IsNotStarred => !_isStarred;
+
+    /// <summary>
+    /// Local cached path for the list row's thumbnail, resolved from
+    /// <c>Item.ImageUrl</c> (Task 8b's OpenGraph image). Starts null - the
+    /// row renders immediately with text only, occupying the full width -
+    /// and is assigned later, on the UI thread, by MainWindow's background
+    /// resolution pass (Task 8c). Must raise change notification: the row
+    /// is already on screen and possibly scrolled into view when this is set.
+    /// </summary>
+    public string? ThumbnailPath
+    {
+        get => _thumbnailPath;
+        set { if (_thumbnailPath == value) return; _thumbnailPath = value; Raise(); Raise(nameof(HasThumbnail)); }
+    }
+
+    public bool HasThumbnail => !string.IsNullOrEmpty(_thumbnailPath);
 
     public string TitleWeight => _isRead ? "Normal" : "SemiBold";
     public string StarGlyph => _isStarred ? "★" : "☆";

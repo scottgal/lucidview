@@ -12,6 +12,10 @@
         ExtendClientAreaChromeHints="PreferSystemChrome"
         ExtendClientAreaTitleBarHeightHint="-1">
 
+    <Window.Resources>
+        <controls:PathToBitmapConverter x:Key="PathToBitmapConverter" />
+    </Window.Resources>
+
     <Window.KeyBindings>
         <KeyBinding Gesture="J" Command="{Binding NextItemCommand}" />
         <KeyBinding Gesture="K" Command="{Binding PreviousItemCommand}" />
@@ -103,13 +107,27 @@
                                             <DataTemplate>
                                                 <Border Classes="node-row" Classes.selected="{Binding IsSelected}"
                                                         PointerPressed="OnFeedNodePointerPressed">
-                                                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="{Binding Indent}">
-                                                        <TextBlock Grid.Column="0" Text="{Binding Title}" Classes="row-title" />
-                                                        <TextBlock Grid.Column="1" Text="!" Classes="row-secondary"
+                                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="{Binding Indent}">
+                                                        <!--
+                                                            16px favicon slot, always reserved (Width fixed
+                                                            regardless of HasIcon) so feed names stay aligned
+                                                            whether or not an icon loaded. Folders and smart
+                                                            rows have no IconPath/IconUrl at all, so this
+                                                            column is simply always empty for them - no glyph
+                                                            change needed there.
+                                                        -->
+                                                        <Border Grid.Column="0" Width="16" Height="16" Margin="0,0,6,0"
+                                                                CornerRadius="3" Background="{DynamicResource RowHoverBrush}"
+                                                                IsVisible="{Binding ShowIconPlaceholder}" />
+                                                        <Image Grid.Column="0" Width="16" Height="16" Margin="0,0,6,0"
+                                                               Source="{Binding IconPath, Converter={StaticResource PathToBitmapConverter}}"
+                                                               IsVisible="{Binding HasIcon}" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Title}" Classes="row-title" />
+                                                        <TextBlock Grid.Column="2" Text="!" Classes="row-secondary"
                                                                    Margin="6,0,0,0"
                                                                    IsVisible="{Binding HasProblem}"
                                                                    ToolTip.Tip="{Binding LastError}" />
-                                                        <TextBlock Grid.Column="2" Text="{Binding UnreadLabel}" Classes="row-secondary"
+                                                        <TextBlock Grid.Column="3" Text="{Binding UnreadLabel}" Classes="row-secondary"
                                                                    Margin="6,0,0,0"
                                                                    IsVisible="{Binding HasUnread}" />
                                                     </Grid>
@@ -162,7 +180,19 @@
                                 made visible by the ListBoxItem:pointerover
                                 selector in Styles/Reader.axaml.
                             -->
-                            <Grid ColumnDefinitions="18,*">
+                            <!--
+                                A departure from Mail, recorded deliberately:
+                                Mail has no list thumbnails. Reeder and
+                                NetNewsWire do, and that third column is the
+                                user's choice - the sidebar and reading pane
+                                stay Mail-like, only this list gains a
+                                thumbnail on the right. The column is Auto,
+                                not a fixed width, so a row with no thumbnail
+                                (HasThumbnail false) simply has nothing in it
+                                and the text column claims the full row
+                                rather than leaving a grey placeholder box.
+                            -->
+                            <Grid ColumnDefinitions="18,*,Auto">
                                 <Ellipse Grid.Column="0" Width="7" Height="7"
                                          Fill="{DynamicResource UnreadDotBrush}"
                                          HorizontalAlignment="Center" VerticalAlignment="Top"
@@ -184,6 +214,14 @@
                                     <TextBlock Text="{Binding Snippet}" Classes="row-snippet"
                                                TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
+
+                                <Border Grid.Column="2" Width="56" Height="56"
+                                        Margin="0,10,12,10" CornerRadius="6"
+                                        IsVisible="{Binding HasThumbnail}"
+                                        ClipToBounds="True">
+                                    <Image Source="{Binding ThumbnailPath, Converter={StaticResource PathToBitmapConverter}}"
+                                           Stretch="UniformToFill" Width="56" Height="56" />
+                                </Border>
 
                                 <controls:RowActions Grid.Column="1"
                                                       MarkRead="OnRowMarkReadClicked"
@@ -215,6 +253,21 @@
                     within whatever width this StackPanel gives it instead.
                 -->
                 <StackPanel MaxWidth="{Binding ColumnWidth}" HorizontalAlignment="Left" Margin="32,24,32,24">
+                    <!--
+                        The hero, capped at the same reading measure as the
+                        body text below it (MaxWidth inherited from this
+                        StackPanel, no separate cap needed) so it never
+                        stretches wider than the column. Same rounded
+                        corners as the list thumbnail for visual consistency
+                        between the two surfaces that show article artwork.
+                    -->
+                    <Border x:Name="HeroImageBorder" IsVisible="{Binding HasHero}"
+                            CornerRadius="8" MaxHeight="320" Margin="0,0,0,16"
+                            ClipToBounds="True">
+                        <Image Source="{Binding HeroImagePath, Converter={StaticResource PathToBitmapConverter}}"
+                               Stretch="UniformToFill" MaxHeight="320" />
+                    </Border>
+
                     <TextBlock x:Name="ArticleTitleText" Text="{Binding ArticleTitle}" Classes="article-title" />
                     <TextBlock x:Name="ArticleMetaText" Text="{Binding ArticleMeta}" Classes="article-meta"
                                Margin="0,6,0,0" />

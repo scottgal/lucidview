@@ -15,6 +15,7 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
     private int _unreadCount;
     private bool _isExpanded = true;
     private bool _isSelected;
+    private string? _iconPath;
 
     public required string Title { get; init; }
     public FeedTreeNodeKind Kind { get; init; }
@@ -52,6 +53,38 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
         get => _isSelected;
         set { if (_isSelected == value) return; _isSelected = value; Raise(); }
     }
+
+    /// <summary>
+    /// Remote favicon URL for a feed row (Task 8b's discovered/guessed icon,
+    /// stored on <c>Feed.IconPath</c>). Set once when the node is built;
+    /// never re-raised itself.
+    /// </summary>
+    public string? IconUrl { get; init; }
+
+    /// <summary>
+    /// Local cached path for the sidebar favicon. Starts null - the row
+    /// renders immediately with the neutral placeholder - and is assigned
+    /// later, on the UI thread, once MainWindow's background resolution pass
+    /// (Task 8c) fetches it via ImageResolver. Must raise change
+    /// notification: the row is already on screen when this is set.
+    /// </summary>
+    public string? IconPath
+    {
+        get => _iconPath;
+        set { if (_iconPath == value) return; _iconPath = value; Raise(); Raise(nameof(HasIcon)); }
+    }
+
+    public bool HasIcon => !string.IsNullOrEmpty(_iconPath);
+
+    /// <summary>
+    /// Only feed rows ever carry an IconUrl (ToNode sets it nowhere else),
+    /// so HasIcon is already false for a smart/folder row. This gates the
+    /// neutral placeholder specifically: without it, a smart row like "All
+    /// items" or a folder header would show an empty grey icon box it has
+    /// no concept of, when the brief says those rows "keep their existing
+    /// glyphs" - i.e. no icon slot at all, not a placeholder one.
+    /// </summary>
+    public bool ShowIconPlaceholder => Kind == FeedTreeNodeKind.Feed && !HasIcon;
 
     public bool HasUnread => _unreadCount > 0;
     public string UnreadLabel => _unreadCount > 0 ? _unreadCount.ToString() : string.Empty;

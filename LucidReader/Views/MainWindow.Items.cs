@@ -45,6 +45,14 @@ public partial class MainWindow
         // whether this particular query turns out to win the race below.
         _dwell.CancelPending();
 
+        // Same reasoning for thumbnail resolution: rows about to be cleared
+        // must not have a favicon-style fetch land on them after they are
+        // gone. ResolveThumbnailsAsync below starts a fresh batch anyway,
+        // but that only happens after the awaits below complete, and a slow
+        // query must not leave the previous list's thumbnails resolving in
+        // the meantime.
+        _thumbnailCoordinator.CancelPending();
+
         var ticket = _loadGuard.Begin();
         var items = await _services.Items.QueryAsync(BuildQuery());
         var feeds = (await _services.Feeds.GetAllAsync())
@@ -85,6 +93,11 @@ public partial class MainWindow
         StatusMessage = ItemRows.Count == 0
             ? "No articles here yet."
             : $"{ItemRows.Count} articles";
+
+        // Fired without awaiting: the list is already on screen with full
+        // text and no thumbnail, and thumbnails fill in as they resolve.
+        // See MainWindow.Images.cs.
+        _ = ResolveThumbnailsAsync(ItemRows.ToList());
     }
 
     private async Task OnItemSelectedAsync(ItemRow? row)
