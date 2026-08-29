@@ -148,7 +148,10 @@ public class OpmlServiceTests : IAsyncLifetime
 
         Assert.Equal(1, result.FeedsAdded);
         Assert.Equal(1, result.FeedsFailed);
-        Assert.Contains("https://another.example/atom.xml", result.FailedFeedUrls);
+        var failure = Assert.Single(result.FailedFeeds);
+        Assert.Equal("https://another.example/atom.xml", failure.FeedUrl);
+        Assert.Equal(nameof(InvalidOperationException), failure.ExceptionType);
+        Assert.Equal("Simulated write failure.", failure.Message);
 
         var stored = await failingFeeds.GetAllAsync();
         var storedFeed = Assert.Single(stored);

@@ -4,16 +4,25 @@ using LucidReader.Core.Storage;
 namespace LucidReader.Core.Opml;
 
 /// <summary>
-/// FailedFeedUrls lists exactly the feeds that did not import because a
-/// write threw, so the UI can tell the user precisely what to retry rather
-/// than reporting a single opaque failure.
+/// The reason one feed did not import. Carries the failing exception's type
+/// name and message rather than swallowing them, so a genuine bug (a null
+/// reference, a bad SQL binding) is distinguishable from a routine
+/// constraint violation instead of both looking like an unremarkable entry
+/// in a list of URLs.
+/// </summary>
+public sealed record OpmlImportFailure(string FeedUrl, string ExceptionType, string Message);
+
+/// <summary>
+/// FailedFeeds lists exactly the feeds that did not import, and why, so the
+/// UI can tell the user precisely what to retry and a developer can tell a
+/// collision apart from a bug, rather than reporting a single opaque count.
 /// </summary>
 public readonly record struct OpmlImportResult(
     int FoldersCreated,
     int FeedsAdded,
     int FeedsSkipped,
     int FeedsFailed,
-    IReadOnlyList<string> FailedFeedUrls);
+    IReadOnlyList<OpmlImportFailure> FailedFeeds);
 
 public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
 {
@@ -54,7 +63,7 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
         var added = 0;
         var skipped = 0;
         var failed = 0;
-        var failedUrls = new List<string>();
+        var failures = new List<OpmlImportFailure>();
 
         async Task ImportLevelAsync(IReadOnlyList<OpmlOutline> level, long? folderId, int depth)
         {
@@ -88,7 +97,7 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
                         catch (Exception ex) when (ex is not OperationCanceledException)
                         {
                             failed++;
-                            failedUrls.Add(feedUrl);
+                            failures.Add(new OpmlImportFailure(feedUrl, ex.GetType().Name, ex.Message));
                         }
                     }
 
@@ -130,11 +139,16 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
                         // Without a folder, the feeds nested under it cannot be
                         // placed anywhere sensible. Count every feed in the
                         // subtree as failed rather than silently reparenting
-                        // them to the top level or losing them outright.
+                        // them to the top level or losing them outright. Each
+                        // one keeps the folder-creation exception's own type
+                        // and message, since that is the actual reason none
+                        // of them could be placed.
+                        var exceptionType = ex.GetType().Name;
+                        var message = $"Folder \"{outline.Title}\" could not be created: {ex.Message}";
                         foreach (var url in CollectFeedUrls(outline.Children))
                         {
                             failed++;
-                            failedUrls.Add(url);
+                            failures.Add(new OpmlImportFailure(url, exceptionType, message));
                         }
                         continue;
                     }
@@ -146,7 +160,7 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
 
         await ImportLevelAsync(outlines, null, 0);
 
-        return new OpmlImportResult(foldersCreated, added, skipped, failed, failedUrls);
+        return new OpmlImportResult(foldersCreated, added, skipped, failed, failures);
     }
 
     private static IEnumerable<string> CollectFeedUrls(IReadOnlyList<OpmlOutline> outlines)
