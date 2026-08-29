@@ -66,7 +66,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _services.SettingsChanged += _onSettingsChanged;
 
         Opened += async (_, _) => await OnOpenedAsync();
-        Closing += (_, _) => _services.SettingsChanged -= _onSettingsChanged;
+        Closing += (_, _) =>
+        {
+            _services.SettingsChanged -= _onSettingsChanged;
+
+            // A pending dwell must not fire a write against ReaderServices
+            // after this window closes: App.axaml.cs disposes Services on
+            // shutdown with no coordination beyond window-closing order, so
+            // an in-flight dwell could otherwise call SetReadAsync against a
+            // disposing (or already-disposed) store.
+            _dwell.CancelPending();
+        };
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
