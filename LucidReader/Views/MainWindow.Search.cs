@@ -1,4 +1,5 @@
 using LucidReader.Models;
+using LucidReader.Services;
 
 namespace LucidReader.Views;
 
@@ -10,16 +11,23 @@ namespace LucidReader.Views;
 /// parallel one: a keystroke racing a feed-tree selection change, or two
 /// keystrokes racing each other, would otherwise both mutate ItemRows and
 /// the slower one could win.
+///
+/// The load guard alone is not enough to make a feed click win over a
+/// search debounce that started earlier but elapses later: the guard
+/// orders strictly by when its ticket is taken, not by when the user
+/// acted, and a debounce takes its ticket up to 250ms after the keystroke.
+/// <see cref="_searchCoordinator"/> (SearchCoordinator) closes that gap by
+/// letting a feed-tree selection change (see MainWindow.axaml.cs's
+/// SelectedFeedNode setter) cancel a pending debounce outright, so a stale
+/// search can never reach the guard at all. See SearchCoordinator's own
+/// doc comment for the full interleaving this fixes.
 /// </summary>
 public partial class MainWindow
 {
-    private CancellationTokenSource? _searchDebounceCts;
+    private readonly SearchCoordinator _searchCoordinator = new();
 
-    /// <summary>
-    /// True while ItemRows holds search results rather than a feed-tree
-    /// selection's items.
-    /// </summary>
-    public bool IsShowingSearchResults { get; private set; }
+    /// <summary>True while ItemRows holds search results rather than a feed-tree selection's items.</summary>
+    public bool IsShowingSearchResults => _searchCoordinator.IsShowingSearchResults;
 
     /// <summary>
     /// Fired from the SearchText setter on every keystroke. Debounces by
@@ -28,30 +36,29 @@ public partial class MainWindow
     /// </summary>
     public async Task OnSearchTextChangedAsync()
     {
-        _searchDebounceCts?.Cancel();
-        _searchDebounceCts?.Dispose();
-
-        var cts = new CancellationTokenSource();
-        _searchDebounceCts = cts;
         var query = SearchText;
 
         if (string.IsNullOrWhiteSpace(query))
         {
-            IsShowingSearchResults = false;
+            _searchCoordinator.CancelPending();
+            _searchCoordinator.MarkShowingSelection();
+            Raise(nameof(IsShowingSearchResults));
             await LoadItemsAsync();
             return;
         }
 
+        var token = _searchCoordinator.BeginDebounce();
+
         try
         {
-            await Task.Delay(TimeSpan.FromMilliseconds(250), cts.Token);
-            await RunSearchAsync(query, cts.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(250), token);
+            await RunSearchAsync(query, token);
         }
         catch (OperationCanceledException)
         {
-            // A newer keystroke (or a feed-tree selection) superseded this
-            // one; that caller is responsible for whatever ItemRows ends up
-            // showing, so this call simply stops.
+            // A newer keystroke, or a feed-tree selection change (via
+            // SearchCoordinator.CancelForFeedChange), superseded this one;
+            // whichever call did that owns whatever ItemRows shows now.
         }
     }
 
@@ -77,6 +84,12 @@ public partial class MainWindow
             .ToDictionary(f => f.Id, f => f.DisplayTitle);
         var now = DateTimeOffset.UtcNow;
 
+        // Belt-and-braces on top of the guard check below: if a feed change
+        // cancelled this call's token while the awaits above were in
+        // flight, but SearchAsync/GetAllAsync happened not to observe the
+        // cancellation themselves, this still stops the write.
+        ct.ThrowIfCancellationRequested();
+
         // A newer load (another keystroke's search, or a feed-tree
         // selection) started while these awaits were in flight. Its result
         // is the one that matters now; this one must not touch ItemRows.
@@ -98,7 +111,8 @@ public partial class MainWindow
             });
         }
 
-        IsShowingSearchResults = true;
+        _searchCoordinator.MarkShowingResults();
+        Raise(nameof(IsShowingSearchResults));
         StatusMessage = results.Count == 0
             ? $"Nothing found for \"{query}\"."
             : $"{results.Count} results for \"{query}\"";

@@ -87,6 +87,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             // an in-flight dwell could otherwise call SetReadAsync against a
             // disposing (or already-disposed) store.
             _dwell.CancelPending();
+            _searchCoordinator.Dispose();
             _iconCoordinator.Dispose();
             _thumbnailCoordinator.Dispose();
             _heroCoordinator.Dispose();
@@ -130,6 +131,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (_selectedFeedNode is not null) _selectedFeedNode.IsSelected = true;
 
             Raise();
+
+            // A feed click must win over a search debounce that started
+            // earlier but has not yet elapsed. LoadSequenceGuard alone
+            // can't guarantee that: it orders by when Begin() is called,
+            // and the debounce (see MainWindow.Search.cs) takes its ticket
+            // up to 250ms after the keystroke that started it, so a stale
+            // debounce could still take a LATER ticket than this load and
+            // win the guard on its own terms. Cancelling here stops that
+            // search before it can ever reach the guard. Clearing the
+            // search box too: leaving a stale query visible while showing
+            // a feed's articles would be its own kind of lie.
+            _searchCoordinator.CancelForFeedChange();
+            Raise(nameof(IsShowingSearchResults));
+            if (_searchText.Length > 0)
+            {
+                _searchText = string.Empty;
+                Raise(nameof(SearchText));
+            }
+
             _ = LoadItemsAsync();
         }
     }
