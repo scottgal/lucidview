@@ -131,6 +131,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (_selectedFeedNode is not null) _selectedFeedNode.IsSelected = true;
 
             Raise();
+            Raise(nameof(IsFeedSelected));
 
             // A feed click must win over a search debounce that started
             // earlier but has not yet elapsed. LoadSequenceGuard alone
@@ -153,6 +154,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _ = LoadItemsAsync();
         }
     }
+
+    /// <summary>
+    /// True only when the sidebar selection is an actual feed. Folders and the
+    /// smart rows (All items, Unread, Starred) select fine but have no FeedId,
+    /// so the feed-scoped toolbar actions stay disabled on them.
+    /// </summary>
+    public bool IsFeedSelected => SelectedFeedNode?.FeedId is not null;
 
     /// <summary>
     /// Wired from a PointerPressed on each sidebar row's Border (see

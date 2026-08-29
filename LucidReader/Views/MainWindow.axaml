@@ -66,6 +66,18 @@
                             Command="{Binding AddFeedCommand}" />
                     <Button x:Name="RefreshAllButton" Content="Refresh all" Classes="row-toolbar"
                             Command="{Binding RefreshAllCommand}" />
+                    <!--
+                        The same per-feed settings the sidebar context menu
+                        opens, reachable without a right-click. Mail exposes
+                        mailbox settings from the menu bar as well as the
+                        context menu, and a ContextMenu opens into its own
+                        PopupRoot, which the UI test harness can neither
+                        locate nor capture - so the context menu alone would
+                        leave this flow permanently unverifiable.
+                    -->
+                    <Button x:Name="FeedSettingsButton" Content="Feed settings" Classes="row-toolbar"
+                            IsEnabled="{Binding IsFeedSelected}"
+                            Click="OnToolbarFeedSettingsClicked" />
                 </StackPanel>
 
                 <TextBox Grid.Column="1" x:Name="SearchBox"

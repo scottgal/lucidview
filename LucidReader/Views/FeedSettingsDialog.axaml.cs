@@ -61,8 +61,6 @@ public partial class FeedSettingsDialog : Window
         UpdateGating();
     }
 
-    private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
-
     public FeedSettingsDraft Draft { get; }
 
     /// <summary>Null when the dialog was cancelled.</summary>

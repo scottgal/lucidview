@@ -1,5 +1,14 @@
 name: verify-feed-settings-dialog
-description: Right-click a feed, open Feed settings, verify inherited labels, then verify the unsubscribe confirmation (cancelled, not confirmed)
+description: >
+  Select a feed, open its settings from the toolbar, and verify the inherited
+  labels and that a feed with no overrides opens with every switch off.
+
+  The toolbar route is used rather than the sidebar context menu because a
+  ContextMenu opens into its own PopupRoot: LocatorEngine resolves against a
+  single window root and ScreenshotCapture only draws Popups found in the
+  window's visual or logical tree, so the harness can neither click nor
+  capture a context menu item. The Unsubscribe confirmation is reachable only
+  from that context menu and so has no coverage here.
 default_delay: 250
 
 actions:
@@ -10,19 +19,32 @@ actions:
   - type: Screenshot
     value: 00-main-window
 
-  - type: RightClick
-    target: "text=Alpha Feed"
-    description: Open the feed context menu on Alpha Feed
+  # MouseDown/MouseUp, not Click: the harness's Click on a non-Button control
+  # only calls Focus() and never raises pointer events, and sidebar selection
+  # is driven by PointerPressed on each row's Border. MouseDown/MouseUp go
+  # through the real InputManager pipeline, so they select the row.
+  - type: MouseDown
+    target: "text='Alpha Feed'"
+    button: left
+    description: Select Alpha Feed, which enables the feed-scoped toolbar actions
+
+  - type: MouseUp
+    target: "text='Alpha Feed'"
+    button: left
 
   - type: Wait
-    value: "300"
+    value: "400"
+
+  - type: Expect
+    target: FeedSettingsButton
+    matcher: IsEnabled
+    description: Selecting a real feed must enable the button
 
   - type: Screenshot
-    value: 01-context-menu
-    composite: true
+    value: 01-feed-selected
 
   - type: Click
-    target: "text='Feed settings...'"
+    target: FeedSettingsButton
     description: Open the per-feed settings dialog
 
   - type: Wait
@@ -57,39 +79,7 @@ actions:
     description: Cancel without saving
 
   - type: Wait
-    value: "300"
-
-  - type: RightClick
-    target: "text=Alpha Feed"
-    description: Reopen the context menu to reach Unsubscribe
-
-  - type: Wait
-    value: "300"
-
-  - type: Click
-    target: "text=Unsubscribe"
-    description: Trigger the unsubscribe confirmation
-
-  - type: Wait
     value: "400"
 
   - type: Screenshot
-    value: 03-unsubscribe-confirm
-    window_id: Unsubscribe
-
-  - type: Expect
-    target: MessageText
-    window_id: Unsubscribe
-    matcher: ContainsText
-    value: "Alpha Feed"
-
-  - type: Click
-    target: CancelButton
-    window_id: Unsubscribe
-    description: Cancel - must not actually delete the feed
-
-  - type: Wait
-    value: "300"
-
-  - type: Screenshot
-    value: 04-after-cancel
+    value: 03-after-cancel

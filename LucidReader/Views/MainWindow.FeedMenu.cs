@@ -54,6 +54,17 @@ public partial class MainWindow
         if (NodeFromSender(sender)?.FeedId is { } feedId) await ShowFeedSettingsAsync(feedId);
     }
 
+    /// <summary>
+    /// Toolbar route to the same dialog. NodeFromSender is no use here: the
+    /// button's DataContext is the window, not a row, so the feed comes from
+    /// the sidebar selection instead. IsFeedSelected already keeps the button
+    /// disabled unless that selection is a real feed.
+    /// </summary>
+    private async void OnToolbarFeedSettingsClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (SelectedFeedNode?.FeedId is { } feedId) await ShowFeedSettingsAsync(feedId);
+    }
+
     private async void OnUnsubscribeFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (NodeFromSender(sender)?.FeedId is { } feedId) await UnsubscribeAsync(feedId);

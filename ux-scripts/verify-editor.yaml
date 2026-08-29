@@ -1,0 +1,42 @@
+# Verify the new BlockEditor renders in the raw/edit tab
+name: verify-editor
+description: Load test content, switch to raw editor tab, capture screenshot
+default_delay: 300
+
+actions:
+  - type: Wait
+    value: "2000"
+    description: Wait for app startup
+
+  - type: Navigate
+    value: ux-scripts/test-document.md
+    description: Load the fixture markdown
+
+  - type: Wait
+    value: "1500"
+    description: Wait for content to load and render
+
+  - type: Screenshot
+    value: 01-preview-loaded
+
+  - type: Click
+    target: RawTab
+    description: Switch to raw/edit tab
+
+  - type: Wait
+    value: "1000"
+    description: Wait for editor to render
+
+  - type: Screenshot
+    value: 02-editor-loaded
+
+  - type: Click
+    target: SplitTab
+    description: Switch to split view
+
+  - type: Wait
+    value: "800"
+    description: Wait for split view
+
+  - type: Screenshot
+    value: 03-split-view
