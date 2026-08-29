@@ -197,6 +197,59 @@ public class FeedFetcherTests
         Assert.Contains("<title>ok</title>", fetched.Content);
     }
 
+    // --- Size bound ---
+    //
+    // ArticleFetcher already solved exactly this problem (an unbounded
+    // ReadAsByteArrayAsync/ReadAsStringAsync buffers a chunked response with
+    // no cap, since chunked transfer never sets Content-Length). FeedFetcher
+    // used to have the same gap.
+
+    [Fact]
+    public async Task A_chunked_response_over_the_size_cap_is_rejected_not_buffered()
+    {
+        // No Content-Length header at all - the shape a chunked response
+        // takes - so the fast Content-Length pre-check cannot fire; only the
+        // streaming bound can reject this.
+        var handler = StubHttpHandler.ReturningUnboundedLength(9 * 1024 * 1024);
+        var fetcher = new FeedFetcher(handler.CreateClient());
+
+        var result = await fetcher.FetchAsync(Url, null, null).WaitAsync(TimeSpan.FromSeconds(10));
+
+        var failed = Assert.IsType<FeedFetchResult.Failed>(result);
+        Assert.False(failed.IsTransient);
+    }
+
+    [Fact]
+    public async Task A_retry_after_delta_header_on_a_429_is_captured()
+    {
+        var handler = new StubHttpHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(
+                TimeSpan.FromSeconds(120));
+            return response;
+        });
+        var fetcher = new FeedFetcher(handler.CreateClient());
+
+        var result = await fetcher.FetchAsync(Url, null, null);
+
+        var failed = Assert.IsType<FeedFetchResult.Failed>(result);
+        Assert.True(failed.IsTransient);
+        Assert.Equal(TimeSpan.FromSeconds(120), failed.RetryAfter);
+    }
+
+    [Fact]
+    public async Task A_failure_with_no_retry_after_header_leaves_it_null()
+    {
+        var handler = StubHttpHandler.Returning(HttpStatusCode.ServiceUnavailable);
+        var fetcher = new FeedFetcher(handler.CreateClient());
+
+        var result = await fetcher.FetchAsync(Url, null, null);
+
+        var failed = Assert.IsType<FeedFetchResult.Failed>(result);
+        Assert.Null(failed.RetryAfter);
+    }
+
     [Fact]
     public async Task A_UTF8_feed_still_decodes_correctly()
     {

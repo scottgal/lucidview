@@ -14,16 +14,17 @@ public sealed class FeedFetcher(HttpClient http)
     public const string UserAgentString =
         "lucidREADER/1.0 (+https://www.mostlylucid.net)";
 
-    // System.Text.Encoding.CodePages ships legacy code pages (windows-1252
-    // among them) that are not registered by default on .NET Core and
-    // later. Feeds routinely declare exactly these encodings in their XML
-    // declaration, so the provider has to be live before FetchAsync ever
-    // runs. Registering it here, once, statically, means every caller gets
-    // correct decoding without having to know this detail exists.
-    static FeedFetcher()
-    {
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-    }
+    // The legacy code-page provider (System.Text.Encoding.CodePages) that
+    // DecodeBody below depends on used to be registered by a static
+    // constructor on this class. That is registered unconditionally now, by
+    // a [ModuleInitializer] in ModuleInitialization.cs, because ArticleFetcher
+    // depends on the exact same registration and its only reference to this
+    // class was FeedFetcher.UserAgentString - a const the compiler inlines at
+    // the call site, which does NOT trigger a type's static constructor. See
+    // ModuleInitialization.cs for the full explanation.
+
+    private const int MaxFeedBytes = 8 * 1024 * 1024;
+    private const int ReadBufferSize = 8192;
 
     private static readonly Regex XmlDeclarationEncoding = new(
         """<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["']""",
@@ -55,8 +56,12 @@ public sealed class FeedFetcher(HttpClient http)
 
         try
         {
+            // ResponseHeadersRead rather than ResponseContentRead: the latter
+            // buffers the whole body into memory before this method ever gets
+            // a chance to look at it, the same unbounded-buffering shape
+            // ArticleFetcher had to fix (see ReadBoundedAsync below).
             using var response = await http.SendAsync(
-                request, HttpCompletionOption.ResponseContentRead, ct);
+                request, HttpCompletionOption.ResponseHeadersRead, ct);
 
             if (response.StatusCode == HttpStatusCode.NotModified)
                 return new FeedFetchResult.NotModified();
@@ -64,9 +69,22 @@ public sealed class FeedFetcher(HttpClient http)
             if (!response.IsSuccessStatusCode)
                 return new FeedFetchResult.Failed(
                     $"{(int)response.StatusCode} {response.ReasonPhrase}",
-                    IsTransient(response.StatusCode));
+                    IsTransient(response.StatusCode),
+                    response.Headers.RetryAfter?.Delta);
 
-            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            // Cheap early rejection when the server declares its length up
+            // front. Most feeds do, but a dynamically generated one can be
+            // served chunked, which never sets Content-Length - that shape is
+            // only caught by the streaming bound in ReadBoundedAsync below.
+            if (response.Content.Headers.ContentLength > MaxFeedBytes)
+                return new FeedFetchResult.Failed(
+                    "Feed response exceeds the maximum allowed size.", false);
+
+            var bytes = await ReadBoundedAsync(response.Content, ct);
+            if (bytes is null)
+                return new FeedFetchResult.Failed(
+                    "Feed response exceeds the maximum allowed size.", false);
+
             var content = DecodeBody(bytes, response.Content.Headers.ContentType?.CharSet);
 
             return new FeedFetchResult.Fetched(
@@ -89,6 +107,30 @@ public sealed class FeedFetcher(HttpClient http)
         {
             return new FeedFetchResult.Failed(ex.Message, true);
         }
+    }
+
+    /// <summary>
+    /// Reads the body a chunk at a time and abandons the read the moment the
+    /// total exceeds MaxFeedBytes, rather than trusting Content-Length: a
+    /// chunked response - the common case for dynamically generated feeds -
+    /// never sets that header, so the fast-path check above is skipped
+    /// entirely and an unbounded ReadAsByteArrayAsync would buffer the whole
+    /// body with no cap at all. Mirrors ArticleFetcher.ReadBoundedAsync.
+    /// </summary>
+    private static async Task<byte[]?> ReadBoundedAsync(HttpContent content, CancellationToken ct)
+    {
+        await using var stream = await content.ReadAsStreamAsync(ct);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[ReadBufferSize];
+
+        int read;
+        while ((read = await stream.ReadAsync(chunk, ct)) > 0)
+        {
+            buffer.Write(chunk, 0, read);
+            if (buffer.Length > MaxFeedBytes) return null;
+        }
+
+        return buffer.ToArray();
     }
 
     /// <summary>
