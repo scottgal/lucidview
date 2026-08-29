@@ -74,7 +74,35 @@ internal static class RowMappers
         RefreshIntervalMinutes = reader.GetNullableInt("refresh_interval_minutes"),
         AutoDownload = reader.GetNullableBool("auto_download"),
         FetchFullText = reader.GetNullableBool("fetch_full_text"),
-        RetentionDays = reader.GetNullableInt("retention_days")
+        RetentionDays = reader.GetNullableInt("retention_days"),
+        AutoPausedUtc = reader.GetNullableDate("auto_paused_utc")
+    };
+
+    /// <summary>
+    /// Shared by ItemRepository and SearchRepository, which both select
+    /// "items.*" (directly or via the FTS join) and were carrying byte-identical
+    /// copies of this mapper. Consolidated while the two were still provably
+    /// identical - Plan 2 adding columns to one query but not the other would
+    /// otherwise drift silently.
+    /// </summary>
+    public static Model.FeedItem ReadItem(SqliteDataReader reader) => new()
+    {
+        Id = reader.GetInt64(reader.GetOrdinal("id")),
+        FeedId = reader.GetInt64(reader.GetOrdinal("feed_id")),
+        Guid = reader.GetString(reader.GetOrdinal("guid")),
+        Link = reader.GetNullableString("link"),
+        Title = reader.GetNullableString("title"),
+        Author = reader.GetNullableString("author"),
+        PublishedUtc = reader.GetNullableDate("published_utc"),
+        UpdatedUtc = reader.GetNullableDate("updated_utc"),
+        Summary = reader.GetNullableString("summary"),
+        ContentMarkdown = reader.GetNullableString("content_markdown"),
+        ContentSource = (Model.ContentSource)reader.GetInt32(reader.GetOrdinal("content_source")),
+        IsRead = reader.GetBool("is_read"),
+        IsStarred = reader.GetBool("is_starred"),
+        FirstSeenUtc = reader.GetDate("first_seen_utc"),
+        OfflineState = (Model.OfflineState)reader.GetInt32(reader.GetOrdinal("offline_state")),
+        OfflineError = reader.GetNullableString("offline_error")
     };
 
     public static Folder ReadFolder(SqliteDataReader reader) => new()

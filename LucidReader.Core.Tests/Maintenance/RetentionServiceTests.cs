@@ -15,13 +15,15 @@ public class RetentionServiceTests : IAsyncLifetime
 
     private ReaderDatabase _db = null!;
     private ItemRepository _items = null!;
+    private FeedRepository _feeds = null!;
     private long _feedId;
 
     public async Task InitializeAsync()
     {
         _db = await ReaderDatabase.OpenAsync(_temp.Path);
         _items = new ItemRepository(_db);
-        _feedId = await new FeedRepository(_db).AddAsync(
+        _feeds = new FeedRepository(_db);
+        _feedId = await _feeds.AddAsync(
             new Feed { FeedUrl = "https://example.com/feed.xml" });
     }
 
@@ -48,7 +50,7 @@ public class RetentionServiceTests : IAsyncLifetime
     }
 
     private RetentionService Service(ReaderSettings settings) =>
-        new(_db, () => settings, _time);
+        new(_db, _feeds, () => settings, _time);
 
     private async Task<int> CountAsync() =>
         (await _items.QueryAsync(new ItemQuery(null, null, ItemFilter.All, 1000, 0))).Count;
@@ -186,5 +188,116 @@ public class RetentionServiceTests : IAsyncLifetime
         Assert.True(
             sizeAfter < sizeBefore,
             $"expected the database to shrink after pruning; before={sizeBefore} after={sizeAfter}");
+    }
+
+    // --- Tombstones: a pruned item must not be resurrected by the next refresh ---
+    //
+    // Dedupe on upsert is keyed on (feed_id, guid) of a LIVE row, so deleting
+    // the row also deletes the dedupe key. Without a tombstone, any feed whose
+    // XML window still lists an item older than its retention period would
+    // have that item resurrected as unread, with its downloaded content gone,
+    // on literally every refresh after every prune.
+
+    [Fact]
+    public async Task A_pruned_item_does_not_come_back_on_the_next_refresh()
+    {
+        var id = await AddAsync("pruned-guid", ageDays: 40, isRead: true);
+        await _items.SetContentAsync(id, "downloaded content", ContentSource.Extracted);
+        var service = Service(ReaderSettings.Defaults with { KeepReadArticlesDays = 30 });
+
+        var deleted = await service.PruneAsync();
+        Assert.Equal(1, deleted);
+        Assert.Equal(0, await CountAsync());
+
+        // Simulate the next refresh: the feed's own XML window still lists
+        // this guid, so it republishes it exactly as ItemRepository.UpsertManyAsync
+        // would during a real refresh.
+        var resurrectedId = await _items.UpsertAsync(new FeedItem
+        {
+            FeedId = _feedId,
+            Guid = "pruned-guid",
+            Title = "pruned-guid",
+            PublishedUtc = _time.GetUtcNow().AddDays(-40),
+            FirstSeenUtc = _time.GetUtcNow()
+        });
+
+        Assert.Equal(-1, resurrectedId);
+        Assert.Equal(0, await CountAsync());
+    }
+
+    [Fact]
+    public async Task A_never_pruned_item_still_updates_in_place_on_republication()
+    {
+        var id = await AddAsync("stable-guid", ageDays: 1, isRead: false);
+        var service = Service(ReaderSettings.Defaults with { KeepReadArticlesDays = 30 });
+        await service.PruneAsync();
+
+        var updatedId = await _items.UpsertAsync(new FeedItem
+        {
+            FeedId = _feedId,
+            Guid = "stable-guid",
+            Title = "Corrected title",
+            PublishedUtc = _time.GetUtcNow().AddDays(-1),
+            FirstSeenUtc = _time.GetUtcNow()
+        });
+
+        Assert.Equal(id, updatedId);
+        var updated = await _items.GetAsync(id);
+        Assert.Equal("Corrected title", updated!.Title);
+    }
+
+    [Fact]
+    public async Task Unsubscribing_from_a_feed_clears_its_tombstones()
+    {
+        var id = await AddAsync("pruned-guid", ageDays: 40, isRead: true);
+        var service = Service(ReaderSettings.Defaults with { KeepReadArticlesDays = 30 });
+        await service.PruneAsync();
+
+        Assert.Equal(1, await TombstoneCountAsync(_feedId));
+
+        await _feeds.DeleteAsync(_feedId);
+
+        Assert.Equal(0, await TombstoneCountAsync(_feedId));
+    }
+
+    private Task<long> TombstoneCountAsync(long feedId) =>
+        _db.QueryAsync(async connection =>
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT count(*) FROM item_tombstones WHERE feed_id = $feedId;";
+            command.Parameters.AddWithValue("$feedId", feedId);
+            return Convert.ToInt64(await command.ExecuteScalarAsync());
+        });
+
+    // --- Per-feed retention override ---
+
+    [Fact]
+    public async Task A_feed_with_a_retention_override_is_pruned_on_its_own_schedule()
+    {
+        var overriddenFeedId = await _feeds.AddAsync(new Feed
+        {
+            FeedUrl = "https://example.com/short-retention.xml",
+            RetentionDays = 5
+        });
+
+        // Global window is 30 days: an item 10 days old survives on the
+        // default feed but must be pruned on the 5-day override.
+        var defaultFeedItemId = await AddAsync("default-feed-item", ageDays: 10, isRead: true);
+        var overriddenItemId = await _items.UpsertAsync(new FeedItem
+        {
+            FeedId = overriddenFeedId,
+            Guid = "overridden-feed-item",
+            Title = "overridden-feed-item",
+            PublishedUtc = _time.GetUtcNow().AddDays(-10),
+            FirstSeenUtc = _time.GetUtcNow().AddDays(-10),
+            IsRead = true
+        });
+
+        var service = Service(ReaderSettings.Defaults with { KeepReadArticlesDays = 30 });
+        var deleted = await service.PruneAsync();
+
+        Assert.Equal(1, deleted);
+        Assert.NotNull(await _items.GetAsync(defaultFeedItemId));
+        Assert.Null(await _items.GetAsync(overriddenItemId));
     }
 }

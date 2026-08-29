@@ -19,6 +19,14 @@ public sealed record Feed
     public string? LastError { get; init; }
     public DateTimeOffset? NextDueUtc { get; init; }
 
+    /// <summary>
+    /// Set only when FeedRefreshService disabled this feed automatically after
+    /// reaching BackoffPolicy.AutoPauseThreshold consecutive failures; null for
+    /// a feed the user disabled deliberately. Lets a UI distinguish the two and
+    /// is cleared whenever the feed is re-enabled.
+    /// </summary>
+    public DateTimeOffset? AutoPausedUtc { get; init; }
+
     public int? RefreshIntervalMinutes { get; init; }
     public bool? AutoDownload { get; init; }
     public bool? FetchFullText { get; init; }

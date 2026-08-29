@@ -21,6 +21,7 @@ public class SchemaMigratorTests
         Assert.Contains("tags", tables);
         Assert.Contains("item_tags", tables);
         Assert.Contains("items_fts", tables);
+        Assert.Contains("item_tombstones", tables);
     }
 
     [Fact]
@@ -78,6 +79,73 @@ public class SchemaMigratorTests
         var result = await command.ExecuteScalarAsync();
 
         Assert.Equal(0L, Convert.ToInt64(result));
+    }
+
+    /// <summary>
+    /// Simulates a database written before V2 (tombstones, auto_paused_utc)
+    /// existed: applies only the V1 SQL directly and stamps user_version = 1,
+    /// bypassing SchemaMigrator so V2 is not silently applied to what is
+    /// meant to represent a pre-V2 database. Then runs the real migrator and
+    /// checks the pre-existing rows and the new column/table both come
+    /// through intact.
+    /// </summary>
+    [Fact]
+    public async Task Migrating_an_existing_V1_database_forward_preserves_its_data()
+    {
+        using var db = new TempDatabase();
+        await using var connection = db.Open();
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = Migrations.All[0];
+            await command.ExecuteNonQueryAsync();
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA user_version = 1;";
+            await command.ExecuteNonQueryAsync();
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "INSERT INTO feeds (feed_url, is_enabled) VALUES ('https://example.com/feed.xml', 1);";
+            await command.ExecuteNonQueryAsync();
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                """
+                INSERT INTO items (feed_id, guid, title, first_seen_utc)
+                VALUES (1, 'guid-1', 'Pre-existing item', '2026-08-28T00:00:00Z');
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var version = await SchemaMigrator.MigrateAsync(connection);
+
+        Assert.Equal(Migrations.All.Count, version);
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT feed_url FROM feeds WHERE id = 1;";
+            Assert.Equal("https://example.com/feed.xml", await command.ExecuteScalarAsync());
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT title FROM items WHERE feed_id = 1 AND guid = 'guid-1';";
+            Assert.Equal("Pre-existing item", await command.ExecuteScalarAsync());
+        }
+        await using (var command = connection.CreateCommand())
+        {
+            // The new nullable column exists and is null for a row that
+            // predates it, rather than the ALTER TABLE having failed silently
+            // or the row having been dropped.
+            command.CommandText = "SELECT auto_paused_utc FROM feeds WHERE id = 1;";
+            Assert.Equal(DBNull.Value, await command.ExecuteScalarAsync());
+        }
+
+        var tables = await ReadTableNamesAsync(connection);
+        Assert.Contains("item_tombstones", tables);
     }
 
     private static async Task<List<string>> ReadTableNamesAsync(SqliteConnection connection)

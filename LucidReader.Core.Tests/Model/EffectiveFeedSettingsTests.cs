@@ -71,8 +71,14 @@ public class EffectiveFeedSettingsTests
     }
 
     [Fact]
-    public void Keeping_unread_forever_resolves_to_no_retention_limit()
+    public void RetentionDays_reflects_KeepReadArticlesDays_regardless_of_KeepUnreadForever()
     {
+        // KeepUnreadForever governs unread items only; EffectiveFeedSettings.RetentionDays
+        // resolves from KeepReadArticlesDays either way, so toggling the former
+        // must not change the latter. The old name for this test
+        // ("...resolves to no retention limit") asserted the opposite of what
+        // it actually checked - RetentionDays here is 30, a real limit, not
+        // "none".
         var globals = Globals with { KeepUnreadForever = true };
 
         var effective = EffectiveFeedSettings.Resolve(Feed(), globals);

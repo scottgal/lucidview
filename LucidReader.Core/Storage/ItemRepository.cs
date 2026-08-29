@@ -6,10 +6,29 @@ namespace LucidReader.Core.Storage;
 public sealed class ItemRepository(ReaderDatabase db)
 {
     /// <summary>
+    /// ItemQuery is a positional record struct, so default(ItemQuery) - and
+    /// any caller who forgets to set Limit - zero-inits every field including
+    /// Limit, silently returning zero rows rather than failing loudly. Struct
+    /// defaults cannot be overridden in C#, so an unset (non-positive) Limit is
+    /// treated as "use a sane page size" here instead.
+    /// </summary>
+    private const int DefaultQueryLimit = 200;
+
+    /// <summary>
     /// Inserts, or updates the publisher-owned fields when we have seen this
     /// (feed_id, guid) before. Reader-owned state (read, starred, content we
     /// downloaded, offline state) is deliberately never touched by an upsert:
     /// a publisher fixing a typo must not mark fifty items unread.
+    ///
+    /// The WHERE NOT EXISTS guard is the other half of retention's tombstone
+    /// design (see item_tombstones in Migrations.V2 and RetentionService): a
+    /// (feed_id, guid) RetentionService has deliberately pruned must not come
+    /// back just because the feed's XML window still lists it. When a
+    /// tombstone matches, the SELECT yields no row, so nothing is inserted and
+    /// - since nothing was inserted - the ON CONFLICT branch never fires
+    /// either, leaving the item deleted. Once the tombstone itself ages out
+    /// (RetentionService prunes those on a much longer horizon), the same guid
+    /// is ordinary new-item territory again.
     /// </summary>
     private const string UpsertSql =
         """
@@ -17,10 +36,14 @@ public sealed class ItemRepository(ReaderDatabase db)
             feed_id, guid, link, title, author, published_utc, updated_utc,
             summary, content_markdown, content_source, is_read, is_starred,
             first_seen_utc, offline_state, offline_error)
-        VALUES (
+        SELECT
             $feedId, $guid, $link, $title, $author, $published, $updated,
             $summary, $content, $contentSource, $isRead, $isStarred,
-            $firstSeen, $offlineState, $offlineError)
+            $firstSeen, $offlineState, $offlineError
+        WHERE NOT EXISTS (
+            SELECT 1 FROM item_tombstones t
+            WHERE t.feed_id = $feedId AND t.guid = $guid
+        )
         ON CONFLICT(feed_id, guid) DO UPDATE SET
             link = excluded.link,
             title = excluded.title,
@@ -30,6 +53,14 @@ public sealed class ItemRepository(ReaderDatabase db)
             summary = excluded.summary;
         """;
 
+    /// <summary>
+    /// Returns the row id, or -1 if the item was not written because a
+    /// tombstone for this (feed_id, guid) blocked it - see UpsertSql. -1 can
+    /// only happen when a caller deliberately upserts an item this database
+    /// has just pruned; UpsertManyAsync (the refresh path) does not rely on
+    /// this return value at all, so this is reached only by direct callers of
+    /// UpsertAsync, chiefly tests.
+    /// </summary>
     public async Task<long> UpsertAsync(FeedItem item, CancellationToken ct = default)
     {
         await db.WriteAsync(UpsertSql, BuildParameters(item), ct);
@@ -39,7 +70,8 @@ public sealed class ItemRepository(ReaderDatabase db)
             command.CommandText = "SELECT id FROM items WHERE feed_id = $feedId AND guid = $guid;";
             command.Parameters.AddWithValue("$feedId", item.FeedId);
             command.Parameters.AddWithValue("$guid", item.Guid);
-            return Convert.ToInt64(await command.ExecuteScalarAsync(ct));
+            var result = await command.ExecuteScalarAsync(ct);
+            return result is null ? -1L : Convert.ToInt64(result);
         }, ct);
     }
 
@@ -105,7 +137,7 @@ public sealed class ItemRepository(ReaderDatabase db)
             command.CommandText = "SELECT * FROM items WHERE id = $id;";
             command.Parameters.AddWithValue("$id", id);
             await using var reader = await command.ExecuteReaderAsync(ct);
-            return await reader.ReadAsync(ct) ? ReadItem((SqliteDataReader)reader) : null;
+            return await reader.ReadAsync(ct) ? RowMappers.ReadItem((SqliteDataReader)reader) : null;
         }, ct);
 
     public Task<IReadOnlyList<FeedItem>> QueryAsync(
@@ -150,13 +182,13 @@ public sealed class ItemRepository(ReaderDatabase db)
                  ORDER BY COALESCE(i.published_utc, i.first_seen_utc) DESC, i.id DESC
                  LIMIT $limit OFFSET $offset;
                  """;
-            command.Parameters.AddWithValue("$limit", query.Limit);
+            command.Parameters.AddWithValue("$limit", query.Limit > 0 ? query.Limit : DefaultQueryLimit);
             command.Parameters.AddWithValue("$offset", query.Offset);
 
             var results = new List<FeedItem>();
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
-                results.Add(ReadItem((SqliteDataReader)reader));
+                results.Add(RowMappers.ReadItem((SqliteDataReader)reader));
             return results;
         }, ct);
 
@@ -178,7 +210,7 @@ public sealed class ItemRepository(ReaderDatabase db)
             var results = new List<FeedItem>();
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
-                results.Add(ReadItem((SqliteDataReader)reader));
+                results.Add(RowMappers.ReadItem((SqliteDataReader)reader));
             return results;
         }, ct);
 
@@ -259,25 +291,5 @@ public sealed class ItemRepository(ReaderDatabase db)
         ["$firstSeen"] = item.FirstSeenUtc.ToDbString(),
         ["$offlineState"] = (int)item.OfflineState,
         ["$offlineError"] = item.OfflineError
-    };
-
-    private static FeedItem ReadItem(SqliteDataReader reader) => new()
-    {
-        Id = reader.GetInt64(reader.GetOrdinal("id")),
-        FeedId = reader.GetInt64(reader.GetOrdinal("feed_id")),
-        Guid = reader.GetString(reader.GetOrdinal("guid")),
-        Link = reader.GetNullableString("link"),
-        Title = reader.GetNullableString("title"),
-        Author = reader.GetNullableString("author"),
-        PublishedUtc = reader.GetNullableDate("published_utc"),
-        UpdatedUtc = reader.GetNullableDate("updated_utc"),
-        Summary = reader.GetNullableString("summary"),
-        ContentMarkdown = reader.GetNullableString("content_markdown"),
-        ContentSource = (ContentSource)reader.GetInt32(reader.GetOrdinal("content_source")),
-        IsRead = reader.GetBool("is_read"),
-        IsStarred = reader.GetBool("is_starred"),
-        FirstSeenUtc = reader.GetDate("first_seen_utc"),
-        OfflineState = (OfflineState)reader.GetInt32(reader.GetOrdinal("offline_state")),
-        OfflineError = reader.GetNullableString("offline_error")
     };
 }

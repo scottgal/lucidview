@@ -31,7 +31,7 @@ public sealed class SearchRepository(ReaderDatabase db)
             var results = new List<FeedItem>();
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
-                results.Add(ReadItem((SqliteDataReader)reader));
+                results.Add(RowMappers.ReadItem((SqliteDataReader)reader));
             return results;
         }, ct);
     }
@@ -56,24 +56,4 @@ public sealed class SearchRepository(ReaderDatabase db)
 
         return terms.Count == 0 ? null : string.Join(" ", terms);
     }
-
-    private static FeedItem ReadItem(SqliteDataReader reader) => new()
-    {
-        Id = reader.GetInt64(reader.GetOrdinal("id")),
-        FeedId = reader.GetInt64(reader.GetOrdinal("feed_id")),
-        Guid = reader.GetString(reader.GetOrdinal("guid")),
-        Link = reader.GetNullableString("link"),
-        Title = reader.GetNullableString("title"),
-        Author = reader.GetNullableString("author"),
-        PublishedUtc = reader.GetNullableDate("published_utc"),
-        UpdatedUtc = reader.GetNullableDate("updated_utc"),
-        Summary = reader.GetNullableString("summary"),
-        ContentMarkdown = reader.GetNullableString("content_markdown"),
-        ContentSource = (ContentSource)reader.GetInt32(reader.GetOrdinal("content_source")),
-        IsRead = reader.GetBool("is_read"),
-        IsStarred = reader.GetBool("is_starred"),
-        FirstSeenUtc = reader.GetDate("first_seen_utc"),
-        OfflineState = (OfflineState)reader.GetInt32(reader.GetOrdinal("offline_state")),
-        OfflineError = reader.GetNullableString("offline_error")
-    };
 }

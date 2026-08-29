@@ -246,6 +246,21 @@ public class ItemRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_query_with_an_unset_limit_does_not_silently_return_zero_rows()
+    {
+        // ItemQuery is a positional record struct: default(ItemQuery) - and any
+        // caller who forgets Limit - zero-inits every field including Limit,
+        // which used to mean "LIMIT 0", i.e. every row silently filtered out
+        // rather than a construction error.
+        await _items.UpsertAsync(NewItem("guid-1"));
+        await _items.UpsertAsync(NewItem("guid-2"));
+
+        var results = await _items.QueryAsync(default(ItemQuery) with { FeedId = _feedId });
+
+        Assert.Equal(2, results.Count);
+    }
+
+    [Fact]
     public async Task Pending_offline_items_are_returned_for_download()
     {
         var id = await _items.UpsertAsync(NewItem() with { OfflineState = OfflineState.Pending });

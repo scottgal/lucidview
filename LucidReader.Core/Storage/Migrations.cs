@@ -6,7 +6,7 @@ namespace LucidReader.Core.Storage;
 /// </summary>
 public static class Migrations
 {
-    public static IReadOnlyList<string> All { get; } = new[] { V1 };
+    public static IReadOnlyList<string> All { get; } = new[] { V1, V2 };
 
     private const string V1 = """
         CREATE TABLE folders (
@@ -103,5 +103,35 @@ public static class Migrations
             INSERT INTO items_fts(rowid, title, content_markdown)
             VALUES (new.id, new.title, new.content_markdown);
         END;
+        """;
+
+    // auto_paused_utc: nullable so a UI can tell an auto-paused feed (set by
+    // FeedRefreshService when consecutive_failures reaches
+    // BackoffPolicy.AutoPauseThreshold) apart from one the user disabled
+    // deliberately (never sets this column). Cleared, along with
+    // consecutive_failures and last_error, whenever FeedRepository.SetEnabledAsync
+    // re-enables a feed - see that method for why re-enabling has to reset all
+    // three or a re-enabled feed is re-disabled on its very first failure.
+    //
+    // item_tombstones: records (feed_id, guid) pairs RetentionService has
+    // deleted, so a later refresh's upsert can tell "genuinely new item" apart
+    // from "this exact item was deliberately pruned" and not resurrect the
+    // latter as an unread item with its downloaded content gone. Tombstones
+    // are themselves pruned on a much longer horizon (RetentionService's
+    // TombstoneRetention) than any item retention window, both so the table
+    // cannot grow without bound and so a guid genuinely reused by the
+    // publisher long after the original item is gone is eventually treated as
+    // new again rather than blocked forever.
+    private const string V2 = """
+        ALTER TABLE feeds ADD COLUMN auto_paused_utc TEXT NULL;
+
+        CREATE TABLE item_tombstones (
+            feed_id      INTEGER NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
+            guid         TEXT    NOT NULL,
+            deleted_utc  TEXT    NOT NULL,
+            PRIMARY KEY (feed_id, guid)
+        );
+
+        CREATE INDEX ix_item_tombstones_deleted ON item_tombstones(deleted_utc);
         """;
 }
