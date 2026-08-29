@@ -106,4 +106,79 @@ public class ReaderDatabaseTests
                 ["$firstSeen"] = "2026-08-28T00:00:00Z"
             }));
     }
+
+    /// <summary>
+    /// Regression test for the whole-branch review's CRITICAL finding:
+    /// Cache=Shared replaced WAL's MVCC readers with table-level locking, so a
+    /// read landing while a write transaction was open threw
+    /// "SQLite Error 6: database table is locked", a failure busy_timeout does
+    /// not retry. This holds a write transaction open (via the writer's own
+    /// ExecuteInTransactionAsync, the same path every repository write uses)
+    /// and proves a concurrent QueryAsync read completes without throwing
+    /// while that transaction is still uncommitted.
+    /// </summary>
+    [Fact]
+    public async Task A_read_succeeds_while_a_write_transaction_is_still_open()
+    {
+        using var temp = new TempDatabase();
+        await using var database = await ReaderDatabase.OpenAsync(temp.Path);
+
+        var writeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseWrite = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var writeTask = database.Writer.ExecuteInTransactionAsync(async (connection, transaction, ct) =>
+        {
+            await using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = "INSERT INTO folders (name, sort_order) VALUES ('Held open', 0);";
+                await command.ExecuteNonQueryAsync(ct);
+            }
+
+            writeStarted.SetResult();
+            await releaseWrite.Task;
+            return 0;
+        });
+
+        await writeStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        // Before the fix this read threw SqliteException ("database table is
+        // locked: folders") while the write transaction above was still open.
+        var readTask = database.QueryAsync(async connection =>
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT count(*) FROM folders;";
+            return Convert.ToInt64(await command.ExecuteScalarAsync());
+        });
+        var count = await readTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+        releaseWrite.SetResult();
+        await writeTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+        // The uncommitted insert is correctly invisible to the concurrent
+        // reader; the point of this test is that the read did not throw.
+        Assert.Equal(0L, count);
+    }
+
+    [Fact]
+    public async Task Opening_the_same_path_twice_without_disposing_the_first_throws()
+    {
+        using var temp = new TempDatabase();
+        await using var first = await ReaderDatabase.OpenAsync(temp.Path);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => ReaderDatabase.OpenAsync(temp.Path));
+        Assert.Contains("already open", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Reopening_a_path_after_disposal_succeeds()
+    {
+        using var temp = new TempDatabase();
+        var first = await ReaderDatabase.OpenAsync(temp.Path);
+        await first.DisposeAsync();
+
+        await using var second = await ReaderDatabase.OpenAsync(temp.Path);
+        Assert.NotNull(second);
+    }
 }
