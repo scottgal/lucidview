@@ -57,6 +57,16 @@ public partial class MainWindow
         // must not touch ItemRows.
         if (!_loadGuard.IsCurrent(ticket)) return;
 
+        // Cancelled again, deliberately, not a copy-paste leftover: the early
+        // CancelPending() above only stops a dwell that was already pending
+        // when this reload started. If the user selected an item in the
+        // still-displayed old list during the awaits above, OnItemSelectedAsync
+        // started a brand new dwell that the early call never saw. That dwell
+        // targets a row about to be wiped out by the Clear() below, so it must
+        // die here too, or it fires 800ms later against a feed the user has
+        // since navigated away from.
+        _dwell.CancelPending();
+
         ItemRows.Clear();
         foreach (var item in items)
         {
