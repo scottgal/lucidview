@@ -136,4 +136,28 @@ public class TagRepositoryTests : IAsyncLifetime
 
         await Assert.ThrowsAsync<ArgumentException>(() => _tags.AddToItemAsync(id, "   "));
     }
+
+    [Fact]
+    public async Task Concurrent_GetOrCreate_calls_for_case_variants_never_create_a_duplicate()
+    {
+        // Naive select-then-insert (a QueryAsync SELECT followed by a separate
+        // WriteReturningIdAsync INSERT) races: two concurrent calls for
+        // different-case spellings of the same name can both pass the
+        // COLLATE NOCASE select before either has inserted, and ix_tags_name
+        // is case-sensitive, so both inserts succeed. Firing a batch of
+        // concurrent calls mixing case is the only way to exercise that
+        // window; a single pair occasionally slips through even the broken
+        // implementation, so this repeats the mix several times over to make
+        // a false pass unlikely rather than asserting on one shot.
+        string[] variants = ["dotnet", "DotNet", "DOTNET", "dOtNeT"];
+        var calls = new List<Task<long>>();
+        for (var round = 0; round < 10; round++)
+            foreach (var variant in variants)
+                calls.Add(_tags.GetOrCreateAsync(variant));
+
+        var ids = await Task.WhenAll(calls);
+
+        Assert.Single(ids.Distinct());
+        Assert.Single(await _tags.GetAllAsync());
+    }
 }

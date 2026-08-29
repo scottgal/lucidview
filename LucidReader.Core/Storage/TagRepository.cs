@@ -14,16 +14,24 @@ namespace LucidReader.Core.Storage;
 /// </summary>
 public sealed class TagRepository(ReaderDatabase db)
 {
-    public async Task<long> GetOrCreateAsync(string name, CancellationToken ct = default)
+    /// <summary>
+    /// Finds or creates the tag atomically. The naive shape - a SELECT through
+    /// db.QueryAsync's own short-lived read connection, then a separate
+    /// db.WriteReturningIdAsync - has nothing holding the two together: two
+    /// concurrent calls for case variants of the same name ("DotNet" and
+    /// "dotnet") can both pass the COLLATE NOCASE select before either has
+    /// inserted, and then both inserts succeed, because ix_tags_name is a
+    /// case-sensitive unique index. That produces exactly the duplicate this
+    /// method exists to prevent. Running the select-then-insert inside one
+    /// ExecuteInTransactionAsync call closes that window, the same way
+    /// AddToItemAsync already does.
+    /// </summary>
+    public Task<long> GetOrCreateAsync(string name, CancellationToken ct = default)
     {
         var normalised = Normalise(name);
 
-        var existing = await FindIdAsync(normalised, ct);
-        if (existing is { } id) return id;
-
-        return await db.WriteReturningIdAsync(
-            "INSERT INTO tags (name) VALUES ($name);",
-            new Dictionary<string, object?> { ["$name"] = normalised },
+        return db.Writer.ExecuteInTransactionAsync(
+            (connection, transaction, innerCt) => GetOrCreateIdAsync(connection, transaction, normalised, innerCt),
             ct);
     }
 
@@ -71,32 +79,7 @@ public sealed class TagRepository(ReaderDatabase db)
 
         await db.Writer.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
         {
-            long tagId;
-            await using (var select = connection.CreateCommand())
-            {
-                select.Transaction = transaction;
-                select.CommandText = "SELECT id FROM tags WHERE name = $name COLLATE NOCASE LIMIT 1;";
-                select.Parameters.AddWithValue("$name", normalised);
-                var found = await select.ExecuteScalarAsync(innerCt);
-
-                if (found is null or DBNull)
-                {
-                    await using var insertTag = connection.CreateCommand();
-                    insertTag.Transaction = transaction;
-                    insertTag.CommandText = "INSERT INTO tags (name) VALUES ($name);";
-                    insertTag.Parameters.AddWithValue("$name", normalised);
-                    await insertTag.ExecuteNonQueryAsync(innerCt);
-
-                    await using var idCommand = connection.CreateCommand();
-                    idCommand.Transaction = transaction;
-                    idCommand.CommandText = "SELECT last_insert_rowid();";
-                    tagId = Convert.ToInt64(await idCommand.ExecuteScalarAsync(innerCt));
-                }
-                else
-                {
-                    tagId = Convert.ToInt64(found);
-                }
-            }
+            var tagId = await GetOrCreateIdAsync(connection, transaction, normalised, innerCt);
 
             // The composite primary key makes a repeat add a no-op rather than an error.
             await using var link = connection.CreateCommand();
@@ -137,7 +120,7 @@ public sealed class TagRepository(ReaderDatabase db)
             command.Parameters.AddWithValue("$limit", limit);
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
-                results.Add(RowMappers.ReadItem(reader));
+                results.Add(RowMappers.ReadItem((SqliteDataReader)reader));
             return results;
         }, ct);
 
@@ -152,15 +135,37 @@ public sealed class TagRepository(ReaderDatabase db)
             new Dictionary<string, object?>(),
             ct);
 
-    private Task<long?> FindIdAsync(string normalisedName, CancellationToken ct) =>
-        db.QueryAsync<long?>(async connection =>
+    /// <summary>
+    /// Select-then-insert on the caller's own connection and transaction, so
+    /// callers running inside db.Writer.ExecuteInTransactionAsync (GetOrCreateAsync,
+    /// AddToItemAsync) get one atomic find-or-create instead of two separate
+    /// round trips with a race window between them.
+    /// </summary>
+    private static async Task<long> GetOrCreateIdAsync(
+        SqliteConnection connection, SqliteTransaction transaction, string normalisedName, CancellationToken ct)
+    {
+        await using (var select = connection.CreateCommand())
         {
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT id FROM tags WHERE name = $name COLLATE NOCASE LIMIT 1;";
-            command.Parameters.AddWithValue("$name", normalisedName);
-            var result = await command.ExecuteScalarAsync(ct);
-            return result is null or DBNull ? null : Convert.ToInt64(result);
-        }, ct);
+            select.Transaction = transaction;
+            select.CommandText = "SELECT id FROM tags WHERE name = $name COLLATE NOCASE LIMIT 1;";
+            select.Parameters.AddWithValue("$name", normalisedName);
+            var found = await select.ExecuteScalarAsync(ct);
+            if (found is not (null or DBNull)) return Convert.ToInt64(found);
+        }
+
+        await using (var insertTag = connection.CreateCommand())
+        {
+            insertTag.Transaction = transaction;
+            insertTag.CommandText = "INSERT INTO tags (name) VALUES ($name);";
+            insertTag.Parameters.AddWithValue("$name", normalisedName);
+            await insertTag.ExecuteNonQueryAsync(ct);
+        }
+
+        await using var idCommand = connection.CreateCommand();
+        idCommand.Transaction = transaction;
+        idCommand.CommandText = "SELECT last_insert_rowid();";
+        return Convert.ToInt64(await idCommand.ExecuteScalarAsync(ct));
+    }
 
     private static string Normalise(string name)
     {
