@@ -14,18 +14,109 @@ namespace LucidReader.Views.Controls;
 /// cache after the row already resolved, corrupt download, race with an
 /// eviction) yields null - the Image renders nothing - rather than a binding
 /// exception that would take the row down with it.
+///
+/// Holds a small bounded LRU of already-decoded bitmaps keyed by path, so a
+/// reader (a scroll-heavy app: containers recycle onto the same rows
+/// repeatedly as a virtualised list scrolls) does not re-read and re-decode
+/// the same file from disk on every binding evaluation that revisits it, and
+/// so an evicted bitmap is disposed deterministically rather than left for a
+/// finalizer to reclaim native memory on its own schedule.
+///
+/// Thread ownership: Avalonia evaluates bindings on the UI thread, and this
+/// converter is only ever invoked from a binding evaluation, so the cache
+/// below is touched exclusively from the UI thread and needs no locking.
+/// If that ever changes (e.g. a future async binding pathway), this class
+/// would need to add one.
+///
+/// Staleness: a cache hit is only honoured if the file at that path has the
+/// same last-write time as when it was decoded. This guards against
+/// resurrecting a stale image if ImageCacheService's own LRU evicts and a
+/// later write reuses the same path for different bytes (its cache paths
+/// are content-hash-derived per URL, so same-path reuse with different
+/// content is unlikely in practice, but cheap to guard against regardless).
+/// If the file at a cached path has since been deleted outright (evicted
+/// with nothing written back), the stale entry is dropped and this returns
+/// null rather than continuing to show the now-orphaned in-memory bitmap -
+/// consistent with the "fails soft to nothing" behaviour above, not a
+/// resurrection of old content.
 /// </summary>
 public sealed class PathToBitmapConverter : IValueConverter
 {
     public static readonly PathToBitmapConverter Instance = new();
 
+    // "A few dozen entries is plenty" per review: virtualisation already
+    // bounds how many rows are live at once, so this only needs to cover
+    // the working set a scroll pass revisits, not the whole list.
+    //
+    // Caveat worth recording: eviction disposes a bitmap outright, and a
+    // disposed Bitmap still assigned as a live Image.Source is a real
+    // rendering hazard, not just a memory one. That is safe here for the
+    // two virtualised surfaces (the item list's thumbnails, the reading
+    // pane's single hero) because a container's Source binding is always
+    // reassigned the moment its row scrolls away, well before this bound is
+    // reached, so an evicted entry is by construction one nothing on screen
+    // still points at. The sidebar's favicons are the one surface this
+    // reasoning does not automatically cover - it is a plain ItemsControl,
+    // not virtualised - so it relies on realistic feed counts staying under
+    // this bound. If lucidREADER ever needs to support subscription lists
+    // large enough to make that untrue, the fix is a virtualised sidebar or
+    // a reference-counted cache, not a bigger number here.
+    private const int MaxCacheEntries = 48;
+
+    private readonly Dictionary<string, LinkedListNode<CacheEntry>> _byPath = new(StringComparer.Ordinal);
+    private readonly LinkedList<CacheEntry> _lruOrder = new();
+
+    private readonly record struct CacheEntry(string Path, Bitmap Bitmap, DateTime LastWriteTimeUtc);
+
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is not string path || string.IsNullOrWhiteSpace(path)) return null;
 
+        if (!File.Exists(path))
+        {
+            EvictIfPresent(path);
+            return null;
+        }
+
+        DateTime writeTimeUtc;
         try
         {
-            return File.Exists(path) ? new Bitmap(path) : null;
+            writeTimeUtc = File.GetLastWriteTimeUtc(path);
+        }
+        catch (Exception)
+        {
+            EvictIfPresent(path);
+            return null;
+        }
+
+        if (_byPath.TryGetValue(path, out var node))
+        {
+            if (node.Value.LastWriteTimeUtc == writeTimeUtc)
+            {
+                // Cache hit: move to the most-recently-used end and reuse
+                // the already-decoded bitmap instead of touching disk again.
+                _lruOrder.Remove(node);
+                _lruOrder.AddLast(node);
+                return node.Value.Bitmap;
+            }
+
+            // The file at this path changed since it was decoded - do not
+            // resurrect the old bytes. Drop the stale entry and fall
+            // through to a fresh decode below.
+            EvictNode(node);
+        }
+
+        try
+        {
+            var bitmap = new Bitmap(path);
+            var entry = new CacheEntry(path, bitmap, writeTimeUtc);
+            var newNode = _lruOrder.AddLast(entry);
+            _byPath[path] = newNode;
+
+            while (_lruOrder.Count > MaxCacheEntries)
+                EvictNode(_lruOrder.First!);
+
+            return bitmap;
         }
         catch (Exception)
         {
@@ -35,4 +126,17 @@ public sealed class PathToBitmapConverter : IValueConverter
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
+
+    private void EvictIfPresent(string path)
+    {
+        if (_byPath.TryGetValue(path, out var node)) EvictNode(node);
+    }
+
+    /// <summary>Removes an entry from both structures and disposes its bitmap deterministically.</summary>
+    private void EvictNode(LinkedListNode<CacheEntry> node)
+    {
+        _lruOrder.Remove(node);
+        _byPath.Remove(node.Value.Path);
+        node.Value.Bitmap.Dispose();
+    }
 }
