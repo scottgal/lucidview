@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Runs verify-add-feed-writes.yaml, which subscribes to xkcd's two feeds for
+# real and then asserts the status bar said "Added".
+#
+# That assertion only holds the first time: on a second run the feeds are
+# already subscribed, so the app correctly reports them as duplicates and the
+# script fails. Removing the rows before and after makes it repeatable, and
+# stops a test run leaving subscriptions behind in a working database.
+#
+# Needs network: it fetches https://xkcd.com and follows its feed links.
+set -uo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP="$REPO/LucidReader/bin/Debug/net10.0/osx-arm64/lucidREADER"
+DB="$HOME/Library/Application Support/lucidREADER/reader.db"
+OUT="${1:-/tmp/lr-add-feed-writes}"
+
+if [[ ! -x "$APP" ]]; then
+    echo "Build first: dotnet build LucidReader/LucidReader.csproj" >&2
+    exit 1
+fi
+if [[ ! -f "$DB" ]]; then
+    echo "No database at $DB. Launch the app once to create it." >&2
+    exit 1
+fi
+
+# Deleting a feed cascades to its items and their tombstones, so this leaves no
+# orphans behind. Scoped to xkcd.com only, which is what the script subscribes to.
+cleanup() {
+    sqlite3 "$DB" "DELETE FROM feeds WHERE feed_url LIKE 'https://xkcd.com/%';"
+}
+trap cleanup EXIT INT TERM
+
+cleanup
+
+"$APP" --ux-test --script "$REPO/ux-scripts/verify-add-feed-writes.yaml" --output "$OUT"
