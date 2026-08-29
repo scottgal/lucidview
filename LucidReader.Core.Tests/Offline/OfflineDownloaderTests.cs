@@ -377,4 +377,37 @@ public class OfflineDownloaderTests : IAsyncLifetime
         Assert.NotNull(item.OfflineError);
         Assert.Equal("<p>Short teaser.</p>", item.Summary);
     }
+
+    [Fact]
+    public async Task A_markdown_article_is_stored_without_going_through_the_html_converter()
+    {
+        const string source = "# The author's own title\n\nProse as it was written.\n";
+        var handler = StubHttpHandler.Returning(
+            HttpStatusCode.OK, source, mediaType: "text/markdown");
+        await using var downloader = CreateDownloader(handler);
+        var id = await AddItemAsync("<p>A stub.</p>");
+
+        await downloader.DownloadNowAsync(id);
+
+        Assert.Empty(_converter.Converted);
+        var item = await _items.GetAsync(id);
+        Assert.Equal(OfflineState.Downloaded, item!.OfflineState);
+        Assert.Equal(ContentSource.Extracted, item.ContentSource);
+        Assert.Equal(source, item.ContentMarkdown);
+    }
+
+    [Fact]
+    public async Task An_html_article_still_goes_through_the_converter_exactly_as_before()
+    {
+        const string page = "<html><body><p>Rendered prose.</p></body></html>";
+        var handler = StubHttpHandler.Returning(HttpStatusCode.OK, page, mediaType: "text/html");
+        await using var downloader = CreateDownloader(handler);
+        var id = await AddItemAsync("<p>A stub.</p>");
+
+        await downloader.DownloadNowAsync(id);
+
+        Assert.Equal(page, Assert.Single(_converter.Converted));
+        var item = await _items.GetAsync(id);
+        Assert.Equal(ContentSource.Extracted, item!.ContentSource);
+    }
 }

@@ -1,0 +1,71 @@
+name: verify-mostlylucid
+description: >
+  Drives Add Feed against mostlylucid.net, the site the anchor-fallback and
+  markdown work was written against, and asserts that discovery comes back
+  with feeds rather than nothing.
+
+  The assertion is deliberately loose about the count. What the site declares
+  in its head is the site's business and has changed at least once already;
+  what this script is here to prove is that pasting the bare domain produces
+  a subscribable feed at all.
+
+  Needs network access. Run it through run-mostlylucid.sh, which removes the
+  subscriptions afterwards - unsubscribing is context-menu only, which the
+  harness cannot drive.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Wait for app startup
+
+  - type: Click
+    target: AddFeedButton
+
+  - type: Wait
+    value: "600"
+
+  - type: TypeText
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    value: "mostlylucid.net"
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: ContainsText
+    value: "Found"
+    timeout: 20000
+    description: >
+      ContainsText "Found", not an exact count: the point is that the paste
+      resolved to at least one feed.
+
+  - type: Screenshot
+    value: 01-discovered
+    description: The discovery result, for eyeballing which feeds came back
+
+  - type: Click
+    target: AddButton
+    window_id: "Add Feed"
+    description: Subscribe to everything discovered
+
+  - type: Wait
+    value: "1500"
+    description: Wait for the writes and the sidebar reload
+
+  - type: Expect
+    target: StatusText
+    matcher: ContainsText
+    value: "Added"
+    description: >
+      ContainsText, not HasText: if a previous run left rows behind, the app
+      correctly reports the feeds as already subscribed instead, and the
+      runner's cleanup is what keeps that from happening.
+
+  - type: Screenshot
+    value: 02-sidebar
+    target: SidebarSections

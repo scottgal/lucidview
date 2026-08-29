@@ -13,7 +13,21 @@ public sealed class StubHttpHandler : HttpMessageHandler
     private readonly TaskCompletionSource<HttpResponseMessage>? _gate;
     private readonly bool _blockUntilCancelled;
 
-    public List<HttpRequestMessage> Requests { get; } = [];
+    private readonly Lock _sync = new();
+    private readonly List<HttpRequestMessage> _requests = [];
+
+    /// <summary>
+    /// A snapshot of what has been asked for so far. A copy, and taken under
+    /// the same lock the handler records under, because discovery now fires
+    /// several probes concurrently and a bare List would be torn by that.
+    /// </summary>
+    public IReadOnlyList<HttpRequestMessage> Requests
+    {
+        get
+        {
+            lock (_sync) return _requests.ToList();
+        }
+    }
 
     public StubHttpHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) =>
         _respond = respond;
@@ -138,6 +152,24 @@ public sealed class StubHttpHandler : HttpMessageHandler
             return response;
         });
 
+    /// <summary>
+    /// Builds one canned response. Exists so a per-path handler can be
+    /// written as a short switch over the request URI instead of six lines of
+    /// header assembly per branch.
+    /// </summary>
+    public static HttpResponseMessage Response(
+        string body,
+        string mediaType,
+        HttpStatusCode status = HttpStatusCode.OK)
+    {
+        var response = new HttpResponseMessage(status)
+        {
+            Content = new StringContent(body)
+        };
+        response.Content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+        return response;
+    }
+
     public static StubHttpHandler Throwing(Exception exception) =>
         new(_ => throw exception);
 
@@ -167,7 +199,7 @@ public sealed class StubHttpHandler : HttpMessageHandler
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
-        Requests.Add(request);
+        lock (_sync) _requests.Add(request);
 
         if (_gate is not null)
             return await _gate.Task.WaitAsync(cancellationToken);

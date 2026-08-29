@@ -18,6 +18,14 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
     private const int MaxDiscoveryBytes = 8 * 1024 * 1024;
     private const int ReadBufferSize = 8192;
 
+    /// <summary>
+    /// How many extra requests one call to DiscoverAsync is allowed to make
+    /// beyond the single fetch of the page itself. Both fallback stages draw
+    /// on the same allowance, so a page linking fifty feed-shaped anchors
+    /// still costs a bounded number of round trips.
+    /// </summary>
+    private const int MaxProbeRequests = 8;
+
     private static readonly string[] FeedMediaTypes =
     [
         "application/rss+xml",
@@ -26,6 +34,37 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         "text/xml",
         "application/xml"
     ];
+
+    /// <summary>
+    /// Paths tried only when neither a link element nor an anchor produced a
+    /// working feed. Kept short and conventional on purpose: each entry is a
+    /// request against a host that has given no indication it publishes a
+    /// feed at all.
+    /// </summary>
+    private static readonly string[] WellKnownFeedPaths =
+    [
+        "/rss",
+        "/atom",
+        "/feed",
+        "/feed.xml",
+        "/rss.xml",
+        "/atom.xml",
+        "/index.xml"
+    ];
+
+    /// <summary>
+    /// Final path segments that look like a feed. The bare names cover the
+    /// extensionless routes most static site generators and blog engines use;
+    /// the suffixed forms cover the same names served as files.
+    /// </summary>
+    private static readonly string[] FeedPathNames = BuildFeedPathNames();
+
+    private static string[] BuildFeedPathNames()
+    {
+        string[] stems = ["rss", "atom", "feed"];
+        string[] suffixes = ["", ".xml", ".rss", ".atom"];
+        return stems.SelectMany(stem => suffixes.Select(suffix => stem + suffix)).ToArray();
+    }
 
     public async Task<IReadOnlyList<DiscoveredFeed>> DiscoverAsync(
         string inputUrl,
@@ -136,7 +175,162 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
                 siteIcon));
         }
 
-        return found;
+        if (found.Count > 0) return found;
+
+        // Plenty of sites never declare their feed in the head at all and
+        // link it only from the page furniture, as an ordinary anchor in a
+        // footer or a nav bar. Nothing about such an anchor says "feed"
+        // except its address, so each candidate has to be fetched and shown
+        // to parse before it is offered: a site with a catch-all route
+        // answers 200 with HTML for any path at all, and offering those would
+        // subscribe the user to something that is not a feed.
+        var anchorCandidates = AnchorFeedCandidates(body, effectiveUri, seen);
+        var confirmed = await ConfirmCandidatesAsync(anchorCandidates, siteIcon, seen, ct);
+        if (confirmed.Count > 0) return confirmed;
+
+        // Last resort, and only because the two stages above found nothing:
+        // guess at the conventional addresses. Every one of these is a
+        // request to a host that has not said it has a feed, which is why
+        // this runs last and against a short fixed list.
+        var wellKnown = WellKnownCandidates(effectiveUri, seen);
+        return await ConfirmCandidatesAsync(wellKnown, siteIcon, seen, ct);
+    }
+
+    /// <summary>
+    /// Same-host anchors whose path looks like a feed address, resolved the
+    /// same way the link element scan resolves its hrefs. Restricted to the
+    /// page's own host because an anchor to somebody else's site is a link to
+    /// their site, not a feed this page publishes.
+    /// </summary>
+    private static List<Uri> AnchorFeedCandidates(
+        string body, Uri effectiveUri, HashSet<string> seen)
+    {
+        var candidates = new List<Uri>();
+        var proposed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (Match match in AnchorTagPattern().Matches(body))
+        {
+            var href = AttributeValue(match.Value, "href");
+            if (href.Length == 0) continue;
+            if (!Uri.TryCreate(effectiveUri, href, out var absolute)) continue;
+            if (!absolute.Host.Equals(effectiveUri.Host, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!LooksLikeFeedPath(absolute)) continue;
+            if (seen.Contains(absolute.ToString())) continue;
+            if (!proposed.Add(absolute.ToString())) continue;
+
+            candidates.Add(absolute);
+            if (candidates.Count == MaxProbeRequests) break;
+        }
+
+        return candidates;
+    }
+
+    private static List<Uri> WellKnownCandidates(Uri effectiveUri, HashSet<string> seen)
+    {
+        var candidates = new List<Uri>();
+        var proposed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in WellKnownFeedPaths)
+        {
+            if (!Uri.TryCreate(effectiveUri, path, out var absolute)) continue;
+            if (seen.Contains(absolute.ToString())) continue;
+            if (!proposed.Add(absolute.ToString())) continue;
+
+            candidates.Add(absolute);
+            if (candidates.Count == MaxProbeRequests) break;
+        }
+
+        return candidates;
+    }
+
+    private static bool LooksLikeFeedPath(Uri uri)
+    {
+        var path = uri.AbsolutePath.TrimEnd('/');
+        var lastSlash = path.LastIndexOf('/');
+        var segment = lastSlash >= 0 ? path[(lastSlash + 1)..] : path;
+        return FeedPathNames.Contains(segment, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Fetches every candidate at once and keeps the ones that turn out to be
+    /// feeds, in the order the candidates were proposed rather than the order
+    /// the responses happened to arrive.
+    ///
+    /// Every address goes through FeedUrlPolicy first. These URLs came out of
+    /// a downloaded document or out of a host name the user typed, so this is
+    /// exactly the "follow a URL somebody else chose" path the policy exists
+    /// to keep away from loopback, link-local and private addresses.
+    /// </summary>
+    private async Task<List<DiscoveredFeed>> ConfirmCandidatesAsync(
+        List<Uri> candidates,
+        string? siteIcon,
+        HashSet<string> seen,
+        CancellationToken ct)
+    {
+        var allowed = candidates.Where(c => FeedUrlPolicy.IsAllowed(c.ToString())).ToList();
+        if (allowed.Count == 0) return [];
+
+        var probes = allowed.Select(c => ProbeAsync(c, ct)).ToArray();
+        var results = await Task.WhenAll(probes);
+
+        var confirmed = new List<DiscoveredFeed>();
+        var bodies = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var result in results)
+        {
+            if (result is null) continue;
+            if (!seen.Add(result.Url)) continue;
+
+            // A site that serves the same feed at more than one address (both
+            // /rss and /rss.xml, say) must not appear twice in the list the
+            // user is asked to choose from, and the addresses alone cannot
+            // tell us that. Comparing the bodies can.
+            if (!bodies.Add(result.Body)) continue;
+
+            confirmed.Add(new DiscoveredFeed(result.Url, result.Title, siteIcon));
+        }
+
+        return confirmed;
+    }
+
+    private sealed record ProbeResult(string Url, string? Title, string Body);
+
+    private async Task<ProbeResult?> ProbeAsync(Uri candidate, CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, candidate);
+            request.Headers.TryAddWithoutValidation("User-Agent", FeedFetcher.UserAgentString);
+            request.Headers.TryAddWithoutValidation(
+                "Accept", "application/atom+xml, application/rss+xml, application/xml;q=0.9, */*;q=0.5");
+
+            using var response = await http.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (!response.IsSuccessStatusCode) return null;
+
+            if (response.Content.Headers.ContentLength > MaxDiscoveryBytes) return null;
+
+            var body = await ReadBoundedAsync(response.Content, ct);
+            if (body is null) return null;
+
+            var parser = new FeedParser();
+            if (!parser.CanParse(body)) return null;
+
+            var url = (response.RequestMessage?.RequestUri ?? candidate).ToString();
+            string? title = null;
+            try { title = parser.Parse(body, response.RequestMessage?.RequestUri ?? candidate).Title; }
+            catch (FeedParseException) { }
+
+            return new ProbeResult(url, title, body);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static string FaviconGuess(Uri uri) => $"{uri.Scheme}://{uri.Authority}/favicon.ico";
@@ -193,4 +387,7 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
 
     [GeneratedRegex(@"<link\b[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex LinkTagPattern();
+
+    [GeneratedRegex(@"<a\b[^>]*>", RegexOptions.IgnoreCase)]
+    private static partial Regex AnchorTagPattern();
 }

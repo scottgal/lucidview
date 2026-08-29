@@ -227,4 +227,171 @@ public class FeedAutodiscoveryTests
         var one = Assert.Single(found);
         Assert.Equal("https://example.com/feed.xml", one.FeedUrl);
     }
+
+    // --- Anchor-only feed links, and well-known path probing ---
+    //
+    // A real site (mostlylucid.net) has no <link rel="alternate"> in its head
+    // at all: its RSS and Atom feeds are linked from the page as ordinary
+    // anchors. Pasting that domain in used to find nothing whatsoever. Both
+    // fallbacks below confirm every candidate by fetching it, because a site
+    // with a catch-all route answers 200 with HTML for any path at all and
+    // offering those addresses would subscribe the user to a web page.
+
+    /// <summary>
+    /// Answers per request path, so a test can give the page one body and
+    /// each probed address another.
+    /// </summary>
+    private static StubHttpHandler Routing(
+        params (string Path, string Body, string MediaType)[] routes) =>
+        new(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            foreach (var route in routes)
+                if (string.Equals(path, route.Path, StringComparison.OrdinalIgnoreCase))
+                    return StubHttpHandler.Response(route.Body, route.MediaType);
+
+            return StubHttpHandler.Response("<html><body>not found</body></html>", "text/html",
+                HttpStatusCode.NotFound);
+        });
+
+    /// <summary>
+    /// The page, plus the two anchor candidates, sorted. Nothing from the
+    /// well-known list, because the anchor stage already produced a feed.
+    /// </summary>
+    private static readonly string[] ExpectedAnchorStagePaths = ["/", "/atom", "/rss"];
+
+    private const string AnchorOnlyPage = """
+        <!doctype html>
+        <html><head><title>Anchors only</title></head>
+        <body><footer>
+          <a href="/rss">RSS</a>
+          <a href="https://example.com/atom">Atom</a>
+          <a href="/about">About</a>
+        </footer></body></html>
+        """;
+
+    [Fact]
+    public async Task A_feed_linked_only_as_an_anchor_is_found()
+    {
+        var handler = Routing(
+            ("/", AnchorOnlyPage, "text/html"),
+            ("/rss", Fixtures.Feed("rss2-simple.xml"), "application/rss+xml"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/");
+
+        var one = Assert.Single(found);
+        Assert.Equal("https://example.com/rss", one.FeedUrl);
+        Assert.Equal("Example Blog", one.Title);
+    }
+
+    [Fact]
+    public async Task An_anchor_candidate_that_answers_with_html_is_not_offered()
+    {
+        // The shape a catch-all route takes: every address, including the
+        // ones that look like feeds, returns the site's HTML with a 200.
+        var handler = new StubHttpHandler(_ =>
+            StubHttpHandler.Response(AnchorOnlyPage, "text/html"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        Assert.Empty(await discovery.DiscoverAsync("https://example.com/"));
+    }
+
+    [Fact]
+    public async Task Anchor_candidates_are_not_probed_when_a_link_element_already_found_a_feed()
+    {
+        var handler = Routing(("/blog", Html("single-feed.html"), "text/html"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/blog");
+
+        Assert.Single(found);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Well_known_paths_are_not_probed_when_an_anchor_already_found_a_feed()
+    {
+        var handler = Routing(
+            ("/", AnchorOnlyPage, "text/html"),
+            ("/rss", Fixtures.Feed("rss2-simple.xml"), "application/rss+xml"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        await discovery.DiscoverAsync("https://example.com/");
+
+        var paths = handler.Requests.Select(r => r.RequestUri!.AbsolutePath).ToList();
+        Assert.Equal(ExpectedAnchorStagePaths, paths.Order().ToArray());
+        Assert.DoesNotContain("/index.xml", paths);
+    }
+
+    [Fact]
+    public async Task Well_known_paths_are_probed_when_nothing_else_found_a_feed()
+    {
+        var handler = Routing(
+            ("/", Html("no-feed.html"), "text/html"),
+            ("/index.xml", Fixtures.Feed("rss2-simple.xml"), "application/rss+xml"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/");
+
+        var one = Assert.Single(found);
+        Assert.Equal("https://example.com/index.xml", one.FeedUrl);
+    }
+
+    [Fact]
+    public async Task Two_addresses_serving_the_same_feed_are_offered_once()
+    {
+        const string page = """
+            <html><body>
+              <a href="/rss">RSS</a>
+              <a href="/rss.xml">RSS again</a>
+            </body></html>
+            """;
+        var feed = Fixtures.Feed("rss2-simple.xml");
+        var handler = Routing(
+            ("/", page, "text/html"),
+            ("/rss", feed, "application/rss+xml"),
+            ("/rss.xml", feed, "application/rss+xml"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://example.com/");
+
+        Assert.Single(found);
+    }
+
+    [Fact]
+    public async Task A_private_or_non_http_candidate_is_refused_before_any_request_is_made()
+    {
+        // Both anchors are same-host and feed-shaped, so only FeedUrlPolicy
+        // can stop them: one names a scheme this app will not fetch, and the
+        // host itself is loopback, which rules out the well-known probes too.
+        const string page = """
+            <html><body>
+              <a href="ftp://127.0.0.1/rss">FTP feed</a>
+              <a href="/atom">Atom</a>
+            </body></html>
+            """;
+        var handler = new StubHttpHandler(_ => StubHttpHandler.Response(page, "text/html"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        Assert.Empty(await discovery.DiscoverAsync("http://127.0.0.1/"));
+        Assert.Single(handler.Requests); // the page itself, and nothing else
+    }
+
+    [Fact]
+    public async Task The_number_of_extra_requests_is_bounded_however_many_anchors_the_page_has()
+    {
+        var anchors = string.Join("\n", Enumerable.Range(0, 40)
+            .Select(i => $"<a href=\"/section{i}/feed\">Feed {i}</a>"));
+        var handler = new StubHttpHandler(_ =>
+            StubHttpHandler.Response($"<html><body>{anchors}</body></html>", "text/html"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        Assert.Empty(await discovery.DiscoverAsync("https://example.com/"));
+
+        // The page, then at most eight anchor probes, then at most eight
+        // well-known probes (the list itself is seven long).
+        Assert.True(handler.Requests.Count <= 1 + 8 + 7,
+            $"made {handler.Requests.Count} requests");
+    }
 }

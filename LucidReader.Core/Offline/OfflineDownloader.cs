@@ -237,8 +237,8 @@ public sealed class OfflineDownloader : IAsyncDisposable
             return;
         }
 
-        var html = await _articles.FetchHtmlAsync(item.Link, ct);
-        if (html is null)
+        var fetched = await _articles.FetchArticleAsync(item.Link, ct);
+        if (fetched is null)
         {
             await _items.SetOfflineFailedAsync(
                 itemId, $"Could not fetch {item.Link}", ct);
@@ -247,13 +247,30 @@ public sealed class OfflineDownloader : IAsyncDisposable
 
         try
         {
-            var markdown = await _converter.ConvertAsync(html, new Uri(item.Link), ct);
+            var link = new Uri(item.Link);
+
+            // The site handed back its own markdown source, either through
+            // content negotiation or through a markdown alternate link.
+            // Converting that would mean parsing prose as HTML and losing
+            // whatever the converter does not round-trip, so it is stored as
+            // written. There is no HTML in that case, and so no page for
+            // SiteMetadataExtractor to read an image out of: passing no
+            // imageUrl leaves any image already recorded for the item alone
+            // rather than blanking it.
+            var isMarkdown = fetched.Kind == ArticleBodyKind.Markdown;
+            var markdown = isMarkdown
+                ? fetched.Body
+                : await _converter.ConvertAsync(fetched.Body, link, ct);
+
             markdown = await CacheImagesAsync(markdown, item.Link, ct);
 
             // Reads the SAME article html the converter above just consumed -
             // no second fetch. SiteMetadataExtractor.Extract is pure parsing
             // over a string already in memory.
-            var imageUrl = SiteMetadataExtractor.Extract(html, new Uri(item.Link)).ImageUrl;
+            var imageUrl = isMarkdown
+                ? null
+                : SiteMetadataExtractor.Extract(fetched.Body, link).ImageUrl;
+
             await _items.SetContentAsync(itemId, markdown, ContentSource.Extracted, imageUrl, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
