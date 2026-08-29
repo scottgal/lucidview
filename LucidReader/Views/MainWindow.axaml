@@ -30,6 +30,11 @@
         <KeyBinding Gesture="Ctrl+F" Command="{Binding FindInArticleCommand}" />
         <KeyBinding Gesture="Ctrl+N" Command="{Binding AddFeedCommand}" />
         <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
+        <KeyBinding Gesture="T" Command="{Binding EditTagsCommand}" />
+        <!-- Ctrl+S: no dedicated "export" gesture is established elsewhere in
+             this app, and Ctrl+S/"save as" is the closest existing platform
+             convention for writing the current article out to a file. -->
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding ExportArticleCommand}" />
     </Window.KeyBindings>
 
     <Grid RowDefinitions="Auto,*,Auto">
