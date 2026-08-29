@@ -87,6 +87,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             // an in-flight dwell could otherwise call SetReadAsync against a
             // disposing (or already-disposed) store.
             _dwell.CancelPending();
+
+            // Same reason as the dwell above: a health tick that fired after
+            // this window closed would read _services.Feeds against a store
+            // App.axaml.cs may already be disposing.
+            StopHealthMonitoring();
+
             _searchCoordinator.Dispose();
             _iconCoordinator.Dispose();
             _thumbnailCoordinator.Dispose();
@@ -132,6 +138,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             Raise();
             Raise(nameof(IsFeedSelected));
+            Raise(nameof(IsPausedFeedSelected));
 
             // A feed click must win over a search debounce that started
             // earlier but has not yet elapsed. LoadSequenceGuard alone
@@ -234,6 +241,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             StatusMessage = "Storage maintenance could not run: " + warning.Message;
 
         await LoadFeedTreeAsync();
+
+        // After the tree, so the first readout already knows how many feeds
+        // came back auto-paused. StartHealthMonitoring only schedules the
+        // repeats; the first check is this explicit one.
+        await CheckHealthAsync();
+        StartHealthMonitoring();
     }
 
     private void ApplySettings(ReaderSettings settings)

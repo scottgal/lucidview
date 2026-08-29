@@ -1,0 +1,90 @@
+name: verify-refresh-health
+description: >
+  Task 14. Proves two things the app could not say before: that the status bar
+  reports feeds the Core layer auto-paused after repeated failures, and that
+  such a feed can be put back into rotation from the UI.
+
+  Needs a seeded auto-paused feed. Before running:
+
+    DB="$HOME/Library/Application Support/lucidREADER/reader.db"
+    sqlite3 "$DB" "INSERT INTO feeds (feed_url, title, is_enabled, consecutive_failures, last_error, auto_paused_utc) VALUES ('https://paused.example/feed.xml', 'Paused Feed', 0, 20, 'Name or service not known', '2026-08-29T12:00:00.0000000+00:00');"
+
+  and after:
+
+    sqlite3 "$DB" "DELETE FROM feeds WHERE feed_url = 'https://paused.example/feed.xml';"
+
+  The Resume toolbar button is driven rather than the sidebar context menu
+  entry, because a ContextMenu opens into its own PopupRoot which the harness
+  can neither click nor capture. Both routes call the same ResumeFeedAsync.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Wait for app startup, the first tree load and the first health check
+
+  - type: Expect
+    target: StatusText
+    matcher: ContainsText
+    value: "1 feed was paused after repeated failures."
+    description: >
+      The startup health readout. Singular wording, because exactly one feed
+      is seeded as auto-paused.
+
+  - type: Screenshot
+    value: 00-startup-health
+
+  - type: Expect
+    target: ResumeFeedButton
+    matcher: IsHidden
+    description: Nothing is selected yet, so Resume must not be offered
+
+  # MouseDown/MouseUp, not Click: the harness's Click on a non-Button control
+  # only calls Focus() and never raises pointer events, and sidebar selection
+  # is driven by PointerPressed on each row's Border.
+  - type: MouseDown
+    target: "text='Paused Feed'"
+    button: left
+
+  - type: MouseUp
+    target: "text='Paused Feed'"
+    button: left
+
+  - type: Wait
+    value: "600"
+
+  - type: Expect
+    target: ResumeFeedButton
+    matcher: IsVisible
+    description: Selecting the auto-paused feed reveals the Resume button
+
+  - type: Screenshot
+    value: 01-paused-feed-selected
+
+  - type: Screenshot
+    value: 02-sidebar-paused
+    target: SidebarSections
+    description: The paused row carries the "!" problem marker
+
+  - type: Click
+    target: ResumeFeedButton
+
+  - type: Wait
+    value: "2000"
+    description: Wait for SetEnabledAsync, the queue attempt and the tree reload
+
+  - type: Expect
+    target: StatusText
+    matcher: ContainsText
+    value: "Feed resumed."
+
+  - type: Expect
+    target: ResumeFeedButton
+    matcher: IsHidden
+    description: >
+      The feed is no longer paused and the selection was re-pointed at the
+      rebuilt row, so the button must go away rather than linger on a stale
+      pre-resume node.
+
+  - type: Screenshot
+    value: 03-after-resume

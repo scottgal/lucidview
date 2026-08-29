@@ -35,6 +35,14 @@
                     <SolidColorBrush x:Key="RowSnippetBrush" Color="#80000000" />
                     <SolidColorBrush x:Key="SectionHeaderBrush" Color="#8A000000" />
                     <SolidColorBrush x:Key="SelectedTitleBrush" Color="#FFFFFFFF" />
+                    <!--
+                        The sidebar's failing/auto-paused marker. macOS system
+                        orange, darkened for light mode so it still passes as
+                        readable body-weight text on a near-white sidebar.
+                        Deliberately not red: a feed that keeps failing is a
+                        warning, not a destructive action.
+                    -->
+                    <SolidColorBrush x:Key="FeedProblemBrush" Color="#FFB25000" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#F02C2C2E" />
@@ -51,6 +59,7 @@
                     <SolidColorBrush x:Key="RowSnippetBrush" Color="#80FFFFFF" />
                     <SolidColorBrush x:Key="SectionHeaderBrush" Color="#8AFFFFFF" />
                     <SolidColorBrush x:Key="SelectedTitleBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="FeedProblemBrush" Color="#FFFF9F0A" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
@@ -147,6 +156,21 @@
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
+    <!--
+        The sidebar marker on a feed that is failing or was auto-paused. Same
+        metrics as row-secondary so it sits on the row's baseline, but it must
+        not read as secondary: at RowSecondaryBrush's 60% alpha the one signal
+        that a feed has stopped working was the dimmest thing on the row.
+        Selection still overrides this to white further down the file, which
+        is correct - on a solid accent fill the orange would be the unreadable
+        one.
+    -->
+    <Style Selector="TextBlock.row-problem">
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource FeedProblemBrush}" />
+    </Style>
+
     <Style Selector="TextBlock.row-snippet">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{DynamicResource RowSnippetBrush}" />
@@ -235,7 +259,8 @@
         <Setter Property="Background" Value="{DynamicResource AccentSelectionBrush}" />
     </Style>
     <Style Selector="Border.node-row.selected TextBlock.row-title,
-                     Border.node-row.selected TextBlock.row-secondary">
+                     Border.node-row.selected TextBlock.row-secondary,
+                     Border.node-row.selected TextBlock.row-problem">
         <Setter Property="Foreground" Value="{DynamicResource SelectedTitleBrush}" />
         <Setter Property="Opacity" Value="1" />
     </Style>

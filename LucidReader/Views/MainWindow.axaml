@@ -79,6 +79,19 @@
                             IsEnabled="{Binding IsFeedSelected}"
                             Click="OnToolbarFeedSettingsClicked" />
                     <!--
+                        Resume is offered here as well as on the sidebar
+                        context menu, for the same two reasons the per-feed
+                        settings button exists: a ContextMenu opens into its
+                        own PopupRoot that the UI test harness can neither
+                        click nor capture, and a right-click-only route hides
+                        the one action that gets a dead feed working again.
+                        Collapsed rather than disabled when the selection is
+                        not a paused feed, so it reads as an exception state.
+                    -->
+                    <Button x:Name="ResumeFeedButton" Content="Resume feed" Classes="row-toolbar"
+                            IsVisible="{Binding IsPausedFeedSelected}"
+                            Click="OnToolbarResumeFeedClicked" />
+                    <!--
                         OPML lives on the toolbar rather than in a menu: this
                         window has no menu bar, and a MenuFlyout would open
                         into its own PopupRoot, which the UI test harness can
@@ -157,6 +170,14 @@
                                                         <ContextMenu>
                                                             <MenuItem Header="Refresh" Click="OnRefreshFeedClicked"
                                                                       IsVisible="{Binding IsFeed}" />
+                                                            <!--
+                                                                Gated on IsAutoPaused, not IsFeed: this is the
+                                                                only way back for a feed the Core layer paused
+                                                                after 20 straight failures, and on a healthy
+                                                                feed it would mean nothing.
+                                                            -->
+                                                            <MenuItem Header="Resume" Click="OnResumeFeedClicked"
+                                                                      IsVisible="{Binding IsAutoPaused}" />
                                                             <MenuItem Header="Rename" Click="OnRenameFeedClicked"
                                                                       IsVisible="{Binding IsFeed}" />
                                                             <Separator IsVisible="{Binding IsFeed}" />
@@ -186,10 +207,18 @@
                                                                Source="{Binding IconPath, Converter={StaticResource PathToBitmapConverter}}"
                                                                IsVisible="{Binding HasIcon}" />
                                                         <TextBlock Grid.Column="1" Text="{Binding Title}" Classes="row-title" />
-                                                        <TextBlock Grid.Column="2" Text="!" Classes="row-secondary"
+                                                        <!--
+                                                            row-problem, not row-secondary: this marker is the
+                                                            only sign in the sidebar that a feed has stopped
+                                                            working, and at secondary alpha it was the dimmest
+                                                            thing on the row. ProblemTip rather than LastError
+                                                            so an auto-paused feed says it is paused even when
+                                                            no error text was recorded.
+                                                        -->
+                                                        <TextBlock Grid.Column="2" Text="!" Classes="row-problem"
                                                                    Margin="6,0,0,0"
                                                                    IsVisible="{Binding HasProblem}"
-                                                                   ToolTip.Tip="{Binding LastError}" />
+                                                                   ToolTip.Tip="{Binding ProblemTip}" />
                                                         <TextBlock Grid.Column="3" Text="{Binding UnreadLabel}" Classes="row-secondary"
                                                                    Margin="6,0,0,0"
                                                                    IsVisible="{Binding HasUnread}" />

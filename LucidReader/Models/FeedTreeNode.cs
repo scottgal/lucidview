@@ -99,6 +99,18 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
     public bool HasProblem => ConsecutiveFailures > 0 || IsAutoPaused;
 
     /// <summary>
+    /// Tooltip for the sidebar's problem marker. An auto-paused feed says so
+    /// first: LastError alone describes why the last attempt failed but not
+    /// that the feed has been taken out of rotation entirely, and a feed can
+    /// be paused with no error text recorded at all, which used to leave the
+    /// marker with an empty tooltip and no explanation anywhere.
+    /// </summary>
+    public string ProblemTip => IsAutoPaused
+        ? "Paused after repeated failures. " +
+          (string.IsNullOrWhiteSpace(LastError) ? "No error was recorded." : LastError)
+        : LastError ?? string.Empty;
+
+    /// <summary>
     /// Left indent for feeds inside a folder. Folders and smart rows sit flush.
     /// Typed as a Thickness, not a bare double: Avalonia's reflection-based
     /// binding pipeline (compiled bindings are off for this project) does not

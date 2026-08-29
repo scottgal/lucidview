@@ -54,4 +54,41 @@ public class FeedTreeNodeTests
         Assert.True(failing.HasProblem);
         Assert.True(paused.HasProblem);
     }
+
+    [Fact]
+    public void An_auto_paused_feed_says_it_is_paused_before_it_quotes_the_error()
+    {
+        var node = new FeedTreeNode
+        {
+            Title = "Feed", Kind = FeedTreeNodeKind.Feed,
+            IsAutoPaused = true, LastError = "Name or service not known"
+        };
+
+        Assert.Contains("Paused", node.ProblemTip);
+        Assert.Contains("Name or service not known", node.ProblemTip);
+    }
+
+    [Fact]
+    public void An_auto_paused_feed_with_no_recorded_error_still_explains_itself()
+    {
+        var node = new FeedTreeNode
+        {
+            Title = "Feed", Kind = FeedTreeNodeKind.Feed, IsAutoPaused = true
+        };
+
+        Assert.Contains("Paused", node.ProblemTip);
+        Assert.DoesNotContain("  ", node.ProblemTip);
+    }
+
+    [Fact]
+    public void A_failing_but_unpaused_feed_shows_only_the_error()
+    {
+        var node = new FeedTreeNode
+        {
+            Title = "Feed", Kind = FeedTreeNodeKind.Feed,
+            ConsecutiveFailures = 2, LastError = "timed out"
+        };
+
+        Assert.Equal("timed out", node.ProblemTip);
+    }
 }
