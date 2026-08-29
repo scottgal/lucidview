@@ -41,10 +41,7 @@ jobs:
       run: dotnet test MarkdownViewer.Tests/MarkdownViewer.Tests.csproj --verbosity normal
 
     - name: Test MarkdownViewer.Full.Tests
-      run: |
-        dotnet test MarkdownViewer.Full.Tests/MarkdownViewer.Full.Tests.csproj \
-          --verbosity normal \
-          --filter "Category!=RequiresLlm&Category!=RequiresPlaywright"
+      run: dotnet test MarkdownViewer.Full.Tests/MarkdownViewer.Full.Tests.csproj --verbosity normal --filter "Category!=RequiresLlm&Category!=RequiresPlaywright"
 
   build-full:
     name: Build FULL (${{ matrix.os }})
