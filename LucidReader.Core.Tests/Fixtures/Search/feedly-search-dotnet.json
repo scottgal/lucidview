@@ -1,0 +1,74 @@
+{
+    "results": [
+        {
+            "coverUrl": "https://storage.googleapis.com/site-assets/tkwINXmVi_vDMrTrLNuUMXCglgosXSEonsZ2TxRSttY_cover-1753e715d74",
+            "created": 1370158707699,
+            "description": "Club des d\u00e9veloppeurs et IT Pro  : Forum, Cours et tutoriels : Delphi, C, C++, Java, VB, DotNET, C#, PHP, UML",
+            "feedId": "feed/http://dotnet.developpez.com/index/rss",
+            "iconUrl": "http://storage.googleapis.com/site-assets/tkwINXmVi_vDMrTrLNuUMXCglgosXSEonsZ2TxRSttY_icon-1543e53eb16",
+            "id": "feed/http://dotnet.developpez.com/index/rss",
+            "language": "fr",
+            "lastUpdated": 1787736240000,
+            "partial": true,
+            "score": 99300.0,
+            "subscribers": 993,
+            "title": "Flux .NET Developpez",
+            "topics": [
+                "dev",
+                "technologie",
+                "net"
+            ],
+            "updated": 1787736240000,
+            "valid": true,
+            "velocity": 0.9,
+            "visualUrl": "http://storage.googleapis.com/site-assets/tkwINXmVi_vDMrTrLNuUMXCglgosXSEonsZ2TxRSttY_visual-1543e53eb16",
+            "website": "https://dotnet.developpez.com/index/rss"
+        },
+        {
+            "created": 1370158824948,
+            "description": "News, Artikel, Podcasts, Blogs und Foren f\u00fcr Programmierer: Java, .NET, C/C++, PHP und andere Skriptsprachen. Website von Heise Medien",
+            "feedId": "feed/http://www.heise.de/developer/rss/dotnet-doktor/blog-atom.xml",
+            "iconUrl": "https://storage.googleapis.com/site-assets/tKDQU7e5aEokjgZZWn6aKTDsVxwy1SNShfDz6f8e3jk_icon-15dc5eb35e6",
+            "id": "feed/http://www.heise.de/developer/rss/dotnet-doktor/blog-atom.xml",
+            "language": "de",
+            "lastUpdated": 1787902740000,
+            "partial": true,
+            "score": 62100.0,
+            "subscribers": 621,
+            "title": "Der Dotnet-Doktor",
+            "topics": [
+                "programming",
+                "net"
+            ],
+            "updated": 1787902740000,
+            "valid": true,
+            "velocity": 1.1,
+            "visualUrl": "https://storage.googleapis.com/site-assets/tKDQU7e5aEokjgZZWn6aKTDsVxwy1SNShfDz6f8e3jk_visual-15dc5eb35e6",
+            "website": "https://www.heise.de/thema/Der-Dotnet-Doktor.xml"
+        },
+        {
+            "created": 1472782393032,
+            "description": "A weekly overview of the most popular .NET news, articles and packages",
+            "feedId": "feed/https://dotnet.libhunt.com/newsletter/feed",
+            "iconUrl": "https://storage.googleapis.com/site-assets/LaOqfqpHjjvznuN2L6Nh1a8wqDlbTij84JR4DGm0e-w_sicon-17ddb849456",
+            "id": "feed/https://dotnet.libhunt.com/newsletter/feed",
+            "language": "en",
+            "lastUpdated": 1787860920000,
+            "partial": true,
+            "score": 55900.0,
+            "subscribers": 559,
+            "title": "Awesome .NET Weekly",
+            "topics": [
+                "programming",
+                "net",
+                "tech"
+            ],
+            "updated": 1787860920000,
+            "valid": true,
+            "velocity": 1.1,
+            "visualUrl": "https://storage.googleapis.com/site-assets/LaOqfqpHjjvznuN2L6Nh1a8wqDlbTij84JR4DGm0e-w_svisual-17ddb849456",
+            "website": "https://dotnet.libhunt.com/newsletter"
+        }
+    ],
+    "success": true
+}

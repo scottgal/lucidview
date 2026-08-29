@@ -39,5 +39,14 @@ public sealed record ReaderSettings
     public int MarkReadDwellMilliseconds { get; init; } = 800;
     public bool OpenLinksExternally { get; init; } = true;
 
+    /// <summary>
+    /// Off by default. This is the only setting that permits the reader to
+    /// send anything the user typed (a search query) to a third party -
+    /// Feedly's public search index. Every caller of <c>IFeedSearch</c> must
+    /// treat this as a hard gate, not a courtesy check: with it off, no
+    /// search request may be constructed, let alone sent.
+    /// </summary>
+    public bool EnableOnlineFeedSearch { get; init; }
+
     public static ReaderSettings Defaults { get; } = new();
 }

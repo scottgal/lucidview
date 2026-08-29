@@ -63,6 +63,7 @@ public sealed class ReaderServices : IAsyncDisposable
         OfflineDownloader downloader,
         RetentionService retention,
         ImageResolver images,
+        IFeedSearch feedSearch,
         int fetchConcurrency,
         int downloadConcurrency)
     {
@@ -81,6 +82,7 @@ public sealed class ReaderServices : IAsyncDisposable
         Downloader = downloader;
         Retention = retention;
         Images = images;
+        FeedSearch = feedSearch;
         ConfiguredFetchConcurrency = fetchConcurrency;
         ConfiguredDownloadConcurrency = downloadConcurrency;
 
@@ -115,6 +117,15 @@ public sealed class ReaderServices : IAsyncDisposable
     /// pipeline here.
     /// </summary>
     public ImageResolver Images { get; }
+
+    /// <summary>
+    /// Topic feed search (Task 8d). Wired over the same HttpClient and live
+    /// settings func as every other fetcher here, so it shares the app's
+    /// infinite-timeout client rather than opening a second one, and it
+    /// gates on the live EnableOnlineFeedSearch setting rather than the
+    /// value that was in effect at startup.
+    /// </summary>
+    public IFeedSearch FeedSearch { get; }
 
     public int ConfiguredFetchConcurrency { get; }
     public int ConfiguredDownloadConcurrency { get; }
@@ -190,10 +201,12 @@ public sealed class ReaderServices : IAsyncDisposable
 
         var images = new ImageResolver(new ImageCacheServiceRemoteImageFetcher(imageCache), Current);
 
+        var feedSearch = new FeedlyFeedSearch(http, Current);
+
         built = new ReaderServices(
             setPath, settings, http, imageCache, database, folders, feeds, items, search,
             tags, refresh, scheduler, downloader, retention,
-            images, fetchConcurrency, downloadConcurrency)
+            images, feedSearch, fetchConcurrency, downloadConcurrency)
         {
             StartupWarning = SchemaMigrator.LastIncrementalVacuumConversionError
         };
