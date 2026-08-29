@@ -5,7 +5,7 @@ namespace MarkdownViewer.Services;
 /// <summary>
 /// Sends a generated PDF to the OS default printer. Cross-platform: ShellExecute "print"
 /// verb on Windows, <c>lp</c> (CUPS) on macOS and Linux. There's no native printer-picker
-/// dialog — this prints to whatever the user has set as the default. A dedicated printer
+/// dialog; this prints to whatever the user has set as the default. A dedicated printer
 /// dialog would need a heavy platform-interop layer that's out of scope here.
 /// </summary>
 public static class PrintService
@@ -42,7 +42,7 @@ public static class PrintService
             };
 
             using var p = Process.Start(psi)
-                ?? throw new InvalidOperationException("Could not start lp — is CUPS installed?");
+                ?? throw new InvalidOperationException("Could not start lp. Is CUPS installed?");
             await p.WaitForExitAsync(ct);
 
             if (p.ExitCode != 0)

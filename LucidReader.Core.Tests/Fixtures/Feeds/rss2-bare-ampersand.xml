@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Bare Ampersand</title>
+    <link>https://ampersand.example/</link>
+    <item>
+      <title>Fish & Chips</title>
+      <link>https://ampersand.example/1</link>
+      <guid>https://ampersand.example/1</guid>
+      <description>A summary with Bed & Breakfast in it too.</description>
+    </item>
+  </channel>
+</rss>

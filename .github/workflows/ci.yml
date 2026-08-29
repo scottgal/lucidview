@@ -34,9 +34,14 @@ jobs:
     - name: Build
       run: dotnet build ${{ env.PROJECT_PATH }} -c Release --no-restore
 
-    - name: Test (if tests exist)
-      run: dotnet test --no-build --verbosity normal || true
-      continue-on-error: true
+    - name: Test LucidReader.Core.Tests
+      run: dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --verbosity normal
+
+    - name: Test MarkdownViewer.Tests
+      run: dotnet test MarkdownViewer.Tests/MarkdownViewer.Tests.csproj --verbosity normal
+
+    - name: Test MarkdownViewer.Full.Tests
+      run: dotnet test MarkdownViewer.Full.Tests/MarkdownViewer.Full.Tests.csproj --verbosity normal --filter "Category!=RequiresLlm&Category!=RequiresPlaywright"
 
   build-full:
     name: Build FULL (${{ matrix.os }})

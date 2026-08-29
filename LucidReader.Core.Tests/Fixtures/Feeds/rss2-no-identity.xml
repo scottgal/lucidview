@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>No Identity</title>
+    <link>https://noidentity.example/</link>
+    <item>
+      <description>An item with no guid, no link and no title. There is
+      nothing here that can identify or display it.</description>
+    </item>
+    <item>
+      <title>A perfectly identifiable item</title>
+      <link>https://noidentity.example/1</link>
+      <guid>https://noidentity.example/1</guid>
+      <description>A summary.</description>
+    </item>
+  </channel>
+</rss>

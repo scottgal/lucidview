@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Relative Links</title>
+    <link>/</link>
+    <item>
+      <title>An item with a relative link</title>
+      <link>/posts/article-1</link>
+      <guid isPermaLink="false">relative-1</guid>
+      <description>A summary.</description>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Bad Dates</title>
+    <link>https://baddates.example/</link>
+    <item>
+      <title>Missing the day name</title>
+      <link>https://baddates.example/1</link>
+      <guid>https://baddates.example/1</guid>
+      <pubDate>26 Aug 2026 09:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>ISO date in a pubDate element</title>
+      <link>https://baddates.example/2</link>
+      <guid>https://baddates.example/2</guid>
+      <pubDate>2026-08-27T09:00:00Z</pubDate>
+    </item>
+    <item>
+      <title>Complete nonsense</title>
+      <link>https://baddates.example/3</link>
+      <guid>https://baddates.example/3</guid>
+      <pubDate>last Tuesday-ish</pubDate>
+    </item>
+  </channel>
+</rss>
