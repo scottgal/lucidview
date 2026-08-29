@@ -1,0 +1,251 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LucidReader.Views.SettingsDialog"
+        Title="Settings"
+        Width="560" Height="560"
+        MinWidth="480" MinHeight="440"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ListBackgroundBrush}">
+
+    <Window.Styles>
+        <!--
+            Scoped to this dialog rather than added to Styles/Reader.axaml:
+            these two classes only make sense as "a macOS System Settings
+            style grouped row inside a rounded card" and nothing else in the
+            app currently needs that shape.
+        -->
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="Grid.settings-row">
+            <Setter Property="Margin" Value="12,10,12,10" />
+        </Style>
+    </Window.Styles>
+
+    <!--
+        Four groups, matching spec 6.1: Updates, Offline, Retention, Reading.
+        There is deliberately no theme picker (the app follows the system
+        appearance, the way Mail does; ReaderSettings.Theme still exists as
+        an unused field so that decision stays reversible).
+
+        The tab strip is not a stock Avalonia TabControl: it reuses the same
+        SegmentedRadioButtonTheme and segmented-container look the item-list
+        filter (All/Unread/Starred) already uses in MainWindow.axaml, so this
+        dialog reads as the same visual system as the rest of the app rather
+        than a default form dropped on top of it. Group content sits inside
+        rounded "card" borders, the way macOS System Settings groups rows.
+    -->
+    <Grid Margin="20,16,20,16" RowDefinitions="Auto,*,Auto">
+
+        <Border Grid.Row="0" Classes="segmented-container" HorizontalAlignment="Left" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal" Spacing="0">
+                <RadioButton x:Name="UpdatesTabButton" Content="Updates" GroupName="SettingsTab"
+                             Theme="{StaticResource SegmentedRadioButtonTheme}"
+                             IsChecked="True" Checked="OnTabChecked" Tag="Updates" />
+                <RadioButton x:Name="OfflineTabButton" Content="Offline" GroupName="SettingsTab"
+                             Theme="{StaticResource SegmentedRadioButtonTheme}"
+                             Checked="OnTabChecked" Tag="Offline" />
+                <RadioButton x:Name="RetentionTabButton" Content="Retention" GroupName="SettingsTab"
+                             Theme="{StaticResource SegmentedRadioButtonTheme}"
+                             Checked="OnTabChecked" Tag="Retention" />
+                <RadioButton x:Name="ReadingTabButton" Content="Reading" GroupName="SettingsTab"
+                             Theme="{StaticResource SegmentedRadioButtonTheme}"
+                             Checked="OnTabChecked" Tag="Reading" />
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+          <Panel>
+
+            <!-- ================= Updates ================= -->
+            <StackPanel x:Name="UpdatesPanel" Spacing="14">
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Check for new articles every" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <NumericUpDown x:Name="DefaultRefreshIntervalBox"
+                                               Minimum="5" Maximum="1440" Increment="5"
+                                               FormatString="0" Width="110" />
+                                <TextBlock Text="minutes" VerticalAlignment="Center" Classes="row-secondary" />
+                            </StackPanel>
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Refresh all feeds when lucidREADER starts" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="RefreshOnStartupCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Pause refreshing while offline" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="PauseWhenOfflineCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Feeds fetched at once" VerticalAlignment="Center" />
+                            <NumericUpDown Grid.Column="1" x:Name="MaxConcurrentFetchesBox"
+                                           Minimum="1" Maximum="16" Increment="1"
+                                           FormatString="0" Width="110" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock x:Name="ConcurrencyNoticeText"
+                           Text="Takes effect the next time lucidREADER starts."
+                           Classes="row-secondary" Margin="4,0,0,0" />
+
+                <!--
+                    The one setting in this app that sends anything the user
+                    typed to a third party. It is off by default and this
+                    text says exactly what turning it on does, rather than
+                    burying it behind a vague label - that honesty is the
+                    whole reason it is opt-in.
+                -->
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Search for feeds online" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="EnableOnlineFeedSearchCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <TextBlock Margin="12,10,12,12" TextWrapping="Wrap" Classes="row-secondary"
+                                   Text="Off by default. Searching sends what you type to Feedly, a third-party feed search service, so it can suggest matching feeds. Nothing is sent to Feedly unless this is turned on." />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ================= Offline ================= -->
+            <StackPanel x:Name="OfflinePanel" Spacing="14" IsVisible="False">
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Download new articles for offline reading" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="AutoDownloadCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Fetch full article text, not just the feed summary" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="FetchFullTextCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Cache article images" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="CacheImagesCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Articles downloaded at once" VerticalAlignment="Center" />
+                            <NumericUpDown Grid.Column="1" x:Name="MaxConcurrentDownloadsBox"
+                                           Minimum="1" Maximum="16" Increment="1"
+                                           FormatString="0" Width="110" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="Takes effect the next time lucidREADER starts." Classes="row-secondary" Margin="4,0,0,0" />
+            </StackPanel>
+
+            <!-- ================= Retention ================= -->
+            <StackPanel x:Name="RetentionPanel" Spacing="14" IsVisible="False">
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Keep read articles for" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <NumericUpDown x:Name="KeepReadDaysBox"
+                                               Minimum="0" Maximum="3650" Increment="1"
+                                               FormatString="0" Width="110" />
+                                <TextBlock Text="days" VerticalAlignment="Center" Classes="row-secondary" />
+                            </StackPanel>
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Keep unread articles forever" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="KeepUnreadForeverCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Otherwise, keep unread articles for" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <NumericUpDown x:Name="KeepUnreadDaysBox"
+                                               Minimum="0" Maximum="3650" Increment="1"
+                                               FormatString="0" Width="110" />
+                                <TextBlock Text="days" VerticalAlignment="Center" Classes="row-secondary" />
+                            </StackPanel>
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Keep at most, per feed" VerticalAlignment="Center" />
+                            <NumericUpDown Grid.Column="1" x:Name="MaxArticlesPerFeedBox"
+                                           Minimum="0" Maximum="100000" Increment="50"
+                                           FormatString="0" Width="110" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Never delete starred articles" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="NeverDeleteStarredCheck" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!--
+                    The spec is explicit that a retention setting whose
+                    effect is invisible is one nobody trusts, so this shows
+                    the actual database size and offers a clean-up that
+                    genuinely shrinks it (RetentionService.PruneAsync runs
+                    PRAGMA incremental_vacuum whenever it deletes anything).
+                -->
+                <Border Classes="settings-card">
+                    <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock Text="Database size" />
+                            <TextBlock x:Name="DatabaseSizeText" Text="Calculating..." Classes="row-secondary" />
+                        </StackPanel>
+                        <Button Grid.Column="1" x:Name="CleanUpNowButton" Content="Clean up now" Click="OnCleanUpNow" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <!-- ================= Reading ================= -->
+            <StackPanel x:Name="ReadingPanel" Spacing="14" IsVisible="False">
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Article font size" VerticalAlignment="Center" />
+                            <NumericUpDown Grid.Column="1" x:Name="FontSizeBox"
+                                           Minimum="9" Maximum="40" Increment="1"
+                                           FormatString="0" Width="110" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Reading column width" VerticalAlignment="Center" />
+                            <NumericUpDown Grid.Column="1" x:Name="ColumnWidthBox"
+                                           Minimum="320" Maximum="2000" Increment="10"
+                                           FormatString="0" Width="110" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Mark as read after (milliseconds)" VerticalAlignment="Center" />
+                            <NumericUpDown Grid.Column="1" x:Name="MarkReadDwellBox"
+                                           Minimum="0" Maximum="10000" Increment="100"
+                                           FormatString="0" Width="110" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Open article links in your browser" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="OpenLinksExternallyCheck" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+          </Panel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+            <Button x:Name="CancelButton" Content="Cancel" Click="OnCancel" Width="80" IsCancel="True" />
+            <Button x:Name="OkButton" Content="Save" Click="OnOk" Width="80" Classes="accent" IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,125 @@
+name: verify-settings-dialog
+description: Open the global settings dialog, screenshot each group, change a setting and confirm it persists
+default_delay: 200
+
+actions:
+  - type: Wait
+    value: "2000"
+    description: Wait for app startup
+
+  - type: Screenshot
+    value: 00-main-window
+
+  - type: Click
+    target: SettingsButton
+    description: Open the settings dialog
+
+  - type: Wait
+    value: "400"
+    description: Wait for the dialog to open and be tracked
+
+  - type: Screenshot
+    value: 01-dialog-composite
+    composite: true
+    description: Main window with the settings dialog floating over it
+
+  - type: Screenshot
+    value: 02-updates-tab
+    window_id: Settings
+
+  - type: Expect
+    target: EnableOnlineFeedSearchCheck
+    window_id: Settings
+    matcher: IsVisible
+    value: "true"
+
+  - type: Click
+    target: OfflineTabButton
+    window_id: Settings
+    description: Switch to Offline tab
+
+  - type: Screenshot
+    value: 03-offline-tab
+    window_id: Settings
+
+  - type: Click
+    target: RetentionTabButton
+    window_id: Settings
+    description: Switch to Retention tab
+
+  - type: Wait
+    value: "600"
+    description: Let the database-size lookup finish
+
+  - type: Screenshot
+    value: 04-retention-tab
+    window_id: Settings
+
+  - type: Click
+    target: CleanUpNowButton
+    window_id: Settings
+    description: Exercise manual clean-up
+
+  - type: Wait
+    value: "600"
+
+  - type: Screenshot
+    value: 05-retention-after-cleanup
+    window_id: Settings
+
+  - type: Click
+    target: ReadingTabButton
+    window_id: Settings
+    description: Switch to Reading tab
+
+  - type: Screenshot
+    value: 06-reading-tab
+    window_id: Settings
+
+  - type: Click
+    target: UpdatesTabButton
+    window_id: Settings
+    description: Back to Updates tab to change a value
+
+  - type: Click
+    target: EnableOnlineFeedSearchCheck
+    window_id: Settings
+    description: Turn on the search-privacy-sensitive toggle
+
+  - type: Click
+    target: OkButton
+    window_id: Settings
+    description: Save
+
+  - type: Wait
+    value: "400"
+    description: Let UpdateSettingsAsync persist and StatusMessage update
+
+  - type: Screenshot
+    value: 07-after-save
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Settings saved."
+
+  - type: Click
+    target: SettingsButton
+    description: Reopen to confirm persistence
+
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: EnableOnlineFeedSearchCheck
+    window_id: Settings
+    matcher: IsChecked
+    value: "true"
+
+  - type: Screenshot
+    value: 08-reopened-toggle-persisted
+    window_id: Settings
+
+  - type: Click
+    target: CancelButton
+    window_id: Settings

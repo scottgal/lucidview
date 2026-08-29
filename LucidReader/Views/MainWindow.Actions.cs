@@ -9,10 +9,10 @@ namespace LucidReader.Views;
 /// <summary>
 /// Toolbar/menu/keybinding actions (add feed, refresh, navigate, mark
 /// read/starred, open original, search focus, find in article, tags,
-/// export, settings). AddFeedCommand and OpenSettingsCommand stay no-op
-/// stubs here deliberately: the dialogs they would open (feed autodiscovery,
-/// settings) are built in later tasks and are not part of this one. Every
-/// other command below is real.
+/// export, settings). AddFeedCommand stays a no-op stub here deliberately:
+/// feed autodiscovery is a later task and not part of this one.
+/// OpenSettingsCommand is wired to ShowSettingsDialogAsync (Task 11,
+/// MainWindow.Settings.cs). Every other command below is real.
 ///
 /// PDF export is out of scope for this app, per the plan-level decision that
 /// lucidVIEW's PdfExportService could not be shared (it depends on a large
@@ -119,9 +119,9 @@ public partial class MainWindow
     public RelayCommand AddFeedCommand => _addFeed ??= new RelayCommand(() => { });
 
     /// <summary>
-    /// Not wired to a dialog yet: the settings window is a later task.
+    /// Task 11: opens the global settings dialog (MainWindow.Settings.cs).
     /// </summary>
-    public RelayCommand OpenSettingsCommand => _openSettings ??= new RelayCommand(() => { });
+    public RelayCommand OpenSettingsCommand => _openSettings ??= new RelayCommand(async () => await ShowSettingsDialogAsync());
 
     public RelayCommand ExportArticleCommand => _exportArticle ??= new RelayCommand(async () => await ExportArticleAsync());
 
