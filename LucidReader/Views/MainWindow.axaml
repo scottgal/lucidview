@@ -28,110 +28,125 @@
         <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
     </Window.KeyBindings>
 
-    <Grid RowDefinitions="*,Auto">
+    <Grid RowDefinitions="Auto,*,Auto">
 
-        <Grid Grid.Row="0" ColumnDefinitions="260,4,340,4,*">
+        <!--
+            One unified toolbar spanning the full window width, the way Mail
+            has a single toolbar rather than a per-pane one. It sits at
+            Grid.Row="0" so it is the row the OS draws the traffic lights
+            over once the client area is extended (Step 8): the left margin
+            below clears them horizontally, and the row's own height
+            (buttons plus 10px top/bottom padding) comfortably contains the
+            platform-default title bar band vertically. Search lives here
+            too, not in the item-list column, matching Mail. Settings sits
+            at the right end of this same row rather than in the status bar,
+            which now only shows StatusText.
+        -->
+        <Border Grid.Row="0" Background="{DynamicResource SidebarBackgroundBrush}"
+                BorderThickness="0,0,0,1" BorderBrush="{DynamicResource HairlineBrush}">
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="80,10,12,10">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button x:Name="AddFeedButton" Content="Add feed" Classes="row-toolbar"
+                            Command="{Binding AddFeedCommand}" />
+                    <Button x:Name="RefreshAllButton" Content="Refresh all" Classes="row-toolbar"
+                            Command="{Binding RefreshAllCommand}" />
+                </StackPanel>
+
+                <TextBox Grid.Column="1" x:Name="SearchBox"
+                         Watermark="Search all articles"
+                         VerticalAlignment="Center"
+                         HorizontalAlignment="Center"
+                         Width="360"
+                         Text="{Binding SearchText, Mode=TwoWay}" />
+
+                <Button Grid.Column="2" x:Name="SettingsButton" Content="Settings" Classes="row-toolbar"
+                        VerticalAlignment="Center"
+                        Command="{Binding OpenSettingsCommand}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="260,4,340,4,*">
 
             <!--
-                The sidebar is the one translucent surface (Task 8a Step 8):
-                it spans the full window height, including the strip the
-                traffic lights sit over, so the top padding below exists to
-                clear them rather than a guessed magic number colliding with
-                whatever the OS decides the title bar height is. The list and
-                reading panes stay opaque, exactly as Mail does it.
+                The sidebar is the one translucent surface (Task 8a Step 8);
+                the list and reading panes stay opaque, exactly as Mail does
+                it. It no longer carries its own top-clearance padding: the
+                unified toolbar above already occupies the title-bar band.
             -->
             <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}">
-                <DockPanel>
-                    <!--
-                        Top margin of 34 clears the macOS traffic lights: with
-                        ExtendClientAreaTitleBarHeightHint="-1" (platform
-                        default) and PreferSystemChrome, the OS draws the
-                        lights at a fixed height that this project has no API
-                        to read back, so 34 is a measured value against the
-                        harness screenshots below, not a guess.
-                    -->
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6"
-                                Margin="6,34,6,8">
-                        <Button x:Name="AddFeedButton" Content="Add feed" Classes="row-toolbar"
-                                Command="{Binding AddFeedCommand}" />
-                        <Button x:Name="RefreshAllButton" Content="Refresh all" Classes="row-toolbar"
-                                Command="{Binding RefreshAllCommand}" />
-                    </StackPanel>
+                <ScrollViewer>
+                    <ItemsControl x:Name="SidebarSections" ItemsSource="{Binding Sidebar}" Margin="0,8,0,12">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel IsVisible="{Binding IsVisible}">
+                                    <ToggleButton Classes="sidebar-header" IsChecked="{Binding IsExpanded, Mode=TwoWay}">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <TextBlock Grid.Column="0" Text="&#x25BE;" Classes="chevron"
+                                                       Classes.collapsed="{Binding IsCollapsed}" Margin="0,0,6,0" />
+                                            <TextBlock Grid.Column="1" Text="{Binding HeaderText}" Classes="section-header" />
+                                            <TextBlock Grid.Column="2" Text="{Binding UnreadLabel}" Classes="section-header" />
+                                        </Grid>
+                                    </ToggleButton>
 
-                    <ScrollViewer>
-                        <ItemsControl x:Name="SidebarSections" ItemsSource="{Binding Sidebar}" Margin="0,0,0,12">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel IsVisible="{Binding IsVisible}">
-                                        <ToggleButton Classes="sidebar-header" IsChecked="{Binding IsExpanded, Mode=TwoWay}">
-                                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                                <TextBlock Grid.Column="0" Text="&#x25BE;" Classes="chevron"
-                                                           Classes.collapsed="{Binding IsCollapsed}" Margin="0,0,6,0" />
-                                                <TextBlock Grid.Column="1" Text="{Binding HeaderText}" Classes="section-header" />
-                                                <TextBlock Grid.Column="2" Text="{Binding UnreadLabel}" Classes="section-header" />
-                                            </Grid>
-                                        </ToggleButton>
-
-                                        <!--
-                                            One ItemsControl (not ListBox) per section: two ListBoxes
-                                            TwoWay-bound to the same SelectedFeedNode would fight over
-                                            it, since each rejects a SelectedItem the other one owns.
-                                            Selection is instead a PointerPressed on the row Border
-                                            (MainWindow.axaml.cs.OnFeedNodePointerPressed), and the
-                                            row's own IsSelected flag drives the selected visual, kept
-                                            in sync by SelectedFeedNode's setter.
-                                        -->
-                                        <ItemsControl ItemsSource="{Binding Nodes}" IsVisible="{Binding IsExpanded}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border Classes="node-row" Classes.selected="{Binding IsSelected}"
-                                                            PointerPressed="OnFeedNodePointerPressed">
-                                                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="{Binding Indent}">
-                                                            <TextBlock Grid.Column="0" Text="{Binding Title}" Classes="row-title" />
-                                                            <TextBlock Grid.Column="1" Text="!" Classes="row-secondary"
-                                                                       Margin="6,0,0,0"
-                                                                       IsVisible="{Binding HasProblem}"
-                                                                       ToolTip.Tip="{Binding LastError}" />
-                                                            <TextBlock Grid.Column="2" Text="{Binding UnreadLabel}" Classes="row-secondary"
-                                                                       Margin="6,0,0,0"
-                                                                       IsVisible="{Binding HasUnread}" />
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel>
+                                    <!--
+                                        One ItemsControl (not ListBox) per section: two ListBoxes
+                                        TwoWay-bound to the same SelectedFeedNode would fight over
+                                        it, since each rejects a SelectedItem the other one owns.
+                                        Selection is instead a PointerPressed on the row Border
+                                        (MainWindow.axaml.cs.OnFeedNodePointerPressed), and the
+                                        row's own IsSelected flag drives the selected visual, kept
+                                        in sync by SelectedFeedNode's setter.
+                                    -->
+                                    <ItemsControl ItemsSource="{Binding Nodes}" IsVisible="{Binding IsExpanded}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Classes="node-row" Classes.selected="{Binding IsSelected}"
+                                                        PointerPressed="OnFeedNodePointerPressed">
+                                                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="{Binding Indent}">
+                                                        <TextBlock Grid.Column="0" Text="{Binding Title}" Classes="row-title" />
+                                                        <TextBlock Grid.Column="1" Text="!" Classes="row-secondary"
+                                                                   Margin="6,0,0,0"
+                                                                   IsVisible="{Binding HasProblem}"
+                                                                   ToolTip.Tip="{Binding LastError}" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding UnreadLabel}" Classes="row-secondary"
+                                                                   Margin="6,0,0,0"
+                                                                   IsVisible="{Binding HasUnread}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
             </Border>
 
             <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
 
-            <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*" Background="{DynamicResource ListBackgroundBrush}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <Grid Grid.Column="2" RowDefinitions="Auto,*" Background="{DynamicResource ListBackgroundBrush}">
+                <!--
+                    A segmented control, not raw RadioButtons: same three
+                    bindings as before (IsFilterAll/Unread/Starred), only the
+                    RadioButton.Theme changes what they look like. See
+                    SegmentedRadioButtonTheme in Styles/Reader.axaml.
+                -->
+                <Border Grid.Row="0" Classes="segmented-container" Margin="10,10,10,8" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="0">
+                        <RadioButton x:Name="FilterAll" Content="All" GroupName="ItemFilter"
+                                     Theme="{StaticResource SegmentedRadioButtonTheme}"
+                                     IsChecked="{Binding IsFilterAll, Mode=TwoWay}" />
+                        <RadioButton x:Name="FilterUnread" Content="Unread" GroupName="ItemFilter"
+                                     Theme="{StaticResource SegmentedRadioButtonTheme}"
+                                     IsChecked="{Binding IsFilterUnread, Mode=TwoWay}" />
+                        <RadioButton x:Name="FilterStarred" Content="Starred" GroupName="ItemFilter"
+                                     Theme="{StaticResource SegmentedRadioButtonTheme}"
+                                     IsChecked="{Binding IsFilterStarred, Mode=TwoWay}" />
+                    </StackPanel>
+                </Border>
 
-                <TextBox Grid.Row="0" x:Name="SearchBox"
-                         Watermark="Search all articles"
-                         Margin="10,34,10,6"
-                         Text="{Binding SearchText, Mode=TwoWay}" />
-
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" Margin="8,0,8,6">
-                    <RadioButton x:Name="FilterAll" Content="All" GroupName="ItemFilter"
-                                 IsChecked="{Binding IsFilterAll, Mode=TwoWay}" />
-                    <RadioButton x:Name="FilterUnread" Content="Unread" GroupName="ItemFilter"
-                                 IsChecked="{Binding IsFilterUnread, Mode=TwoWay}" />
-                    <RadioButton x:Name="FilterStarred" Content="Starred" GroupName="ItemFilter"
-                                 IsChecked="{Binding IsFilterStarred, Mode=TwoWay}" />
-                </StackPanel>
-
-                <ListBox Grid.Row="2" x:Name="ItemList"
+                <ListBox Grid.Row="1" x:Name="ItemList"
                          ItemsSource="{Binding ItemRows}"
                          SelectedItem="{Binding SelectedItemRow, Mode=TwoWay}"
                          ItemContainerTheme="{StaticResource ReaderListBoxItemTheme}">
@@ -182,7 +197,23 @@
             <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
 
             <ScrollViewer Grid.Column="4" x:Name="ReadingScroll" Background="{DynamicResource ReadingBackgroundBrush}">
-                <StackPanel MaxWidth="{Binding ColumnWidth}" HorizontalAlignment="Left" Margin="32,34,32,24">
+                <!--
+                    MaxWidth caps the measure at ColumnWidth (760 by default,
+                    from ReaderSettings) so the body doesn't stretch to
+                    whatever width the pane happens to be; a narrower window
+                    still shrinks it below that cap rather than clipping.
+                    The reading body inside LucidMarkdownView has its own
+                    inner ScrollViewer (in
+                    Mostlylucid.LucidView.Markdown/LucidMarkdownView.axaml)
+                    which, left at its default HorizontalScrollBarVisibility
+                    of Auto, offers its content effectively infinite width
+                    during measure regardless of what this pane is arranged
+                    to, so the MaxWidth cap here alone was not enough to
+                    force it to wrap; Styles/Reader.axaml disables that
+                    inner ScrollViewer's horizontal scrollbar so it wraps
+                    within whatever width this StackPanel gives it instead.
+                -->
+                <StackPanel MaxWidth="{Binding ColumnWidth}" HorizontalAlignment="Left" Margin="32,24,32,24">
                     <TextBlock x:Name="ArticleTitleText" Text="{Binding ArticleTitle}" Classes="article-title" />
                     <TextBlock x:Name="ArticleMetaText" Text="{Binding ArticleMeta}" Classes="article-meta"
                                Margin="0,6,0,0" />
@@ -206,15 +237,10 @@
             </ScrollViewer>
         </Grid>
 
-        <Border Grid.Row="1" Padding="8,4" BorderThickness="0,1,0,0"
+        <Border Grid.Row="2" Padding="8,4" BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource HairlineBrush}"
                 Background="{DynamicResource ListBackgroundBrush}">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" x:Name="StatusText" Text="{Binding StatusMessage}"
-                           Classes="row-secondary" />
-                <Button Grid.Column="1" x:Name="SettingsButton" Content="Settings" Classes="row-toolbar"
-                        Command="{Binding OpenSettingsCommand}" />
-            </Grid>
+            <TextBlock x:Name="StatusText" Text="{Binding StatusMessage}" Classes="row-secondary" />
         </Border>
     </Grid>
 </Window>

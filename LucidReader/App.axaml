@@ -4,8 +4,37 @@
              x:Class="LucidReader.App"
              RequestedThemeVariant="Default">
 
+    <!--
+        LiveMarkdown.Avalonia's own resources: without Defaults.axaml, the
+        colour/font-size resources its Styles.axaml refers to
+        (ForegroundColor, FontSizeM, etc.) are simply missing, which
+        DynamicResource silently no-ops on rather than failing loudly.
+    -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.Styles>
         <sty:FluentAvaloniaTheme />
+        <!--
+            The root cause of the reading pane not wrapping (Task 8a
+            follow-up): LiveMarkdown.Avalonia's MarkdownTextBlock has no
+            TextWrapping="Wrap" of its own; that default lives in this
+            stylesheet, which was never included here. Without it,
+            MarkdownTextBlock falls back to SelectableTextBlock/TextBlock's
+            own default of NoWrap, so the article body always rendered as
+            one unwrapped line regardless of how the surrounding layout was
+            constrained (confirmed via the harness: neither an inner
+            ScrollViewer fix nor an explicit Width on LucidMarkdownView
+            changed anything, because the width being passed in was never
+            the problem). MarkdownViewer/App.axaml (lucidVIEW's own app)
+            already includes this; LucidReader's never did.
+        -->
+        <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml" />
         <StyleInclude Source="avares://lucidREADER/Styles/Reader.axaml" />
     </Application.Styles>
 </Application>

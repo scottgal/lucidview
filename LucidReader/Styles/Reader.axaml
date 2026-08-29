@@ -81,8 +81,47 @@
                 <Style Selector="^:pointerover /template/ Border#PART_SelectionBorder">
                     <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
                 </Style>
-                <Style Selector="^:selected /template/ Border#PART_SelectionBorder">
+                <!--
+                    The selected background itself is set OUTSIDE this
+                    ControlTheme (see the ListBox:focus-within rules further
+                    down) so it can tell a focused selection (solid accent
+                    blue, like Mail's active list) from an unfocused one
+                    (a quieter grey, like Mail's when focus has moved to
+                    another pane) apart. A plain "^:selected" setter here
+                    would not have that distinction available.
+                -->
+            </ControlTheme>
+
+            <!--
+                A segmented control built from the existing RadioButtons
+                (All/Unread/Starred) rather than a new control: same
+                GroupName and IsChecked bindings as before, only the visual
+                template changes, so IsFilterAll/Unread/Starred keep working
+                unmodified. No radio bullet in this template at all.
+            -->
+            <ControlTheme x:Key="SegmentedRadioButtonTheme" TargetType="RadioButton">
+                <Setter Property="Padding" Value="12,4" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Foreground" Value="{DynamicResource RowSecondaryBrush}" />
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Name="PART_Segment" CornerRadius="5" Background="Transparent"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+
+                <Style Selector="^:checked">
+                    <Setter Property="Foreground" Value="{DynamicResource SelectedTitleBrush}" />
+                </Style>
+                <Style Selector="^:checked /template/ Border#PART_Segment">
                     <Setter Property="Background" Value="{DynamicResource AccentSelectionBrush}" />
+                </Style>
+                <Style Selector="^:not(:checked):pointerover /template/ Border#PART_Segment">
+                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
                 </Style>
             </ControlTheme>
         </ResourceDictionary>
@@ -114,12 +153,32 @@
         <Setter Property="Foreground" Value="{DynamicResource SectionHeaderBrush}" />
     </Style>
 
+    <!--
+        Focused vs unfocused selection: a solid accent blue while the item
+        list itself has focus (matching Mail's active list), a quieter grey
+        once focus moves elsewhere (the search box, the sidebar) so a
+        selection doesn't read as "still the thing you're acting on" when
+        it isn't.
+    -->
+    <Style Selector="ListBox:focus-within ListBoxItem:selected /template/ Border#PART_SelectionBorder">
+        <Setter Property="Background" Value="{DynamicResource AccentSelectionBrush}" />
+    </Style>
+    <Style Selector="ListBox:not(:focus-within) ListBoxItem:selected /template/ Border#PART_SelectionBorder">
+        <Setter Property="Background" Value="{DynamicResource AccentSelectionInactiveBrush}" />
+    </Style>
+
     <!-- A selected row's own text goes white-on-blue, like Mail, rather than
          keeping the secondary greys that would lose contrast against the
          accent fill. -->
-    <Style Selector="ListBoxItem:selected /template/ ContentPresenter TextBlock.row-title,
-                     ListBoxItem:selected /template/ ContentPresenter TextBlock.row-secondary,
-                     ListBoxItem:selected /template/ ContentPresenter TextBlock.row-snippet">
+    <!--
+        Only when focused: the unfocused grey (AccentSelectionInactiveBrush)
+        is a translucent overlay, not solid, so white text over it would lose
+        contrast in the light theme. Leaving the normal row colours in place
+        for an unfocused selection keeps it legible either way.
+    -->
+    <Style Selector="ListBox:focus-within ListBoxItem:selected /template/ ContentPresenter TextBlock.row-title,
+                     ListBox:focus-within ListBoxItem:selected /template/ ContentPresenter TextBlock.row-secondary,
+                     ListBox:focus-within ListBoxItem:selected /template/ ContentPresenter TextBlock.row-snippet">
         <Setter Property="Foreground" Value="{DynamicResource SelectedTitleBrush}" />
         <Setter Property="Opacity" Value="1" />
     </Style>
@@ -237,4 +296,25 @@
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Padding" Value="8,4" />
     </Style>
+
+    <!-- ================= Segmented filter control ================= -->
+    <Style Selector="Border.segmented-container">
+        <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Padding" Value="2" />
+    </Style>
+
+    <!--
+        Reading pane body wrapping: LucidMarkdownView's own inner
+        ScrollViewer (its default HorizontalScrollBarVisibility of Auto lets
+        the article body measure itself unconstrained and overflow the
+        window edge instead of wrapping) is disabled directly in code
+        (MainWindow.axaml.cs's constructor) rather than here. Two style
+        selector forms were tried first ("md|LucidMarkdownView ScrollViewer"
+        and, crossing the UserControl's own template boundary,
+        "md|LucidMarkdownView /template/ ScrollViewer") and neither visibly
+        took effect in the harness, so this was moved to a direct
+        GetVisualDescendants() walk instead of leaving an unverified style
+        rule in place.
+    -->
 </Styles>

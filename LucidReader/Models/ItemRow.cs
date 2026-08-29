@@ -45,8 +45,15 @@ public sealed class ItemRow : INotifyPropertyChanged
     public bool IsStarred
     {
         get => _isStarred;
-        set { if (_isStarred == value) return; _isStarred = value; Raise(); Raise(nameof(StarGlyph)); }
+        set { if (_isStarred == value) return; _isStarred = value; Raise(); Raise(nameof(StarGlyph)); Raise(nameof(IsNotStarred)); }
     }
+
+    /// <summary>
+    /// Same binding-negation avoidance as <see cref="IsUnread"/>, used by
+    /// RowActions to swap between a hollow and filled star glyph depending
+    /// on this row's current state.
+    /// </summary>
+    public bool IsNotStarred => !_isStarred;
 
     public string TitleWeight => _isRead ? "Normal" : "SemiBold";
     public string StarGlyph => _isStarred ? "★" : "☆";

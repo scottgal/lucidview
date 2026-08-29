@@ -12,15 +12,28 @@
         Styles/Reader.axaml (targeting this control by type inside a
         ListBoxItem:pointerover selector), not by tracking PointerEntered /
         PointerExited here.
+
+        This control has no DataContext of its own: it is placed directly
+        inside the item row's DataTemplate in MainWindow.axaml, so it
+        inherits the ItemRow as its DataContext exactly like the sibling
+        title/snippet TextBlocks do. The glyph bindings below (IsUnread,
+        IsRead, IsStarred, IsNotStarred) are ItemRow properties for that
+        reason, not properties of this UserControl.
     -->
     <StackPanel Orientation="Horizontal" Spacing="2" Classes="row-actions-bar">
         <Button x:Name="MarkReadButton" Classes="row-action" Click="OnMarkReadClick"
                 ToolTip.Tip="Mark read or unread">
-            <TextBlock Text="&#x25CF;" FontSize="11" />
+            <Panel>
+                <TextBlock Text="&#x25CF;" FontSize="11" IsVisible="{Binding IsUnread}" />
+                <TextBlock Text="&#x25CB;" FontSize="12" IsVisible="{Binding IsRead}" />
+            </Panel>
         </Button>
         <Button x:Name="ToggleStarButton" Classes="row-action" Click="OnToggleStarClick"
                 ToolTip.Tip="Star or unstar">
-            <TextBlock Text="&#x2606;" FontSize="12" />
+            <Panel>
+                <TextBlock Text="&#x2605;" FontSize="12" IsVisible="{Binding IsStarred}" />
+                <TextBlock Text="&#x2606;" FontSize="12" IsVisible="{Binding IsNotStarred}" />
+            </Panel>
         </Button>
         <Button x:Name="OpenOriginalButton" Classes="row-action" Click="OnOpenOriginalClick"
                 ToolTip.Tip="Open the original article">
