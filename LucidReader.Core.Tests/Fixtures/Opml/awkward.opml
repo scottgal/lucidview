@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <head><title>Exported</title></head>
+  <body>
+    <outline title="Titled not texted" xmlUrl="https://a.example/feed.xml"/>
+    <outline text="Outer">
+      <outline text="Inner">
+        <outline text="Deep feed" xmlUrl="https://b.example/feed.xml"/>
+      </outline>
+    </outline>
+    <outline text="Empty container"/>
+    <outline text="Duplicate" type="rss" xmlUrl="https://a.example/feed.xml"/>
+  </body>
+</opml>
