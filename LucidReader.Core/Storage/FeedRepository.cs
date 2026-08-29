@@ -168,18 +168,51 @@ public class FeedRepository(ReaderDatabase db)
             ct);
 
     /// <summary>
-    /// Updates only is_enabled. Used for auto-pause, which - like the title
-    /// and site link adoption above - must not write back a whole Feed
-    /// snapshot that may already be stale by the time the fetch finishes.
+    /// Enables or disables a feed as a deliberate action (a manual toggle, or
+    /// a user re-enabling a feed FeedRefreshService auto-paused). Like the
+    /// title and site link adoption above, this must not write back a whole
+    /// Feed snapshot that may already be stale by the time it runs.
+    ///
+    /// Enabling always clears consecutive_failures, last_error and
+    /// auto_paused_utc: nothing but a successful refresh (RecordSuccessAsync)
+    /// ever clears consecutive_failures otherwise, and a disabled feed is
+    /// excluded from GetDueAsync and so can never reach a successful refresh.
+    /// Without this reset, a feed the user re-enabled after auto-pause was
+    /// re-disabled on its very first subsequent failure - one attempt, not a
+    /// real second chance. Disabling never touches these columns; only
+    /// FeedRefreshService's own automatic path (AutoPauseAsync) sets
+    /// auto_paused_utc, so a manual disable is never mistaken for one.
     /// </summary>
     public Task SetEnabledAsync(
         long feedId, bool isEnabled, CancellationToken ct = default) =>
         db.WriteAsync(
-            "UPDATE feeds SET is_enabled = $enabled WHERE id = $id;",
+            isEnabled
+                ? """
+                  UPDATE feeds SET
+                      is_enabled = 1,
+                      consecutive_failures = 0,
+                      last_error = NULL,
+                      auto_paused_utc = NULL
+                  WHERE id = $id;
+                  """
+                : "UPDATE feeds SET is_enabled = 0 WHERE id = $id;",
+            new Dictionary<string, object?> { ["$id"] = feedId },
+            ct);
+
+    /// <summary>
+    /// Disables a feed automatically after it reaches BackoffPolicy.AutoPauseThreshold
+    /// consecutive failures, stamping auto_paused_utc so a UI can tell this
+    /// apart from is_enabled = 0 set by a deliberate user action (SetEnabledAsync's
+    /// disable branch never sets this column).
+    /// </summary>
+    public Task AutoPauseAsync(
+        long feedId, DateTimeOffset nowUtc, CancellationToken ct = default) =>
+        db.WriteAsync(
+            "UPDATE feeds SET is_enabled = 0, auto_paused_utc = $now WHERE id = $id;",
             new Dictionary<string, object?>
             {
                 ["$id"] = feedId,
-                ["$enabled"] = isEnabled ? 1 : 0
+                ["$now"] = nowUtc.ToDbString()
             },
             ct);
 

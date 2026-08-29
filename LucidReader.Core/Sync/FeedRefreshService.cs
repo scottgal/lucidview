@@ -365,8 +365,11 @@ public sealed class FeedRefreshService : IAsyncDisposable
         // Narrow update for the same reason as the title/site adoption above:
         // `feed` is a stale snapshot by the time auto-pause fires, and writing
         // the whole record back would revert whatever the user changed since.
+        // AutoPauseAsync (not SetEnabledAsync's disable branch) so the feed's
+        // auto_paused_utc records that this disable was automatic, not a
+        // deliberate user action - see FeedRepository.SetEnabledAsync's remarks.
         if (BackoffPolicy.ShouldAutoPause(failures) && feed.IsEnabled)
-            await _feeds.SetEnabledAsync(feed.Id, false, ct);
+            await _feeds.AutoPauseAsync(feed.Id, now, ct);
     }
 
     /// <summary>

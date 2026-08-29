@@ -205,6 +205,68 @@ public class FeedRefreshServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Reaching_the_auto_pause_threshold_stamps_it_as_automatic()
+    {
+        var handler = StubHttpHandler.Returning(HttpStatusCode.NotFound);
+        await using var service = CreateService(handler);
+        var feedId = await AddFeedAsync();
+
+        for (var i = 0; i < BackoffPolicy.AutoPauseThreshold; i++)
+            await service.RefreshNowAsync(feedId);
+
+        var feed = await _feeds.GetAsync(feedId);
+        Assert.False(feed!.IsEnabled);
+        Assert.NotNull(feed.AutoPausedUtc);
+    }
+
+    [Fact]
+    public async Task A_manual_disable_is_not_mistaken_for_an_auto_pause()
+    {
+        var feedId = await AddFeedAsync();
+
+        await _feeds.SetEnabledAsync(feedId, false);
+
+        var feed = await _feeds.GetAsync(feedId);
+        Assert.False(feed!.IsEnabled);
+        Assert.Null(feed.AutoPausedUtc);
+    }
+
+    [Fact]
+    public async Task Re_enabling_an_auto_paused_feed_gives_it_a_real_second_chance()
+    {
+        var handler = StubHttpHandler.Returning(HttpStatusCode.NotFound);
+        await using var service = CreateService(handler);
+        var feedId = await AddFeedAsync();
+
+        for (var i = 0; i < BackoffPolicy.AutoPauseThreshold; i++)
+            await service.RefreshNowAsync(feedId);
+
+        var pausedFeed = await _feeds.GetAsync(feedId);
+        Assert.False(pausedFeed!.IsEnabled);
+        Assert.Equal(BackoffPolicy.AutoPauseThreshold, pausedFeed.ConsecutiveFailures);
+
+        await _feeds.SetEnabledAsync(feedId, true);
+
+        var reEnabledFeed = await _feeds.GetAsync(feedId);
+        Assert.True(reEnabledFeed!.IsEnabled);
+        Assert.Equal(0, reEnabledFeed.ConsecutiveFailures);
+        Assert.Null(reEnabledFeed.LastError);
+        Assert.Null(reEnabledFeed.AutoPausedUtc);
+
+        // One more failure must not immediately re-disable the feed: before
+        // the fix, nothing but a successful refresh ever cleared
+        // consecutive_failures, and a disabled feed can never reach one, so a
+        // re-enabled feed was re-disabled on its very first subsequent
+        // failure - one attempt, not a real second chance.
+        var outcome = await service.RefreshNowAsync(feedId);
+        Assert.False(outcome.Success);
+
+        var afterOneMoreFailure = await _feeds.GetAsync(feedId);
+        Assert.True(afterOneMoreFailure!.IsEnabled);
+        Assert.Equal(1, afterOneMoreFailure.ConsecutiveFailures);
+    }
+
+    [Fact]
     public async Task Queueing_a_feed_that_is_already_queued_is_refused()
     {
         var handler = StubHttpHandler.Returning(
