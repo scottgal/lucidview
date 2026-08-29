@@ -1,0 +1,120 @@
+# lucidREADER UI driving scripts
+
+Same harness as lucidVIEW ([Mostlylucid.Avalonia.UITesting](../external/lucidRESUME/src/Mostlylucid.Avalonia.UITesting)),
+Debug-only for the same reason: `--ux-test` is compiled out of Release.
+`ux-scripts/README.md` covers the harness itself. This file covers what
+lucidREADER's scripts check, and the rules they follow.
+
+Build first:
+
+```bash
+dotnet build LucidReader/LucidReader.csproj
+```
+
+## The scripts
+
+| Run this | Script | What it checks | Needs network |
+|---|---|---|---|
+| `ux-scripts/run-reader-smoke.sh [out]` | `reader-smoke.yaml` | The whole shell: sidebar smart rows, a folder, a feed, the All/Unread/Starred segments, the reading pane and its offline badge, the mark-as-read dwell, the hover row actions, full-text search, Refresh all | no |
+| `ux-scripts/run-reader-settings.sh [out]` | `reader-settings.yaml` | Both settings dialogs: all four global groups, save-and-reopen round trips, the retention clean-up, the per-feed override switches, and a global change showing up as the per-feed inherited label | no |
+| `ux-scripts/run-refresh-health.sh [out]` | `verify-refresh-health.yaml` | The status bar reporting auto-paused feeds, and putting one back into rotation with the Resume button | no |
+| `ux-scripts/run-add-feed-writes.sh [out]` | `verify-add-feed-writes.yaml` | Adding discovered feeds for real: the writes land, the sidebar reloads, the status bar says what happened | yes |
+| direct | `verify-add-feed-dialog.yaml` | The add-feed dialog: empty-address message, bare-domain normalising, autodiscovery finding two feeds, Add going live. Cancels, so it writes nothing | yes |
+| direct | `verify-feed-settings-dialog.yaml` | Opening per-feed settings from the toolbar against the two-feed development database. Cancels, so it writes nothing | no |
+
+Output defaults to `/tmp/lr-<name>`; pass a directory to put it elsewhere.
+`--ux-repl` and `--ux-mcp` work on lucidREADER too, if you want to poke at the
+running app by hand.
+
+## The rule these scripts follow
+
+**Every script must be runnable twice in a row, from any starting state, and
+must leave the database as it found it.**
+
+This is not a style preference. Two earlier scripts here were one-shot.
+`verify-refresh-health.yaml` documented its database seed as a manual step, so
+it passed once against hand-seeded state and failed on the next run.
+`verify-add-feed-writes.yaml` had no cleanup at all, asserted "Added" (true only
+the first time, since afterwards the app correctly reports duplicates), and left
+two live subscriptions behind that skewed every later script's row counts. A
+check that passes once and then rots is worse than no check, because it reads
+as coverage.
+
+So: if a script needs database state, it gets a runner shell script that seeds
+and cleans up from an `EXIT`/`INT`/`TERM` trap under `set -euo pipefail`. Two
+shapes are in use.
+
+- **Seed and delete rows in the real profile** (`run-refresh-health.sh`,
+  `run-add-feed-writes.sh`). Used where the script has to exercise the actual
+  application data directory. Scoped to rows with addresses nothing real would
+  collide with. Set `PRAGMA foreign_keys=ON` in any cleanup that relies on
+  `ON DELETE CASCADE`: SQLite defaults it off, and the CLI is not the app.
+- **A throwaway profile** (`run-reader-smoke.sh`, `run-reader-settings.sh`, via
+  `reader-harness.sh`). `LUCIDREADER_DATA_DIR` points a Debug build at a
+  temporary directory, which is seeded from `reader-fixture.sql` and deleted on
+  the way out. This is the better shape where it fits: the script decides every
+  count it asserts, needs no network, and cannot touch anything you care about.
+
+`reader-fixture.sql` is that database: two feeds ("Harness Alpha" in a folder,
+"Harness Beta" loose), five articles, one already read, one starred, one with
+extracted full text. Article dates are relative to now, not literal, so
+retention can never age them past the 30-day cutoff and change the counts.
+
+## Harness behaviour worth knowing before you write one
+
+Learned the hard way; none of it is obvious from a passing run.
+
+- **`Click` only works on real Buttons.** On anything else it just calls
+  `Focus()`, so it cannot select a sidebar row or fire a `PointerPressed`
+  handler. Use `MouseDown` then `MouseUp` with the same target.
+- **`Click` does not toggle a CheckBox or check a RadioButton either.** It
+  raises `ClickEvent` directly, which bypasses `OnClick`, which is what
+  actually toggles. `verify-settings-dialog.yaml` and
+  `verify-settings-visual.yaml` were deleted over this: driven by `Click`,
+  every one of their tab switches was a no-op, so each screenshot named for a
+  tab was a picture of the Updates tab, and the assertion that a saved setting
+  came back could never have passed. `reader-settings.yaml` replaces both.
+- **Park the pointer before hovering a toggle.** A toggle only flips on release
+  if it is under the pointer. The simulated pointer does not move between one
+  dialog closing and the next opening in the same place, so hovering straight
+  onto a control that sits where the pointer already is can raise no enter
+  event and the release is ignored. Hover something else first. This showed up
+  as an intermittent failure, not a consistent one.
+- **`PressKey` cannot test keyboard shortcuts.** It bypasses
+  `Window.KeyBindings`, which is where all of lucidREADER's shortcuts live.
+  Do not write a script claiming to cover them.
+- **The harness cannot see a ContextMenu.** It opens in its own `PopupRoot`,
+  which `LocatorEngine` (single window root) and `ScreenshotCapture` (popups in
+  the window tree only) both miss. `FeedSettingsButton` and `ResumeFeedButton`
+  exist on the toolbar so those two flows have a route that is not
+  right-click-only.
+- **Native file pickers are OS windows.** Import/Export OPML and Export article
+  cannot be driven at all.
+- **Quote selector values containing spaces**: `target: "text='Alpha Feed'"`.
+  Unquoted is a parse error.
+- **Scope text selectors.** `inside(name=SidebarSections) text='Unread'`, not
+  `text='Unread'`: the same words appear on a filter segment, and a feed's name
+  appears again on each of its item rows. Worse, a target is resolved separately
+  for the `MouseDown` and the `MouseUp`, and selecting a row repopulates the
+  item list in between, so an unscoped selector can move the release into a
+  different pane.
+- **`TypeText` needs a TextBox** and ignores an empty value, so it can neither
+  drive a `NumericUpDown` nor clear a box. To empty the search box, click a
+  sidebar row: that is what the app does anyway.
+- Dialog screenshots take `window_id: "<its Title>"`; `composite: true` puts the
+  dialog over the main window.
+- macOS occasionally refuses a second app process a display link when one has
+  just exited (`Avalonia.Native was not able to start the RenderTimer`, error
+  `-6661`). `reader-harness.sh` retries around it. It is a launch-rate limit,
+  not a fault in the app.
+
+## What has no coverage here, and why
+
+- Every keyboard shortcut, and article tagging, whose only route is the `T`
+  binding. `PressKey` cannot reach `Window.KeyBindings`.
+- Unsubscribe, Rename and Mark-all-read: sidebar context menu only.
+- Import OPML, Export OPML, Export article: native file pickers.
+- The numeric settings fields: `NumericUpDown`, which `TypeText` will not
+  accept. Their values are read back but never typed into; the clamping is
+  covered by `SettingsDraftTests` and `FeedSettingsDraftTests`.
+- Feed autodiscovery beyond what the two add-feed scripts already do.

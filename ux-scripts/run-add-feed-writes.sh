@@ -30,8 +30,16 @@ fi
 
 # Deleting a feed cascades to its items and their tombstones, so this leaves no
 # orphans behind. Scoped to xkcd.com only, which is what the script subscribes to.
+#
+# PRAGMA foreign_keys=ON is load-bearing and easy to leave out: SQLite defaults
+# it OFF, and the sqlite3 CLI is not the app, so without it the ON DELETE
+# CASCADE on items.feed_id never fires. This script ran without it for a while
+# and left 48 orphaned item rows, and their FTS entries, in the development
+# database - rows that no feed owned, that no query could reach, and that
+# nothing would ever clean up.
 cleanup() {
-    sqlite3 "$DB" "DELETE FROM feeds WHERE feed_url LIKE 'https://xkcd.com/%';"
+    sqlite3 "$DB" "PRAGMA foreign_keys=ON;
+                   DELETE FROM feeds WHERE feed_url LIKE 'https://xkcd.com/%';"
 }
 trap cleanup EXIT INT TERM
 

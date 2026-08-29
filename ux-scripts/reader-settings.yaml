@@ -1,0 +1,575 @@
+name: reader-settings
+description: >
+  Drives both of lucidREADER's settings dialogs against a seeded scratch
+  profile: the four groups of the global dialog, saving and reopening to prove
+  a change reached settings.json, the manual retention clean-up, and the
+  per-feed dialog including its inherit-versus-override switches.
+
+  The one thing here that neither dialog can be checked for on its own: a
+  global changed in the first dialog shows up as the inherited label in the
+  second. That is asserted by turning offline download off globally, reopening
+  the feed dialog, and reading the label back.
+
+  Run it through ux-scripts/run-reader-settings.sh, not directly. Every value
+  asserted below comes from the settings.json and fixture that script seeds.
+  It also means the script can leave settings changed if it wants to; it does
+  not, because a script that only works when its own edits are still in place
+  is exactly the failure mode this file was written to avoid, and reverting
+  each change in the same run is what proves the write worked both ways.
+
+  Not covered: the numeric fields (refresh interval, font size, column width,
+  concurrency, retention days). They are NumericUpDowns, and TypeText only
+  accepts a TextBox, so their values are read back but never typed into. Their
+  clamping is unit tested in SettingsDraftTests and FeedSettingsDraftTests.
+
+  Every tab and every checkbox below is driven as Hover-elsewhere,
+  Hover-target, MouseDown, MouseUp. Two harness facts make that necessary.
+  Click on a RadioButton or a CheckBox raises ClickEvent without going through
+  OnClick, so IsChecked never changes and the control silently does nothing:
+  driven by Click, this dialog stays on the Updates tab all the way through
+  and every screenshot named for another tab is a picture of that one. And a
+  toggle only flips on release if it is under the pointer, so hovering
+  straight onto a control that sits exactly where the pointer already is - as
+  happens when a dialog closes and reopens at the same position - can raise no
+  enter event at all and the release is ignored; parking the pointer somewhere
+  harmless first is what makes the hover a real move. Both were found the hard
+  way, the second as an intermittent failure.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Wait for app startup
+
+  - type: Screenshot
+    value: 00-main-window
+
+  # =====================================================================
+  # The global dialog.
+  # =====================================================================
+  - type: Click
+    target: SettingsButton
+  - type: Wait
+    value: "700"
+    description: The dialog opens, is tracked, and reads the database size
+
+  - type: Screenshot
+    value: 01-settings-over-main
+    composite: true
+
+  - type: Screenshot
+    value: 02-updates-tab
+    window_id: Settings
+
+  - type: Expect
+    target: DefaultRefreshIntervalBox
+    window_id: Settings
+    matcher: HasValue
+    value: "30"
+  - type: Expect
+    target: RefreshOnStartupCheck
+    window_id: Settings
+    matcher: IsUnchecked
+    description: Off in the seeded profile, which is why this run fetches nothing
+  - type: Expect
+    target: PauseWhenOfflineCheck
+    window_id: Settings
+    matcher: IsChecked
+  - type: Expect
+    target: EnableOnlineFeedSearchCheck
+    window_id: Settings
+    matcher: IsUnchecked
+    description: The one setting that sends typed text to a third party is opt-in
+  - type: Expect
+    target: ConcurrencyNoticeText
+    window_id: Settings
+    matcher: HasText
+    value: "Takes effect the next time lucidREADER starts."
+
+  # Hover then MouseDown/MouseUp, never Click. The harness's Click on a
+  # RadioButton raises ClickEvent without going through OnClick, so IsChecked
+  # never changes: a Click here leaves the dialog on the Updates tab and the
+  # screenshot named for another tab is a picture of this one.
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: OfflineTabButton
+    window_id: Settings
+  - type: MouseDown
+    target: OfflineTabButton
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: OfflineTabButton
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: OfflinePanel
+    window_id: Settings
+    matcher: IsVisible
+  - type: Expect
+    target: UpdatesPanel
+    window_id: Settings
+    matcher: IsHidden
+    description: >
+      The tab strip is four RadioButtons swapping panel visibility, not a
+      TabControl, so this is what "the tab changed" actually means here.
+  - type: Expect
+    target: AutoDownloadCheck
+    window_id: Settings
+    matcher: IsChecked
+  - type: Expect
+    target: CacheImagesCheck
+    window_id: Settings
+    matcher: IsUnchecked
+
+  - type: Screenshot
+    value: 03-offline-tab
+    window_id: Settings
+
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: RetentionTabButton
+    window_id: Settings
+  - type: MouseDown
+    target: RetentionTabButton
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: RetentionTabButton
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "700"
+    description: Let the database-size lookup finish
+
+  - type: Expect
+    target: RetentionPanel
+    window_id: Settings
+    matcher: IsVisible
+  - type: Expect
+    target: KeepUnreadForeverCheck
+    window_id: Settings
+    matcher: IsChecked
+  - type: Expect
+    target: NeverDeleteStarredCheck
+    window_id: Settings
+    matcher: IsChecked
+
+  - type: Screenshot
+    value: 04-retention-tab
+    window_id: Settings
+
+  - type: Click
+    target: CleanUpNowButton
+    window_id: Settings
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: DatabaseSizeText
+    window_id: Settings
+    matcher: ContainsText
+    value: "(0 articles removed)"
+    description: >
+      Nothing in the fixture is old enough to prune (the articles are seeded a
+      few days back, against a 30-day read-retention setting), so the count is
+      the assertion: it proves the clean-up ran and reported, without making
+      the script depend on it deleting something.
+
+  - type: Screenshot
+    value: 05-after-cleanup
+    window_id: Settings
+
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: ReadingTabButton
+    window_id: Settings
+  - type: MouseDown
+    target: ReadingTabButton
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: ReadingTabButton
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: ReadingPanel
+    window_id: Settings
+    matcher: IsVisible
+  - type: Expect
+    target: FontSizeBox
+    window_id: Settings
+    matcher: HasValue
+    value: "15"
+  - type: Expect
+    target: ColumnWidthBox
+    window_id: Settings
+    matcher: HasValue
+    value: "760"
+  - type: Expect
+    target: MarkReadDwellBox
+    window_id: Settings
+    matcher: HasValue
+    value: "300"
+  - type: Expect
+    target: OpenLinksExternallyCheck
+    window_id: Settings
+    matcher: IsChecked
+
+  - type: Screenshot
+    value: 06-reading-tab
+    window_id: Settings
+
+  # A round trip through settings.json: turn one switch off, save, reopen and
+  # read it back. Hover/MouseDown/MouseUp for the same reason as the tabs -
+  # a CheckBox is a ToggleButton, and Click does not toggle one.
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: OpenLinksExternallyCheck
+    window_id: Settings
+  - type: MouseDown
+    target: OpenLinksExternallyCheck
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: OpenLinksExternallyCheck
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "300"
+  - type: Expect
+    target: OpenLinksExternallyCheck
+    window_id: Settings
+    matcher: IsUnchecked
+
+  - type: Click
+    target: OkButton
+    window_id: Settings
+  - type: Wait
+    value: "700"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Settings saved."
+    description: >
+      Exact, not contains: a change to either concurrency setting produces a
+      longer line about needing a restart, and this change is not one.
+
+  - type: Screenshot
+    value: 07-after-save
+
+  - type: Click
+    target: SettingsButton
+  - type: Wait
+    value: "700"
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: ReadingTabButton
+    window_id: Settings
+  - type: MouseDown
+    target: ReadingTabButton
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: ReadingTabButton
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "400"
+  - type: Expect
+    target: OpenLinksExternallyCheck
+    window_id: Settings
+    matcher: IsUnchecked
+    description: The saved value came back, so it really reached settings.json
+
+  # Put it back, so the rest of the script runs against the seeded values and
+  # the round trip is proved in both directions rather than only one.
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: OpenLinksExternallyCheck
+    window_id: Settings
+  - type: MouseDown
+    target: OpenLinksExternallyCheck
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: OpenLinksExternallyCheck
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "300"
+
+  # And while the dialog is open, turn the global offline download off. The
+  # per-feed dialog further down reads it back as its inherited label, which
+  # is the only place the two dialogs can be checked against each other.
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: OfflineTabButton
+    window_id: Settings
+  - type: MouseDown
+    target: OfflineTabButton
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: OfflineTabButton
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "400"
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: AutoDownloadCheck
+    window_id: Settings
+  - type: MouseDown
+    target: AutoDownloadCheck
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: AutoDownloadCheck
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "300"
+  - type: Expect
+    target: AutoDownloadCheck
+    window_id: Settings
+    matcher: IsUnchecked
+
+  - type: Click
+    target: OkButton
+    window_id: Settings
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Settings saved."
+
+  # =====================================================================
+  # The per-feed dialog. Opened from the toolbar rather than the sidebar
+  # context menu: a ContextMenu opens in its own PopupRoot, which the
+  # harness can neither click nor screenshot. Both routes call the same
+  # ShowFeedSettingsAsync.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: FeedSettingsButton
+    matcher: IsEnabled
+
+  - type: Click
+    target: FeedSettingsButton
+  - type: Wait
+    value: "700"
+
+  - type: Screenshot
+    value: 08-feed-settings
+    window_id: "Feed Settings"
+
+  - type: Expect
+    target: DisplayTitleText
+    window_id: "Feed Settings"
+    matcher: HasText
+    value: "Harness Alpha"
+  - type: Expect
+    target: FeedUrlText
+    window_id: "Feed Settings"
+    matcher: HasText
+    value: "https://harness-alpha.test/feed.xml"
+  - type: Expect
+    target: EnabledCheck
+    window_id: "Feed Settings"
+    matcher: IsChecked
+  - type: Expect
+    target: FolderCombo
+    window_id: "Feed Settings"
+    matcher: HasValue
+    value: "FolderOption { Id = 1, Name = Harness Folder }"
+    description: >
+      HasValue reads ComboBox.SelectedItem.ToString(), and the items are a
+      private record, so this is the record's own ToString rather than the
+      "Harness Folder" the user sees (that comes from DisplayMemberBinding).
+      Asserted anyway because it is still the only way to prove the feed's
+      current folder is the one preselected.
+
+  - type: Expect
+    target: InheritedRefreshIntervalText
+    window_id: "Feed Settings"
+    matcher: HasText
+    value: "Use the global setting (30 minutes)"
+  - type: Expect
+    target: InheritedAutoDownloadText
+    window_id: "Feed Settings"
+    matcher: HasText
+    value: "Use the global setting (off)"
+    description: >
+      The cross-check. This said "(on)" until the global switch was turned off
+      a few steps above; it reads the live globals, not a snapshot taken at
+      startup.
+  - type: Expect
+    target: InheritedFetchFullTextText
+    window_id: "Feed Settings"
+    matcher: HasText
+    value: "Use the global setting (on)"
+  - type: Expect
+    target: InheritedRetentionText
+    window_id: "Feed Settings"
+    matcher: HasText
+    value: "Use the global setting (30 days)"
+
+  - type: Expect
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+    matcher: IsUnchecked
+  - type: Expect
+    target: RefreshIntervalBox
+    window_id: "Feed Settings"
+    matcher: IsDisabled
+    description: The editor under an override switch is dead while the switch is off
+
+  - type: Hover
+    target: CancelButton
+    window_id: "Feed Settings"
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+  - type: MouseDown
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+    button: left
+  - type: MouseUp
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+    button: left
+  - type: Wait
+    value: "300"
+  - type: Expect
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+    matcher: IsChecked
+  - type: Expect
+    target: RefreshIntervalBox
+    window_id: "Feed Settings"
+    matcher: IsEnabled
+    description: Turning the switch on is what makes the editor live
+
+  - type: Screenshot
+    value: 09-feed-override-on
+    window_id: "Feed Settings"
+
+  - type: Click
+    target: OkButton
+    window_id: "Feed Settings"
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Feed settings saved."
+
+  - type: Screenshot
+    value: 10-after-feed-save
+
+  # Reopen: the override has to come back from the feeds table, not from a
+  # dialog that happens to still be in memory.
+  - type: Click
+    target: FeedSettingsButton
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+    matcher: IsChecked
+  - type: Expect
+    target: RefreshIntervalBox
+    window_id: "Feed Settings"
+    matcher: IsEnabled
+
+  - type: Screenshot
+    value: 11-feed-override-persisted
+    window_id: "Feed Settings"
+
+  # Clear it again and save, so the override is proved to come back off as
+  # well as on. Cancel would prove nothing here.
+  - type: Hover
+    target: CancelButton
+    window_id: "Feed Settings"
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+  - type: MouseDown
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+    button: left
+  - type: MouseUp
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+    button: left
+  - type: Wait
+    value: "300"
+  - type: Click
+    target: OkButton
+    window_id: "Feed Settings"
+  - type: Wait
+    value: "900"
+
+  - type: Click
+    target: FeedSettingsButton
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: OverrideRefreshIntervalCheck
+    window_id: "Feed Settings"
+    matcher: IsUnchecked
+  - type: Expect
+    target: RefreshIntervalBox
+    window_id: "Feed Settings"
+    matcher: IsDisabled
+
+  - type: Click
+    target: CancelButton
+    window_id: "Feed Settings"
+  - type: Wait
+    value: "600"
+
+  - type: Screenshot
+    value: 12-after-cancel

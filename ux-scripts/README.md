@@ -1,5 +1,9 @@
 # lucidVIEW UI Tests
 
+lucidREADER's scripts live in this folder too, and are documented separately in
+[README-reader.md](README-reader.md), including the repeatability rule they
+follow and a list of harness behaviour that is not obvious from a passing run.
+
 End-to-end UI tests powered by [Mostlylucid.Avalonia.UITesting](../../lucidRESUME/src/Mostlylucid.Avalonia.UITesting).
 
 The harness is **Debug-only** — it's not compiled into Release builds (see

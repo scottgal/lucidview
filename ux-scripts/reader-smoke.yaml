@@ -1,0 +1,502 @@
+name: reader-smoke
+description: >
+  Walks lucidREADER end to end against a seeded scratch database: the sidebar
+  (smart rows, a folder, a feed), the item-list filter segments, the reading
+  pane and its offline badge, the hover row actions, the mark-as-read dwell,
+  full-text search, and Refresh all.
+
+  Run it through ux-scripts/run-reader-smoke.sh, not directly. That script
+  builds the profile every count below is measured against and deletes it
+  afterwards, which is what lets this file assert exact numbers and be run
+  twice in a row from any starting state. Run against your own database the
+  numbers are simply wrong.
+
+  Deliberately not covered here, with reasons:
+    - Every keyboard shortcut (J/K/N/P/M/S/R/O/T and the platform-modifier
+      ones). They are Window.KeyBindings, and the harness's PressKey posts
+      key events that KeyBindings do not see, so a script "testing" them
+      would pass while proving nothing.
+    - Article tagging. Its only route is the T key binding, per above.
+    - Unsubscribe, Rename and Mark-all-read. Sidebar context menu only, and
+      a ContextMenu opens in its own PopupRoot that the harness can neither
+      click nor screenshot.
+    - Import and Export OPML, and Export article. All three open a native
+      OS file picker, which is not an Avalonia control.
+    - Adding a feed. Covered by verify-add-feed-dialog.yaml and
+      run-add-feed-writes.sh, which need network; this script needs none.
+
+  Every toggle below is driven as Hover-elsewhere, Hover-target, MouseDown,
+  MouseUp. Two harness facts make that necessary. Click on a RadioButton or a
+  CheckBox raises ClickEvent without going through OnClick, so IsChecked never
+  changes and the control silently does nothing. And a toggle only flips on
+  release if it is under the pointer, so hovering straight onto a control that
+  happens to sit exactly where the pointer already is can raise no enter event
+  at all and the release is ignored; parking the pointer somewhere harmless
+  first is what makes the hover a real move. Both were found the hard way, as
+  intermittent failures.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup, the first tree load and the first health check
+
+  - type: Screenshot
+    value: 00-shell
+    description: Three panes, nothing selected, empty reading pane
+
+  - type: Expect
+    target: SidebarSections
+    matcher: HasCount
+    value: "2"
+    description: Favourites and Feeds
+
+  - type: Expect
+    target: FeedSettingsButton
+    matcher: IsDisabled
+    description: No selection yet, so the feed-scoped action stays off
+
+  - type: Expect
+    target: ResumeFeedButton
+    matcher: IsHidden
+
+  # =====================================================================
+  # Smart rows. A smart row queries across every feed and overrides the
+  # filter segments (ItemQueryBuilder), so these three counts are the whole
+  # fixture sliced three ways: 5 articles, 4 of them unread, 1 starred.
+  #
+  # MouseDown/MouseUp rather than Click throughout: the harness's Click on a
+  # non-Button only calls Focus(), and sidebar selection is a PointerPressed
+  # on each row's Border.
+  #
+  # inside(name=SidebarSections) matters as much as the text does. "Unread"
+  # and "Starred" are also the labels of two filter segments, and a feed's
+  # name appears again on every one of its item rows, so an unscoped
+  # text= selector can resolve to the wrong pane - and it can resolve
+  # differently for the MouseUp than it did for the MouseDown, because
+  # selecting a row repopulates the item list in between.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "5"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "5 articles"
+
+  - type: Screenshot
+    value: 01-all-items
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Unread'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Unread'"
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "4"
+    description: One of the five fixture articles is seeded already read
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Starred'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Starred'"
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+
+  - type: Screenshot
+    value: 02-starred-smart-row
+
+  # =====================================================================
+  # A folder, then a feed inside it. The folder rolls up its feeds' items;
+  # neither is a feed for the toolbar's purposes until the feed itself is
+  # selected.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Folder'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Folder'"
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "3"
+  - type: Expect
+    target: FeedSettingsButton
+    matcher: IsDisabled
+    description: A folder has no FeedId, so per-feed settings stay unavailable
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "3"
+  - type: Expect
+    target: FeedSettingsButton
+    matcher: IsEnabled
+  - type: Expect
+    target: ResumeFeedButton
+    matcher: IsHidden
+    description: A healthy feed is not offered a Resume
+
+  - type: Screenshot
+    value: 03-feed-selected
+
+  # =====================================================================
+  # The filter segments, which only mean anything with a feed or a folder
+  # selected. Hover then MouseDown/MouseUp, never Click: Click on a
+  # RadioButton raises ClickEvent without going through OnClick, so
+  # IsChecked never changes and the segment silently does nothing.
+  # =====================================================================
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: FilterUnread
+  - type: MouseDown
+    target: FilterUnread
+    button: left
+  - type: MouseUp
+    target: FilterUnread
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: FilterUnread
+    matcher: IsChecked
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "2"
+
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: FilterStarred
+  - type: MouseDown
+    target: FilterStarred
+    button: left
+  - type: MouseUp
+    target: FilterStarred
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "No articles here yet."
+    description: The empty case has its own wording rather than "0 articles"
+
+  - type: Screenshot
+    value: 04-empty-filter
+
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: FilterAll
+  - type: MouseDown
+    target: FilterAll
+    button: left
+  - type: MouseUp
+    target: FilterAll
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "3"
+
+  # =====================================================================
+  # The reading pane. The first article is seeded Downloaded/Extracted,
+  # the one combination that hides the offline badge; the second is not,
+  # so the badge and its Fetch button come back. Selecting one then the
+  # other is what proves the badge is driven by the item rather than stuck.
+  # =====================================================================
+  - type: MouseDown
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: MouseUp
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: HasText
+    value: "Compositor internals explained"
+  - type: Expect
+    target: ArticleMetaText
+    matcher: ContainsText
+    value: "Alpha Author"
+    description: Author, feed name and date, joined by the reading pane
+  - type: Expect
+    target: ArticleMetaText
+    matcher: ContainsText
+    value: "Harness Alpha"
+  - type: Expect
+    target: OfflineBadge
+    matcher: IsHidden
+    description: Extracted full text has nothing to apologise for
+
+  - type: Screenshot
+    value: 05-article
+
+  # The mark-as-read dwell. run-reader-smoke.sh seeds
+  # markReadDwellMilliseconds at 300, so this wait is comfortably past it
+  # and the article selected above is read by the time the filter switches.
+  - type: Wait
+    value: "1500"
+
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: FilterUnread
+  - type: MouseDown
+    target: FilterUnread
+    button: left
+  - type: MouseUp
+    target: FilterUnread
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+    description: >
+      Two unread before the dwell fired, one after. If this says 2 the dwell
+      never marked the article read.
+
+  - type: Screenshot
+    value: 06-after-dwell
+
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: FilterAll
+  - type: MouseDown
+    target: FilterAll
+    button: left
+  - type: MouseUp
+    target: FilterAll
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: MouseDown
+    target: "text='Weeknotes from the harness'"
+    button: left
+  - type: MouseUp
+    target: "text='Weeknotes from the harness'"
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: OfflineBadge
+    matcher: IsVisible
+  - type: Expect
+    target: FetchFullArticleButton
+    matcher: IsVisible
+    description: Offered because this item has a link to fetch from
+
+  - type: Screenshot
+    value: 07-offline-badge
+
+  # =====================================================================
+  # The hover row actions. These are real Buttons, so Click drives them.
+  # first(...) is the top row of the list, which under Harness Alpha with
+  # the All segment is the newest article, "Compositor internals explained".
+  # This is the only harness-reachable route to starring: the S key binding
+  # is a Window.KeyBinding and PressKey does not reach those.
+  # =====================================================================
+  - type: Click
+    target: "first(name=ToggleStarButton)"
+    description: Star the top row
+
+  - type: Wait
+    value: "600"
+
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: FilterStarred
+  - type: MouseDown
+    target: FilterStarred
+    button: left
+  - type: MouseUp
+    target: FilterStarred
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+    description: Harness Alpha had no starred article until the click above
+
+  - type: Screenshot
+    value: 08-starred-row
+
+  - type: Click
+    target: "first(name=ToggleStarButton)"
+    description: Unstar it again
+
+  - type: Wait
+    value: "600"
+
+  # Re-running the query is the point: the row stays on screen when it is
+  # unstarred (only its glyph changes), so only a reload proves the write
+  # reached the database.
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: FilterAll
+  - type: MouseDown
+    target: FilterAll
+    button: left
+  - type: MouseUp
+    target: FilterAll
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: FilterStarred
+  - type: MouseDown
+    target: FilterStarred
+    button: left
+  - type: MouseUp
+    target: FilterStarred
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first (see the header)
+  - type: Hover
+    target: FilterAll
+  - type: MouseDown
+    target: FilterAll
+    button: left
+  - type: MouseUp
+    target: FilterAll
+    button: left
+  - type: Wait
+    value: "700"
+
+  # =====================================================================
+  # Full-text search, which runs across every feed regardless of the
+  # sidebar selection. Two fixture articles mention the compositor: one in
+  # its title and body under Harness Alpha, one only in its body under
+  # Harness Beta.
+  # =====================================================================
+  - type: TypeText
+    target: SearchBox
+    value: "compositor"
+  - type: Wait
+    value: "1500"
+    description: The 250ms debounce plus the query
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "2 results for \"compositor\""
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "2"
+
+  - type: Screenshot
+    value: 09-search-results
+
+  # A sidebar click has to beat the search: it cancels any debounce still
+  # pending and empties the box rather than leaving a query on screen over
+  # a feed's articles.
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: SearchBox
+    matcher: HasValue
+    value: ""
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "5"
+
+  - type: Screenshot
+    value: 10-search-cleared
+
+  # =====================================================================
+  # Refresh all. The fixture's feed addresses are under the reserved .test
+  # TLD and cannot resolve, which is deliberate: what is being checked is
+  # that the button reaches RefreshAllAsync and reports it, not that a
+  # fetch succeeds. Nothing subscribes to Refresh.Completed in the shell,
+  # so the status line stays put rather than being overwritten moments
+  # later by whatever the doomed fetches return.
+  # =====================================================================
+  - type: Click
+    target: RefreshAllButton
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Refresh started."
+
+  - type: Screenshot
+    value: 11-refresh-started
