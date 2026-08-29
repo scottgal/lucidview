@@ -62,6 +62,10 @@ These were consciously deferred and are now in scope. Each is assigned to a task
 
 **PDF export.** Spec 5.4 says article export reuses lucidVIEW's `PdfExportService`. Plan 1 established that is not possible: it depends on `MarkdownService`, a large mermaid and rendering service that was never in scope to move. **Decision: lucidREADER v1 exports an article as markdown only.** PDF export is dropped from v1 rather than triggering an unplanned extraction. Revisit once the reader is usable. Task 10 implements markdown export; no task implements PDF.
 
+**The visual direction is macOS Mail.** Decided partway through execution, after the shell was built. lucidREADER drops the theme picker it inherited from lucidVIEW: the seven themes were never chosen for a reader, and Mail follows the system appearance rather than offering a palette. `ReaderSettings.Theme` stays in the settings file as an unused field rather than being deleted, so reversing this costs nothing. Task 8a establishes the visual language once so Tasks 9 to 15 inherit it instead of each being restyled afterwards. Task 11's settings dialog therefore loses its theme picker.
+
+**macOS first, graceful elsewhere.** Translucency and the unified title bar are real on macOS through Avalonia's transparency hints and extended client area, and degrade to a solid background and a normal title bar on Windows and Linux with no layout change. Plan 3 stays cross-platform.
+
 **Per-feed settings depth.** Spec 6.2 lists four inheritable overrides. `EffectiveFeedSettings.Resolve` already computes all four and `RetentionService` honours per-feed retention. The per-feed dialog therefore edits exactly those four plus title override, folder, and enable/disable. Nothing else becomes per-feed in v1.
 
 ---
@@ -3466,6 +3470,446 @@ git commit -m "feat(reader): reading pane with an allowlist for feed links"
 
 ---
 
+## Task 8a: The Mac visual language
+
+**Files:**
+- Create: `LucidReader/Styles/Reader.axaml` (shared styles and resources)
+- Create: `LucidReader/Views/Controls/RowActions.axaml`, `.axaml.cs` (hover actions on an item row)
+- Create: `LucidReader/Models/SidebarSection.cs`
+- Create: `LucidReader/Models/Snippet.cs`
+- Modify: `LucidReader/Views/MainWindow.axaml` (window chrome, sidebar, item row template, reading header)
+- Modify: `LucidReader/Views/MainWindow.axaml.cs` (section grouping)
+- Modify: `LucidReader/Models/FeedTreeNode.cs`, `LucidReader/Models/ItemRow.cs`
+- Modify: `LucidReader/App.axaml` (include the styles)
+- Test: `LucidReader.Core.Tests/Ui/SnippetTests.cs`, `LucidReader.Core.Tests/Ui/SidebarSectionTests.cs`
+
+**Interfaces:**
+- Produces:
+  - `static class Snippet` with `static string FromMarkdown(string? markdown, string? summary, int maxLength = 180)`.
+  - `sealed class SidebarSection` with `required string Title`, `ObservableCollection<FeedTreeNode> Nodes`, `bool IsExpanded`.
+  - `RowActions` user control raising `MarkRead`, `ToggleStar` and `OpenOriginal` events.
+  - On `MainWindow`: `ObservableCollection<SidebarSection> Sidebar` replacing the flat `FeedNodes` binding.
+
+**Why this task exists and why it is here rather than spread across the rest.** Tasks 9 to 15 all add UI. Establishing the visual language once, now, means they inherit it instead of each being restyled afterwards. This task changes how things LOOK and how a row BEHAVES; it must not change what anything does. Task 7's dwell, load guard and query building are settled and must be left alone.
+
+- [ ] **Step 1: Verify the Avalonia APIs before writing XAML against them**
+
+This plan has repeatedly assumed API shapes that turned out wrong, so check these against the installed Avalonia 11.3.12 rather than trusting the snippets below:
+
+- `Window.TransparencyLevelHint` and the members of `WindowTransparencyLevel` (the values are a LIST in 11.x, ordered by preference, not a single value).
+- `Window.ExtendClientAreaToDecorationsHint`, `ExtendClientAreaChromeHints`, `ExtendClientAreaTitleBarHeightHint`.
+- `ExperimentalAcrylicBorder` and `ExperimentalAcrylicMaterial`, including whether they are still named that in 11.3.
+- Whether `TransparencyLevelHint` actually produces a blur on macOS in this version, or silently falls back.
+
+Report what you found. If blur is not achievable, say so and use a flat translucent fill instead; do not fake it with an opacity that makes text unreadable.
+
+- [ ] **Step 2: Write the failing tests for the two plain classes**
+
+Only two pieces of this task are logic rather than appearance, and both are plain classes.
+
+Create `LucidReader.Core.Tests/Ui/SnippetTests.cs`:
+
+```csharp
+using LucidReader.Models;
+using Xunit;
+
+namespace LucidReader.Core.Tests.Ui;
+
+public class SnippetTests
+{
+    [Fact]
+    public void Markdown_formatting_is_stripped_to_plain_text()
+    {
+        var text = Snippet.FromMarkdown("# Heading\n\nSome **bold** and _italic_ text.", null);
+
+        Assert.DoesNotContain("#", text);
+        Assert.DoesNotContain("**", text);
+        Assert.DoesNotContain("_", text);
+        Assert.Contains("Some bold and italic text.", text);
+    }
+
+    [Fact]
+    public void A_link_keeps_its_label_and_drops_its_target()
+    {
+        var text = Snippet.FromMarkdown("Read [the article](https://example.com/x) now.", null);
+
+        Assert.Contains("the article", text);
+        Assert.DoesNotContain("https://example.com/x", text);
+    }
+
+    [Fact]
+    public void An_image_contributes_nothing()
+    {
+        var text = Snippet.FromMarkdown("![a picture](https://example.com/p.png)Actual text.", null);
+
+        Assert.StartsWith("Actual text.", text);
+    }
+
+    [Fact]
+    public void A_code_fence_does_not_leak_backticks()
+    {
+        var text = Snippet.FromMarkdown("Intro.\n\n```csharp\nvar x = 1;\n```\n\nOutro.", null);
+
+        Assert.DoesNotContain("```", text);
+    }
+
+    [Fact]
+    public void Html_left_in_the_summary_is_stripped_too()
+    {
+        var text = Snippet.FromMarkdown(null, "<p>Hello <b>there</b></p>");
+
+        Assert.Equal("Hello there", text);
+    }
+
+    [Fact]
+    public void Whitespace_and_newlines_collapse_to_single_spaces()
+    {
+        var text = Snippet.FromMarkdown("One\n\n\nTwo    Three", null);
+
+        Assert.Equal("One Two Three", text);
+    }
+
+    [Fact]
+    public void Markdown_is_preferred_over_the_summary_when_both_exist()
+    {
+        var text = Snippet.FromMarkdown("From the article body.", "From the summary.");
+
+        Assert.Equal("From the article body.", text);
+    }
+
+    [Fact]
+    public void The_summary_is_used_when_there_is_no_article_body()
+    {
+        var text = Snippet.FromMarkdown(null, "From the summary.");
+
+        Assert.Equal("From the summary.", text);
+    }
+
+    [Fact]
+    public void Long_text_is_truncated_on_a_word_boundary_with_an_ellipsis()
+    {
+        var body = string.Join(" ", Enumerable.Repeat("word", 200));
+
+        var text = Snippet.FromMarkdown(body, null, maxLength: 40);
+
+        Assert.True(text.Length <= 41);
+        Assert.EndsWith("...", text);
+        Assert.DoesNotContain("wor...", text);
+    }
+
+    [Fact]
+    public void Nothing_at_all_yields_an_empty_string_rather_than_null()
+    {
+        Assert.Equal(string.Empty, Snippet.FromMarkdown(null, null));
+    }
+}
+```
+
+Create `LucidReader.Core.Tests/Ui/SidebarSectionTests.cs`:
+
+```csharp
+using LucidReader.Models;
+using Xunit;
+
+namespace LucidReader.Core.Tests.Ui;
+
+public class SidebarSectionTests
+{
+    [Fact]
+    public void A_section_reports_the_total_unread_of_its_nodes()
+    {
+        var section = new SidebarSection { Title = "Feeds" };
+        section.Nodes.Add(new FeedTreeNode { Title = "A", UnreadCount = 3 });
+        section.Nodes.Add(new FeedTreeNode { Title = "B", UnreadCount = 4 });
+
+        Assert.Equal(7, section.UnreadCount);
+    }
+
+    [Fact]
+    public void A_sections_unread_total_updates_when_a_node_changes()
+    {
+        var section = new SidebarSection { Title = "Feeds" };
+        var node = new FeedTreeNode { Title = "A", UnreadCount = 3 };
+        section.Nodes.Add(node);
+
+        node.UnreadCount = 10;
+
+        Assert.Equal(10, section.UnreadCount);
+    }
+
+    [Fact]
+    public void A_sections_unread_total_updates_when_a_node_is_added()
+    {
+        var section = new SidebarSection { Title = "Feeds" };
+        section.Nodes.Add(new FeedTreeNode { Title = "A", UnreadCount = 1 });
+
+        section.Nodes.Add(new FeedTreeNode { Title = "B", UnreadCount = 2 });
+
+        Assert.Equal(3, section.UnreadCount);
+    }
+
+    [Fact]
+    public void An_empty_section_is_hidden_rather_than_showing_an_empty_header()
+    {
+        var section = new SidebarSection { Title = "Tags" };
+
+        Assert.False(section.IsVisible);
+        section.Nodes.Add(new FeedTreeNode { Title = "A" });
+        Assert.True(section.IsVisible);
+    }
+}
+```
+
+The two update tests matter: a section header showing a stale count is worse than showing none, and the counts change constantly as items are read.
+
+- [ ] **Step 3: Run the tests to verify they fail**
+
+```bash
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter "SnippetTests|SidebarSectionTests" 2>&1 | tail -10
+```
+
+Expected: compilation failure, neither type exists.
+
+- [ ] **Step 4: Write Snippet**
+
+Create `LucidReader/Models/Snippet.cs`:
+
+```csharp
+using System.Text.RegularExpressions;
+
+namespace LucidReader.Models;
+
+/// <summary>
+/// Turns an article body into the short plain-text preview the item list shows
+/// under each title, the way Mail previews a message.
+///
+/// This is a display heuristic, not a parser. Stored content is markdown, but a
+/// feed summary is often raw HTML, so both get stripped. Getting an edge case
+/// wrong costs a slightly odd preview line, nothing more.
+/// </summary>
+public static partial class Snippet
+{
+    public static string FromMarkdown(string? markdown, string? summary, int maxLength = 180)
+    {
+        var source = !string.IsNullOrWhiteSpace(markdown) ? markdown : summary;
+        if (string.IsNullOrWhiteSpace(source)) return string.Empty;
+
+        var text = source;
+
+        // Fenced code contributes nothing readable to a preview.
+        text = CodeFencePattern().Replace(text, " ");
+        // Images first, so their alt text does not survive as link text.
+        text = ImagePattern().Replace(text, " ");
+        // Links keep their label and lose their target.
+        text = LinkPattern().Replace(text, "$1");
+        text = HtmlTagPattern().Replace(text, " ");
+        text = System.Net.WebUtility.HtmlDecode(text);
+        text = MarkupNoisePattern().Replace(text, " ");
+        text = WhitespacePattern().Replace(text, " ").Trim();
+
+        return Truncate(text, maxLength);
+    }
+
+    private static string Truncate(string text, int maxLength)
+    {
+        if (text.Length <= maxLength) return text;
+
+        // Cut on a word boundary so the preview does not end mid-word.
+        var cut = text.LastIndexOf(' ', Math.Min(maxLength, text.Length - 1));
+        if (cut <= 0) cut = maxLength;
+
+        return text[..cut].TrimEnd() + "...";
+    }
+
+    [GeneratedRegex(@"```.*?```|~~~.*?~~~", RegexOptions.Singleline)]
+    private static partial Regex CodeFencePattern();
+
+    [GeneratedRegex(@"!\[[^\]]*\]\([^)]*\)")]
+    private static partial Regex ImagePattern();
+
+    [GeneratedRegex(@"\[([^\]]*)\]\([^)]*\)")]
+    private static partial Regex LinkPattern();
+
+    [GeneratedRegex(@"<[^>]+>")]
+    private static partial Regex HtmlTagPattern();
+
+    /// <summary>
+    /// Heading hashes, emphasis markers, blockquote markers, list bullets and
+    /// inline code ticks. Deliberately not a markdown parser.
+    /// </summary>
+    [GeneratedRegex(@"^\s{0,3}#{1,6}\s*|^\s{0,3}>\s?|^\s{0,3}[-*+]\s+|\*{1,3}|_{1,3}|`", RegexOptions.Multiline)]
+    private static partial Regex MarkupNoisePattern();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespacePattern();
+}
+```
+
+- [ ] **Step 5: Write SidebarSection**
+
+Create `LucidReader/Models/SidebarSection.cs`:
+
+```csharp
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+
+namespace LucidReader.Models;
+
+/// <summary>
+/// A collapsible group in the sidebar, the way Mail groups Favourites and
+/// mailboxes. Subscribes to its nodes so a header count cannot go stale, which
+/// matters because unread counts change on every article read.
+/// </summary>
+public sealed class SidebarSection : INotifyPropertyChanged
+{
+    private bool _isExpanded = true;
+
+    public SidebarSection()
+    {
+        Nodes.CollectionChanged += OnNodesChanged;
+    }
+
+    public required string Title { get; init; }
+
+    public ObservableCollection<FeedTreeNode> Nodes { get; } = [];
+
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set { if (_isExpanded == value) return; _isExpanded = value; Raise(); }
+    }
+
+    public int UnreadCount => Nodes.Sum(n => n.UnreadCount);
+
+    public string UnreadLabel => UnreadCount > 0 ? UnreadCount.ToString() : string.Empty;
+
+    /// <summary>An empty section hides its header rather than showing a bare label.</summary>
+    public bool IsVisible => Nodes.Count > 0;
+
+    private void OnNodesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        foreach (var node in e.OldItems?.OfType<FeedTreeNode>() ?? [])
+            node.PropertyChanged -= OnNodeChanged;
+
+        foreach (var node in e.NewItems?.OfType<FeedTreeNode>() ?? [])
+            node.PropertyChanged += OnNodeChanged;
+
+        RaiseCounts();
+        Raise(nameof(IsVisible));
+    }
+
+    private void OnNodeChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FeedTreeNode.UnreadCount)) RaiseCounts();
+    }
+
+    private void RaiseCounts()
+    {
+        Raise(nameof(UnreadCount));
+        Raise(nameof(UnreadLabel));
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void Raise([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+```
+
+- [ ] **Step 6: Run the tests to verify they pass**
+
+```bash
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj --filter "SnippetTests|SidebarSectionTests" 2>&1 | tail -5
+```
+
+Expected: 14 passed.
+
+- [ ] **Step 7: Write the shared styles**
+
+Create `LucidReader/Styles/Reader.axaml` holding the resources and control styles the whole app uses, and include it from `App.axaml`. Put the values in ONE place so later tasks inherit them rather than inventing their own spacing.
+
+Define at minimum: sidebar and list background brushes for light and dark, the accent selection brush, the unread dot brush, a hairline separator brush, the row corner radius, and text styles for a row title, a row secondary line and a row snippet. Follow Mail's proportions: a selected row is an inset rounded rectangle with roughly 6px horizontal inset and 5px corner radius, not a full-bleed bar.
+
+Use `ThemeVariant`-scoped resource dictionaries so light and dark both work, since the app now follows the system appearance rather than offering a picker.
+
+- [ ] **Step 8: Apply the window chrome**
+
+In `MainWindow.axaml`, extend the client area into the title bar and request transparency, using whatever the API check in Step 1 established. The sidebar becomes the translucent surface; the list and reading panes stay opaque, exactly as Mail does it.
+
+Two things that will look wrong if you miss them:
+
+The macOS traffic-light buttons sit on top of your content once the client area is extended. The sidebar needs top padding so its first row clears them. Use `ExtendClientAreaTitleBarHeightHint` or an explicit inset; do not just guess a number that happens to look right on your display.
+
+On Windows and Linux the transparency hint is ignored, so verify the app still looks deliberate there rather than leaving a sidebar that was only ever designed against a blur.
+
+- [ ] **Step 9: Restyle the sidebar into sections**
+
+Replace the flat `FeedNodes` list with `Sidebar`, an `ObservableCollection<SidebarSection>` containing:
+
+- **Favourites**: All items, Unread, Starred.
+- **Feeds**: folders and their feeds, plus feeds with no folder.
+
+Build it in `LoadFeedTreeAsync`, which already assembles the flat list; group it rather than rewriting the queries. Keep every existing `FeedTreeNode` property working, including `HasProblem` and the failure glyph, since Task 14 depends on them.
+
+The header row shows the section title in small caps secondary text, a disclosure chevron bound to `IsExpanded`, and the section's unread count right-aligned. Bind header visibility to `IsVisible`.
+
+Selection must still drive `SelectedFeedNode`, because Task 7's `BuildQuery` reads it. Do not change that contract.
+
+- [ ] **Step 10: Restyle the item row**
+
+Replace the single-line row with Mail's shape:
+
+- A gutter holding a blue unread dot, shown only when the row is unread.
+- Title in semibold, one line, ellipsised.
+- A secondary line with the feed name on the left and the relative date on the right.
+- Up to two lines of `Snippet` text in secondary colour, ellipsised.
+
+Add `Snippet` to `ItemRow` as a property populated when rows are built, using `Snippet.FromMarkdown(item.ContentMarkdown, item.Summary)`.
+
+Keep `IsRead`, `IsStarred`, `TitleWeight` and `StarGlyph` working. Task 7 and Task 9 both depend on them.
+
+Row height roughly triples, so confirm the list still scrolls smoothly with a few hundred rows. If virtualisation is not already on for this `ListBox`, turn it on.
+
+- [ ] **Step 11: Add hover row actions**
+
+Create `RowActions`, a small horizontal control shown on the row under the pointer, with three buttons: mark read or unread, star or unstar, and open the original. Raise events rather than calling services directly, so `MainWindow` stays the only thing that touches the engine.
+
+Show it on pointer-over via a style selector, not by tracking pointer events in code-behind.
+
+**Swipe is deliberately NOT in this task.** Avalonia has no swipe container, so it is a custom gesture handler and materially more work than the hover case. Hover delivers most of the value. Swipe is recorded in the deferred list at the end of this plan and can be added later once the rest of the app is usable.
+
+- [ ] **Step 12: Restyle the reading pane header**
+
+Give the article a Mail-style header: large title, then a secondary line with source and date, then a hairline rule, then the body at a comfortable measure. The offline badge from Task 8 stays but should sit quietly under the header rather than interrupting it.
+
+- [ ] **Step 13: Verify all of it through the harness, and LOOK at the result**
+
+Seed the database with a folder, several feeds and a couple of dozen articles of varying length, the way Task 7's implementer did. Then:
+
+```bash
+dotnet run --project LucidReader/LucidReader.csproj -- --ux-repl
+```
+
+Capture `describe` output and screenshots for: the sidebar with sections and counts, a populated item list showing multi-line rows with snippets and unread dots, a row with its hover actions visible, and the reading pane with the new header. Then look at the screenshots and say whether it actually resembles Mail. A green run with an ugly window is a failed task.
+
+Also confirm nothing behavioural regressed: selecting a feed still loads its items, the dwell still marks read after the delay, and switching feeds still repopulates cleanly.
+
+- [ ] **Step 14: Run the whole suite and commit**
+
+```bash
+dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj 2>&1 | tail -3
+dotnet test MarkdownViewer.Tests/MarkdownViewer.Tests.csproj 2>&1 | tail -3
+```
+
+```bash
+git add LucidReader LucidReader.Core.Tests
+git commit -m "feat(reader): Mac Mail visual language"
+```
+
+---
+
 ## Task 9: Item actions, keyboard navigation, tags and markdown export
 
 **Files:**
@@ -5292,6 +5736,7 @@ At this point lucidREADER is a usable application: subscribe by URL or OPML, ref
 ## Deferred from this plan, deliberately
 
 - **PDF export.** Recorded as a decision at the top of this plan. Markdown export only in v1.
+- **Swipe row actions.** Task 8a delivers hover actions. Avalonia has no swipe container, so swipe is a custom gesture handler and materially more work; it was cut to get the rest of the app usable rather than because it is unwanted.
 - **Multi-level folder nesting.** The schema supports one level; OPML import flattens deeper trees onto the outermost folder.
 - **Honouring a 429 `Retry-After`.** `FeedFetchResult.Failed` carries it; `BackoffPolicy` still ignores it.
 - **FTS5 phrase and prefix search.** Every term is quoted as a literal, which is what makes arbitrary input safe. Revisit if users ask for it.
