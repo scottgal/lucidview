@@ -4,6 +4,7 @@
         xmlns:controls="clr-namespace:LucidReader.Views.Controls"
         x:Class="LucidReader.Views.MainWindow"
         Title="mylo"
+        Icon="/Assets/mylo.png"
         Width="1280" Height="820"
         MinWidth="820" MinHeight="520"
         Background="{DynamicResource ListBackgroundBrush}"

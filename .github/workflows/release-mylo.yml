@@ -1,0 +1,179 @@
+# Release workflow for mylo, the RSS reader. Separate from release.yml because
+# that one hardcodes PROJECT_PATH to MarkdownViewer and its release body is all
+# lucidVIEW prose, so the two would fight over every field that matters.
+#
+# There is deliberately no `push:` trigger here, not even a tag one. mylo can
+# only be released by someone opening the Actions tab and typing a version,
+# which keeps the choice of version number and the decision to ship where they
+# belong. Adding `push:` would undo that, so do not.
+name: Release mylo
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. mylo-v0.1.0)'
+        required: true
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_PATH: 'LucidReader/LucidReader.csproj'
+
+jobs:
+  # The maintainer's pre-release gate. mylo's 898 tests were invisible to a
+  # solution-wide run until LucidReader.Core.Tests was added to
+  # lucid.viewer.sln, so run them by project here and do not let a publish
+  # start until they pass.
+  test:
+    runs-on: macos-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Test
+      run: dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj -c Debug
+
+  build:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - rid: osx-arm64
+            artifact: mylo-osx-arm64
+          - rid: osx-x64
+            artifact: mylo-osx-x64
+
+    # macOS only, and that is not an oversight. mylo publishes with
+    # IncludeNativeLibrariesForSelfExtract=false, so every platform's output is
+    # an executable plus loose native libraries that something has to place
+    # correctly. On macOS the .app bundle is that something and it is built and
+    # launched. Windows and Linux would each need their own layout decided and
+    # tested on that platform first, so they are left out rather than shipped
+    # on a guess.
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    # Publishes and assembles the bundle in one step. The script is the same
+    # one used locally, so what CI produces is what a maintainer can reproduce
+    # and open on their own machine. It fails if any of the five native
+    # libraries is missing from Contents/MacOS.
+    - name: Build mylo.app
+      run: ./LucidReader/macos/make-bundle.sh ${{ matrix.rid }} release/${{ matrix.rid }}
+
+    - name: Check the bundle carries no debug files
+      run: |
+        set -e
+        APP="release/${{ matrix.rid }}/mylo.app"
+        LEFTOVERS=$(find "$APP" \( -name '*.pdb' -o -name '*.xml' \) | wc -l | tr -d ' ')
+        if [ "$LEFTOVERS" != "0" ]; then
+          echo "bundle carries $LEFTOVERS debug files:"
+          find "$APP" \( -name '*.pdb' -o -name '*.xml' \)
+          exit 1
+        fi
+        echo "bundle size: $(du -sh "$APP" | cut -f1)"
+
+    # The UITesting harness and Avalonia.Diagnostics are Debug-only project
+    # and package references. If either ever leaks into a Release publish this
+    # is where it gets caught, before the artifact is uploaded.
+    - name: Check no dev harness in the shipped binary
+      run: |
+        set -e
+        BIN="release/${{ matrix.rid }}/mylo.app/Contents/MacOS/mylo"
+        HITS=$(strings -a "$BIN" | grep -c "Mostlylucid.Avalonia.UITesting" || true)
+        if [ "$HITS" != "0" ]; then
+          echo "UITesting harness found in the Release binary: $HITS hits"
+          exit 1
+        fi
+        echo "no harness references in the Release binary"
+
+    - name: Create archive
+      run: |
+        cd release/${{ matrix.rid }}
+        zip -qry ../../${{ matrix.artifact }}.zip mylo.app
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact }}
+        path: ${{ matrix.artifact }}.zip
+        retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Flatten artifacts
+      run: |
+        mkdir -p release-files
+        find artifacts -name "*.zip" -exec cp {} release-files/ \;
+        ls -la release-files/
+
+    # Draft on purpose. The workflow puts the files together; a person still
+    # has to read the notes and press publish. That is one more place for a
+    # wrong version number to be caught before anyone can download it.
+    - name: Create draft release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.inputs.version }}
+        name: mylo ${{ github.event.inputs.version }}
+        draft: true
+        prerelease: true
+        files: release-files/*.zip
+        generate_release_notes: true
+        body: |
+          ## mylo ${{ github.event.inputs.version }}
+
+          A native RSS and Atom reader built on the lucidVIEW rendering stack.
+
+          ### Downloads
+
+          | Platform | File |
+          |---|---|
+          | macOS Apple Silicon (M1/M2/M3/M4/M5) | `mylo-osx-arm64.zip` |
+          | macOS Intel | `mylo-osx-x64.zip` |
+
+          ### Install
+
+          ```bash
+          cd ~/Downloads
+          unzip -o mylo-osx-arm64.zip          # or mylo-osx-x64 on Intel
+          mv mylo.app /Applications/
+          xattr -dr com.apple.quarantine /Applications/mylo.app
+          open /Applications/mylo.app
+          ```
+
+          **Why the `xattr` step?** mylo is ad-hoc codesigned, not notarized with
+          an Apple Developer ID, so Gatekeeper refuses the first launch and says
+          the developer cannot be verified. That command tells macOS to trust
+          this build. Right-click the app and choose Open works too.
+
+          ### Where mylo keeps your data
+
+          `~/Library/Application Support/mylo/` holds `reader.db` and
+          `settings.json`. Delete that folder for a clean slate. Subscriptions
+          import and export as OPML from the Settings dialog.

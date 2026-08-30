@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- CFBundleName is not decoration. macOS takes the leftmost menu-bar
+         title from it, so a bundle without it puts the executable name up
+         there. CFBundleIdentifier matters more: MacUserNotificationSink treats
+         a nil bundleIdentifier as an unbundled process and refuses to post
+         native notifications, so a bare binary out of bin/ silently falls back
+         to the in-app sink. Both keys are what turn that path on. -->
+    <key>CFBundleName</key>
+    <string>mylo</string>
+    <key>CFBundleDisplayName</key>
+    <string>mylo</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.mostlylucid.mylo</string>
+    <key>CFBundleVersion</key>
+    <string>$(AppBuildVersion)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(AppVersion)</string>
+    <key>CFBundleExecutable</key>
+    <string>mylo</string>
+    <key>CFBundleIconFile</key>
+    <string>mylo.icns</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright 2026 Scott Galloway</string>
+    <!-- Feed subscriptions arrive as OPML often enough to be worth a Finder
+         association, and mylo is the only thing on the machine that reads
+         one. Alternate rank so it does not fight an OPML editor. -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>OPML Subscription List</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>opml</string>
+            </array>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.xml</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
