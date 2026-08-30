@@ -236,7 +236,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
             || !settings.FetchFullText
             || string.IsNullOrWhiteSpace(item.Link))
         {
-            await StoreAsync(itemId, feedContent, item.Link, ContentSource.Feed, ct);
+            await StoreAsync(itemId, feedContent, item.Link, item.Title, ContentSource.Feed, ct);
             return;
         }
 
@@ -264,6 +264,12 @@ public sealed class OfflineDownloader : IAsyncDisposable
             var markdown = isMarkdown
                 ? fetched.Body
                 : await _converter.ConvertAsync(fetched.Body, link, ct);
+
+            // Applied to the site's own markdown too. That body is stored as
+            // written in every other respect, but a page served as markdown
+            // still opens with its own title heading, and the reading pane
+            // has already drawn that heading above the body.
+            markdown = ArticleMarkdownTidy.Clean(markdown, item.Title);
 
             markdown = await CacheImagesAsync(markdown, item.Link, ct);
 
@@ -299,6 +305,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
         long itemId,
         string? html,
         string? link,
+        string? itemTitle,
         ContentSource source,
         CancellationToken ct)
     {
@@ -312,6 +319,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
         {
             var uri = Uri.TryCreate(link, UriKind.Absolute, out var parsed) ? parsed : null;
             var markdown = await _converter.ConvertAsync(html, uri, ct);
+            markdown = ArticleMarkdownTidy.Clean(markdown, itemTitle);
             markdown = await CacheImagesAsync(markdown, link, ct);
             await _items.SetContentAsync(itemId, markdown, source, ct: ct);
         }
