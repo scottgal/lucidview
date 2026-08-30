@@ -124,13 +124,34 @@
                             Click="OnExportOpmlClicked" />
                 </StackPanel>
 
-                <TextBox Grid.Column="1" x:Name="SearchBox"
-                         Watermark="Search all articles"
-                         VerticalAlignment="Center"
-                         HorizontalAlignment="Stretch"
-                         MinWidth="120"
-                         MaxWidth="360"
-                         Text="{Binding SearchText, Mode=TwoWay}" />
+                <!--
+                    Search, and the one control that scopes it. Mail offers
+                    the same choice rather than deciding silently: search
+                    spans everything by default, and the toggle narrows it to
+                    the selected feed or folder. Disabled on a smart row,
+                    which is not a scope. The label follows the selection
+                    (SearchScopeLabel) so it never says "This feed" over a
+                    folder.
+                -->
+                <Grid Grid.Column="1" ColumnDefinitions="*,Auto"
+                      VerticalAlignment="Center"
+                      HorizontalAlignment="Stretch"
+                      MaxWidth="470">
+                    <TextBox Grid.Column="0" x:Name="SearchBox"
+                             Watermark="Search all articles"
+                             VerticalAlignment="Center"
+                             HorizontalAlignment="Stretch"
+                             MinWidth="120"
+                             MaxWidth="360"
+                             Margin="0,0,6,0"
+                             Text="{Binding SearchText, Mode=TwoWay}" />
+                    <ToggleButton Grid.Column="1" x:Name="SearchScopeButton" Classes="row-toolbar"
+                                  VerticalAlignment="Center"
+                                  Content="{Binding SearchScopeLabel}"
+                                  IsEnabled="{Binding CanScopeSearchToSelection}"
+                                  IsChecked="{Binding SearchScopeToSelection, Mode=TwoWay}"
+                                  ToolTip.Tip="Limit search to the selected feed or folder" />
+                </Grid>
 
                 <Button Grid.Column="2" x:Name="SettingsButton" Content="Settings" Classes="row-toolbar"
                         VerticalAlignment="Center"
@@ -328,8 +349,46 @@
                                                    Margin="8,0,0,0" />
                                     </Grid>
 
+                                    <!--
+                                        Two preview lines, one shown at a
+                                        time. An ordinary row previews the
+                                        stored body; a search result previews
+                                        the passage FTS5 says matched, with
+                                        the query terms picked out, so the row
+                                        can say why it is in the list. Named
+                                        visibility properties rather than a
+                                        negated binding: compiled bindings are
+                                        off in this project, so a binding that
+                                        does not resolve fails silently.
+
+                                        The matched passage is a WrapPanel of
+                                        one TextBlock per word rather than a
+                                        single TextBlock, because a TextBlock
+                                        has one Foreground and one FontWeight
+                                        and this line needs two of each. See
+                                        Models/SearchSnippet.cs.
+                                    -->
                                     <TextBlock Text="{Binding Snippet}" Classes="row-snippet"
+                                               IsVisible="{Binding IsPlainSnippetVisible}"
                                                TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+
+                                    <ItemsControl ItemsSource="{Binding SnippetWords}"
+                                                  IsVisible="{Binding IsSearchSnippetVisible}"
+                                                  MaxHeight="34" ClipToBounds="True">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Text}"
+                                                           Classes="row-snippet"
+                                                           Classes.snippet-match="{Binding IsMatch}"
+                                                           Margin="0,0,4,0" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
 
                                 <Border Grid.Column="2" Width="56" Height="56"

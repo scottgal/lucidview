@@ -42,13 +42,20 @@ VALUES (1, 1, 'alpha-1', 'https://harness-alpha.test/compositor',
 
 Rendering happens on its own thread.', 1, 0, 0, strftime('%Y-%m-%dT%H:%M:%SZ','now','-2 days'), 2);
 
+-- The body here is long on purpose, and the word "kingfishers" sits past the
+-- 180th character. That is what verify-reader-search.yaml uses to tell the two
+-- preview lines apart: the ordinary row preview is the first 180 characters of
+-- this body, so it cannot contain that word, while a search for it must show
+-- the passage around it. If this text is ever shortened, or the word moved
+-- earlier, that script stops proving anything.
 INSERT INTO items (id, feed_id, guid, link, title, published_utc, summary,
                    content_markdown, content_source, is_read, is_starred,
                    first_seen_utc, offline_state)
 VALUES (2, 1, 'alpha-2', 'https://harness-alpha.test/weeknotes',
         'Weeknotes from the harness', strftime('%Y-%m-%dT%H:%M:%SZ','now','-3 days'),
         'A short status update.',
-        'Nothing shipped, nothing broke.', 0, 0, 0, strftime('%Y-%m-%dT%H:%M:%SZ','now','-3 days'), 0);
+        'Nothing shipped, nothing broke. The week was spent on small things: a slow query that turned out to be an index nobody had noticed was missing, a settings page that saved twice, and a long walk along the towpath on Friday afternoon, where the nesting kingfishers were finally back on the far bank.',
+        0, 0, 0, strftime('%Y-%m-%dT%H:%M:%SZ','now','-3 days'), 0);
 
 INSERT INTO items (id, feed_id, guid, link, title, published_utc, summary,
                    content_markdown, content_source, is_read, is_starred,

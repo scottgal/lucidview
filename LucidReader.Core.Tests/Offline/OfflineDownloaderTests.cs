@@ -231,7 +231,7 @@ public class OfflineDownloaderTests : IAsyncLifetime
 
         var results = await new SearchRepository(_db).SearchAsync("Converted", 10);
         Assert.Single(results);
-        Assert.Equal(id, results[0].Id);
+        Assert.Equal(id, results[0].Item.Id);
     }
 
     // --- Article image capture (Task 8b) ---

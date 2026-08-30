@@ -202,6 +202,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Raise(nameof(IsFeedSelected));
             Raise(nameof(IsPausedFeedSelected));
 
+            // The scope toggle describes the selection, so both its enabled
+            // state and its label change with it.
+            Raise(nameof(CanScopeSearchToSelection));
+            Raise(nameof(SearchScopeLabel));
+
             // A feed click must win over a search debounce that started
             // earlier but has not yet elapsed. LoadSequenceGuard alone
             // can't guarantee that: it orders by when Begin() is called,
@@ -292,6 +297,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Raise(nameof(IsFilterAll));
         Raise(nameof(IsFilterUnread));
         Raise(nameof(IsFilterStarred));
+
+        // Search obeys the segment (see SearchQueryBuilder), so changing the
+        // segment while results are on screen re-runs the query rather than
+        // replacing the results with the feed selection's items. Dropping
+        // back to LoadItemsAsync would look like the search had been
+        // cancelled by a click on a filter chip.
+        if (IsShowingSearchResults && !string.IsNullOrWhiteSpace(SearchText))
+        {
+            RerunSearchIfShowing();
+            return;
+        }
+
         _ = LoadItemsAsync();
     }
 

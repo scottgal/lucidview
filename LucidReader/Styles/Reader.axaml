@@ -199,6 +199,19 @@
         <Setter Property="LineHeight" Value="16" />
     </Style>
 
+    <!--
+        The query terms inside a search result's matched passage. Weight and
+        the title's full-strength colour, not the accent: the accent is what a
+        selected row is filled with, and an accent-coloured word would
+        disappear the moment the user selected the result they were looking
+        at. Same metrics as row-snippet so a highlighted word does not shift
+        the line it sits on.
+    -->
+    <Style Selector="TextBlock.row-snippet.snippet-match">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource RowTitleBrush}" />
+    </Style>
+
     <Style Selector="TextBlock.section-header">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="FontWeight" Value="SemiBold" />

@@ -1,0 +1,357 @@
+name: verify-reader-search
+description: >
+  Drives mylo's full-text search end to end against the seeded scratch
+  database: prefix matching while a word is still being typed, an article
+  findable only by its summary, the matched passage shown in place of the
+  ordinary row preview, the scope toggle, and the filter segments applying to
+  a search rather than being ignored by it.
+
+  Run it through ux-scripts/run-reader-search.sh, not directly. That script
+  builds the profile every count below is measured against and deletes it
+  afterwards, which is what lets this file assert exact numbers and be run
+  twice in a row from any starting state. Run against your own database the
+  numbers are simply wrong.
+
+  Two fixture facts everything here rests on (see ux-scripts/reader-fixture.sql):
+    - "kingfishers" appears once in the whole database, in the body of
+      "Weeknotes from the harness", past the 180th character. The ordinary
+      row preview is the first 180 characters of that body, so it cannot
+      contain the word; only the search snippet can.
+    - "compositor" appears in two articles in two different feeds: in the
+      title and body of one under Harness Alpha, and in the body only of
+      "Beta release notes" under Harness Beta, which is also the one starred
+      article in the fixture.
+
+  Toggles are driven as Hover-elsewhere, Hover-target, MouseDown, MouseUp for
+  the reasons written at the top of reader-smoke.yaml: the harness's Click on
+  a non-Button only focuses, and a toggle only flips on release if a real
+  enter event put the pointer over it.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "5"
+
+  - type: Expect
+    target: SearchScopeButton
+    matcher: IsDisabled
+    description: A smart row is not a scope, so there is nothing to narrow to
+
+  # The ordinary preview line, before any search. This exact string is the
+  # first 180 characters of the Weeknotes body, and it is what the row must
+  # go back to showing once the search is cleared.
+  - type: Expect
+    target: "text='Nothing shipped, nothing broke. The week was spent on small things: a slow query that turned out to be an index nobody had noticed was missing, a settings page that saved twice,...'"
+    matcher: IsVisible
+    description: The stored preview, which stops well before the word searched for below
+
+  - type: Screenshot
+    value: 00-all-items
+
+  # =====================================================================
+  # Prefix matching. "kingfish" is not a word in any article; "kingfishers"
+  # is, once. Before the prefix operator existed this found nothing, which
+  # is what made as-you-type search feel broken.
+  # =====================================================================
+  - type: TypeText
+    target: SearchBox
+    value: "kingfish"
+  - type: Wait
+    value: "1500"
+    description: The 250ms debounce plus the query
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "1 results for \"kingfish\""
+
+  # The matched passage, in place of the preview above. The word can only
+  # come from the search snippet: the ordinary preview is truncated long
+  # before it. The highlight is SemiBold, which Avalonia's FontWeight enum
+  # reports by its other name, DemiBold - they are the same value 600. So
+  # this asserts both that the passage is shown and that the term inside it
+  # is picked out.
+  - type: Expect
+    target: "text='kingfishers'"
+    matcher: HasProperty
+    value: "FontWeight=DemiBold"
+    description: The snippet for a search result differs from the normal row snippet
+
+  - type: Screenshot
+    value: 01-prefix-match-snippet
+
+  # =====================================================================
+  # An article findable only by its summary. "compositor" is in the body of
+  # the Beta article and in the title and body of the Alpha one, so both
+  # come back; the fixture's summaries are what make the count below three
+  # rather than two once the summary column is in the index.
+  # =====================================================================
+  - type: TypeText
+    target: SearchBox
+    value: "pipeline"
+    description: Only "A summary of the compositor pipeline." holds this word
+  - type: Wait
+    value: "1500"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "1 results for \"pipeline\""
+
+  - type: Screenshot
+    value: 02-summary-only-match
+
+  # =====================================================================
+  # Clearing the box puts the feed-tree selection's list back, with its
+  # ordinary preview lines.
+  # =====================================================================
+  # A single space, not an empty string: the harness's TypeText ignores an
+  # empty value, and a whitespace-only box is the same "blank query" case the
+  # code takes (IsNullOrWhiteSpace), which is what a user deleting a query
+  # passes through anyway.
+  - type: TypeText
+    target: SearchBox
+    value: " "
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "5"
+  - type: Expect
+    target: "text='Nothing shipped, nothing broke. The week was spent on small things: a slow query that turned out to be an index nobody had noticed was missing, a settings page that saved twice,...'"
+    matcher: IsVisible
+    description: Back to the stored preview, not the matched passage
+
+  # =====================================================================
+  # Scoping. With a feed selected the toggle becomes available and says
+  # which feed it means; turning it on narrows the same query from both
+  # feeds to one.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: SearchScopeButton
+    matcher: IsEnabled
+  - type: Expect
+    target: SearchScopeButton
+    matcher: HasText
+    value: "This feed"
+
+  - type: TypeText
+    target: SearchBox
+    value: "compositor"
+  - type: Wait
+    value: "1500"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "2"
+    description: Unscoped by default, so a search spans both feeds
+
+  - type: Screenshot
+    value: 03-search-across-feeds
+
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the toggle first
+  - type: Hover
+    target: SearchScopeButton
+  - type: MouseDown
+    target: SearchScopeButton
+    button: left
+  - type: MouseUp
+    target: SearchScopeButton
+    button: left
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: SearchScopeButton
+    matcher: IsChecked
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+    description: Narrowed to Harness Alpha, so the Beta article drops out
+
+  - type: Screenshot
+    value: 04-scoped-to-feed
+
+  # Back off again, so the filter check below is against both feeds.
+  - type: Hover
+    target: SearchBox
+  - type: Hover
+    target: SearchScopeButton
+  - type: MouseDown
+    target: SearchScopeButton
+    button: left
+  - type: MouseUp
+    target: SearchScopeButton
+    button: left
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "2"
+
+  # =====================================================================
+  # The filter segments apply to a search. Of the two compositor articles
+  # only the Beta one is starred, so the Starred segment must take the
+  # result list down to it rather than leaving the search untouched or
+  # throwing the search away and reloading the feed.
+  # =====================================================================
+  - type: Hover
+    target: SearchBox
+  - type: Hover
+    target: FilterStarred
+  - type: MouseDown
+    target: FilterStarred
+    button: left
+  - type: MouseUp
+    target: FilterStarred
+    button: left
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "1 results for \"compositor\""
+    description: Still a search, not a reload of the feed's articles
+
+  - type: Screenshot
+    value: 05-filtered-search
+
+  - type: Hover
+    target: SearchBox
+  - type: Hover
+    target: FilterAll
+  - type: MouseDown
+    target: FilterAll
+    button: left
+  - type: MouseUp
+    target: FilterAll
+    button: left
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "2"
+
+  # =====================================================================
+  # A sidebar click still beats a search: it cancels any debounce still
+  # pending, empties the box, and shows the feed's own articles. This is
+  # the shipped bug that must not come back, so it is asserted here as
+  # well as in reader-smoke.yaml.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: SearchBox
+    matcher: HasValue
+    value: ""
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "5"
+  - type: Expect
+    target: SearchScopeButton
+    matcher: IsDisabled
+
+  - type: Screenshot
+    value: 06-search-cleared
+
+  # =====================================================================
+  # Nothing a user can type takes the window down. Each of these is a
+  # fragment of FTS5's own query syntax, and search runs on every
+  # keystroke, so any of them reaching SQLite unquoted is an exception on
+  # the typing path rather than an empty result list.
+  # =====================================================================
+  - type: TypeText
+    target: SearchBox
+    value: "\"unbalanced AND ("
+  - type: Wait
+    value: "1200"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+
+  - type: TypeText
+    target: SearchBox
+    value: "NEAR(a b) ^title:*"
+  - type: Wait
+    value: "1200"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+
+  - type: TypeText
+    target: SearchBox
+    value: "!@#$%^&*()"
+  - type: Wait
+    value: "1200"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+
+  - type: Screenshot
+    value: 07-syntax-junk
+
+  # Still alive and still working after all of that.
+  - type: TypeText
+    target: SearchBox
+    value: "compos"
+  - type: Wait
+    value: "1500"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "2"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "2 results for \"compos\""
+
+  - type: Screenshot
+    value: 08-still-searching

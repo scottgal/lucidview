@@ -50,7 +50,7 @@ public class SearchRepositoryTests : IAsyncLifetime
         var results = await _search.SearchAsync("Avalonia", 50);
 
         Assert.Single(results);
-        Assert.Equal("a", results[0].Guid);
+        Assert.Equal("a", results[0].Item.Guid);
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public class SearchRepositoryTests : IAsyncLifetime
         var results = await _search.SearchAsync("writer lock", 50);
 
         Assert.Single(results);
-        Assert.Equal("a", results[0].Guid);
+        Assert.Equal("a", results[0].Item.Guid);
     }
 
     [Fact]

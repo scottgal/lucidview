@@ -9,7 +9,10 @@ namespace LucidReader.Core.Tests.Storage;
 /// V1 created items_fts_update as an unscoped AFTER UPDATE ON items, so
 /// marking an article read, starring it, or marking a whole feed read each
 /// deleted and reinserted that item's entire content_markdown term list. V4
-/// narrows it to the two columns the index mirrors, without touching V1.
+/// narrows it to the columns the index mirrors, without touching V1, and V5
+/// keeps that narrowing while widening the index to author and summary - so
+/// the trigger asserted on here is V5's, and the property being defended is
+/// still V4's: a write to is_read or is_starred must not touch the index.
 /// </summary>
 public class FtsTriggerMigrationTests
 {
@@ -54,7 +57,7 @@ public class FtsTriggerMigrationTests
 
         Assert.Equal(Migrations.All.Count, version);
         Assert.Contains(
-            "AFTER UPDATE OF title, content_markdown",
+            "AFTER UPDATE OF title, author, summary, content_markdown",
             await ReadTriggerSqlAsync(connection),
             StringComparison.Ordinal);
     }
@@ -68,7 +71,7 @@ public class FtsTriggerMigrationTests
         await SchemaMigrator.MigrateAsync(connection);
 
         Assert.Contains(
-            "AFTER UPDATE OF title, content_markdown",
+            "AFTER UPDATE OF title, author, summary, content_markdown",
             await ReadTriggerSqlAsync(connection),
             StringComparison.Ordinal);
     }

@@ -16,6 +16,7 @@ dotnet build LucidReader/LucidReader.csproj
 | Run this | Script | What it checks | Needs network |
 |---|---|---|---|
 | `ux-scripts/run-reader-smoke.sh [out]` | `reader-smoke.yaml` | The whole shell: sidebar smart rows, a folder, a feed, the All/Unread/Starred segments, the reading pane and its offline badge, the mark-as-read dwell, the hover row actions, full-text search, Refresh all | no |
+| `ux-scripts/run-reader-search.sh [out]` | `verify-reader-search.yaml` | Full-text search: a partly-typed word matching as it is typed, an article findable only by its summary, the matched passage shown with the query term picked out in place of the ordinary row preview, the scope toggle narrowing a search to the selected feed, the filter segments applying to a search, a sidebar click still beating a pending search, and FTS5 syntax typed into the box being searched for rather than parsed | no |
 | `ux-scripts/run-reader-settings.sh [out]` | `reader-settings.yaml` | Both settings dialogs: all four global groups, save-and-reopen round trips, the retention clean-up, the per-feed override switches, and a global change showing up as the per-feed inherited label | no |
 | `ux-scripts/run-reading-column.sh [out]` | `verify-reading-column.yaml` | The reading column, **measured in pixels**: equal left and right margins at two different column widths, the margin growing as the column narrows, and bigger font/line-height/code-size changing what is rendered | no |
 | `ux-scripts/run-pane-layout.sh [out]` | `verify-pane-layout.yaml`, `verify-pane-layout-persist.yaml`, `verify-pane-layout-restore.yaml` | The toolbar's layout button, **measured in pixels**: each click collapses the leftmost pane still showing, the sidebar's 260px column and both splitters actually leave the window rather than going blank, the reading column re-centres in the wider pane, a fourth click restores the start exactly, and a second process comes up in the saved mode | no |
@@ -57,12 +58,15 @@ shapes are in use.
   `run-reading-column.sh`, `run-reading-typography.sh`, `run-pane-layout.sh`, via
   `reader-harness.sh`). `MYLO_DATA_DIR` points a Debug build at a
   temporary directory, which is seeded from `reader-fixture.sql` and deleted on
-  the way out. `run-reader-keyboard.sh` uses this shape too. This is the better shape where it fits: the script decides every
+  the way out. `run-reader-keyboard.sh` and `run-reader-search.sh` use this shape too. This is the better shape where it fits: the script decides every
   count it asserts, needs no network, and cannot touch anything you care about.
 
 `reader-fixture.sql` is that database: two feeds ("Harness Alpha" in a folder,
 "Harness Beta" loose), five articles, one already read, one starred, one with
-extracted full text. Article dates are relative to now, not literal, so
+extracted full text, and one ("Weeknotes from the harness") with a body long
+enough that the word "kingfishers" in it falls past the 180 characters the
+ordinary row preview shows, which is how `verify-reader-search.yaml` tells a
+search snippet apart from a normal one. Article dates are relative to now, not literal, so
 retention can never age them past the 30-day cutoff and change the counts.
 
 ## Measuring, not asserting

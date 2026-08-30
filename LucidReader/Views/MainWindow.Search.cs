@@ -25,9 +25,57 @@ namespace LucidReader.Views;
 public partial class MainWindow
 {
     private readonly SearchCoordinator _searchCoordinator = new();
+    private bool _searchScopeToSelection;
 
     /// <summary>True while ItemRows holds search results rather than a feed-tree selection's items.</summary>
     public bool IsShowingSearchResults => _searchCoordinator.IsShowingSearchResults;
+
+    /// <summary>
+    /// The toolbar's scope toggle. Off by default: search spans every feed
+    /// unless the user asks for it to be narrowed. See SearchQueryBuilder for
+    /// why that is the default rather than scoping to whatever is selected.
+    /// Flipping it re-runs the current query rather than waiting for the next
+    /// keystroke, since the toggle is itself a statement about the query on
+    /// screen.
+    /// </summary>
+    public bool SearchScopeToSelection
+    {
+        get => _searchScopeToSelection;
+        set
+        {
+            if (_searchScopeToSelection == value) return;
+            _searchScopeToSelection = value;
+            Raise();
+            RerunSearchIfShowing();
+        }
+    }
+
+    /// <summary>
+    /// Whether the current sidebar selection is something a search can be
+    /// narrowed to. The scope toggle binds its IsEnabled to this so it cannot
+    /// claim a scope SearchQueryBuilder would ignore.
+    /// </summary>
+    public bool CanScopeSearchToSelection => SearchQueryBuilder.CanScope(SelectedFeedNode);
+
+    /// <summary>
+    /// Label on the scope toggle. A folder is not a feed, and a toggle that
+    /// says "This feed" while a folder is selected would be describing the
+    /// wrong scope.
+    /// </summary>
+    public string SearchScopeLabel =>
+        SelectedFeedNode?.Kind == FeedTreeNodeKind.Folder ? "This folder" : "This feed";
+
+    /// <summary>
+    /// Re-runs the query currently on screen, if there is one. Called when
+    /// something other than the search text changes what the query means: the
+    /// filter segment, or the scope toggle. Does nothing when the list is
+    /// showing a feed-tree selection, which has its own reload path.
+    /// </summary>
+    internal void RerunSearchIfShowing()
+    {
+        if (!IsShowingSearchResults || string.IsNullOrWhiteSpace(SearchText)) return;
+        _ = RunSearchAsync(SearchText);
+    }
 
     /// <summary>
     /// Fired from the SearchText setter on every keystroke. Debounces by
@@ -79,7 +127,9 @@ public partial class MainWindow
         _thumbnailCoordinator.CancelPending();
 
         var ticket = _loadGuard.Begin();
-        var results = await _services.Search.SearchAsync(query, 500, ct);
+        var searchQuery = SearchQueryBuilder.Build(
+            query, SelectedFeedNode, CurrentFilter, SearchScopeToSelection, 500);
+        var results = await _services.Search.SearchAsync(searchQuery, ct);
         var feeds = (await _services.Feeds.GetAllAsync(ct))
             .ToDictionary(f => f.Id, f => f.DisplayTitle);
         var now = DateTimeOffset.UtcNow;
@@ -98,8 +148,9 @@ public partial class MainWindow
         _dwell.CancelPending();
 
         ItemRows.Clear();
-        foreach (var item in results)
+        foreach (var hit in results)
         {
+            var item = hit.Item;
             ItemRows.Add(new ItemRow
             {
                 Item = item,
@@ -107,7 +158,13 @@ public partial class MainWindow
                 IsRead = item.IsRead,
                 IsStarred = item.IsStarred,
                 RelativeDate = ItemRow.FormatRelative(item.PublishedUtc ?? item.FirstSeenUtc, now),
-                Snippet = Snippet.FromMarkdown(item.ContentMarkdown, item.Summary)
+                // Both are set. Snippet is the ordinary preview and stays
+                // correct for the row; MatchedSnippet is the passage that
+                // explains the hit, and IsSearchResult is what makes the row
+                // show the second instead of the first.
+                Snippet = Snippet.FromMarkdown(item.ContentMarkdown, item.Summary),
+                MatchedSnippet = hit.Snippet,
+                IsSearchResult = true
             });
         }
 

@@ -6,7 +6,7 @@ namespace LucidReader.Core.Storage;
 /// </summary>
 public static class Migrations
 {
-    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4 };
+    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5 };
 
     private const string V1 = """
         CREATE TABLE folders (
@@ -169,5 +169,78 @@ public static class Migrations
             INSERT INTO items_fts(rowid, title, content_markdown)
             VALUES (new.id, new.title, new.content_markdown);
         END;
+        """;
+
+    // Widens the full-text index from (title, content_markdown) to
+    // (title, author, summary, content_markdown).
+    //
+    // summary is the important one. content_markdown only exists once an
+    // article has been downloaded and converted, and plenty of items never
+    // get that far: auto-download can be off, the fetch can fail, and an item
+    // stored with offline_state = 0 is never re-queued by
+    // GetPendingOfflineAsync. For all of those the summary is the only body
+    // the database holds, so leaving it out of the index made every one of
+    // them findable by title alone. author is cheap to add and is a search
+    // people actually run ("that piece by so-and-so").
+    //
+    // The column set of an FTS5 table cannot be altered, so the table and its
+    // three triggers are dropped and recreated, then repopulated with the
+    // 'rebuild' command, which reads every row back out of items (the
+    // external content table) and reindexes it. That is why this migration is
+    // safe on a populated database and why it costs one full reindex on the
+    // first launch after upgrading.
+    //
+    // The tokenizer stays unicode61. Adding the porter stemmer was measured
+    // and rejected: porter stems the query token as well as the indexed one,
+    // so a prefix search for a partly-typed word stops matching as soon as
+    // what has been typed is longer than the stem. Against a document
+    // containing "running", porter matches "run" and "running" but nothing
+    // in between - "runn", "runni", "runnin" all return zero rows - so the
+    // result list empties out mid-word and refills when the word is
+    // finished. unicode61 matches every one of those prefixes. Since search
+    // runs on every keystroke, the stemmer would break the case the index is
+    // most used for in order to improve the finished-word case, which the
+    // prefix operator already covers in the direction that matters
+    // ("run" finds "running").
+    //
+    // The update trigger keeps V4's UPDATE OF narrowing, extended to the two
+    // new columns. It deliberately does NOT list every column of items: a
+    // write to is_read, is_starred or offline_state must still leave the
+    // index alone, which is the whole point of V4.
+    private const string V5 = """
+        DROP TRIGGER items_fts_insert;
+        DROP TRIGGER items_fts_delete;
+        DROP TRIGGER items_fts_update;
+        DROP TABLE items_fts;
+
+        CREATE VIRTUAL TABLE items_fts USING fts5(
+            title,
+            author,
+            summary,
+            content_markdown,
+            content='items',
+            content_rowid='id',
+            tokenize='unicode61'
+        );
+
+        CREATE TRIGGER items_fts_insert AFTER INSERT ON items BEGIN
+            INSERT INTO items_fts(rowid, title, author, summary, content_markdown)
+            VALUES (new.id, new.title, new.author, new.summary, new.content_markdown);
+        END;
+
+        CREATE TRIGGER items_fts_delete AFTER DELETE ON items BEGIN
+            INSERT INTO items_fts(items_fts, rowid, title, author, summary, content_markdown)
+            VALUES ('delete', old.id, old.title, old.author, old.summary, old.content_markdown);
+        END;
+
+        CREATE TRIGGER items_fts_update
+        AFTER UPDATE OF title, author, summary, content_markdown ON items BEGIN
+            INSERT INTO items_fts(items_fts, rowid, title, author, summary, content_markdown)
+            VALUES ('delete', old.id, old.title, old.author, old.summary, old.content_markdown);
+            INSERT INTO items_fts(rowid, title, author, summary, content_markdown)
+            VALUES (new.id, new.title, new.author, new.summary, new.content_markdown);
+        END;
+
+        INSERT INTO items_fts(items_fts) VALUES('rebuild');
         """;
 }

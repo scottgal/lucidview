@@ -30,6 +30,39 @@ public sealed class ItemRow : INotifyPropertyChanged
     /// </summary>
     public string Snippet { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The passage FTS5 says matched, delimited with SearchHit.MatchStart and
+    /// MatchEnd, set only on rows built from a search result. Empty on an
+    /// ordinary feed-list row.
+    /// </summary>
+    public string MatchedSnippet { get; init; } = string.Empty;
+
+    /// <summary>
+    /// True on a row that came from a search. Decides which of the two
+    /// preview lines the row shows: the stored summary preview, or the passage
+    /// that matched. The two are different things and a search result showing
+    /// the first cannot say why it is in the list.
+    /// </summary>
+    public bool IsSearchResult { get; init; }
+
+    /// <summary>
+    /// The matched passage split into words, each flagged as matching or not,
+    /// which is how the row highlights the query terms. Computed once here
+    /// rather than in a converter, same as <see cref="Snippet"/>.
+    ///
+    /// Two explicit visibility properties rather than a "!IsSearchResult"
+    /// binding, for the reason given on <see cref="IsUnread"/>: this project
+    /// runs with reflection bindings and a named property cannot be
+    /// misread.
+    /// </summary>
+    public IReadOnlyList<SnippetWord> SnippetWords =>
+        _snippetWords ??= SearchSnippet.ToWords(MatchedSnippet);
+
+    private IReadOnlyList<SnippetWord>? _snippetWords;
+
+    public bool IsSearchSnippetVisible => IsSearchResult && MatchedSnippet.Length > 0;
+    public bool IsPlainSnippetVisible => !IsSearchSnippetVisible;
+
     public bool IsRead
     {
         get => _isRead;
