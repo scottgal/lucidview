@@ -44,6 +44,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
     private readonly Func<ReaderSettings> _settings;
     private readonly TimeProvider _time;
     private readonly TimeSpan _maxFetchDuration;
+    private readonly TimeSpan _drainTimeout;
     private readonly EphemeralWorkCoordinator<FeedRefreshRequest> _coordinator;
     private readonly ConcurrentDictionary<long, byte> _inFlight = new();
 
@@ -56,7 +57,8 @@ public sealed class FeedRefreshService : IAsyncDisposable
         Func<ReaderSettings> settings,
         TimeProvider timeProvider,
         int maxConcurrency = 4,
-        TimeSpan? maxFetchDuration = null)
+        TimeSpan? maxFetchDuration = null,
+        TimeSpan? drainTimeout = null)
     {
         _feeds = feeds;
         _items = items;
@@ -66,6 +68,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
         _settings = settings;
         _time = timeProvider;
         _maxFetchDuration = maxFetchDuration ?? MaxFeedFetchDuration;
+        _drainTimeout = drainTimeout ?? DefaultDrainTimeout;
 
         _coordinator = new EphemeralWorkCoordinator<FeedRefreshRequest>(
             RunAsync,
@@ -422,10 +425,17 @@ public sealed class FeedRefreshService : IAsyncDisposable
 
     /// <summary>
     /// How long disposal waits for refreshes already dispatched to finish
-    /// before giving up on them. A refresh is bounded at MaxFeedFetchDuration
-    /// (60s) by RefreshWithTimeoutGuardAsync, so this is that plus slack.
+    /// before giving up on them.
+    ///
+    /// Deliberately short, and NOT MaxFeedFetchDuration plus slack. The drain
+    /// is here so a refresh that is milliseconds from writing gets to finish,
+    /// not so a wedged fetch can hold the quit open: App.axaml.cs bounds the
+    /// whole shutdown at 10 seconds, so anything longer than that is time the
+    /// app cannot spend anyway. Sizing it at 70s also made
+    /// FeedRefreshServiceTests take 70 seconds, because a test that disposes
+    /// with a deliberately stalled body waits out the entire bound.
     /// </summary>
-    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(70);
+    private static readonly TimeSpan DefaultDrainTimeout = TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// Complete, then drain, then dispose.
@@ -444,7 +454,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
     {
         _coordinator.Complete();
 
-        try { await _coordinator.DrainAsync().WaitAsync(DrainTimeout); }
+        try { await _coordinator.DrainAsync().WaitAsync(_drainTimeout); }
         catch (OperationCanceledException) { }
         catch (TimeoutException) { /* best effort; disposal must still proceed */ }
 

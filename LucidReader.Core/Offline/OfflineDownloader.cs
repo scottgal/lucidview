@@ -46,6 +46,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
     private readonly IHtmlToMarkdownService _converter;
     private readonly Func<ReaderSettings> _settings;
     private readonly TimeSpan _maxFetchDuration;
+    private readonly TimeSpan _drainTimeout;
     private readonly IArticleImageCache? _imageCache;
     private readonly EphemeralWorkCoordinator<long> _coordinator;
     private readonly ConcurrentDictionary<long, byte> _inFlight = new();
@@ -59,7 +60,8 @@ public sealed class OfflineDownloader : IAsyncDisposable
         TimeProvider timeProvider,
         int maxConcurrency = 2,
         TimeSpan? maxFetchDuration = null,
-        IArticleImageCache? imageCache = null)
+        IArticleImageCache? imageCache = null,
+        TimeSpan? drainTimeout = null)
     {
         _items = items;
         _feeds = feeds;
@@ -67,6 +69,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
         _converter = converter;
         _settings = settings;
         _maxFetchDuration = maxFetchDuration ?? MaxArticleFetchDuration;
+        _drainTimeout = drainTimeout ?? DefaultDrainTimeout;
         _imageCache = imageCache;
 
         _coordinator = new EphemeralWorkCoordinator<long>(
@@ -351,7 +354,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
     /// An article fetch is bounded at MaxArticleFetchDuration (180s), so this
     /// is that plus slack.
     /// </summary>
-    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(190);
+    private static readonly TimeSpan DefaultDrainTimeout = TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// Complete, then drain, then dispose. Same reasoning as
@@ -366,7 +369,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
     {
         _coordinator.Complete();
 
-        try { await _coordinator.DrainAsync().WaitAsync(DrainTimeout); }
+        try { await _coordinator.DrainAsync().WaitAsync(_drainTimeout); }
         catch (OperationCanceledException) { }
         catch (TimeoutException) { /* best effort; disposal must still proceed */ }
 
