@@ -2,7 +2,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sty="using:FluentAvalonia.Styling"
              x:Class="LucidReader.App"
+             Name="mylo"
              RequestedThemeVariant="Default">
+
+    <!--
+        Name is not decoration. On macOS the leftmost menu in the system menu
+        bar is drawn by AppKit from the application's name, not from the header
+        of the first NativeMenu item, and Avalonia's default for that name is
+        the literal string "Avalonia Application" - which is what the menu bar
+        read before this line existed. In a packaged .app it is CFBundleName in
+        Info.plist that wins; this is what an unbundled run of the binary has
+        to go on, and it is also what the About box and the Windows/Linux
+        in-window menu use.
+    -->
 
     <!--
         LiveMarkdown.Avalonia's own resources: without Defaults.axaml, the

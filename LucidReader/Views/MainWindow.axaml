@@ -38,7 +38,23 @@
         harness, which the KeyBindings never were.
     -->
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!--
+            The in-window menu bar, for Windows and Linux only, which have no
+            system menu bar to put the application menu in. It starts hidden
+            and is only populated and shown by InstallWindowMenu
+            (MainWindow.Menu.cs) when the platform is not macOS, so on macOS
+            this Auto row measures to zero and Grid.Row 1 below still holds
+            the title-bar band the traffic lights are drawn over.
+
+            Populated from code rather than declared here: the same
+            LucidReader.Models.ReaderMenu description builds this and the
+            macOS NativeMenu, and two hand-kept copies of a menu structure
+            drift.
+        -->
+        <Menu Grid.Row="0" x:Name="WindowMenu" IsVisible="False"
+              Background="{DynamicResource SidebarBackgroundBrush}" />
 
         <!--
             One unified toolbar spanning the full window width, the way Mail
@@ -52,7 +68,7 @@
             at the right end of this same row rather than in the status bar,
             which now only shows StatusText.
         -->
-        <Border Grid.Row="0" Background="{DynamicResource SidebarBackgroundBrush}"
+        <Border Grid.Row="1" Background="{DynamicResource SidebarBackgroundBrush}"
                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource HairlineBrush}">
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="80,10,12,10">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -60,8 +76,7 @@
                         The layout button, first in the row because that is
                         where macOS puts the sidebar toggle and because the
                         pane it collapses first is the one directly below it.
-                        Icon-only and narrow: this toolbar already carries six
-                        labelled buttons, and a seventh word would cost the
+                        Icon-only and narrow: another word here would cost the
                         search box its width before it bought any clarity the
                         icon does not already give.
 
@@ -110,18 +125,15 @@
                             IsVisible="{Binding IsPausedFeedSelected}"
                             Click="OnToolbarResumeFeedClicked" />
                     <!--
-                        OPML lives on the toolbar rather than in a menu: this
-                        window has no menu bar, and a MenuFlyout would open
-                        into its own PopupRoot, which the UI test harness can
-                        neither click nor capture - the same reason the
-                        per-feed settings gained a toolbar button in Task 12.
-                        Click handlers, not Command bindings: see
-                        MainWindow.Subscriptions.cs.
+                        Import OPML and Export OPML used to sit here, and no
+                        longer do. Both are operations a reader performs
+                        perhaps twice in the life of a profile, and they were
+                        two of seven buttons crowding a toolbar whose other
+                        job is to hold the search box. They are now under
+                        File, and only under File. The comment they replaced
+                        argued they had to be on the toolbar because this
+                        window had no menu bar; it does now.
                     -->
-                    <Button x:Name="ImportOpmlButton" Content="Import OPML" Classes="row-toolbar"
-                            Click="OnImportOpmlClicked" />
-                    <Button x:Name="ExportOpmlButton" Content="Export OPML" Classes="row-toolbar"
-                            Click="OnExportOpmlClicked" />
                 </StackPanel>
 
                 <!--
@@ -165,7 +177,7 @@
             content alone is not enough: a zero-content column still holds its
             260px open.
         -->
-        <Grid Grid.Row="1" x:Name="PaneGrid" ColumnDefinitions="260,4,340,4,*">
+        <Grid Grid.Row="2" x:Name="PaneGrid" ColumnDefinitions="260,4,340,4,*">
 
             <!--
                 The sidebar is the one translucent surface (Task 8a Step 8);
@@ -477,7 +489,7 @@
             </ScrollViewer>
         </Grid>
 
-        <Border Grid.Row="2" Padding="8,4" BorderThickness="0,1,0,0"
+        <Border Grid.Row="3" Padding="8,4" BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource HairlineBrush}"
                 Background="{DynamicResource ListBackgroundBrush}">
             <TextBlock x:Name="StatusText" Text="{Binding StatusMessage}" Classes="row-secondary" />

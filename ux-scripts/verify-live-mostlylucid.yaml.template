@@ -1,0 +1,225 @@
+name: verify-live-mostlylucid
+description: >
+  The only script in this directory that asserts on real articles from a real
+  publisher.
+
+  Everything else either runs against the seeded fixture (reserved .test
+  addresses that cannot resolve) or, like verify-mostlylucid.yaml, stops at
+  the point where discovery says it found something. Neither of them can tell
+  you that a refresh actually produced readable articles, which is the one
+  question a reader has to be able to answer.
+
+  So this subscribes to https://www.mostlylucid.net for real, waits for the
+  fetch and the offline download, and then asserts four things about what
+  came back: the item list is not empty, a row has a real title, the article
+  renders with the offline badge gone (which is only true when the download
+  completed AND StyloExtract produced extracted content, not a stub), and a
+  full-text search for a word taken from a real article finds it.
+
+  mostlylucid.net is the maintainer's own site and is the only host sanctioned
+  for repeated automated fetching. No other publisher appears here, and this
+  script must not grow one.
+
+  Run it through ux-scripts/run-live-mostlylucid.sh. That script builds the
+  throwaway profile this runs against, deletes it on the way out including on
+  failure and on interrupt, and is what substitutes __SEARCH_WORD__ below -
+  which is why this file is a template rather than a script. The word cannot
+  be written down in advance: it has to come from an article that is on the
+  site today, or "search finds a real word" would be a search for a word this
+  file made up.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load, against an empty profile
+
+  - type: Screenshot
+    value: 00-empty
+    description: >
+      An empty reader. Worth capturing: this profile is seeded with a
+      settings.json before launch, so the first-run default feeds must NOT
+      have fired here.
+
+  # Selected first, because nothing is selected at startup and the status
+  # line is only written by a query. Without the click the assertion below
+  # would be reading an empty string and would pass for the wrong reason.
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "No articles here yet."
+    description: >
+      The first-run default feeds must not have fired against this profile:
+      it has a settings.json, which FirstRunSeedPolicy treats as a profile
+      that has been used before.
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+
+  # =====================================================================
+  # Subscribe, for real.
+  # =====================================================================
+  - type: Click
+    target: AddFeedButton
+
+  - type: Wait
+    value: "800"
+
+  - type: TypeText
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    value: "mostlylucid.net"
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: ContainsText
+    value: "Found"
+    timeout: 30000
+
+  - type: Screenshot
+    value: 01-discovered
+    window_id: "Add Feed"
+
+  - type: Click
+    target: AddButton
+    window_id: "Add Feed"
+    description: >
+      Subscribes to everything discovery returned, which for this site is both
+      the RSS and the Atom feed. Two subscriptions carrying the same articles
+      is not the tidiest outcome, but unticking one would mean clicking a
+      CheckBox inside a ListBox item, and the counts below are all lower
+      bounds precisely so this does not have to be exact.
+
+  - type: Wait
+    value: "4000"
+    description: The writes, the sidebar reload and the start of the fetch
+
+  # =====================================================================
+  # Real articles arrive.
+  #
+  # The wait is long because three things have to happen in order: the feed
+  # fetch, the parse and upsert, and then the offline download of the first
+  # article's full text. Expect polls rather than sleeping, so the timeouts
+  # below are ceilings and not costs.
+  # =====================================================================
+  - type: Wait
+    value: "14000"
+    description: Let the fetch, the parse and the first downloads land
+
+  # Away and back, not All items twice.
+  #
+  # All items is still the selected row from the top of this script, and
+  # SelectedFeedNode's setter returns early when the value has not changed,
+  # so clicking it again reloads nothing and leaves whatever the Add wrote on
+  # the status line. Selecting Unread first makes the return to All items a
+  # real selection change, which is what runs the query the assertion below
+  # reads.
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Unread'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Unread'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "1500"
+
+  - type: Expect
+    target: StatusText
+    matcher: MatchesRegex
+    value: "^[1-9][0-9]* articles$"
+    timeout: 30000
+    description: >
+      A lower bound, not a count. How many articles mostlylucid.net is
+      carrying today is the site's business; that there is at least one is
+      this script's.
+
+  - type: Screenshot
+    value: 02-real-articles
+
+  # =====================================================================
+  # A row has a real title, and opening it renders a real body.
+  #
+  # J rather than a click on a row: no article title can be written down in
+  # advance here, and J is the next-item shortcut, which selects the first
+  # row when nothing is selected. It also gets the bare-letter shortcut
+  # exercised against live data on the way past.
+  # =====================================================================
+  - type: PressKey
+    target: ItemList
+    value: "J"
+
+  - type: Wait
+    value: "2000"
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: MatchesRegex
+    value: "^.{8,}$"
+    description: A real headline, not "Untitled" and not empty
+
+  - type: Expect
+    target: ArticleMetaText
+    matcher: ContainsText
+    value: "mostlylucid"
+    description: The feed name the article actually came from
+
+  - type: Expect
+    target: OfflineBadge
+    matcher: IsHidden
+    timeout: 90000
+    description: >
+      The strongest assertion in this file. The badge is hidden on exactly one
+      combination, Downloaded plus Extracted, which means the article page was
+      fetched and HtmlToMarkdownService (StyloExtract) produced extracted
+      content for it. A stub, an empty body or a failed fetch all leave the
+      badge showing with wording of their own.
+
+  - type: Screenshot
+    value: 03-real-article
+    description: The reading pane, rendering a real mostlylucid.net article
+
+  # =====================================================================
+  # Full-text search finds a word from a real article. The word is
+  # substituted by run-live-mostlylucid.sh from the live feed.
+  # =====================================================================
+  - type: TypeText
+    target: SearchBox
+    value: "__SEARCH_WORD__"
+
+  - type: Wait
+    value: "2500"
+    description: The 250ms debounce plus the FTS query
+
+  - type: Expect
+    target: StatusText
+    matcher: MatchesRegex
+    value: "^[1-9][0-9]* results? for"
+    timeout: 20000
+
+  - type: Screenshot
+    value: 04-search-hit

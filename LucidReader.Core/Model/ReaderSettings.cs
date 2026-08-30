@@ -84,5 +84,16 @@ public sealed record ReaderSettings
     /// </summary>
     public bool EnableOnlineFeedSearch { get; init; }
 
+    /// <summary>
+    /// Set once, the first time the starter subscriptions in
+    /// LucidReader.Core.Feeds.DefaultFeeds are written, and never cleared.
+    ///
+    /// It lives here rather than in the database because it has to survive an
+    /// empty feed table: its whole job is to stop a profile whose owner has
+    /// unsubscribed from everything being handed the starter list again on
+    /// the next launch. FirstRunSeedPolicy is what reads it.
+    /// </summary>
+    public bool HasSeededDefaultFeeds { get; init; }
+
     public static ReaderSettings Defaults { get; } = new();
 }

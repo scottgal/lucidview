@@ -70,6 +70,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         FetchFullArticleCommand = new RelayCommand(FetchFullArticleAsync);
         ConfigurePlatformKeyBindings();
 
+        // After ConfigurePlatformKeyBindings, which resolves the command
+        // modifier the menu accelerators are built from, and after
+        // InitializeComponent, which is what gives InstallWindowMenu a
+        // WindowMenu to fill.
+        InstallMenus();
+
         // FindControl rather than the generated ReadingPane field only because
         // the pane is optional to this constructor: it is the one named control
         // whose absence should not throw. The generated fields are populated by
@@ -202,6 +208,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Raise(nameof(IsFeedSelected));
             Raise(nameof(IsPausedFeedSelected));
 
+            // The Feed menu's items are gated on the same two answers the two
+            // properties above give, and a NativeMenuItem has no DataContext
+            // to bind them through, so it has to be told.
+            UpdateMenuEnablement();
+
             // The scope toggle describes the selection, so both its enabled
             // state and its label change with it.
             Raise(nameof(CanScopeSearchToSelection));
@@ -256,6 +267,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (ReferenceEquals(_selectedItemRow, value)) return;
             _selectedItemRow = value;
             Raise();
+            UpdateMenuEnablement();
             _ = OnItemSelectedAsync(value);
         }
     }
@@ -324,6 +336,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         await LoadFeedTreeAsync();
+
+        // Said once, on the one launch it can be true, and only when nothing
+        // more important is already on the status line: a first run that
+        // arrives with five subscriptions nobody typed should say where they
+        // came from.
+        if (!hasStartupWarning && _services.SeededDefaultFeedCount > 0)
+            StatusMessage = LucidReader.Core.Feeds.FirstRunSeedPolicy
+                .DescribeSeed(_services.SeededDefaultFeedCount);
 
         // After the tree, so the first readout already knows how many feeds
         // came back auto-paused. StartHealthMonitoring only schedules the
@@ -477,6 +497,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Raise(nameof(SelectedFeedNode));
         Raise(nameof(IsFeedSelected));
         Raise(nameof(IsPausedFeedSelected));
+
+        // A reload can turn a healthy feed into a paused one and back, so the
+        // Feed menu has to be re-gated here too, not only on a click.
+        UpdateMenuEnablement();
     }
 
     private static FeedTreeNode ToNode(Feed feed, IReadOnlyDictionary<long, int> unread) => new()

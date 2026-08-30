@@ -10,8 +10,12 @@ description: >
   This step needs network access; without it the Found-2-feeds expectation is
   the one that will fail.
 
-  The two OPML buttons are checked for presence only: both open a native file
-  picker, which is an OS-owned window the harness cannot see into.
+  The two OPML buttons this script used to check for presence are gone: OPML
+  import and export moved off the toolbar into the File menu, which the
+  harness cannot reach at all (a macOS NativeMenu is drawn by AppKit outside
+  the window, and an in-window Menu opens into a PopupRoot). Their wiring is
+  asserted in LucidReader.Core.Tests/Ui/ReaderMenuTests.cs instead. Both still
+  end in a native file picker, which was never drivable from here either.
 default_delay: 250
 
 actions:
@@ -21,14 +25,6 @@ actions:
 
   - type: Screenshot
     value: 00-main-window
-
-  - type: Expect
-    target: ImportOpmlButton
-    matcher: IsEnabled
-
-  - type: Expect
-    target: ExportOpmlButton
-    matcher: IsEnabled
 
   - type: Click
     target: AddFeedButton

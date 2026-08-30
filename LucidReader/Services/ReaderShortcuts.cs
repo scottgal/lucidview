@@ -24,7 +24,10 @@ public enum ReaderShortcut
     FindInArticle,
     AddFeed,
     OpenSettings,
-    ExportArticle
+    ExportArticle,
+    IncreaseFontSize,
+    DecreaseFontSize,
+    ResetFontSize
 }
 
 /// <summary>
@@ -83,6 +86,17 @@ public static class ReaderShortcuts
                 Key.N => ReaderShortcut.AddFeed,
                 Key.OemComma => ReaderShortcut.OpenSettings,
                 Key.S => ReaderShortcut.ExportArticle,
+
+                // The three reading-size gestures the View menu also offers.
+                // They are resolved here as well as being drawn in the menu so
+                // they work on Windows and Linux, where an in-window Menu's
+                // gesture is only ever a label. On macOS the native menu claims
+                // the keystroke before it is routed, so only one of the two
+                // paths runs.
+                Key.OemPlus => ReaderShortcut.IncreaseFontSize,
+                Key.OemMinus => ReaderShortcut.DecreaseFontSize,
+                Key.D0 => ReaderShortcut.ResetFontSize,
+
                 _ => ReaderShortcut.None
             };
         }

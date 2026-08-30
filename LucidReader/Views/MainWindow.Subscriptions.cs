@@ -178,13 +178,8 @@ public partial class MainWindow
         }
     }
 
-    /// <summary>
-    /// Click handlers rather than Command bindings for the two OPML toolbar
-    /// buttons: with compiled bindings off, a Command binding to a property
-    /// that does not exist fails silently and leaves a dead button, and these
-    /// two have no keyboard shortcut that would need an ICommand anyway.
-    /// </summary>
-    private async void OnImportOpmlClicked(object? sender, RoutedEventArgs e) => await ImportOpmlAsync();
-
-    private async void OnExportOpmlClicked(object? sender, RoutedEventArgs e) => await ExportOpmlAsync();
+    // The two OnImport/OnExportOpmlClicked handlers that used to sit here went
+    // with the toolbar buttons they served. Both methods above are now reached
+    // from the File menu (MainWindow.Menu.cs), which calls them through
+    // RunGuardedAsync rather than from an async void of their own.
 }

@@ -157,10 +157,38 @@ public partial class MainWindow
             ReaderShortcut.AddFeed => AddFeedCommand,
             ReaderShortcut.OpenSettings => OpenSettingsCommand,
             ReaderShortcut.ExportArticle => ExportArticleCommand,
+
+            // The three reading-size gestures have no command of their own:
+            // they are menu actions, and the View menu is where they are named
+            // (LucidReader.Models.ReaderMenu). Routing them through
+            // RunMenuAction rather than giving them a second implementation
+            // here is what keeps the keystroke and the menu item doing exactly
+            // the same thing.
+            ReaderShortcut.IncreaseFontSize => null,
+            ReaderShortcut.DecreaseFontSize => null,
+            ReaderShortcut.ResetFontSize => null,
+
             _ => null
         };
 
-        command?.Execute(null);
+        if (command is not null)
+        {
+            command.Execute(null);
+            return;
+        }
+
+        switch (shortcut)
+        {
+            case ReaderShortcut.IncreaseFontSize:
+                RunMenuAction(ReaderMenuAction.IncreaseFontSize);
+                break;
+            case ReaderShortcut.DecreaseFontSize:
+                RunMenuAction(ReaderMenuAction.DecreaseFontSize);
+                break;
+            case ReaderShortcut.ResetFontSize:
+                RunMenuAction(ReaderMenuAction.ResetFontSize);
+                break;
+        }
     }
 
     private RelayCommand? _nextItem, _previousItem, _nextUnread, _previousUnread;

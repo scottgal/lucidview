@@ -146,6 +146,14 @@ public sealed class ReaderServices : IAsyncDisposable
     /// </summary>
     public Exception? StartupWarning { get; private init; }
 
+    /// <summary>
+    /// How many starter subscriptions this launch wrote, which is zero on
+    /// every launch but the very first one of a new profile. The window reads
+    /// it so the status bar can say where the feeds came from rather than
+    /// leaving them to appear unexplained.
+    /// </summary>
+    public int SeededDefaultFeedCount { get; private set; }
+
     public ReaderSettings Settings => Volatile.Read(ref _settings!);
 
     public event Action<ReaderSettings>? SettingsChanged;
@@ -236,6 +244,77 @@ public sealed class ReaderServices : IAsyncDisposable
             scheduler.Start();
 
         return built;
+    }
+
+    /// <summary>
+    /// Writes the starter subscriptions on a genuinely new profile, and on no
+    /// other. FirstRunSeedPolicy owns the decision; everything here is the
+    /// part that needs a database.
+    ///
+    /// Called by App.axaml.cs after StartAsync rather than from inside it, and
+    /// that placement is deliberate. StartAsync is what a unit test uses to
+    /// get an engine over a temporary directory, and a temporary directory is
+    /// by definition a profile with no settings file and no feeds: seeding
+    /// there would put five real subscriptions into every such test and make
+    /// every count in them wrong. Seeding is a thing the application does on
+    /// its first launch, not a thing constructing the engine does.
+    ///
+    /// The rows go in through FeedRepository.AddAsync, the same call the Add
+    /// Feed dialog and the OPML importer use, and every address is put through
+    /// FeedUrlPolicy first (DefaultFeeds.Allowed). A hard-coded URL gets no
+    /// exemption from the gate the app applies to everything else.
+    ///
+    /// The flag is persisted even when nothing was written. A first run whose
+    /// seeding failed outright must not try again on every subsequent launch,
+    /// and a user who deletes the starter feeds must be able to keep an empty
+    /// reader.
+    /// </summary>
+    public async Task SeedDefaultFeedsIfFirstRunAsync(CancellationToken ct = default)
+    {
+        // Read here rather than at the top of StartAsync because nothing
+        // between the two points writes settings.json: LoadAsync tolerates a
+        // missing file by returning defaults without creating one. What this
+        // has to distinguish is a brand new profile directory from one that
+        // has been used before, and the presence of the file is that fact.
+        var settingsFileExisted = File.Exists(_settingsPath);
+
+        var existing = await Feeds.GetAllAsync(ct);
+
+        if (!FirstRunSeedPolicy.ShouldSeed(settingsFileExisted, Settings.HasSeededDefaultFeeds, existing.Count))
+            return;
+
+        var added = 0;
+        foreach (var candidate in DefaultFeeds.Allowed())
+        {
+            try
+            {
+                var id = await Feeds.AddAsync(new Feed
+                {
+                    FeedUrl = candidate.FeedUrl,
+                    Title = candidate.Title,
+                    SiteUrl = candidate.SiteUrl
+                }, ct);
+                added++;
+
+                // Queued rather than left to the scheduler's first tick, for
+                // the same reason the Add Feed dialog queues what it adds: a
+                // first run whose sidebar shows five feeds and no articles
+                // reads as broken.
+                Refresh.TryQueue(id, isManual: true);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // One bad starter row must not stop the app opening, and it
+                // must not stop the other four being written either.
+            }
+        }
+
+        SeededDefaultFeedCount = added;
+        await UpdateSettingsAsync(Settings with { HasSeededDefaultFeeds = true }, ct);
     }
 
     /// <summary>

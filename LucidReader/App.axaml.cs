@@ -47,6 +47,25 @@ public class App : Application
             {
                 _services = Task.Run(() => ReaderServices.StartAsync(databasePath, settingsPath))
                     .GetAwaiter().GetResult();
+
+                // The one place the starter subscriptions can be written: this
+                // is the application launching, which is the only event that
+                // "first run" can possibly mean. ReaderServices.StartAsync
+                // deliberately does not do it, because a unit test opening an
+                // engine over a temporary directory would otherwise be handed
+                // five real feeds. Task.Run for the same reason as above.
+                //
+                // Wrapped, because a failure to seed is not a reason the app
+                // cannot open. The user gets an empty reader, which is exactly
+                // what they had before this existed.
+                try
+                {
+                    Task.Run(() => _services.SeedDefaultFeedsIfFirstRunAsync()).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[Seed] {ex.GetType().Name}: {ex.Message}");
+                }
             }
             catch (Exception ex)
             {

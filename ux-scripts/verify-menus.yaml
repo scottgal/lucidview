@@ -1,0 +1,84 @@
+name: verify-menus
+description: >
+  Looks at the application menu.
+
+  This is the only way to look at it on macOS. The menus mylo actually shows
+  there are a NativeMenu, drawn by AppKit in the system menu bar, outside any
+  surface Avalonia owns: the harness cannot locate an item in it, cannot click
+  one, and cannot screenshot it. A full-screen capture is no help either on a
+  machine whose menu bar is set to auto-hide.
+
+  So run-menus.sh sets MYLO_FORCE_WINDOW_MENU=1, a Debug-only switch that
+  renders the same LucidReader.Models.ReaderMenu description as the in-window
+  Menu that Windows and Linux get. What that proves is that the description
+  builds into real menus with the right headers in the right order, and what
+  it deliberately does not prove is that AppKit is drawing them: no script can
+  reach that, and the structure itself is asserted instead in
+  LucidReader.Core.Tests/Ui/ReaderMenuTests.cs.
+
+  The submenus are opened and screenshotted where the harness can follow them.
+  An Avalonia MenuItem opens its children into a PopupRoot, so whether a given
+  item is reachable from here depends on the harness's cross-window tracking;
+  the assertions below are limited to what it can actually see.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  - type: Expect
+    target: WindowMenu
+    matcher: IsVisible
+    description: >
+      The forced in-window menu. On macOS without the switch this stays
+      hidden and its grid row measures to zero, which is what keeps the
+      toolbar in the title-bar band the traffic lights are drawn over.
+
+  - type: Screenshot
+    value: 00-menu-bar
+    description: The six top-level menus, above the toolbar
+
+  - type: Expect
+    target: "text='mylo'"
+    matcher: IsVisible
+    description: >
+      The application menu is named after the product. On macOS this header is
+      ignored and AppKit uses Application.Name instead, which App.axaml now
+      sets to the same word for the same reason.
+
+  - type: Expect
+    target: "text='File'"
+    matcher: IsVisible
+  - type: Expect
+    target: "text='Edit'"
+    matcher: IsVisible
+  - type: Expect
+    target: "text='View'"
+    matcher: IsVisible
+  - type: Expect
+    target: "text='Feed'"
+    matcher: IsVisible
+  - type: Expect
+    target: "text='Help'"
+    matcher: IsVisible
+
+  # MouseDown/MouseUp rather than Click: the harness's Click on a control
+  # that is not a Button only calls Focus(), and a MenuItem is not a Button.
+  - type: MouseDown
+    target: "text='File'"
+    button: left
+  - type: MouseUp
+    target: "text='File'"
+    button: left
+
+  - type: Wait
+    value: "900"
+
+  - type: Screenshot
+    value: 01-file-menu
+    description: >
+      The File menu, if the harness can see into the PopupRoot a MenuItem
+      opens its children in. If this capture shows the window with nothing
+      dropped down, that is the limit being reached rather than a menu that
+      failed to open.

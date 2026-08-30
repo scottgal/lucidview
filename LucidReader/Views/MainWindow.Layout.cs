@@ -64,9 +64,17 @@ public partial class MainWindow
     /// </summary>
     public string LayoutButtonTip => ReaderLayout.DescribeNext(_layoutMode);
 
-    private void OnLayoutButtonClicked(object? sender, RoutedEventArgs e)
+    private void OnLayoutButtonClicked(object? sender, RoutedEventArgs e) =>
+        SetLayoutMode(ReaderLayout.Next(_layoutMode));
+
+    /// <summary>
+    /// Puts the window into a named mode. The toolbar button reaches this
+    /// with the next mode in the cycle; the View menu reaches it with a mode
+    /// the user picked outright. One method rather than two so both routes
+    /// apply, describe and persist identically.
+    /// </summary>
+    internal void SetLayoutMode(ReaderLayoutMode next)
     {
-        var next = ReaderLayout.Next(_layoutMode);
         LayoutMode = next;
         ApplyLayoutMode(next);
         StatusMessage = ReaderLayout.Describe(next);
