@@ -346,9 +346,30 @@ public sealed class OfflineDownloader : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// How long disposal waits for downloads already dispatched to finish.
+    /// An article fetch is bounded at MaxArticleFetchDuration (180s), so this
+    /// is that plus slack.
+    /// </summary>
+    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(190);
+
+    /// <summary>
+    /// Complete, then drain, then dispose. Same reasoning as
+    /// FeedRefreshService.DisposeAsync: the coordinator dispatches bodies
+    /// fire-and-forget, so disposing without draining returned while a
+    /// download was still fetching, and ReaderServices then closed the
+    /// database under it - the finished article was thrown away with its
+    /// SetContentAsync failing into a catch-all. Bounded so a stalled fetch
+    /// cannot hang the quit.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         _coordinator.Complete();
+
+        try { await _coordinator.DrainAsync().WaitAsync(DrainTimeout); }
+        catch (OperationCanceledException) { }
+        catch (TimeoutException) { /* best effort; disposal must still proceed */ }
+
         await _coordinator.DisposeAsync();
     }
 }

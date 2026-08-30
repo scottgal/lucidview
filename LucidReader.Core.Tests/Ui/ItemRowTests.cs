@@ -45,8 +45,8 @@ public class ItemRowTests
             FeedName = "Example"
         };
 
-        Assert.Equal("SemiBold", row.TitleWeight);
+        Assert.Equal(Avalonia.Media.FontWeight.SemiBold, row.TitleWeight);
         row.IsRead = true;
-        Assert.Equal("Normal", row.TitleWeight);
+        Assert.Equal(Avalonia.Media.FontWeight.Normal, row.TitleWeight);
     }
 }

@@ -917,5 +917,8 @@ Naiad/src/Naiad.Wasm.Npm.Mermaid/dist/
 Naiad/lib/
 
 
-# UI testing harness output
+# UI testing harness output. ux-screenshots/ is the harness's own default
+# screenshot directory (see LucidReader/Program.cs), so running any script
+# from the repo root drops PNGs there.
 ux-results/
+ux-screenshots/

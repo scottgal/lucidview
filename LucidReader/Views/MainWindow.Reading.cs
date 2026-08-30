@@ -149,9 +149,19 @@ public partial class MainWindow
         });
     }
 
+    /// <summary>
+    /// 0 idle, 1 running. A full-article fetch is bounded at
+    /// OfflineDownloader.MaxArticleFetchDuration (180 seconds) and holds the
+    /// status line for all of it, so without this a user watching nothing
+    /// happen and clicking again would start a second fetch of the same
+    /// article, and the two would race each other's status writes.
+    /// </summary>
+    private int _fetchFullArticleRunning;
+
     public async Task FetchFullArticleAsync()
     {
         if (SelectedItemRow is not { } row) return;
+        if (Interlocked.Exchange(ref _fetchFullArticleRunning, 1) != 0) return;
 
         StatusMessage = "Fetching the full article...";
         try
@@ -163,6 +173,10 @@ public partial class MainWindow
         catch (Exception ex)
         {
             StatusMessage = "Could not fetch the article: " + ex.Message;
+        }
+        finally
+        {
+            Volatile.Write(ref _fetchFullArticleRunning, 0);
         }
     }
 

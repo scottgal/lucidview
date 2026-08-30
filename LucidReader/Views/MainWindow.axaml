@@ -16,33 +16,27 @@
         <controls:PathToBitmapConverter x:Key="PathToBitmapConverter" />
     </Window.Resources>
 
-    <Window.KeyBindings>
-        <KeyBinding Gesture="J" Command="{Binding NextItemCommand}" />
-        <KeyBinding Gesture="K" Command="{Binding PreviousItemCommand}" />
-        <KeyBinding Gesture="N" Command="{Binding NextUnreadCommand}" />
-        <KeyBinding Gesture="P" Command="{Binding PreviousUnreadCommand}" />
-        <KeyBinding Gesture="M" Command="{Binding ToggleReadCommand}" />
-        <KeyBinding Gesture="S" Command="{Binding ToggleStarCommand}" />
-        <KeyBinding Gesture="R" Command="{Binding RefreshCurrentFeedCommand}" />
-        <KeyBinding Gesture="Shift+R" Command="{Binding RefreshAllCommand}" />
-        <KeyBinding Gesture="O" Command="{Binding OpenOriginalCommand}" />
-        <KeyBinding Gesture="OemQuestion" Command="{Binding FocusSearchCommand}" />
-        <KeyBinding Gesture="T" Command="{Binding EditTagsCommand}" />
-        <!--
-            The Find-in-article, Add-feed, Settings and Export shortcuts are
-            NOT declared here: this app is styled after macOS Mail for a
-            Mac-first audience, where those gestures take Command, not
-            Control (Cmd+, for settings especially is a system-wide
-            convention). A static XAML Gesture string can only hardcode one
-            modifier, so they are added in code
-            (MainWindow.Actions.cs, ConfigurePlatformKeyBindings) using
-            Avalonia's own PlatformSettings.HotkeyConfiguration.CommandModifiers,
-            which resolves to Meta on macOS and Control elsewhere. Export
-            uses that same modifier plus S; there's no dedicated "export"
-            convention, and platform-Save is the closest existing one for
-            writing the current article out to a file.
-        -->
-    </Window.KeyBindings>
+    <!--
+        There is deliberately no Window.KeyBindings block here.
+
+        This file used to declare ten KeyBinding entries with no modifier at
+        all (J K N P M S R O T and OemQuestion). Avalonia evaluates
+        KeyBindings from the KeyboardDevice, walking up from the focused
+        element BEFORE the routed KeyDown is raised, and KeyBinding.TryHandle
+        has no focus or text-input guard: a focused TextBox never gets the
+        chance to claim the key. Typing "compositor" into the search box
+        therefore opened a browser (o), wrote read state (m), wrote starred
+        state (s), started a network fetch (r) and opened the modal tags
+        dialog (t), all mid-word.
+
+        Every shortcut, letter-only and command-modifier alike, is now
+        resolved in one place: LucidReader.Services.ReaderShortcuts, driven
+        from a bubbling KeyDown handler on this window (see
+        MainWindow.Actions.cs). That handler runs after the focused control
+        has had its turn and consults focus before acting, and being a routed
+        event rather than a KeyBinding it is also reachable from the UI test
+        harness, which the KeyBindings never were.
+    -->
 
     <Grid RowDefinitions="Auto,*,Auto">
 

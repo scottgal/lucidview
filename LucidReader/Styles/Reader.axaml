@@ -235,8 +235,15 @@
         <Setter Property="IsVisible" Value="True" />
     </Style>
 
+    <!--
+        Transparent, not ListBackgroundBrush. The action bar only appears on
+        hover, and on a selected focused row the row underneath is filled with
+        AccentSelectionBrush: an opaque list-background rectangle painted over
+        that read as a light patch punched out of the selection. The buttons
+        inside carry their own hover fill, so they stay legible without one.
+    -->
     <Style Selector="StackPanel.row-actions-bar">
-        <Setter Property="Background" Value="{DynamicResource ListBackgroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
     </Style>
 
     <Style Selector="Button.row-action">

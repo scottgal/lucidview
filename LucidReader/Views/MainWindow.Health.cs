@@ -32,6 +32,15 @@ public partial class MainWindow
     private bool _healthFailureReported;
 
     /// <summary>
+    /// Ticks must not overlap. The interval is 30 seconds and a healthy read
+    /// is far quicker than that, but a store that has gone slow (a wedged
+    /// writer, a database on a stalled network volume) would otherwise stack
+    /// one GetAllAsync on top of another every 30 seconds for the rest of the
+    /// session. 0 means idle, 1 means a tick is in flight.
+    /// </summary>
+    private int _healthTickRunning;
+
+    /// <summary>
     /// How many consecutive failing ticks before the user is told. One blip is
     /// noise; a streak means background refresh has genuinely stopped working.
     /// </summary>
@@ -118,6 +127,14 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// Releases the health cancellation source itself. Separate from
+    /// StopHealthMonitoring, which only has to make in-flight ticks observable
+    /// as cancelled: this runs from PrepareForShutdown once, after the token
+    /// has already been cancelled and no further tick can start.
+    /// </summary>
+    private void DisposeHealthMonitoring() => _healthCancellation.Dispose();
+
+    /// <summary>
     /// A DispatcherTimer Tick handler is a void-returning event, so anything
     /// thrown past it lands on the dispatcher as an unhandled exception and
     /// takes the app down. A health readout is never worth that, hence the
@@ -125,9 +142,15 @@ public partial class MainWindow
     /// </summary>
     private async void OnHealthTimerTick(object? sender, EventArgs e)
     {
+        if (Interlocked.Exchange(ref _healthTickRunning, 1) != 0) return;
+
         try
         {
             await CheckHealthAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // The window closed while this read was in flight. Expected.
         }
         catch (Exception ex)
         {
@@ -140,13 +163,21 @@ public partial class MainWindow
                 Console.Error.WriteLine($"[Health] {ex.GetType().Name}: {ex.Message}");
             }
         }
+        finally
+        {
+            Volatile.Write(ref _healthTickRunning, 0);
+        }
     }
 
     public async Task CheckHealthAsync()
     {
         var token = _healthCancellation.Token;
 
-        var pausedCount = (await _services.Feeds.GetAllAsync())
+        // The token is passed, not just checked afterwards: a read that is
+        // already in flight when the window closes should be given the chance
+        // to unwind rather than run to completion against a store the app is
+        // disposing.
+        var pausedCount = (await _services.Feeds.GetAllAsync(token))
             .Count(f => f.AutoPausedUtc is not null);
 
         // The window may have closed while that read was in flight.
@@ -176,7 +207,8 @@ public partial class MainWindow
 
     private async void OnResumeFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (NodeFromSender(sender)?.FeedId is { } feedId) await ResumeFeedAsync(feedId);
+        if (NodeFromSender(sender)?.FeedId is { } feedId)
+            await RunGuardedAsync(() => ResumeFeedAsync(feedId), "resume this feed");
     }
 
     /// <summary>
@@ -188,7 +220,12 @@ public partial class MainWindow
     /// </summary>
     private async void OnToolbarResumeFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (SelectedFeedNode?.FeedId is { } feedId) await ResumeFeedAsync(feedId);
+        // Guarded like every other async void handler here, and this one
+        // matters most: Resume is the button a user presses precisely because
+        // feeds are already failing, so it is the likeliest of all of them to
+        // throw.
+        if (SelectedFeedNode?.FeedId is { } feedId)
+            await RunGuardedAsync(() => ResumeFeedAsync(feedId), "resume this feed");
     }
 
     /// <summary>

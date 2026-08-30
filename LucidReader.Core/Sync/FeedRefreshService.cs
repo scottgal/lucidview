@@ -420,9 +420,34 @@ public sealed class FeedRefreshService : IAsyncDisposable
         return "sha256:" + Convert.ToHexString(hash)[..32];
     }
 
+    /// <summary>
+    /// How long disposal waits for refreshes already dispatched to finish
+    /// before giving up on them. A refresh is bounded at MaxFeedFetchDuration
+    /// (60s) by RefreshWithTimeoutGuardAsync, so this is that plus slack.
+    /// </summary>
+    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(70);
+
+    /// <summary>
+    /// Complete, then drain, then dispose.
+    ///
+    /// The drain in the middle is the part that used to be missing.
+    /// EphemeralWorkCoordinator dispatches each body fire-and-forget, and its
+    /// DisposeAsync cancels and then awaits only the processing loop - which
+    /// is parked in ReadAllAsync and so completes as cancelled immediately.
+    /// DisposeAsync therefore returned while dispatched refreshes were still
+    /// running, and ReaderServices closed the database underneath them a few
+    /// lines later: their writes threw ChannelClosedException into a catch-all
+    /// and the work was lost with no trace. Draining first gives them the
+    /// chance to finish, bounded so a wedged fetch cannot hang the quit.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         _coordinator.Complete();
+
+        try { await _coordinator.DrainAsync().WaitAsync(DrainTimeout); }
+        catch (OperationCanceledException) { }
+        catch (TimeoutException) { /* best effort; disposal must still proceed */ }
+
         await _coordinator.DisposeAsync();
     }
 }

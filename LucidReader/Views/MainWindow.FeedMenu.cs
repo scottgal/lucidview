@@ -27,9 +27,30 @@ public partial class MainWindow
     private static FeedTreeNode? NodeFromSender(object? sender) =>
         (sender as Avalonia.StyledElement)?.DataContext as FeedTreeNode;
 
+    /// <summary>
+    /// Every handler below is async void over a SQLite write, an HTTP fetch
+    /// or a modal dialog, so each one wraps its body: an exception escaping
+    /// an async void handler lands on the synchronization context unhandled
+    /// and takes the process down. RunGuardedAsync is the single shape they
+    /// all use, writing the failure to the status bar the way the OPML
+    /// handlers already do.
+    /// </summary>
+    private async Task RunGuardedAsync(Func<Task> body, string what)
+    {
+        try
+        {
+            await body();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Could not {what}: {ex.Message}";
+        }
+    }
+
     private async void OnRefreshFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (NodeFromSender(sender)?.FeedId is { } feedId) await RefreshFeedAsync(feedId);
+        if (NodeFromSender(sender)?.FeedId is { } feedId)
+            await RunGuardedAsync(() => RefreshFeedAsync(feedId), "refresh this feed");
     }
 
     /// <summary>
@@ -48,17 +69,20 @@ public partial class MainWindow
 
     private async void OnRenameFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (NodeFromSender(sender)?.FeedId is { } feedId) await RenameFeedAsync(feedId);
+        if (NodeFromSender(sender)?.FeedId is { } feedId)
+            await RunGuardedAsync(() => RenameFeedAsync(feedId), "rename this feed");
     }
 
     private async void OnMarkFeedReadClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (NodeFromSender(sender)?.FeedId is { } feedId) await MarkFeedReadAsync(feedId);
+        if (NodeFromSender(sender)?.FeedId is { } feedId)
+            await RunGuardedAsync(() => MarkFeedReadAsync(feedId), "mark this feed read");
     }
 
     private async void OnFeedSettingsClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (NodeFromSender(sender)?.FeedId is { } feedId) await ShowFeedSettingsAsync(feedId);
+        if (NodeFromSender(sender)?.FeedId is { } feedId)
+            await RunGuardedAsync(() => ShowFeedSettingsAsync(feedId), "open feed settings");
     }
 
     /// <summary>
@@ -69,12 +93,14 @@ public partial class MainWindow
     /// </summary>
     private async void OnToolbarFeedSettingsClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (SelectedFeedNode?.FeedId is { } feedId) await ShowFeedSettingsAsync(feedId);
+        if (SelectedFeedNode?.FeedId is { } feedId)
+            await RunGuardedAsync(() => ShowFeedSettingsAsync(feedId), "open feed settings");
     }
 
     private async void OnUnsubscribeFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (NodeFromSender(sender)?.FeedId is { } feedId) await UnsubscribeAsync(feedId);
+        if (NodeFromSender(sender)?.FeedId is { } feedId)
+            await RunGuardedAsync(() => UnsubscribeAsync(feedId), "unsubscribe from this feed");
     }
 
     /// <summary>

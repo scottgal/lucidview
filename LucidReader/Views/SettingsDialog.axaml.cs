@@ -113,14 +113,39 @@ public partial class SettingsDialog : Window
         Close();
     }
 
+    /// <summary>
+    /// 0 idle, 1 running. A prune walks the whole database and takes long
+    /// enough on a large one for a second click to land, and two concurrent
+    /// prunes are two concurrent bulk deletes over the same rows.
+    /// </summary>
+    private int _cleanUpRunning;
+
+    /// <summary>
+    /// Wrapped, like RefreshDatabaseSizeAsync right below it: this is an
+    /// async void handler over a bulk database write, so anything it throws
+    /// would otherwise reach the synchronization context unhandled and take
+    /// the app down from inside a settings dialog.
+    /// </summary>
     private async void OnCleanUpNow(object? sender, RoutedEventArgs e)
     {
         if (_retention is null) return;
+        if (Interlocked.Exchange(ref _cleanUpRunning, 1) != 0) return;
 
-        DatabaseSizeText.Text = "Cleaning up...";
-        var deleted = await _retention.PruneAsync();
-        await RefreshDatabaseSizeAsync();
-        DatabaseSizeText.Text += deleted == 1 ? "  (1 article removed)" : $"  ({deleted} articles removed)";
+        try
+        {
+            DatabaseSizeText.Text = "Cleaning up...";
+            var deleted = await _retention.PruneAsync();
+            await RefreshDatabaseSizeAsync();
+            DatabaseSizeText.Text += deleted == 1 ? "  (1 article removed)" : $"  ({deleted} articles removed)";
+        }
+        catch (Exception ex)
+        {
+            DatabaseSizeText.Text = "Clean-up failed: " + ex.Message;
+        }
+        finally
+        {
+            Volatile.Write(ref _cleanUpRunning, 0);
+        }
     }
 
     private async Task RefreshDatabaseSizeAsync()

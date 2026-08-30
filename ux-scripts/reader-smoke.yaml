@@ -12,11 +12,12 @@ description: >
   numbers are simply wrong.
 
   Deliberately not covered here, with reasons:
-    - Every keyboard shortcut (J/K/N/P/M/S/R/O/T and the platform-modifier
-      ones). They are Window.KeyBindings, and the harness's PressKey posts
-      key events that KeyBindings do not see, so a script "testing" them
-      would pass while proving nothing.
-    - Article tagging. Its only route is the T key binding, per above.
+    - The keyboard shortcuts. They have their own script now,
+      verify-reader-keyboard.yaml, since moving them off Window.KeyBindings
+      onto a routed KeyDown handler is what finally made them reachable from
+      PressKey at all.
+    - Article tagging. Its only route is the T shortcut, and T opens a modal
+      dialog the harness cannot dismiss.
     - Unsubscribe, Rename and Mark-all-read. Sidebar context menu only, and
       a ContextMenu opens in its own PopupRoot that the harness can neither
       click nor screenshot.
@@ -346,8 +347,7 @@ actions:
   # The hover row actions. These are real Buttons, so Click drives them.
   # first(...) is the top row of the list, which under Harness Alpha with
   # the All segment is the newest article, "Compositor internals explained".
-  # This is the only harness-reachable route to starring: the S key binding
-  # is a Window.KeyBinding and PressKey does not reach those.
+  # verify-reader-keyboard.yaml drives the same write through the S shortcut.
   # =====================================================================
   - type: Click
     target: "first(name=ToggleStarButton)"

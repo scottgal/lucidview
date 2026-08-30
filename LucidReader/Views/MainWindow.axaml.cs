@@ -85,28 +85,82 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _onSettingsChanged = settings => Dispatcher.UIThread.Post(() => ApplySettings(settings));
         _services.SettingsChanged += _onSettingsChanged;
 
-        Opened += async (_, _) => await OnOpenedAsync();
-        Closing += (_, _) =>
+        // Wrapped, unlike the bare `async (_, _) => await OnOpenedAsync()`
+        // this replaces. That is an async void over a database read at the
+        // one moment the window is coming up: anything thrown past it reached
+        // the synchronization context unhandled and killed the app during
+        // window-open, with no window on screen to show a message in.
+        Opened += async (_, _) =>
         {
-            _services.SettingsChanged -= _onSettingsChanged;
-
-            // A pending dwell must not fire a write against ReaderServices
-            // after this window closes: App.axaml.cs disposes Services on
-            // shutdown with no coordination beyond window-closing order, so
-            // an in-flight dwell could otherwise call SetReadAsync against a
-            // disposing (or already-disposed) store.
-            _dwell.CancelPending();
-
-            // Same reason as the dwell above: a health tick that fired after
-            // this window closed would read _services.Feeds against a store
-            // App.axaml.cs may already be disposing.
-            StopHealthMonitoring();
-
-            _searchCoordinator.Dispose();
-            _iconCoordinator.Dispose();
-            _thumbnailCoordinator.Dispose();
-            _heroCoordinator.Dispose();
+            try
+            {
+                await OnOpenedAsync();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Could not finish opening the reader: " + ex.Message;
+            }
         };
+
+        Closing += (_, _) => PrepareForShutdown();
+
+        // The system appearance can change while the app is running, and the
+        // reading pane does not follow it on its own. Avalonia flips the
+        // variant-scoped ThemeDictionaries by itself, so the panes go light,
+        // but the six Color resources LiveMarkdown reads for code blocks and
+        // blockquotes are pushed imperatively by ThemeService.ApplyDefinition
+        // and were only ever pushed from this constructor and on a settings
+        // change. The result was a half-stale theme: light panes with a dark
+        // code palette and dark text on it, unreadable, and the same in
+        // reverse. RefreshAutoTheme exists exactly for this and had no caller.
+        if (Application.Current is { } app)
+        {
+            _onActualThemeVariantChanged = (_, _) => _theme.RefreshAutoTheme();
+            app.ActualThemeVariantChanged += _onActualThemeVariantChanged;
+        }
+    }
+
+    private EventHandler? _onActualThemeVariantChanged;
+    private int _preparedForShutdown;
+
+    /// <summary>
+    /// Everything that has to stop before ReaderServices is disposed.
+    ///
+    /// This was the body of the Closing handler, and that ordering only holds
+    /// when the user closes the window. On Cmd+Q, on Quit from the dock, and
+    /// on an OS logout, the platform raises ShutdownRequested FIRST and
+    /// ClassicDesktopStyleApplicationLifetime.DoShutdown closes the windows
+    /// afterwards - so on the most common macOS quit path disposal began
+    /// before any of this had run. App.axaml.cs now calls this from its
+    /// ShutdownRequested handler before disposing, and Closing still calls it
+    /// for the close-the-window path.
+    ///
+    /// Idempotent by the interlocked flag, because on Cmd+Q both callers fire.
+    /// </summary>
+    public void PrepareForShutdown()
+    {
+        if (Interlocked.Exchange(ref _preparedForShutdown, 1) != 0) return;
+
+        _services.SettingsChanged -= _onSettingsChanged;
+
+        if (_onActualThemeVariantChanged is not null && Application.Current is { } app)
+            app.ActualThemeVariantChanged -= _onActualThemeVariantChanged;
+
+        // A pending dwell must not fire a write against ReaderServices
+        // after this window closes: an in-flight dwell could otherwise call
+        // SetReadAsync against a disposing (or already-disposed) store.
+        _dwell.CancelPending();
+
+        // Same reason as the dwell above: a health tick that fired after
+        // this point would read _services.Feeds against a store that is
+        // already being disposed.
+        StopHealthMonitoring();
+        DisposeHealthMonitoring();
+
+        _searchCoordinator.Dispose();
+        _iconCoordinator.Dispose();
+        _thumbnailCoordinator.Dispose();
+        _heroCoordinator.Dispose();
     }
 
 

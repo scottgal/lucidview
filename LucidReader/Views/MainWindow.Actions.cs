@@ -1,6 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using LucidReader.Models;
 using LucidReader.Services;
 
@@ -30,17 +33,35 @@ public partial class MainWindow
     {
         if (RowFromSender(sender) is not { } row) return;
 
-        if (ReferenceEquals(row, SelectedItemRow)) _dwell.CancelPending();
-        await ToggleReadAsync(row);
+        // Every async void handler in this window is wrapped: an exception
+        // escaping one lands on the synchronization context unhandled and
+        // takes the process down, and each of these awaits a SQLite write or
+        // an HTTP call. The failure belongs in the status bar.
+        try
+        {
+            if (ReferenceEquals(row, SelectedItemRow)) _dwell.CancelPending();
+            await ToggleReadAsync(row);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Could not update this article: " + ex.Message;
+        }
     }
 
     private async void OnRowToggleStarClicked(object? sender, EventArgs e)
     {
         if (RowFromSender(sender) is not { } row) return;
 
-        var target = !row.IsStarred;
-        await _services.Items.SetStarredAsync(row.Id, target);
-        row.IsStarred = target;
+        try
+        {
+            var target = !row.IsStarred;
+            await _services.Items.SetStarredAsync(row.Id, target);
+            row.IsStarred = target;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Could not star this article: " + ex.Message;
+        }
     }
 
     private void OnRowOpenOriginalClicked(object? sender, EventArgs e)
@@ -54,29 +75,92 @@ public partial class MainWindow
     private static ItemRow? RowFromSender(object? sender) =>
         (sender as Avalonia.StyledElement)?.DataContext as ItemRow;
 
+    private KeyModifiers _commandModifier = KeyModifiers.Control;
+
     /// <summary>
-    /// Find-in-article, Add-feed, Settings and Export cannot be declared as
-    /// static Gesture strings in MainWindow.axaml: this app is styled after
-    /// macOS Mail for a Mac-first audience, and on macOS those four take
-    /// Command, not Control (Cmd+, for settings is a system-wide convention
-    /// every Mac app honours; Ctrl+, would simply read as broken there).
-    /// Rather than hardcode either modifier, or branch on OperatingSystem,
-    /// this reads Avalonia's own notion of "the modifier for this platform" -
-    /// PlatformSettings.HotkeyConfiguration.CommandModifiers, which the
-    /// platform backend sets to Meta on macOS and Control on Windows/Linux -
-    /// so the same four bindings are correct everywhere. Called once from
-    /// the constructor (MainWindow.axaml.cs); the letter-only bindings
-    /// (J, K, N, P, M, S, R, O, T) stay in XAML because they have no
-    /// platform convention to defer to.
+    /// Wires the single keyboard entry point for this window. Called once
+    /// from the constructor (MainWindow.axaml.cs).
+    ///
+    /// Nothing uses Window.KeyBindings any more, letter-only or otherwise.
+    /// KeyBindings are evaluated by the KeyboardDevice before the routed
+    /// KeyDown is raised and have no text-input guard, which is what let the
+    /// old bare-letter gestures fire while the user typed in the search box.
+    /// A bubbling KeyDown handler runs after the focused control has had its
+    /// turn, can ask FocusManager where focus actually is, and - unlike a
+    /// KeyBinding - is reachable from the UI test harness, whose PressKey
+    /// raises routed key events.
+    ///
+    /// The command modifier is read once from Avalonia's own
+    /// PlatformSettings.HotkeyConfiguration.CommandModifiers rather than
+    /// branching on OperatingSystem: it is Meta on macOS (Cmd+, for settings
+    /// is a system-wide convention there; Ctrl+, would read as broken) and
+    /// Control on Windows and Linux.
     /// </summary>
     private void ConfigurePlatformKeyBindings()
     {
-        var commandModifier = PlatformSettings?.HotkeyConfiguration.CommandModifiers ?? KeyModifiers.Control;
+        _commandModifier = PlatformSettings?.HotkeyConfiguration.CommandModifiers ?? KeyModifiers.Control;
 
-        KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.F, commandModifier), Command = FindInArticleCommand });
-        KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.N, commandModifier), Command = AddFeedCommand });
-        KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.OemComma, commandModifier), Command = OpenSettingsCommand });
-        KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.S, commandModifier), Command = ExportArticleCommand });
+        AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Bubble);
+    }
+
+    /// <summary>
+    /// True when this element is somewhere inside a text-entry control, so a
+    /// printable key means a character rather than an action. Walks ancestors
+    /// as well as testing the element itself, because a TextBox's inner
+    /// TextPresenter can be the routed event's source.
+    /// </summary>
+    private static bool IsTextEntry(object? element)
+    {
+        if (element is TextBox) return true;
+        return element is Visual visual && visual.FindAncestorOfType<TextBox>() is not null;
+    }
+
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Handled) return;
+
+        // Both the focused element and the event's source are consulted. In
+        // the running app they are the same thing; under the test harness,
+        // which raises the routed event on a control it was pointed at, the
+        // source is the one that is reliably right.
+        var focusIsTextEntry = IsTextEntry(FocusManager?.GetFocusedElement()) || IsTextEntry(e.Source);
+
+        var shortcut = ReaderShortcuts.Resolve(e.Key, e.KeyModifiers, focusIsTextEntry, _commandModifier);
+        if (shortcut == ReaderShortcut.None) return;
+
+        e.Handled = true;
+        Run(shortcut);
+    }
+
+    /// <summary>
+    /// Maps a resolved shortcut onto the command that performs it. Going
+    /// through the RelayCommands rather than calling the async methods
+    /// directly is what keeps this handler safe: RelayCommand.Execute is the
+    /// one async void in this app that already catches everything.
+    /// </summary>
+    private void Run(ReaderShortcut shortcut)
+    {
+        var command = shortcut switch
+        {
+            ReaderShortcut.NextItem => NextItemCommand,
+            ReaderShortcut.PreviousItem => PreviousItemCommand,
+            ReaderShortcut.NextUnread => NextUnreadCommand,
+            ReaderShortcut.PreviousUnread => PreviousUnreadCommand,
+            ReaderShortcut.ToggleRead => ToggleReadCommand,
+            ReaderShortcut.ToggleStar => ToggleStarCommand,
+            ReaderShortcut.RefreshCurrentFeed => RefreshCurrentFeedCommand,
+            ReaderShortcut.RefreshAll => RefreshAllCommand,
+            ReaderShortcut.OpenOriginal => OpenOriginalCommand,
+            ReaderShortcut.FocusSearch => FocusSearchCommand,
+            ReaderShortcut.EditTags => EditTagsCommand,
+            ReaderShortcut.FindInArticle => FindInArticleCommand,
+            ReaderShortcut.AddFeed => AddFeedCommand,
+            ReaderShortcut.OpenSettings => OpenSettingsCommand,
+            ReaderShortcut.ExportArticle => ExportArticleCommand,
+            _ => null
+        };
+
+        command?.Execute(null);
     }
 
     private RelayCommand? _nextItem, _previousItem, _nextUnread, _previousUnread;

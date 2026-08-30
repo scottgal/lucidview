@@ -18,9 +18,7 @@ namespace LucidReader.Views.Controls;
 /// Holds a small bounded LRU of already-decoded bitmaps keyed by path, so a
 /// reader (a scroll-heavy app: containers recycle onto the same rows
 /// repeatedly as a virtualised list scrolls) does not re-read and re-decode
-/// the same file from disk on every binding evaluation that revisits it, and
-/// so an evicted bitmap is disposed deterministically rather than left for a
-/// finalizer to reclaim native memory on its own schedule.
+/// the same file from disk on every binding evaluation that revisits it.
 ///
 /// Thread ownership: Avalonia evaluates bindings on the UI thread, and this
 /// converter is only ever invoked from a binding evaluation, so the cache
@@ -44,23 +42,9 @@ public sealed class PathToBitmapConverter : IValueConverter
 {
     public static readonly PathToBitmapConverter Instance = new();
 
-    // "A few dozen entries is plenty" per review: virtualisation already
-    // bounds how many rows are live at once, so this only needs to cover
-    // the working set a scroll pass revisits, not the whole list.
-    //
-    // Caveat worth recording: eviction disposes a bitmap outright, and a
-    // disposed Bitmap still assigned as a live Image.Source is a real
-    // rendering hazard, not just a memory one. That is safe here for the
-    // two virtualised surfaces (the item list's thumbnails, the reading
-    // pane's single hero) because a container's Source binding is always
-    // reassigned the moment its row scrolls away, well before this bound is
-    // reached, so an evicted entry is by construction one nothing on screen
-    // still points at. The sidebar's favicons are the one surface this
-    // reasoning does not automatically cover - it is a plain ItemsControl,
-    // not virtualised - so it relies on realistic feed counts staying under
-    // this bound. If lucidREADER ever needs to support subscription lists
-    // large enough to make that untrue, the fix is a virtualised sidebar or
-    // a reference-counted cache, not a bigger number here.
+    // Virtualisation already bounds how many rows are live at once, so this
+    // only needs to cover the working set a scroll pass revisits, not the
+    // whole list.
     private const int MaxCacheEntries = 48;
 
     private readonly Dictionary<string, LinkedListNode<CacheEntry>> _byPath = new(StringComparer.Ordinal);
@@ -132,11 +116,26 @@ public sealed class PathToBitmapConverter : IValueConverter
         if (_byPath.TryGetValue(path, out var node)) EvictNode(node);
     }
 
-    /// <summary>Removes an entry from both structures and disposes its bitmap deterministically.</summary>
+    /// <summary>
+    /// Removes an entry from both structures. Deliberately does NOT dispose
+    /// the bitmap.
+    ///
+    /// It used to. That was a rendering hazard, not a memory optimisation: a
+    /// disposed Bitmap still assigned as a live Image.Source is touched on
+    /// the next render pass. The item list and the reading pane's hero are
+    /// virtualised, so their bindings are reassigned before an entry can be
+    /// evicted, but the sidebar is a plain ItemsControl with every feed row
+    /// realised at once. With 49 or more feeds carrying favicons - an
+    /// ordinary subscription list - the 49th decode disposed the bitmap row
+    /// one was still showing.
+    ///
+    /// Dropping the reference and letting the GC reclaim the native memory on
+    /// its own schedule costs a little latency in returning it and is correct
+    /// for every surface, which deterministic disposal was not.
+    /// </summary>
     private void EvictNode(LinkedListNode<CacheEntry> node)
     {
         _lruOrder.Remove(node);
         _byPath.Remove(node.Value.Path);
-        node.Value.Bitmap.Dispose();
     }
 }

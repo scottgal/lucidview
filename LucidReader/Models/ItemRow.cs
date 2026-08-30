@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Avalonia.Media;
 using LucidReader.Core.Model;
 
 namespace LucidReader.Models;
@@ -72,7 +73,16 @@ public sealed class ItemRow : INotifyPropertyChanged
 
     public bool HasThumbnail => !string.IsNullOrEmpty(_thumbnailPath);
 
-    public string TitleWeight => _isRead ? "Normal" : "SemiBold";
+    /// <summary>
+    /// A real FontWeight, not the string "Normal"/"SemiBold" this used to be.
+    /// The binding target (MainWindow.axaml, TextBlock.FontWeight) is typed
+    /// FontWeight, and a string reached it only through Avalonia's implicit
+    /// enum coercion. That is the same class of silent conversion that
+    /// already broke an Indent binding on this branch, and with
+    /// AvaloniaUseCompiledBindingsByDefault false there is no compile-time
+    /// check to catch the next one. Typing the property removes the coercion.
+    /// </summary>
+    public FontWeight TitleWeight => _isRead ? FontWeight.Normal : FontWeight.SemiBold;
     public string StarGlyph => _isStarred ? "★" : "☆";
 
     /// <summary>

@@ -1,0 +1,304 @@
+name: verify-reader-keyboard
+description: >
+  The keyboard shortcuts, driven with real key events for the first time.
+
+  Until this branch every shortcut lived in Window.KeyBindings, which Avalonia
+  evaluates from the KeyboardDevice before the routed KeyDown is raised. The
+  harness's PressKey raises a routed KeyDown/KeyUp pair on a control, so it
+  never reached a KeyBinding: reader-smoke.yaml says so in its own header and
+  skipped all ten. Not one of them had ever been exercised.
+
+  They are now resolved by LucidReader.Services.ReaderShortcuts from a
+  bubbling KeyDown handler on the window (MainWindow.Actions.cs), which is
+  exactly what PressKey does reach. This script therefore proves two things
+  the old arrangement could not be asked about at all:
+
+    1. With focus in the item list, a real S keystroke stars the selected
+       article and a second one unstars it. The shortcut works.
+
+    2. With focus in the search box, none of the ten bare gestures does
+       anything. This is the bug: J K N P M S R O T and OemQuestion had no
+       modifier and no focus guard, so typing "compositor" into the search
+       box launched a browser (o), wrote read state (m), wrote starred state
+       (s), started a network fetch (r) and opened the modal tags dialog (t),
+       mid-word, and marked the keystrokes handled so the characters did not
+       reliably reach the box either.
+
+  Run it through ux-scripts/run-reader-keyboard.sh, not directly: the counts
+  below are the seeded fixture's, and the script must not touch a real
+  profile. Needs no network.
+
+  Deliberately not pressed with focus outside a text box: O, which would
+  launch a real browser, R, which would start a fetch, and T, which opens a
+  modal dialog the harness cannot dismiss. All three ARE pressed with focus
+  in the search box, which is the case that matters here - if the guard
+  regresses, this run opens a browser and hangs on a modal, which is a loud
+  failure rather than a quiet one.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup, the first tree load and the first health check
+
+  # =====================================================================
+  # Select the Harness Alpha feed, then its newest article, so there is a
+  # selected row for the shortcuts to act on. MouseDown/MouseUp rather than
+  # Click throughout: the harness's Click on a non-Button only calls Focus().
+  #
+  # A feed rather than the All items smart row, because the starred check
+  # below reads through the filter segments and a smart row overrides them
+  # (ItemQueryBuilder). Harness Alpha has three articles and none starred.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "3"
+
+  - type: MouseDown
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: MouseUp
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: Wait
+    value: "900"
+    description: Selection, the article render and the 300ms mark-read dwell
+
+  - type: Screenshot
+    value: 00-selected
+
+  # =====================================================================
+  # 1. The shortcut works. S is pressed at the item list, so neither the
+  #    focused element nor the event's source is a text-entry control and
+  #    ReaderShortcuts.Resolve returns ToggleStar.
+  #
+  #    Harness Alpha seeds no starred article, so a successful star takes
+  #    its Starred segment from 0 to 1. Checking it through a re-query
+  #    rather than the row's own glyph is the point: only a reload proves
+  #    the write reached the database.
+  # =====================================================================
+  - type: PressKey
+    target: ItemList
+    value: "S"
+    description: Star the selected article with a real key event
+  - type: Wait
+    value: "700"
+
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the segment first
+  - type: Hover
+    target: FilterStarred
+  - type: MouseDown
+    target: FilterStarred
+    button: left
+  - type: MouseUp
+    target: FilterStarred
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+    description: Harness Alpha had no starred article until the keystroke above
+
+  - type: Screenshot
+    value: 01-starred-by-keyboard
+
+  - type: Hover
+    target: SearchBox
+  - type: Hover
+    target: FilterAll
+  - type: MouseDown
+    target: FilterAll
+    button: left
+  - type: MouseUp
+    target: FilterAll
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: MouseDown
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: MouseUp
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: PressKey
+    target: ItemList
+    value: "S"
+    description: And unstar it again, back to none under this feed
+  - type: Wait
+    value: "700"
+
+  - type: Hover
+    target: SearchBox
+  - type: Hover
+    target: FilterStarred
+  - type: MouseDown
+    target: FilterStarred
+    button: left
+  - type: MouseUp
+    target: FilterStarred
+    button: left
+  - type: Wait
+    value: "700"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+
+  - type: Hover
+    target: SearchBox
+  - type: Hover
+    target: FilterAll
+  - type: MouseDown
+    target: FilterAll
+    button: left
+  - type: MouseUp
+    target: FilterAll
+    button: left
+  - type: Wait
+    value: "700"
+
+  # =====================================================================
+  # 2. The guard. A query is typed first so there is something in the box
+  #    whose survival can be asserted, then the box is focused, then every
+  #    one of the ten bare gestures is pressed at it.
+  #
+  #    TypeText assigns TextBox.Text directly rather than sending keys, so
+  #    on its own it proves nothing about key handling; it is only here to
+  #    establish the state the PressKeys below must not disturb. The
+  #    PressKeys are the real thing.
+  # =====================================================================
+  - type: TypeText
+    target: SearchBox
+    value: "compositor"
+  - type: Wait
+    value: "1500"
+    description: The 250ms debounce plus the query
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "2 results for \"compositor\""
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "2"
+
+  - type: Click
+    target: SearchBox
+    description: Click on a non-Button focuses it, which is what is wanted here
+  - type: Expect
+    target: SearchBox
+    matcher: IsFocused
+
+  - type: Screenshot
+    value: 02-search-focused
+
+  - type: PressKey
+    target: SearchBox
+    value: "J"
+  - type: PressKey
+    target: SearchBox
+    value: "K"
+  - type: PressKey
+    target: SearchBox
+    value: "N"
+  - type: PressKey
+    target: SearchBox
+    value: "P"
+  - type: PressKey
+    target: SearchBox
+    value: "M"
+    description: Would have written read state
+  - type: PressKey
+    target: SearchBox
+    value: "S"
+    description: Would have written starred state
+  - type: PressKey
+    target: SearchBox
+    value: "R"
+    description: Would have started a network fetch
+  - type: PressKey
+    target: SearchBox
+    value: "T"
+    description: Would have opened the modal tags dialog mid-word
+  - type: PressKey
+    target: SearchBox
+    value: "O"
+    description: Would have launched a browser through Process.Start
+  - type: PressKey
+    target: SearchBox
+    value: "OemQuestion"
+    description: The printable "/", which needs the same guard as the letters
+  - type: PressKey
+    target: SearchBox
+    value: "Shift+R"
+    description: Would have refreshed every feed
+
+  - type: Wait
+    value: "1200"
+
+  # If T had opened its modal dialog, the assertions below would be running
+  # against a window behind it and the run would not get this far.
+  - type: Screenshot
+    value: 03-after-guarded-keys
+
+  - type: Expect
+    target: SearchBox
+    matcher: HasValue
+    value: "compositor"
+    description: The query survived, so nothing consumed or cleared the box
+  - type: Expect
+    target: SearchBox
+    matcher: IsFocused
+    description: FocusSearch (/) did not run, and neither did anything that steals focus
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "2"
+    description: J/K/N/P did not navigate and R did not reload the list
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "2 results for \"compositor\""
+    description: >
+      R and Shift+R both write "Refreshing every feed..." then "Refresh
+      started." over this line, so an unchanged status is the proof neither
+      fired.
+
+  # =====================================================================
+  # And the starred write specifically, re-queried rather than read off a
+  # glyph: still the fixture's one article, so the S above did nothing.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Starred'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Starred'"
+    button: left
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+    description: Still just the fixture's one starred article
+
+  - type: Screenshot
+    value: 04-starred-unchanged

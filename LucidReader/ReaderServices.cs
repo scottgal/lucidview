@@ -338,12 +338,27 @@ public sealed class ReaderServices : IAsyncDisposable
     /// later. Awaiting it here, with a bound so a stuck call cannot hang
     /// shutdown forever, is what makes "await services.DisposeAsync() means
     /// everything has stopped" actually true.
+    ///
+    /// What this does NOT promise, and did claim before: that every dispatched
+    /// body has finished. FeedRefreshService and OfflineDownloader now drain
+    /// their coordinators before disposing them, under their own bounds, so a
+    /// download that was mid-flight when shutdown began normally gets to write
+    /// its content before the database closes. A body that outlives that bound
+    /// is still abandoned, and its write will fail against a closed writer.
     /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
         Refresh.Completed -= OnRefreshCompleted;
+
+        // Scheduling stops first, before the cancel and before either drain.
+        // This used to sit below both, and it mattered: RefreshScheduler reads
+        // its own _stopping flag, not _shutdown, so cancelling _shutdown never
+        // stopped it. Its timer kept firing for the whole drain window - up to
+        // the 200 second download-queue bound - queuing fresh HTTP fetches and
+        // database writes into an engine that was being torn down.
+        await Scheduler.DisposeAsync();
 
         await _shutdown.CancelAsync();
         _retentionTimer?.Dispose();
@@ -353,7 +368,6 @@ public sealed class ReaderServices : IAsyncDisposable
         catch (OperationCanceledException) { }
         catch (TimeoutException) { /* best effort; disposal must still proceed */ }
 
-        await Scheduler.DisposeAsync();
         await Refresh.DisposeAsync();
         await Downloader.DisposeAsync();
         await Database.DisposeAsync();

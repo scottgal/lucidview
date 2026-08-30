@@ -75,14 +75,37 @@ public sealed class ImageResolutionCoordinator(int maxConcurrency = 4) : IDispos
         }
         finally
         {
-            _gate.Release();
+            // Guarded because Dispose can run while this resolve is inside
+            // work(). Cancellation does not actually stop the fetch - the
+            // image cache's revalidate path does not take the token - so a
+            // resolve can still be running long after the window closed, and
+            // an ObjectDisposedException thrown from here would be caught by
+            // neither catch above. These resolves are started as `_ = ...`,
+            // so it would surface as an unobserved task exception: lost on
+            // most hosts, fatal on one enabling ThrowUnobservedTaskExceptions.
+            try { _gate.Release(); }
+            catch (ObjectDisposedException) { }
         }
     }
 
+    /// <summary>
+    /// Cancels the current batch and releases the cancellation source only.
+    ///
+    /// The semaphore is deliberately left to the GC. Disposing it here raced
+    /// every resolve still inside work(): SemaphoreSlim.Dispose does not wait
+    /// for waiters or holders, so up to maxConcurrency in-flight resolves
+    /// would reach their Release on a disposed semaphore. A SemaphoreSlim
+    /// with no one waiting on its AvailableWaitHandle holds no unmanaged
+    /// resource worth forcing that race for.
+    ///
+    /// _cts is nulled rather than left dangling so a StartBatch or
+    /// CancelPending arriving after disposal cannot touch a disposed source.
+    /// </summary>
     public void Dispose()
     {
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _gate.Dispose();
+        var cts = _cts;
+        _cts = null;
+        cts?.Cancel();
+        cts?.Dispose();
     }
 }

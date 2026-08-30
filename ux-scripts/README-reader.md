@@ -19,6 +19,7 @@ dotnet build LucidReader/LucidReader.csproj
 | `ux-scripts/run-reader-settings.sh [out]` | `reader-settings.yaml` | Both settings dialogs: all four global groups, save-and-reopen round trips, the retention clean-up, the per-feed override switches, and a global change showing up as the per-feed inherited label | no |
 | `ux-scripts/run-reading-column.sh [out]` | `verify-reading-column.yaml` | The reading column, **measured in pixels**: equal left and right margins at two different column widths, the margin growing as the column narrows, and bigger font/line-height/code-size changing what is rendered | no |
 | `ux-scripts/run-reading-typography.sh [out]` | `verify-reading-typography.yaml` | The four reading settings (font size, line height, code font size, column width) round-tripping through the settings dialog: change two, save, reopen, read them back | no |
+| `ux-scripts/run-reader-keyboard.sh [out]` | `verify-reader-keyboard.yaml` | The keyboard shortcuts, with real key events: S stars and unstars the selected article, and none of the ten bare gestures (J K N P M S R O T and `/`) does anything while focus is in the search box | no |
 | `ux-scripts/run-refresh-health.sh [out]` | `verify-refresh-health.yaml` | The status bar reporting auto-paused feeds, and putting one back into rotation with the Resume button | no |
 | `ux-scripts/run-add-feed-writes.sh [out]` | `verify-add-feed-writes.yaml` | Adding discovered feeds for real: the writes land, the sidebar reloads, the status bar says what happened | yes |
 | direct | `verify-add-feed-dialog.yaml` | The add-feed dialog: empty-address message, bare-domain normalising, autodiscovery finding two feeds, Add going live. Cancels, so it writes nothing | yes |
@@ -55,7 +56,7 @@ shapes are in use.
   `run-reading-column.sh`, `run-reading-typography.sh`, via
   `reader-harness.sh`). `LUCIDREADER_DATA_DIR` points a Debug build at a
   temporary directory, which is seeded from `reader-fixture.sql` and deleted on
-  the way out. This is the better shape where it fits: the script decides every
+  the way out. `run-reader-keyboard.sh` uses this shape too. This is the better shape where it fits: the script decides every
   count it asserts, needs no network, and cannot touch anything you care about.
 
 `reader-fixture.sql` is that database: two feeds ("Harness Alpha" in a folder,
