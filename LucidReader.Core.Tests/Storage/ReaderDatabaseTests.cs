@@ -181,4 +181,24 @@ public class ReaderDatabaseTests
         await using var second = await ReaderDatabase.OpenAsync(temp.Path);
         Assert.NotNull(second);
     }
+
+    /// <summary>
+    /// Deleting the directory straight after disposal must work. Microsoft.Data.Sqlite
+    /// pools connections, so without clearing the pool the file stays open and this
+    /// throws IOException on Windows. Unix allows unlinking an open file, so this test
+    /// passes there either way; it exists to keep Windows CI honest, and it is the
+    /// same failure the legacy profile move would hit.
+    /// </summary>
+    [Fact]
+    public async Task The_database_file_can_be_deleted_immediately_after_disposal()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "mylo-dispose-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+
+        var db = await ReaderDatabase.OpenAsync(Path.Combine(dir, "reader.db"));
+        await db.DisposeAsync();
+
+        Directory.Delete(dir, recursive: true);
+        Assert.False(Directory.Exists(dir));
+    }
 }

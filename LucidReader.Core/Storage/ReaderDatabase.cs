@@ -208,15 +208,27 @@ public sealed class ReaderDatabase : IAsyncDisposable
             return reader.IsDBNull(1) ? 0L : reader.GetInt64(1);
         }, ct);
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         // Guards against calling this twice (directly, then again via a
         // wrapping `await using`): only the first call should release the
         // open-path guard and dispose the shared writer.
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            return ValueTask.CompletedTask;
+            return;
 
         OpenDatabasePaths.TryRemove(_openKey, out _);
-        return _writer.DisposeAsync();
+        await _writer.DisposeAsync();
+
+        // Microsoft.Data.Sqlite pools connections, and a pooled connection
+        // holds the database file open after the last SqliteConnection is
+        // disposed. Closing the database therefore does not release the file
+        // handle, so anything that closes it and then moves or deletes the
+        // file fails: the legacy profile move (Directory.Move) and any
+        // close-then-reopen on the same path both hit that. It only shows on
+        // Windows, because Unix lets a file be unlinked while it is still
+        // open, which is why every local macOS run passed and Windows CI did
+        // not. Clearing the pool releases the handle.
+        using var pooled = new SqliteConnection(ConnectionString);
+        SqliteConnection.ClearPool(pooled);
     }
 }

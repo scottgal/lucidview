@@ -14,6 +14,11 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      # Without this, one platform failing cancels the others mid-run and their
+      # results read as failures too. That happened: a Windows-only file-locking
+      # bug cancelled the macOS job, which had already passed the step that
+      # mattered, and the run looked like a two-platform failure.
+      fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
 
