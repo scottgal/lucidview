@@ -53,6 +53,8 @@ public partial class SettingsDialog : Window
         NeverDeleteStarredCheck.IsChecked = Draft.NeverDeleteStarred;
 
         FontSizeBox.Value = (decimal)Draft.FontSize;
+        LineHeightBox.Value = (decimal)Draft.LineHeight;
+        CodeFontSizeBox.Value = (decimal)Draft.CodeFontSize;
         ColumnWidthBox.Value = (decimal)Draft.ColumnWidth;
         MarkReadDwellBox.Value = Draft.MarkReadDwellMilliseconds;
         OpenLinksExternallyCheck.IsChecked = Draft.OpenLinksExternally;
@@ -95,6 +97,8 @@ public partial class SettingsDialog : Window
         Draft.NeverDeleteStarred = NeverDeleteStarredCheck.IsChecked ?? Draft.NeverDeleteStarred;
 
         Draft.FontSize = (double)(FontSizeBox.Value ?? (decimal)Draft.FontSize);
+        Draft.LineHeight = (double)(LineHeightBox.Value ?? (decimal)Draft.LineHeight);
+        Draft.CodeFontSize = (double)(CodeFontSizeBox.Value ?? (decimal)Draft.CodeFontSize);
         Draft.ColumnWidth = (double)(ColumnWidthBox.Value ?? (decimal)Draft.ColumnWidth);
         Draft.MarkReadDwellMilliseconds = (int)(MarkReadDwellBox.Value ?? Draft.MarkReadDwellMilliseconds);
         Draft.OpenLinksExternally = OpenLinksExternallyCheck.IsChecked ?? Draft.OpenLinksExternally;

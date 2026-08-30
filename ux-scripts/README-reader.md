@@ -17,6 +17,8 @@ dotnet build LucidReader/LucidReader.csproj
 |---|---|---|---|
 | `ux-scripts/run-reader-smoke.sh [out]` | `reader-smoke.yaml` | The whole shell: sidebar smart rows, a folder, a feed, the All/Unread/Starred segments, the reading pane and its offline badge, the mark-as-read dwell, the hover row actions, full-text search, Refresh all | no |
 | `ux-scripts/run-reader-settings.sh [out]` | `reader-settings.yaml` | Both settings dialogs: all four global groups, save-and-reopen round trips, the retention clean-up, the per-feed override switches, and a global change showing up as the per-feed inherited label | no |
+| `ux-scripts/run-reading-column.sh [out]` | `verify-reading-column.yaml` | The reading column, **measured in pixels**: equal left and right margins at two different column widths, the margin growing as the column narrows, and bigger font/line-height/code-size changing what is rendered | no |
+| `ux-scripts/run-reading-typography.sh [out]` | `verify-reading-typography.yaml` | The four reading settings (font size, line height, code font size, column width) round-tripping through the settings dialog: change two, save, reopen, read them back | no |
 | `ux-scripts/run-refresh-health.sh [out]` | `verify-refresh-health.yaml` | The status bar reporting auto-paused feeds, and putting one back into rotation with the Resume button | no |
 | `ux-scripts/run-add-feed-writes.sh [out]` | `verify-add-feed-writes.yaml` | Adding discovered feeds for real: the writes land, the sidebar reloads, the status bar says what happened | yes |
 | direct | `verify-add-feed-dialog.yaml` | The add-feed dialog: empty-address message, bare-domain normalising, autodiscovery finding two feeds, Add going live. Cancels, so it writes nothing | yes |
@@ -49,7 +51,8 @@ shapes are in use.
   application data directory. Scoped to rows with addresses nothing real would
   collide with. Set `PRAGMA foreign_keys=ON` in any cleanup that relies on
   `ON DELETE CASCADE`: SQLite defaults it off, and the CLI is not the app.
-- **A throwaway profile** (`run-reader-smoke.sh`, `run-reader-settings.sh`, via
+- **A throwaway profile** (`run-reader-smoke.sh`, `run-reader-settings.sh`,
+  `run-reading-column.sh`, `run-reading-typography.sh`, via
   `reader-harness.sh`). `LUCIDREADER_DATA_DIR` points a Debug build at a
   temporary directory, which is seeded from `reader-fixture.sql` and deleted on
   the way out. This is the better shape where it fits: the script decides every
@@ -59,6 +62,25 @@ shapes are in use.
 "Harness Beta" loose), five articles, one already read, one starred, one with
 extracted full text. Article dates are relative to now, not literal, so
 retention can never age them past the 30-day cutoff and change the counts.
+
+## Measuring, not asserting
+
+`run-reading-column.sh` is the one script here that does not decide anything
+from a property. It snips the reading pane with `Screenshot` + `target:`, then
+`measure-reading-column.py` reads the PNG with PIL and reports where the
+content actually landed.
+
+That is deliberate. A property assertion says what a control was told; it does
+not say what was drawn. A filter pill in this app had its padding silently
+overridden by an external style and passed every property check there was. The
+reading pane carries the same risk by construction: LiveMarkdown.Avalonia's
+application-level stylesheet sets the font sizes that the reading settings have
+to beat, and a style that loses does so silently.
+
+What gets measured, and why it can be: the hairline `Rectangle` between the
+article header and the body spans the column's whole width, so the first and
+last non-background pixel on its row give both margins exactly. Article text
+would not - every line ends where its last word ends.
 
 ## Harness behaviour worth knowing before you write one
 

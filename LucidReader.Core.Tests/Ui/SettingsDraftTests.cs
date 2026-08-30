@@ -84,6 +84,67 @@ public class SettingsDraftTests
     }
 
     [Fact]
+    public void The_typography_settings_round_trip_through_the_draft()
+    {
+        var draft = new SettingsDraft(ReaderSettings.Defaults)
+        {
+            FontSize = 18,
+            LineHeight = 1.8,
+            CodeFontSize = 11,
+            ColumnWidth = 900
+        };
+
+        var result = draft.Apply();
+
+        Assert.Equal(18, result.FontSize);
+        Assert.Equal(1.8, result.LineHeight);
+        Assert.Equal(11, result.CodeFontSize);
+        Assert.Equal(900, result.ColumnWidth);
+
+        // Reopening the dialog builds a fresh draft from the saved settings,
+        // which is what the dialog does; if that dropped a value the setting
+        // would appear to save and then revert.
+        var reopened = new SettingsDraft(result);
+
+        Assert.Equal(18, reopened.FontSize);
+        Assert.Equal(1.8, reopened.LineHeight);
+        Assert.Equal(11, reopened.CodeFontSize);
+        Assert.Equal(900, reopened.ColumnWidth);
+    }
+
+    [Fact]
+    public void The_typography_defaults_match_lucidVIEW()
+    {
+        Assert.Equal(15, ReaderSettings.Defaults.FontSize);
+        Assert.Equal(1.5, ReaderSettings.Defaults.LineHeight);
+        Assert.Equal(13, ReaderSettings.Defaults.CodeFontSize);
+    }
+
+    [Fact]
+    public void A_line_height_below_one_is_clamped_up_to_the_typefaces_own_metrics()
+    {
+        var draft = new SettingsDraft(ReaderSettings.Defaults) { LineHeight = 0 };
+
+        Assert.Equal(1.0, draft.Apply().LineHeight);
+    }
+
+    [Fact]
+    public void An_out_of_range_code_font_size_is_clamped()
+    {
+        Assert.Equal(8, new SettingsDraft(ReaderSettings.Defaults) { CodeFontSize = 1 }.Apply().CodeFontSize);
+        Assert.Equal(32, new SettingsDraft(ReaderSettings.Defaults) { CodeFontSize = 999 }.Apply().CodeFontSize);
+    }
+
+    [Fact]
+    public void A_column_width_outside_the_readable_range_is_clamped()
+    {
+        Assert.Equal(ReadingColumnMetrics.MinimumWidth,
+            new SettingsDraft(ReaderSettings.Defaults) { ColumnWidth = 10 }.Apply().ColumnWidth);
+        Assert.Equal(ReadingColumnMetrics.MaximumWidth,
+            new SettingsDraft(ReaderSettings.Defaults) { ColumnWidth = 9000 }.Apply().ColumnWidth);
+    }
+
+    [Fact]
     public void Human_readable_sizes_are_formatted_sensibly()
     {
         Assert.Equal("0 bytes", SettingsDraft.FormatBytes(0));

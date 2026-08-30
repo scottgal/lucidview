@@ -35,6 +35,28 @@ public sealed record ReaderSettings
     // Reading
     public string Theme { get; init; } = "Auto";
     public double FontSize { get; init; } = 15;
+
+    /// <summary>
+    /// A multiplier on the resolved font size, not an absolute measure, so it
+    /// keeps meaning the same thing when FontSize changes. Matches lucidVIEW's
+    /// AppSettings.LineHeight default of 1.5. A value of 1.0 means "use the
+    /// typeface's own line metrics".
+    /// </summary>
+    public double LineHeight { get; init; } = 1.5;
+
+    /// <summary>
+    /// Absolute, not a multiple of FontSize: a monospace face at the same
+    /// point size as the body reads bigger, so code wants its own number.
+    /// Same default as lucidVIEW.
+    /// </summary>
+    public double CodeFontSize { get; init; } = 13;
+
+    /// <summary>
+    /// The width the reading column is asked for. It is a preference, not the
+    /// width actually used: LucidReader.Models.ReadingColumnMetrics clamps it
+    /// to what the reading pane can show and leaves this value alone, so
+    /// widening the pane again restores it.
+    /// </summary>
     public double ColumnWidth { get; init; } = 760;
     public int MarkReadDwellMilliseconds { get; init; } = 800;
     public bool OpenLinksExternally { get; init; } = true;

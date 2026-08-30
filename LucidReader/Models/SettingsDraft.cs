@@ -33,6 +33,8 @@ public sealed class SettingsDraft
         NeverDeleteStarred = current.NeverDeleteStarred;
         Theme = current.Theme;
         FontSize = current.FontSize;
+        LineHeight = current.LineHeight;
+        CodeFontSize = current.CodeFontSize;
         ColumnWidth = current.ColumnWidth;
         MarkReadDwellMilliseconds = current.MarkReadDwellMilliseconds;
         OpenLinksExternally = current.OpenLinksExternally;
@@ -72,6 +74,8 @@ public sealed class SettingsDraft
     // Apply() must not reset a setting the dialog does not offer.
     public string Theme { get; set; } = "Auto";
     public double FontSize { get; set; }
+    public double LineHeight { get; set; }
+    public double CodeFontSize { get; set; }
     public double ColumnWidth { get; set; }
     public int MarkReadDwellMilliseconds { get; set; }
     public bool OpenLinksExternally { get; set; }
@@ -106,7 +110,12 @@ public sealed class SettingsDraft
             NeverDeleteStarred = NeverDeleteStarred,
             Theme = Theme,
             FontSize = Math.Clamp(FontSize, 9, 40),
-            ColumnWidth = Math.Clamp(ColumnWidth, 320, 2000),
+            // 1.0 is the floor rather than 0: below it lines overlap, and
+            // "the typeface's own metrics" is what 1.0 already means.
+            LineHeight = Math.Clamp(LineHeight, 1.0, 3.0),
+            CodeFontSize = Math.Clamp(CodeFontSize, 8, 32),
+            ColumnWidth = Math.Clamp(ColumnWidth, ReadingColumnMetrics.MinimumWidth,
+                ReadingColumnMetrics.MaximumWidth),
             MarkReadDwellMilliseconds = Math.Max(0, MarkReadDwellMilliseconds),
             OpenLinksExternally = OpenLinksExternally
         };

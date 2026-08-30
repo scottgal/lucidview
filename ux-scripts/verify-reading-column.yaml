@@ -1,0 +1,68 @@
+name: verify-reading-column
+description: >
+  Opens an article and snips the reading pane so the centred reading column
+  can be measured in pixels rather than asserted as a property.
+
+  Run it through ux-scripts/run-reading-column.sh, not directly. That script
+  seeds two scratch profiles with different columnWidth values, runs this file
+  against each, and then measures reading-pane.png from both with PIL. The
+  measurement is the actual check; there is deliberately no Expect here about
+  the column, because a property assertion would not have caught the thing
+  this exists to catch. A filter pill's padding in this project was silently
+  overridden by an external Style and passed every property check; only a
+  pixel measurement found it. The reading pane has exactly that risk, since
+  LiveMarkdown.Avalonia's application-level stylesheet sets the font sizes the
+  reading settings have to beat.
+
+  The ruler being measured is the hairline Rectangle between the article
+  header and the rendered markdown. It is the one element in the column that
+  spans the column's full width, so it gives both margins exactly; article
+  text does not, because every line ends where its last word ends.
+
+  MouseDown/MouseUp rather than Click throughout: the harness's Click on a
+  non-Button only calls Focus(), and both the sidebar rows and the item rows
+  are driven by pointer events.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup, the first tree load and the first health check
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "800"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "3"
+
+  - type: MouseDown
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: MouseUp
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: Wait
+    value: "1200"
+    description: Selection, then the markdown render, which is posted async
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: HasText
+    value: "Compositor internals explained"
+
+  - type: Screenshot
+    target: ReadingScroll
+    value: reading-pane
+    description: The pane on its own, which is what the margins are measured against
+
+  - type: Screenshot
+    value: window
+    description: Whole window, for looking at when a measurement surprises you

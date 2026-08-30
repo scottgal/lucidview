@@ -329,10 +329,20 @@
 
             <ScrollViewer Grid.Column="4" x:Name="ReadingScroll" Background="{DynamicResource ReadingBackgroundBrush}">
                 <!--
-                    MaxWidth caps the measure at ColumnWidth (760 by default,
-                    from ReaderSettings) so the body doesn't stretch to
-                    whatever width the pane happens to be; a narrower window
-                    still shrinks it below that cap rather than clipping.
+                    The column gets an explicit Width, set from code-behind by
+                    ApplyReadingColumnWidth (MainWindow.Reading.cs) via
+                    ReadingColumnMetrics, and is centred so the margin grows
+                    symmetrically as the pane widens. Not MaxWidth: that is
+                    only a cap, so HorizontalAlignment=Center would shrink this
+                    panel to its content's natural width and the margins would
+                    stop being equal. lucidVIEW learned the same thing the hard
+                    way - see MarkdownViewer/Views/MainWindow.Ruler.cs.
+
+                    Width is not bound either, because it is not simply
+                    ColumnWidth: it is that setting clamped to what this pane
+                    can currently show, which changes when either splitter
+                    moves, not only when the window resizes.
+
                     The reading body inside LucidMarkdownView has its own
                     inner ScrollViewer (in
                     Mostlylucid.LucidView.Markdown/LucidMarkdownView.axaml)
@@ -344,12 +354,12 @@
                     inner ScrollViewer's horizontal scrollbar so it wraps
                     within whatever width this StackPanel gives it instead.
                 -->
-                <StackPanel MaxWidth="{Binding ColumnWidth}" HorizontalAlignment="Left" Margin="32,24,32,24">
+                <StackPanel x:Name="ReadingColumn" HorizontalAlignment="Center" Margin="0,24,0,24">
                     <!--
-                        The hero, capped at the same reading measure as the
-                        body text below it (MaxWidth inherited from this
-                        StackPanel, no separate cap needed) so it never
-                        stretches wider than the column. Same rounded
+                        The hero, held to the same reading measure as the body
+                        text below it (it stretches to the column's Width, no
+                        separate cap needed) so it never grows wider than the
+                        column. Same rounded
                         corners as the list thumbnail for visual consistency
                         between the two surfaces that show article artwork.
                     -->

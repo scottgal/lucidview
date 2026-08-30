@@ -79,6 +79,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             readingPane.LinkClick += OnArticleLinkClicked;
 
         _theme = new ThemeService(Application.Current!);
+        WatchReadingPaneSize();
         ApplySettings(_services.Settings);
 
         _onSettingsChanged = settings => Dispatcher.UIThread.Post(() => ApplySettings(settings));
@@ -266,12 +267,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         StartHealthMonitoring();
     }
 
+    /// <summary>
+    /// Runs on startup and again on every settings change (via SettingsChanged
+    /// above), so the reading pane picks up a new font size, line height, code
+    /// size or column width without a restart. Everything here must be
+    /// idempotent for that reason.
+    /// </summary>
     private void ApplySettings(ReaderSettings settings)
     {
         _theme.ApplyTheme(Enum.TryParse<AppTheme>(settings.Theme, true, out var parsed)
             ? parsed
             : AppTheme.Auto);
+
+        ApplyReadingColumnWidth();
+        ApplyReadingTypography(settings);
+
+        // ColumnWidth is the saved preference; ResolvedColumnWidth is what the
+        // pane can actually show right now. Both are raised because both are
+        // public and either could be bound; note that Window already has its
+        // own FontSize, so the typography values are deliberately not named
+        // after their settings - a binding to "FontSize" would silently mean
+        // the window's, not the article's.
         Raise(nameof(ColumnWidth));
+        Raise(nameof(ResolvedColumnWidth));
+        Raise(nameof(ReadingFontSize));
+        Raise(nameof(ReadingLineHeight));
+        Raise(nameof(ReadingCodeFontSize));
     }
 
     /// <summary>

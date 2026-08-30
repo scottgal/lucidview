@@ -1,0 +1,199 @@
+name: verify-reading-typography
+description: >
+  Round-trips the reading pane's four typography settings through the global
+  settings dialog: read the defaults, change two of them, save, reopen, and
+  read them back. What is being proved is that a value survives Apply, the
+  write to settings.json and a fresh SettingsDraft built from it on reopen;
+  a value that is written and then quietly dropped on the way back in looks
+  exactly like one that saved correctly until you reopen the dialog.
+
+  Font size and column width are read but not changed here. Both are already
+  driven and measured in pixels by run-reading-column.sh, which is a stronger
+  check than this one; there is no point asserting them twice.
+
+  Line height and code size are changed with the NumericUpDown spinner
+  buttons rather than by typing. TypeText only accepts a TextBox, so the
+  numeric fields in this dialog cannot be typed into at all (reader-settings
+  .yaml says the same thing and skips them for that reason). The spinners are
+  real Buttons, so Click drives them.
+
+  The status line is deliberately not asserted; the reopened values are. See
+  the comment at the save step for why.
+
+  Run it through ux-scripts/run-reading-typography.sh, not directly. Every
+  value below is the one that script seeds, and the profile it seeds is thrown
+  away afterwards, which is what lets this be run twice in a row: it changes
+  settings and does not change them back, deliberately, because reverting in
+  the same run would leave nothing to prove the write landed.
+
+  The tab is driven as Hover-elsewhere, Hover-target, MouseDown, MouseUp.
+  Click on a RadioButton raises ClickEvent without going through OnClick, so
+  IsChecked never changes and the dialog silently stays on the tab it was on.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup, the first tree load and the first health check
+
+  - type: Click
+    target: SettingsButton
+  - type: Wait
+    value: "700"
+
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the tab first (see the header)
+  - type: Hover
+    target: ReadingTabButton
+    window_id: Settings
+  - type: MouseDown
+    target: ReadingTabButton
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: ReadingTabButton
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: ReadingPanel
+    window_id: Settings
+    matcher: IsVisible
+
+  - type: Expect
+    target: FontSizeBox
+    window_id: Settings
+    matcher: HasValue
+    value: "15"
+  - type: Expect
+    target: LineHeightBox
+    window_id: Settings
+    matcher: HasValue
+    value: "1.5"
+    description: The lucidVIEW default, and the one ReaderSettings now ships
+  - type: Expect
+    target: CodeFontSizeBox
+    window_id: Settings
+    matcher: HasValue
+    value: "13"
+    description: Also lucidVIEW's
+  - type: Expect
+    target: ColumnWidthBox
+    window_id: Settings
+    matcher: HasValue
+    value: "760"
+
+  - type: Screenshot
+    value: 00-reading-defaults
+    window_id: Settings
+
+  # Two clicks at an increment of 0.1 takes line height from 1.5 to 1.7.
+  - type: Click
+    target: "inside(name=LineHeightBox) name=PART_IncreaseButton"
+    window_id: Settings
+  - type: Click
+    target: "inside(name=LineHeightBox) name=PART_IncreaseButton"
+    window_id: Settings
+  - type: Wait
+    value: "300"
+  - type: Expect
+    target: LineHeightBox
+    window_id: Settings
+    matcher: HasValue
+    value: "1.7"
+
+  # Three clicks at an increment of 1 takes code size from 13 to 16.
+  - type: Click
+    target: "inside(name=CodeFontSizeBox) name=PART_IncreaseButton"
+    window_id: Settings
+  - type: Click
+    target: "inside(name=CodeFontSizeBox) name=PART_IncreaseButton"
+    window_id: Settings
+  - type: Click
+    target: "inside(name=CodeFontSizeBox) name=PART_IncreaseButton"
+    window_id: Settings
+  - type: Wait
+    value: "300"
+  - type: Expect
+    target: CodeFontSizeBox
+    window_id: Settings
+    matcher: HasValue
+    value: "16"
+
+  - type: Screenshot
+    value: 01-reading-edited
+    window_id: Settings
+
+  - type: Click
+    target: OkButton
+    window_id: Settings
+  - type: Wait
+    value: "900"
+
+  # Deliberately not asserting the status line here. It is a single shared
+  # surface that anything can overwrite - a health tick, or the O key binding
+  # firing with nothing selected, which writes a link refusal over it - and an
+  # assertion on it would be checking who wrote to the status bar last rather
+  # than whether the settings saved. What the settings actually did is checked
+  # below, by reopening the dialog and reading them back.
+
+  # Reopening is the whole point. The dialog builds a fresh SettingsDraft from
+  # whatever ReaderServices now holds, which came back through settings.json.
+  - type: Click
+    target: SettingsButton
+  - type: Wait
+    value: "700"
+
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the tab first (see the header)
+  - type: Hover
+    target: ReadingTabButton
+    window_id: Settings
+  - type: MouseDown
+    target: ReadingTabButton
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: ReadingTabButton
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: LineHeightBox
+    window_id: Settings
+    matcher: HasValue
+    value: "1.7"
+  - type: Expect
+    target: CodeFontSizeBox
+    window_id: Settings
+    matcher: HasValue
+    value: "16"
+  - type: Expect
+    target: FontSizeBox
+    window_id: Settings
+    matcher: HasValue
+    value: "15"
+    description: Untouched settings must survive the round trip too
+  - type: Expect
+    target: ColumnWidthBox
+    window_id: Settings
+    matcher: HasValue
+    value: "760"
+
+  - type: Screenshot
+    value: 02-reading-reopened
+    window_id: Settings
+
+  - type: Click
+    target: CancelButton
+    window_id: Settings
+  - type: Wait
+    value: "400"
