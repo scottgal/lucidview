@@ -28,6 +28,8 @@ public sealed class ReaderServices : IAsyncDisposable
     private readonly Task _retentionLoop;
     private readonly SemaphoreSlim _downloadQueueSignal = new(0);
     private readonly Task _downloadQueueLoop;
+    private readonly NetworkMonitor _network = new();
+    private readonly Action<bool> _onNetworkAvailabilityChanged;
     private ReaderSettings _settings;
     private int _disposed;
 
@@ -90,9 +92,61 @@ public sealed class ReaderServices : IAsyncDisposable
         // Core connects a finished refresh to the download queue.
         Refresh.Completed += OnRefreshCompleted;
 
+        // PauseWhenOffline finally has something reading it. See
+        // LucidReader.Core.Sync.OfflineGate for why refreshing into a dead
+        // network is not merely wasteful.
+        _onNetworkAvailabilityChanged = _ => ApplyOfflineGate();
+        _network.AvailabilityChanged += _onNetworkAvailabilityChanged;
+        ApplyOfflineGate();
+
         _retentionTimer = new PeriodicTimer(RetentionInterval);
         _retentionLoop = RunRetentionLoopAsync();
         _downloadQueueLoop = RunDownloadQueueLoopAsync();
+    }
+
+    /// <summary>
+    /// Whether the machine currently has a network, as
+    /// <see cref="NetworkMonitor"/> sees it. The shell reads this to say so
+    /// on the status bar; nothing else needs it, because the pausing itself
+    /// happens here.
+    /// </summary>
+    public bool IsNetworkAvailable => _network.IsAvailable;
+
+    /// <summary>
+    /// Raised with the new availability whenever it changes. Not raised on the
+    /// UI thread; a subscriber that touches bound state has to marshal.
+    /// </summary>
+    public event Action<bool>? NetworkAvailabilityChanged
+    {
+        add => _network.AvailabilityChanged += value;
+        remove => _network.AvailabilityChanged -= value;
+    }
+
+    /// <summary>
+    /// Pauses or resumes the refresh coordinator to match the setting and the
+    /// current network state. Called on every availability change and on every
+    /// settings change, so turning the setting off while offline puts the
+    /// coordinator straight back to work rather than leaving it paused until
+    /// the network happens to return.
+    ///
+    /// Pause only stops new bodies being dispatched; anything already running
+    /// is left to finish. That is what makes this safe to call at any moment
+    /// rather than only between sweeps.
+    /// </summary>
+    private void ApplyOfflineGate()
+    {
+        try
+        {
+            if (OfflineGate.ShouldPauseRefreshing(Settings.PauseWhenOffline, _network.IsAvailable))
+                Refresh.Pause();
+            else
+                Refresh.Resume();
+        }
+        catch (ObjectDisposedException)
+        {
+            // A network change delivered while the app is tearing down. The
+            // coordinator is gone and there is nothing left to gate.
+        }
     }
 
     private static readonly TimeSpan RetentionInterval = TimeSpan.FromHours(6);
@@ -334,6 +388,12 @@ public sealed class ReaderServices : IAsyncDisposable
     {
         Volatile.Write(ref _settings!, settings);
         await SettingsStore.SaveAsync(_settingsPath, settings, ct);
+
+        // Before the event, not after: a subscriber reacting to the change by
+        // asking for a refresh must find the coordinator already in the state
+        // the new settings imply.
+        ApplyOfflineGate();
+
         SettingsChanged?.Invoke(settings);
     }
 
@@ -399,6 +459,23 @@ public sealed class ReaderServices : IAsyncDisposable
                 try { await Retention.PruneAsync(_shutdown.Token); }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception) { /* a failed prune must not kill the loop */ }
+
+                // The image cache is the other thing on disk that a long
+                // uptime grows. ImageCacheService only ever swept it from its
+                // own constructor, so on a machine the reader is left running
+                // on for a fortnight nothing removed a single cached image
+                // between launches: article pictures, favicons and social
+                // cards accumulated in the temp directory up to whatever the
+                // fortnight produced, and only the next launch pulled it back
+                // to the 500MB ceiling. Running it beside the retention pass
+                // makes that ceiling mean something while the app is up.
+                //
+                // Off the UI thread and off this loop's own critical path:
+                // it walks a directory and deletes files, and there is
+                // nothing here that needs to wait for it.
+                try { await Task.Run(_imageCache.EvictExpiredAndOversized, _shutdown.Token); }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception) { /* housekeeping; the next pass tries again */ }
             }
         }
         catch (OperationCanceledException) { }
@@ -430,6 +507,13 @@ public sealed class ReaderServices : IAsyncDisposable
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
         Refresh.Completed -= OnRefreshCompleted;
+
+        // Unsubscribed before the monitor is disposed, and the monitor
+        // disposed before the coordinator it gates: a network change
+        // delivered mid-teardown would otherwise call Pause or Resume on a
+        // disposed coordinator.
+        _network.AvailabilityChanged -= _onNetworkAvailabilityChanged;
+        _network.Dispose();
 
         // Scheduling stops first, before the cancel and before either drain.
         // This used to sit below both, and it mattered: RefreshScheduler reads

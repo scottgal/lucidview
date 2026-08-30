@@ -84,6 +84,47 @@ public sealed record ReaderSettings
     /// </summary>
     public bool EnableOnlineFeedSearch { get; init; }
 
+    // Alerts
+    //
+    // Four switches rather than one, because "notify me" and "sit in the menu
+    // bar" are separate wants and people hold them in every combination: a
+    // status item with the unread count and no banners, banners while the
+    // window is hidden and none while it is in front, a window that closes
+    // for good, a window that closes to the menu bar.
+
+    /// <summary>
+    /// Whether a background refresh that brings in unread articles posts a
+    /// notification at all. On by default: a reader that fetches quietly in
+    /// the background and never says so is a reader nobody looks at.
+    /// </summary>
+    public bool EnableNotifications { get; init; } = true;
+
+    /// <summary>
+    /// When true (the default), nothing is posted while the mylo window is
+    /// the focused window. Notifying someone about articles that are already
+    /// appearing in the list in front of them is noise, and it is the fastest
+    /// way to make them turn notifications off altogether.
+    /// </summary>
+    public bool NotifyOnlyWhenUnfocused { get; init; } = true;
+
+    /// <summary>
+    /// Whether the menu-bar item (macOS) or tray icon (Windows and Linux) is
+    /// shown, carrying the unread count and a short menu.
+    /// </summary>
+    public bool ShowStatusItem { get; init; } = true;
+
+    /// <summary>
+    /// Whether closing the window leaves mylo running in the status item
+    /// instead of quitting.
+    ///
+    /// Off by default, deliberately. A window that will not close is a
+    /// surprise, and an app that keeps running after its last window has gone
+    /// is a thing the user should have asked for. Turning it on is also
+    /// gated in the shell on the status item actually being shown: without
+    /// the status item there would be no way left to get the window back.
+    /// </summary>
+    public bool CloseKeepsRunning { get; init; }
+
     /// <summary>
     /// Set once, the first time the starter subscriptions in
     /// LucidReader.Core.Feeds.DefaultFeeds are written, and never cleared.

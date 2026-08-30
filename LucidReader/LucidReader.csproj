@@ -39,6 +39,12 @@
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />
   </ItemGroup>
 
+  <!-- The status-item glyph. An AvaloniaResource rather than a loose file so
+       it survives the single-file publish the Release build uses. -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\LucidReader.Core\LucidReader.Core.csproj" />
     <ProjectReference Include="..\Mostlylucid.LucidView.Markdown\Mostlylucid.LucidView.Markdown.csproj" />

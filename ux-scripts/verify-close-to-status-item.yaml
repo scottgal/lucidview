@@ -1,0 +1,114 @@
+name: verify-close-to-status-item
+description: >
+  Closing the window with "keep running in the menu bar" on hides it instead
+  of quitting, and the window that comes back is a working one.
+
+  Run it through ux-scripts/run-close-to-status-item.sh, which seeds a scratch
+  profile with closeKeepsRunning and showStatusItem both on. The behaviour
+  under test only exists in that combination, and it is not the default.
+
+  Why this is worth a script rather than a unit test. The cancel lives in
+  MainWindow's Closing handler, and a Window cannot be constructed in an xunit
+  test in this repo. Worse, the interesting failure is silent: the hide must
+  not run PrepareForShutdown, which cancels the mark-read dwell, stops health
+  monitoring, and disposes the search and three image coordinators. A hide
+  that ran it would still hide, still reopen, and look entirely correct - and
+  then searching would do nothing, favicons would never resolve, and nothing
+  on screen would say why. So this closes the window and then uses it.
+
+  Every action after the close is what makes the check real. If the app had
+  quit, the script would fail outright rather than continue; if the teardown
+  had run, the search below would return nothing.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Wait for app startup
+
+  - type: MouseDown
+    target: inside(name=SidebarSections) text='All items'
+    button: left
+  - type: MouseUp
+    target: inside(name=SidebarSections) text='All items'
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "5"
+    description: The seeded fixture's five articles, before the window closes
+
+  - type: Screenshot
+    value: 01-before-close
+
+  # =====================================================================
+  # Close it. With closeKeepsRunning on this must not end the process.
+  # =====================================================================
+  - type: WindowClose
+    window_id: mylo
+  - type: Wait
+    value: "1500"
+
+  # Reaching this line at all is the first half of the assertion: the harness
+  # is still driving a live process, so the close did not quit mylo.
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "5"
+    description: >
+      The window is hidden, not destroyed: its item list is still populated
+      with the same five rows it had before.
+
+  # =====================================================================
+  # And it is still a working window, not a husk. Search runs through the
+  # SearchCoordinator, which PrepareForShutdown disposes; if the hide had run
+  # the teardown, this returns nothing and no error is shown anywhere.
+  # =====================================================================
+  - type: Click
+    target: SearchBox
+  - type: TypeText
+    target: SearchBox
+    value: kingfishers
+  - type: Wait
+    value: "1200"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+    description: >
+      One fixture article contains "kingfishers", past the 180 characters an
+      ordinary row preview shows. A disposed search coordinator returns zero.
+
+  # =====================================================================
+  # And the toolbar's commands still work. RefreshAllButton is a real Button,
+  # so Click invokes it directly.
+  #
+  # Pointer-driven sidebar rows are deliberately not used past this point.
+  # A hidden window has no live hit-test surface, so MouseDown/MouseUp on a
+  # Border with a PointerPressed handler resolves its coordinates and then
+  # delivers nothing: the row is located, the click reports itself, and the
+  # selection does not change. Measured, not assumed - the first version of
+  # this script clicked a sidebar row after the close and its item count
+  # never moved. Anything reached through a real Button, a focused TextBox or
+  # a key press works exactly as it does in a shown window, which is what the
+  # steps above and below use.
+  # =====================================================================
+  - type: Click
+    target: RefreshAllButton
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Refresh started."
+    description: >
+      The refresh scheduler and the coordinator are both still alive. If the
+      hide had run PrepareForShutdown this is the line that would not appear.
+
+  - type: Screenshot
+    value: 02-after-close-still-working

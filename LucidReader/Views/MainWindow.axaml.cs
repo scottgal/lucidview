@@ -7,6 +7,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using LucidReader.Core.Model;
 using LucidReader.Core.Storage;
+using LucidReader.Core.Sync;
 using LucidReader.Models;
 using MarkdownViewer.Models;
 using MarkdownViewer.Services;
@@ -108,7 +109,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
         };
 
-        Closing += (_, _) => PrepareForShutdown();
+        Closing += OnWindowClosing;
 
         // The system appearance can change while the app is running, and the
         // reading pane does not follow it on its own. Avalonia flips the
@@ -130,6 +131,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _preparedForShutdown;
 
     /// <summary>
+    /// Set by App.axaml.cs immediately before it asks the lifetime to shut
+    /// down, so the close that follows is known to be a real quit and is not
+    /// diverted into hiding the window.
+    ///
+    /// Without it, "keep running in the menu bar" would make the app
+    /// unquittable: Quit closes the window, the Closing handler below cancels
+    /// the close, and the shutdown the lifetime was in the middle of never
+    /// gets its window closed.
+    /// </summary>
+    private bool _quitting;
+
+    public void MarkQuitting() => _quitting = true;
+
+    /// <summary>
+    /// Closing the window either quits mylo or hides it, depending on the
+    /// setting, and the difference matters more than it looks.
+    ///
+    /// Hiding must NOT run <see cref="PrepareForShutdown"/>. That method
+    /// cancels the dwell, stops health monitoring, disposes the health
+    /// cancellation source and disposes all four coordinators, and it is
+    /// deliberately one-shot; a hide that ran it would leave a window that
+    /// can be reopened from the status item but has no working search, no
+    /// image resolution and no health readout, with nothing on screen to say
+    /// so. So the cancel happens first and returns, and only a close that is
+    /// really the end reaches the teardown.
+    ///
+    /// The status item is required, not merely preferred: with the setting on
+    /// and no status item (a Linux session with no tray, an asset that failed
+    /// to load) hiding the window would leave mylo running with no way to
+    /// bring it back and no way to quit it. In that case the close is allowed
+    /// through, which is the behaviour the app had before any of this.
+    /// </summary>
+    private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (!_quitting && _services.Settings.CloseKeepsRunning && HasUsableStatusItem)
+        {
+            e.Cancel = true;
+            Hide();
+            return;
+        }
+
+        PrepareForShutdown();
+    }
+
+    /// <summary>
     /// Everything that has to stop before ReaderServices is disposed.
     ///
     /// This was the body of the Closing handler, and that ordering only holds
@@ -149,6 +195,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _services.SettingsChanged -= _onSettingsChanged;
 
+        if (_onNetworkAvailabilityChanged is not null)
+            _services.NetworkAvailabilityChanged -= _onNetworkAvailabilityChanged;
+
         if (_onActualThemeVariantChanged is not null && Application.Current is { } app)
             app.ActualThemeVariantChanged -= _onActualThemeVariantChanged;
 
@@ -156,6 +205,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // after this window closes: an in-flight dwell could otherwise call
         // SetReadAsync against a disposing (or already-disposed) store.
         _dwell.CancelPending();
+
+        // Before the coordinators below: this unsubscribes from
+        // FeedRefreshService.Completed, and that service outlives this window
+        // on the close-to-status-item path.
+        StopNotifications();
 
         // Same reason as the dwell above: a health tick that fired after
         // this point would read _services.Feeds against a store that is
@@ -356,7 +410,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // takes over 30 seconds later.
         if (!hasStartupWarning) await CheckHealthAsync();
         StartHealthMonitoring();
+
+        // After the tree, for the same reason the health check is: the first
+        // unread count the status item is given has to be a real one, and the
+        // tree is where that number comes from.
+        StartNotifications();
+        UpdateStatusItemUnreadCount();
+
+        // PauseWhenOffline finally does something, so say so on the one
+        // occasion it is worth saying: coming up with no network at all.
+        // OfflineGate returns an empty string in every other case, including
+        // the ordinary one, so this cannot stamp over anything.
+        if (!hasStartupWarning && !_services.IsNetworkAvailable)
+        {
+            var offlineText = OfflineGate.DescribeTransition(
+                _services.Settings.PauseWhenOffline, false);
+            if (offlineText.Length > 0) StatusMessage = offlineText;
+        }
+
+        _onNetworkAvailabilityChanged = available => Dispatcher.UIThread.Post(() =>
+        {
+            var text = OfflineGate.DescribeTransition(
+                _services.Settings.PauseWhenOffline, available);
+            if (text.Length > 0) StatusMessage = text;
+        });
+        _services.NetworkAvailabilityChanged += _onNetworkAvailabilityChanged;
     }
+
+    private Action<bool>? _onNetworkAvailabilityChanged;
 
     /// <summary>
     /// Runs on startup and again on every settings change (via SettingsChanged
@@ -441,6 +522,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Sidebar.Add(feedsSection);
 
         RepointSelectionAfterTreeReload();
+
+        // The one place every unread count in the app is recomputed, so the
+        // one place the status item can be kept in step without a second
+        // count to maintain.
+        UpdateStatusItemUnreadCount();
 
         // Fired without awaiting: the tree is already on screen with text
         // and the neutral placeholder glyph, and favicons fill in as they

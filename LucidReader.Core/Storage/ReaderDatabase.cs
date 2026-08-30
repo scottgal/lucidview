@@ -176,6 +176,38 @@ public sealed class ReaderDatabase : IAsyncDisposable
         }, ct);
     }
 
+    /// <summary>
+    /// Folds the write-ahead log back into the database file and truncates it,
+    /// returning the number of frames the log held. Zero means there was
+    /// nothing to move, or that a reader was active and SQLite declined -
+    /// both are ordinary and neither is an error.
+    ///
+    /// Runs through QueryAsync rather than WriteAsync because WriteAsync wraps
+    /// its statement in a transaction, and SQLite refuses to checkpoint from
+    /// inside one. Written as its own method rather than inlined at the call
+    /// site so that constraint is stated once, next to the code it governs,
+    /// instead of being rediscovered by whoever next moves the statement.
+    ///
+    /// Why it exists at all: WAL only auto-checkpoints passively, and a
+    /// passive checkpoint never shortens the file. An app left open for weeks
+    /// therefore keeps a -wal at its high-water mark for the whole session,
+    /// which is the one piece of this app's on-disk footprint that a long
+    /// uptime grows and a restart silently fixed.
+    /// </summary>
+    public Task<long> CheckpointWalAsync(CancellationToken ct = default) =>
+        QueryAsync(async connection =>
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            if (!await reader.ReadAsync(ct)) return 0L;
+
+            // Three columns: busy, log frames, frames checkpointed. The
+            // middle one is the size that matters here.
+            return reader.IsDBNull(1) ? 0L : reader.GetInt64(1);
+        }, ct);
+
     public ValueTask DisposeAsync()
     {
         // Guards against calling this twice (directly, then again via a

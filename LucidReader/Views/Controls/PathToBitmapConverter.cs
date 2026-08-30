@@ -47,10 +47,17 @@ public sealed class PathToBitmapConverter : IValueConverter
     // whole list.
     private const int MaxCacheEntries = 48;
 
-    private readonly Dictionary<string, LinkedListNode<CacheEntry>> _byPath = new(StringComparer.Ordinal);
-    private readonly LinkedList<CacheEntry> _lruOrder = new();
-
-    private readonly record struct CacheEntry(string Path, Bitmap Bitmap, DateTime LastWriteTimeUtc);
+    /// <summary>
+    /// The bookkeeping, which used to live inline here as a Dictionary and a
+    /// LinkedList. It moved into <see cref="BoundedLru{TValue}"/> so the one
+    /// property that matters over a long session - the cap holds, and an
+    /// evicted bitmap is genuinely unreachable so the collector can take it -
+    /// could be asserted in a test. Neither could be, while the structures
+    /// were welded to a type that cannot be constructed without a rendering
+    /// platform. Nothing about the caching behaviour changed in the move; see
+    /// BoundedLru for why eviction still deliberately does not dispose.
+    /// </summary>
+    private readonly BoundedLru<Bitmap> _cache = new(MaxCacheEntries);
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
@@ -58,7 +65,7 @@ public sealed class PathToBitmapConverter : IValueConverter
 
         if (!File.Exists(path))
         {
-            EvictIfPresent(path);
+            _cache.Remove(path);
             return null;
         }
 
@@ -69,37 +76,19 @@ public sealed class PathToBitmapConverter : IValueConverter
         }
         catch (Exception)
         {
-            EvictIfPresent(path);
+            _cache.Remove(path);
             return null;
         }
 
-        if (_byPath.TryGetValue(path, out var node))
-        {
-            if (node.Value.LastWriteTimeUtc == writeTimeUtc)
-            {
-                // Cache hit: move to the most-recently-used end and reuse
-                // the already-decoded bitmap instead of touching disk again.
-                _lruOrder.Remove(node);
-                _lruOrder.AddLast(node);
-                return node.Value.Bitmap;
-            }
-
-            // The file at this path changed since it was decoded - do not
-            // resurrect the old bytes. Drop the stale entry and fall
-            // through to a fresh decode below.
-            EvictNode(node);
-        }
+        // A hit is only honoured when the file has not been rewritten since
+        // it was decoded; a mismatch drops the entry inside TryGet and falls
+        // through to a fresh decode here.
+        if (_cache.TryGet(path, writeTimeUtc, out var cached)) return cached;
 
         try
         {
             var bitmap = new Bitmap(path);
-            var entry = new CacheEntry(path, bitmap, writeTimeUtc);
-            var newNode = _lruOrder.AddLast(entry);
-            _byPath[path] = newNode;
-
-            while (_lruOrder.Count > MaxCacheEntries)
-                EvictNode(_lruOrder.First!);
-
+            _cache.Add(path, bitmap, writeTimeUtc);
             return bitmap;
         }
         catch (Exception)
@@ -110,32 +99,4 @@ public sealed class PathToBitmapConverter : IValueConverter
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
-
-    private void EvictIfPresent(string path)
-    {
-        if (_byPath.TryGetValue(path, out var node)) EvictNode(node);
-    }
-
-    /// <summary>
-    /// Removes an entry from both structures. Deliberately does NOT dispose
-    /// the bitmap.
-    ///
-    /// It used to. That was a rendering hazard, not a memory optimisation: a
-    /// disposed Bitmap still assigned as a live Image.Source is touched on
-    /// the next render pass. The item list and the reading pane's hero are
-    /// virtualised, so their bindings are reassigned before an entry can be
-    /// evicted, but the sidebar is a plain ItemsControl with every feed row
-    /// realised at once. With 49 or more feeds carrying favicons - an
-    /// ordinary subscription list - the 49th decode disposed the bitmap row
-    /// one was still showing.
-    ///
-    /// Dropping the reference and letting the GC reclaim the native memory on
-    /// its own schedule costs a little latency in returning it and is correct
-    /// for every surface, which deterministic disposal was not.
-    /// </summary>
-    private void EvictNode(LinkedListNode<CacheEntry> node)
-    {
-        _lruOrder.Remove(node);
-        _byPath.Remove(node.Value.Path);
-    }
 }

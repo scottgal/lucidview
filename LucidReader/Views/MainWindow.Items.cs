@@ -187,5 +187,11 @@ public partial class MainWindow
 
             if (affected) node.UnreadCount = Math.Max(0, node.UnreadCount + delta);
         }
+
+        // The status item shows the same total the Unread row does, and this
+        // is the path that changes it without a tree reload: reading an
+        // article would otherwise leave the menu bar claiming the old count
+        // until something else happened to rebuild the sidebar.
+        UpdateStatusItemUnreadCount();
     }
 }

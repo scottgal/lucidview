@@ -1,0 +1,261 @@
+name: verify-alerts
+description: >
+  The Alerts group of the settings dialog, and the one behaviour behind it
+  that can be driven from here: notifications on or off, notifying only while
+  the window is not in front, showing the status item, and whether closing the
+  window keeps mylo running in it.
+
+  Run it through ux-scripts/run-alerts.sh, not directly. Every value asserted
+  below is one that script seeds into settings.json, so the run is repeatable
+  from any starting state and touches nothing you are reading feeds in.
+
+  What this can and cannot see. The four controls, their defaults, the save
+  and the reopen are all ordinary Avalonia controls in a tracked window, so
+  all of that is real. The status item itself is not: it is an NSStatusItem
+  drawn by AppKit outside any window Avalonia owns, and the harness can
+  neither locate it, click its menu, nor screenshot it (the same reason the
+  macOS NativeMenu has no coverage). It was verified instead by a full-screen
+  screencapture, which is the honest way to look at a menu bar. A system
+  notification cannot be driven from here either, and on an unbundled
+  development binary cannot be posted at all - see MacUserNotificationSink.
+
+  Every checkbox is driven as Hover-elsewhere, Hover-target, MouseDown,
+  MouseUp, for the two reasons reader-settings.yaml sets out at length: the
+  harness's Click on a CheckBox raises ClickEvent without going through
+  OnClick so nothing toggles, and a toggle only flips on release if the
+  pointer actually moved onto it.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Wait for app startup
+
+  # =====================================================================
+  # Open the dialog and get to the Alerts tab.
+  # =====================================================================
+  - type: Click
+    target: SettingsButton
+  - type: Wait
+    value: "700"
+
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+    description: Park the pointer away from the tab first (see the header)
+  - type: Hover
+    target: AlertsTabButton
+    window_id: Settings
+  - type: MouseDown
+    target: AlertsTabButton
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: AlertsTabButton
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: AlertsPanel
+    window_id: Settings
+    matcher: IsVisible
+  - type: Expect
+    target: UpdatesPanel
+    window_id: Settings
+    matcher: IsHidden
+    description: >
+      The tab strip swaps panel visibility rather than being a TabControl, so
+      the previous panel going away is the only proof the switch happened.
+
+  - type: Screenshot
+    value: 01-alerts-tab
+    window_id: Settings
+
+  - type: Screenshot
+    value: 02-alerts-over-main
+    composite: true
+
+  # =====================================================================
+  # The seeded state: notifications on, only when unfocused, status item on,
+  # closing quits.
+  # =====================================================================
+  - type: Expect
+    target: EnableNotificationsCheck
+    window_id: Settings
+    matcher: IsChecked
+  - type: Expect
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+    matcher: IsChecked
+  - type: Expect
+    target: ShowStatusItemCheck
+    window_id: Settings
+    matcher: IsChecked
+  - type: Expect
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+    matcher: IsUnchecked
+    description: >
+      Off by default. An app that keeps running after its last window has gone
+      is a thing the user should have asked for.
+
+  # =====================================================================
+  # Turn two of them over, save, and reopen to prove the write landed.
+  # =====================================================================
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+  - type: Hover
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+  - type: MouseDown
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "300"
+  - type: Expect
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+    matcher: IsUnchecked
+
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+  - type: Hover
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+  - type: MouseDown
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "300"
+  - type: Expect
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+    matcher: IsChecked
+
+  - type: Screenshot
+    value: 03-alerts-changed
+    window_id: Settings
+
+  - type: Click
+    target: OkButton
+    window_id: Settings
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Settings saved."
+
+  - type: Click
+    target: SettingsButton
+  - type: Wait
+    value: "700"
+
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+  - type: Hover
+    target: AlertsTabButton
+    window_id: Settings
+  - type: MouseDown
+    target: AlertsTabButton
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: AlertsTabButton
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+    matcher: IsUnchecked
+    description: Came back from settings.json, not from the dialog's own memory
+  - type: Expect
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+    matcher: IsChecked
+
+  - type: Screenshot
+    value: 04-alerts-reopened
+    window_id: Settings
+
+  # =====================================================================
+  # Put both back, so the run leaves the profile as it found it. A script
+  # that only works while its own edits are still in place is the failure
+  # mode ux-scripts/README-reader.md was written about, and reverting in the
+  # same run is also what proves the write works in both directions.
+  # =====================================================================
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+  - type: Hover
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+  - type: MouseDown
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "300"
+
+  - type: Hover
+    target: CancelButton
+    window_id: Settings
+  - type: Hover
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+  - type: MouseDown
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+    button: left
+  - type: MouseUp
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+    button: left
+  - type: Wait
+    value: "300"
+
+  - type: Expect
+    target: NotifyOnlyWhenUnfocusedCheck
+    window_id: Settings
+    matcher: IsChecked
+  - type: Expect
+    target: CloseKeepsRunningCheck
+    window_id: Settings
+    matcher: IsUnchecked
+
+  - type: Click
+    target: OkButton
+    window_id: Settings
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Settings saved."
+
+  - type: Screenshot
+    value: 05-back-to-defaults

@@ -153,4 +153,53 @@ public class SettingsDraftTests
         Assert.Equal("1.5 MB", SettingsDraft.FormatBytes(1024 * 1024 * 3 / 2));
         Assert.Equal("2.0 GB", SettingsDraft.FormatBytes(1024L * 1024 * 1024 * 2));
     }
+
+    [Fact]
+    public void The_alert_settings_round_trip_through_the_draft()
+    {
+        var draft = new SettingsDraft(ReaderSettings.Defaults)
+        {
+            EnableNotifications = false,
+            NotifyOnlyWhenUnfocused = false,
+            ShowStatusItem = true,
+            CloseKeepsRunning = true
+        };
+
+        var applied = draft.Apply();
+
+        Assert.False(applied.EnableNotifications);
+        Assert.False(applied.NotifyOnlyWhenUnfocused);
+        Assert.True(applied.ShowStatusItem);
+        Assert.True(applied.CloseKeepsRunning);
+    }
+
+    /// <summary>
+    /// The one clamp among the alert settings that is not tidiness. Keeping
+    /// mylo running once the window has closed is only reachable through the
+    /// status item, so saving that combination with the status item off would
+    /// produce a running app with no window and no way to reach one.
+    /// </summary>
+    [Fact]
+    public void Keeping_mylo_running_is_turned_off_with_the_status_item()
+    {
+        var applied = new SettingsDraft(ReaderSettings.Defaults)
+        {
+            ShowStatusItem = false,
+            CloseKeepsRunning = true
+        }.Apply();
+
+        Assert.False(applied.CloseKeepsRunning);
+    }
+
+    [Fact]
+    public void A_setting_this_dialog_does_not_expose_survives_a_round_trip()
+    {
+        // HasSeededDefaultFeeds has no control anywhere and must not be reset
+        // by saving the dialog: a profile whose owner unsubscribed from
+        // everything would be handed the starter list again on the next
+        // launch.
+        var original = ReaderSettings.Defaults with { HasSeededDefaultFeeds = true };
+
+        Assert.True(new SettingsDraft(original).Apply().HasSeededDefaultFeeds);
+    }
 }

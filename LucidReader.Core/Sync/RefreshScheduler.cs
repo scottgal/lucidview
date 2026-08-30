@@ -13,8 +13,6 @@ public sealed class RefreshScheduler(
     TimeProvider timeProvider,
     TimeSpan? tickInterval = null) : IAsyncDisposable
 {
-    private const int MaxFeedsPerTick = 200;
-
     /// <summary>
     /// How long StopAsync/DisposeAsync waits for a tick already running on
     /// the timer thread to unwind before tearing down the token it reads
@@ -39,6 +37,37 @@ public sealed class RefreshScheduler(
     private CancellationTokenSource _stopping = new();
     private ITimer? _timer;
     private Task _activeTick = Task.CompletedTask;
+
+    /// <summary>
+    /// When the previous tick ran, or null before the first one. Read only by
+    /// TickAsync, which is the only caller, and only to answer the two
+    /// questions in RefreshCatchUp: was there a gap long enough to mean the
+    /// machine was asleep, and did the clock step backwards.
+    /// </summary>
+    private DateTimeOffset? _lastTickUtc;
+
+    /// <summary>
+    /// True while a backlog is being worked through a small batch at a time.
+    /// Set by the tick that finds a wake-sized gap, cleared by the first tick
+    /// that does not fill its batch.
+    /// </summary>
+    private bool _catchingUp;
+
+    /// <summary>
+    /// How many ticks have found the clock stepped backwards and pulled
+    /// impossible next_due_utc values back into range, and how many feed rows
+    /// the most recent one changed. Diagnostic only: nothing decides anything
+    /// from these, but without them a rewind is invisible after the fact.
+    /// </summary>
+    public int ClockRewindsHandled { get; private set; }
+
+    public int LastClockRewindFeedsRescheduled { get; private set; }
+
+    /// <summary>
+    /// True while the scheduler is deliberately queuing a reduced batch per
+    /// tick because it is working through a backlog left by a suspend.
+    /// </summary>
+    public bool IsCatchingUp => _catchingUp;
 
     // 0 = idle, 1 = a tick is currently running. Guards against ticks
     // overlapping: a slow GetDueAsync under lock contention must not let
@@ -117,17 +146,80 @@ public sealed class RefreshScheduler(
     /// Queues every feed whose next_due_utc has passed. Returns how many were
     /// actually queued, which is fewer than were due when some are already in
     /// flight from a manual refresh.
+    ///
+    /// This is the manual path: "Refresh all" calls it. It deliberately does
+    /// no clock bookkeeping and is never trimmed to a catch-up batch. See
+    /// <see cref="ScheduledTickAsync"/>, which is the timer's.
     /// </summary>
-    public async Task<int> TickAsync(CancellationToken ct = default)
+    public Task<int> TickAsync(CancellationToken ct = default) =>
+        QueueDueAsync(timeProvider.GetUtcNow(), RefreshCatchUp.NormalBatchSize, ct);
+
+    /// <summary>
+    /// The timer's own tick, and the only one that looks at the clock.
+    ///
+    /// The two checks at the top are what make this safe to leave running for
+    /// weeks on a laptop, and neither exists to be clever. Without the first,
+    /// the tick that runs when the lid opens finds every feed overdue and
+    /// queues the entire subscription list at once, on a network that has
+    /// only just come back. Without the second, a clock corrected backwards
+    /// stops background refresh for the length of the correction and reports
+    /// nothing, because "nothing is due" is exactly what the query returns
+    /// either way.
+    ///
+    /// Kept apart from <see cref="TickAsync"/> deliberately. A manual refresh
+    /// must never be trimmed to a catch-up batch, nor mistaken for the
+    /// passage of time: a user pressing the button twice twenty seconds apart
+    /// would otherwise be the last two "ticks", and the gap a real suspend
+    /// left would be measured from the button rather than from the timer.
+    /// </summary>
+    public async Task<int> ScheduledTickAsync(CancellationToken ct = default)
     {
-        var due = await feeds.GetDueAsync(timeProvider.GetUtcNow(), MaxFeedsPerTick, ct);
+        var now = timeProvider.GetUtcNow();
+
+        if (_lastTickUtc is { } previous)
+        {
+            if (RefreshCatchUp.IsClockRewind(previous, now))
+            {
+                ClockRewindsHandled++;
+                LastClockRewindFeedsRescheduled = await feeds.ClampFutureDueAsync(
+                    now, RefreshCatchUp.ImpossibleDueThreshold(now), ct);
+            }
+            else if (RefreshCatchUp.IsWakeGap(now - previous, _interval))
+            {
+                _catchingUp = true;
+            }
+        }
+
+        _lastTickUtc = now;
+
+        var batchSize = RefreshCatchUp.BatchSize(_catchingUp);
+        var (queued, dueCount) = await QueueDueCountingAsync(now, batchSize, ct);
+
+        // The backlog is measured by how full the batch came back, not by how
+        // many were queued: a feed already in flight from a manual refresh is
+        // still one this tick had to look at. Using the due count rather than
+        // the queued count keeps a list of feeds that are all mid-refresh
+        // from dropping out of catch-up mode a tick early.
+        if (_catchingUp && !RefreshCatchUp.StillCatchingUp(dueCount, batchSize))
+            _catchingUp = false;
+
+        return queued;
+    }
+
+    private async Task<int> QueueDueAsync(DateTimeOffset now, int batchSize, CancellationToken ct) =>
+        (await QueueDueCountingAsync(now, batchSize, ct)).Queued;
+
+    private async Task<(int Queued, int DueCount)> QueueDueCountingAsync(
+        DateTimeOffset now, int batchSize, CancellationToken ct)
+    {
+        var due = await feeds.GetDueAsync(now, batchSize, ct);
 
         var queued = 0;
         foreach (var feed in due)
             if (refresh.TryQueue(feed.Id))
                 queued++;
 
-        return queued;
+        return (queued, due.Count);
     }
 
     private void OnTimerTick(object? state)
@@ -145,7 +237,7 @@ public sealed class RefreshScheduler(
     {
         try
         {
-            await TickAsync(_stopping.Token);
+            await ScheduledTickAsync(_stopping.Token);
 
             // A tick landing here succeeded: clear any failure streak a
             // caller might be reading from LastTickError/ConsecutiveTickFailures.

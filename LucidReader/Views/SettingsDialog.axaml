@@ -54,6 +54,9 @@
                 <RadioButton x:Name="ReadingTabButton" Content="Reading" GroupName="SettingsTab"
                              Theme="{StaticResource SegmentedRadioButtonTheme}"
                              Checked="OnTabChecked" Tag="Reading" />
+                <RadioButton x:Name="AlertsTabButton" Content="Alerts" GroupName="SettingsTab"
+                             Theme="{StaticResource SegmentedRadioButtonTheme}"
+                             Checked="OnTabChecked" Tag="Alerts" />
             </StackPanel>
         </Border>
 
@@ -251,6 +254,51 @@
                             <TextBlock Grid.Column="0" Text="Open article links in your browser" VerticalAlignment="Center" />
                             <CheckBox Grid.Column="1" x:Name="OpenLinksExternallyCheck" />
                         </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ================= Alerts ================= -->
+            <!--
+                Notifications and the status item, in that order, because
+                that is the order the two questions occur to a person: tell
+                me when something arrives, and be somewhere I can see the
+                count. The last two rows are about the status item and are
+                grouped separately for the same reason.
+            -->
+            <StackPanel x:Name="AlertsPanel" Spacing="14" IsVisible="False">
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Notify me when new articles arrive" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="EnableNotificationsCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Only when the mylo window is not in front" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="NotifyOnlyWhenUnfocusedCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <TextBlock Margin="12,10,12,12" TextWrapping="Wrap" Classes="row-secondary"
+                                   Text="One notification per refresh, summarising everything it brought in, rather than one per article." />
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="settings-card">
+                    <StackPanel>
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Show the unread count in the menu bar" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="ShowStatusItemCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Closing the window keeps mylo running there" VerticalAlignment="Center" />
+                            <CheckBox Grid.Column="1" x:Name="CloseKeepsRunningCheck" />
+                        </Grid>
+                        <Rectangle Classes="hairline" />
+                        <TextBlock x:Name="StatusItemNoticeText"
+                                   Margin="12,10,12,12" TextWrapping="Wrap" Classes="row-secondary"
+                                   Text="Keeping mylo running needs the menu bar item, since that is the only way back to the window." />
                     </StackPanel>
                 </Border>
             </StackPanel>

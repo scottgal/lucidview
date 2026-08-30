@@ -23,6 +23,9 @@ dotnet build LucidReader/LucidReader.csproj
 | `ux-scripts/run-reading-typography.sh [out]` | `verify-reading-typography.yaml` | The four reading settings (font size, line height, code font size, column width) round-tripping through the settings dialog: change two, save, reopen, read them back | no |
 | `ux-scripts/run-reader-keyboard.sh [out]` | `verify-reader-keyboard.yaml` | The keyboard shortcuts, with real key events: S stars and unstars the selected article, and none of the ten bare gestures (J K N P M S R O T and `/`) does anything while focus is in the search box | no |
 | `ux-scripts/run-refresh-health.sh [out]` | `verify-refresh-health.yaml` | The status bar reporting auto-paused feeds, and putting one back into rotation with the Resume button | no |
+| `ux-scripts/run-alerts.sh [out]` | `verify-alerts.yaml` | The Alerts group of the settings dialog: the four notification and status-item switches, their defaults, a save-and-reopen round trip, and both changes put back inside the run | no |
+| `ux-scripts/run-close-to-status-item.sh [out]` | `verify-close-to-status-item.yaml` | Closing the window with "keep mylo running in the menu bar" on hides it instead of quitting, and the hidden window is still a working one: its list, its search and its toolbar commands all still run | no |
+| `ux-scripts/run-memory-soak.sh [out] [cycles]` | generated | A reading cycle repeated hundreds of times with refreshes happening throughout, sampling managed heap and process RSS into a CSV and printing a table and a flat-or-growing verdict | no |
 | `ux-scripts/run-add-feed-writes.sh [out]` | `verify-add-feed-writes.yaml` | Adding discovered feeds for real: the writes land, the sidebar reloads, the status bar says what happened | yes |
 | direct | `verify-add-feed-dialog.yaml` | The add-feed dialog: empty-address message, bare-domain normalising, autodiscovery finding two feeds, Add going live. Cancels, so it writes nothing | yes |
 | direct | `verify-feed-settings-dialog.yaml` | Opening per-feed settings from the toolbar against the two-feed development database. Cancels, so it writes nothing | no |
@@ -135,6 +138,22 @@ Learned the hard way; none of it is obvious from a passing run.
   just exited (`Avalonia.Native was not able to start the RenderTimer`, error
   `-6661`). `reader-harness.sh` retries around it. It is a launch-rate limit,
   not a fault in the app.
+- **A hidden window has no hit-test surface.** After `WindowClose` has been
+  diverted into a hide (the close-to-status-item path), `MouseDown`/`MouseUp`
+  on anything that relies on a `PointerPressed` handler - every sidebar row -
+  resolves its coordinates, logs the click, and delivers nothing: the
+  selection simply does not change. `Click` on a real Button, `TypeText` into
+  a focused TextBox and `PressKey` all still work exactly as they do in a
+  shown window. `verify-close-to-status-item.yaml` is built out of those
+  three for that reason; its first version clicked a sidebar row after the
+  close and its item count never moved.
+- **The status item cannot be seen from here at all.** It is an NSStatusItem
+  drawn by AppKit outside any window Avalonia owns, so the harness can
+  neither locate it, open its menu, nor screenshot it - the same reason the
+  macOS `NativeMenu` has no coverage. `screencapture -x` of the whole screen
+  is the honest way to look at it, and on a machine with the menu bar set to
+  auto-hide that needs `_HIHideMenuBar` turned off for the length of the
+  capture and put back afterwards from a trap.
 
 ## What has no coverage here, and why
 
@@ -146,3 +165,9 @@ Learned the hard way; none of it is obvious from a passing run.
   accept. Their values are read back but never typed into; the clamping is
   covered by `SettingsDraftTests` and `FeedSettingsDraftTests`.
 - Feed autodiscovery beyond what the two add-feed scripts already do.
+- The status item and its menu, and system notifications. Both are drawn
+  outside any window Avalonia owns. The status item was verified with a
+  full-screen `screencapture`; a macOS system notification cannot be posted
+  at all from an unbundled binary, which is every development and test run -
+  see `LucidReader/Services/MacUserNotificationSink.cs` for why, and what the
+  fallback is.

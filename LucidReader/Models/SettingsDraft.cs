@@ -39,6 +39,10 @@ public sealed class SettingsDraft
         MarkReadDwellMilliseconds = current.MarkReadDwellMilliseconds;
         OpenLinksExternally = current.OpenLinksExternally;
         EnableOnlineFeedSearch = current.EnableOnlineFeedSearch;
+        EnableNotifications = current.EnableNotifications;
+        NotifyOnlyWhenUnfocused = current.NotifyOnlyWhenUnfocused;
+        ShowStatusItem = current.ShowStatusItem;
+        CloseKeepsRunning = current.CloseKeepsRunning;
     }
 
     // Updates
@@ -54,6 +58,12 @@ public sealed class SettingsDraft
     /// the dialog must say so plainly, not just gate it quietly.
     /// </summary>
     public bool EnableOnlineFeedSearch { get; set; }
+
+    // Alerts
+    public bool EnableNotifications { get; set; }
+    public bool NotifyOnlyWhenUnfocused { get; set; }
+    public bool ShowStatusItem { get; set; }
+    public bool CloseKeepsRunning { get; set; }
 
     // Offline
     public bool AutoDownloadArticles { get; set; }
@@ -99,6 +109,17 @@ public sealed class SettingsDraft
             PauseWhenOffline = PauseWhenOffline,
             MaxConcurrentFetches = Math.Max(1, MaxConcurrentFetches),
             EnableOnlineFeedSearch = EnableOnlineFeedSearch,
+            EnableNotifications = EnableNotifications,
+            NotifyOnlyWhenUnfocused = NotifyOnlyWhenUnfocused,
+            ShowStatusItem = ShowStatusItem,
+
+            // Clamped rather than trusted, like every other value here, and
+            // this one is not merely tidiness: keeping mylo running after the
+            // window closes is only reachable through the status item, so
+            // saving it while the status item is off would produce a running
+            // app with no window and no way to reach one. Off with the status
+            // item off, whatever the checkbox said.
+            CloseKeepsRunning = ShowStatusItem && CloseKeepsRunning,
             AutoDownloadArticles = AutoDownloadArticles,
             FetchFullText = FetchFullText,
             CacheImages = CacheImages,

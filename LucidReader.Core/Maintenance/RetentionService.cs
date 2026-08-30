@@ -114,11 +114,81 @@ public sealed class RetentionService(
         // rather than only at startup. Skipped when nothing was deleted, since
         // there is nothing to reclaim and no point paying even that small cost.
         if (deleted > 0)
+        {
+            await CompactFullTextIndexAsync(ct);
+
             await db.WriteAsync(
                 "PRAGMA incremental_vacuum;", new Dictionary<string, object?>(), ct);
+        }
+
+        // Outside the `deleted > 0` branch on purpose: the write-ahead log
+        // grows from writes, not from deletions, and the pass that deletes
+        // nothing is exactly the one that follows a week of ordinary
+        // refreshing.
+        await CheckpointWriteAheadLogAsync(ct);
 
         return deleted;
     }
+
+    /// <summary>
+    /// Merges a bounded number of FTS5 b-tree pages.
+    ///
+    /// An external-content FTS5 index does not shrink when its rows go. The
+    /// delete trigger writes a delete marker into a new segment rather than
+    /// removing terms from the old one, so an index over a table that is
+    /// pruned every day gets steadily larger and steadily slower to query
+    /// while holding steadily less. Only a merge reclaims that.
+    ///
+    /// 'merge' with a page budget rather than 'optimize', which merges the
+    /// entire index into one segment in a single statement: on a large
+    /// database that is a long exclusive write, and this runs on a background
+    /// timer inside a running app. A bounded merge does a slice of the same
+    /// work, and there is another prune along in six hours to do the next
+    /// slice.
+    ///
+    /// Contained rather than propagated. Reclaiming index space is
+    /// housekeeping; a prune that deleted rows successfully must not be
+    /// reported as failed because the tidy-up afterwards did not run.
+    /// </summary>
+    private async Task CompactFullTextIndexAsync(CancellationToken ct)
+    {
+        try
+        {
+            await db.WriteAsync(
+                "INSERT INTO items_fts(items_fts, rank) VALUES('merge', $pages);",
+                new Dictionary<string, object?> { ["$pages"] = MergePageBudget }, ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception) { /* housekeeping only, see the summary above */ }
+    }
+
+    /// <summary>
+    /// Folds the write-ahead log back into the database file and truncates it.
+    ///
+    /// SQLite checkpoints automatically once the log passes about a thousand
+    /// pages, but a passive checkpoint only ever moves the frames it can and
+    /// never shortens the file, so a reader left open for weeks keeps a -wal
+    /// sitting at its high-water mark for the rest of the session. TRUNCATE
+    /// is the mode that actually returns it. It is skipped, without error,
+    /// whenever a reader is active, which is the correct behaviour here: this
+    /// is opportunistic, and there is another attempt in six hours.
+    /// </summary>
+    private async Task CheckpointWriteAheadLogAsync(CancellationToken ct)
+    {
+        try
+        {
+            await db.CheckpointWalAsync(ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception) { /* housekeeping only, see the summary above */ }
+    }
+
+    /// <summary>
+    /// How many b-tree pages one merge pass is allowed to touch. Large enough
+    /// that a day's deletions are absorbed in a pass or two, small enough
+    /// that the write it takes is not felt by anyone reading at the time.
+    /// </summary>
+    private const int MergePageBudget = 64;
 
     private async Task<int> PruneReadItemsPerFeedAsync(
         ReaderSettings current, DateTimeOffset now, string starredClause, CancellationToken ct)

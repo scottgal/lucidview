@@ -283,6 +283,27 @@ public class ImageCacheService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Runs the on-disk eviction pass: deletes cache files older than
+    /// <see cref="MaxAge"/> and, if the directory is still over
+    /// <see cref="MaxCacheSizeBytes"/>, the least recently used ones until it
+    /// is not.
+    ///
+    /// The constructor already does this once, and until this method existed
+    /// that was the only time it ever ran. That is fine for a document viewer
+    /// opened and closed all day; it is not fine for an application left
+    /// running for weeks, which is exactly what a feed reader is. Every
+    /// article image, favicon and social card fetched over those weeks stayed
+    /// on disk, because the only code that could remove them had run once at
+    /// launch and would not run again until the next one. A host that stays
+    /// up needs to call this periodically; one that does not can carry on
+    /// relying on the constructor.
+    ///
+    /// Safe to call from a background timer: it touches only the file system,
+    /// contains its own failures, and takes no lock the fetch path needs.
+    /// </summary>
+    public void EvictExpiredAndOversized() => EvictStaleAndOversizedEntries();
+
     /// <summary>Clear all cached images and metadata.</summary>
     public void ClearCache()
     {

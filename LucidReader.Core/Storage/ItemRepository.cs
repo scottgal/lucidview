@@ -251,6 +251,24 @@ public sealed class ItemRepository(ReaderDatabase db)
             new Dictionary<string, object?> { ["$feedId"] = feedId }, ct);
 
     /// <summary>
+    /// Marks every unread article in every feed read, and returns how many
+    /// rows changed.
+    ///
+    /// The status item's menu is what needs this. Its whole job is to be
+    /// reachable when the window is not, so a "mark all read" there that only
+    /// applied to whatever feed happened to be selected behind a hidden
+    /// window would be the wrong action performed silently.
+    ///
+    /// "AND is_read = 0" is not redundant: without it every row in the table
+    /// is written, and every write to items fires the FTS update trigger. The
+    /// V4 migration exists precisely because that trigger used to run on
+    /// writes that changed nothing an index cares about.
+    /// </summary>
+    public Task<int> MarkAllReadAsync(CancellationToken ct = default) =>
+        db.WriteAsync("UPDATE items SET is_read = 1 WHERE is_read = 0;",
+            new Dictionary<string, object?>(), ct);
+
+    /// <summary>
     /// imageUrl defaults to null and, when omitted, leaves the column
     /// untouched rather than clobbering a previously-captured image: only
     /// the extracted-page download path in OfflineDownloader ever has an

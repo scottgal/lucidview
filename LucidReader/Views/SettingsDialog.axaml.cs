@@ -59,6 +59,11 @@ public partial class SettingsDialog : Window
         MarkReadDwellBox.Value = Draft.MarkReadDwellMilliseconds;
         OpenLinksExternallyCheck.IsChecked = Draft.OpenLinksExternally;
 
+        EnableNotificationsCheck.IsChecked = Draft.EnableNotifications;
+        NotifyOnlyWhenUnfocusedCheck.IsChecked = Draft.NotifyOnlyWhenUnfocused;
+        ShowStatusItemCheck.IsChecked = Draft.ShowStatusItem;
+        CloseKeepsRunningCheck.IsChecked = Draft.CloseKeepsRunning;
+
         Opened += async (_, _) => await RefreshDatabaseSizeAsync();
     }
 
@@ -75,6 +80,7 @@ public partial class SettingsDialog : Window
         OfflinePanel.IsVisible = tag == "Offline";
         RetentionPanel.IsVisible = tag == "Retention";
         ReadingPanel.IsVisible = tag == "Reading";
+        AlertsPanel.IsVisible = tag == "Alerts";
     }
 
     private void OnOk(object? sender, RoutedEventArgs e)
@@ -102,6 +108,11 @@ public partial class SettingsDialog : Window
         Draft.ColumnWidth = (double)(ColumnWidthBox.Value ?? (decimal)Draft.ColumnWidth);
         Draft.MarkReadDwellMilliseconds = (int)(MarkReadDwellBox.Value ?? Draft.MarkReadDwellMilliseconds);
         Draft.OpenLinksExternally = OpenLinksExternallyCheck.IsChecked ?? Draft.OpenLinksExternally;
+
+        Draft.EnableNotifications = EnableNotificationsCheck.IsChecked ?? Draft.EnableNotifications;
+        Draft.NotifyOnlyWhenUnfocused = NotifyOnlyWhenUnfocusedCheck.IsChecked ?? Draft.NotifyOnlyWhenUnfocused;
+        Draft.ShowStatusItem = ShowStatusItemCheck.IsChecked ?? Draft.ShowStatusItem;
+        Draft.CloseKeepsRunning = CloseKeepsRunningCheck.IsChecked ?? Draft.CloseKeepsRunning;
 
         Result = Draft.Apply();
         Close();

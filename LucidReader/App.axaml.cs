@@ -8,7 +8,9 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Threading;
 using LucidReader.Core.Storage;
+using LucidReader.Services;
 using LucidReader.Views;
 
 namespace LucidReader;
@@ -35,6 +37,14 @@ public class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             InstallGlobalExceptionHooks();
+
+#if DEBUG
+            // Debug-only, and off unless MYLO_MEMORY_LOG names a file. This is
+            // what the long-running soak in ux-scripts/run-memory-soak.sh reads
+            // to say whether the trend is flat, rather than the run being
+            // described from impressions.
+            _memorySampler = MemorySampler.StartIfRequested();
+#endif
 
             // Task.Run, not a bare GetResult: this runs on the UI thread with
             // AvaloniaSynchronizationContext current, so every await inside
@@ -88,6 +98,23 @@ public class App : Application
             var window = new MainWindow(_services);
             desktop.MainWindow = window;
 
+            InstallStatusItem(desktop, window);
+
+            // ShutdownMode is deliberately left at its default,
+            // OnLastWindowClose, and that is what makes both behaviours work
+            // without a second quit path.
+            //
+            // With "keep running in the menu bar" off, closing the window
+            // closes it, it is the last one, and the app quits: exactly what
+            // it did before any of this existed. With the setting on, the
+            // window's Closing handler cancels the close and hides instead -
+            // a hidden window has not closed, so the lifetime never counts it
+            // and the app stays up. Switching to OnExplicitShutdown was tried
+            // and is worse: it makes the ordinary close leave a running
+            // process with no window at all unless the close handler itself
+            // asks for a shutdown, which is a second route out of the app to
+            // keep correct for no gain.
+
             // Synchronous and blocking on purpose. An async void handler
             // returns at its first await, and DoShutdown then closes the
             // windows and calls Dispatcher.UIThread.InvokeShutdown() in its
@@ -101,6 +128,24 @@ public class App : Application
             // write coordinator's channel were dropped without a trace.
             desktop.ShutdownRequested += (_, _) =>
             {
+                // Every quit route reaches here before any window closes:
+                // Cmd+Q, the menu's Quit, the status item's Quit, an OS
+                // logout, and the UI test harness's own Shutdown(0). Telling
+                // the window first is what stops "keep running in the menu
+                // bar" from cancelling the close that the shutdown in
+                // progress depends on, which would otherwise make the app
+                // unquittable by every one of those routes at once.
+                try { window.MarkQuitting(); }
+                catch (Exception ex) { Console.Error.WriteLine($"[Shutdown] {ex.GetType().Name}: {ex.Message}"); }
+
+#if DEBUG
+                try { _memorySampler?.Dispose(); }
+                catch (Exception ex) { Console.Error.WriteLine($"[Shutdown] {ex.GetType().Name}: {ex.Message}"); }
+#endif
+
+                try { _statusItem?.Dispose(); }
+                catch (Exception ex) { Console.Error.WriteLine($"[Shutdown] {ex.GetType().Name}: {ex.Message}"); }
+
                 // Before disposal, not after. On Cmd+Q or an OS logout the
                 // platform raises this BEFORE any window closes, so the
                 // window's own Closing cleanup - cancelling the dwell,
@@ -122,6 +167,60 @@ public class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private StatusItem? _statusItem;
+
+#if DEBUG
+    private MemorySampler? _memorySampler;
+#endif
+
+    /// <summary>
+    /// Creates the menu-bar item (macOS) or tray icon (Windows and Linux) and
+    /// hands it to the window.
+    ///
+    /// It lives on the Application rather than on the window for the reason
+    /// it has to: its whole purpose is to still be there when the window is
+    /// not. The four menu entries are given as callbacks so
+    /// <see cref="StatusItem"/> knows nothing about the shell, and every one
+    /// of them works with the window hidden, which is the case none of the
+    /// toolbar's own handlers cover.
+    ///
+    /// Visibility follows the setting, live: turning the status item off in
+    /// the settings dialog hides it immediately rather than at the next
+    /// launch, and turning it back on brings it back. Turning it off while
+    /// "keep running in the menu bar" is on would strand the app with no
+    /// window and no way back, so the window's own close handler checks for a
+    /// usable status item rather than trusting the pair of settings to be
+    /// consistent.
+    /// </summary>
+    private void InstallStatusItem(IClassicDesktopStyleApplicationLifetime desktop, MainWindow window)
+    {
+        try
+        {
+            _statusItem = new StatusItem(this, new StatusItemActions(
+                Open: window.ShowFromStatusItem,
+                RefreshAll: window.RefreshAllFromStatusItem,
+                MarkAllRead: window.MarkAllReadFromStatusItem,
+                Quit: () => Dispatcher.UIThread.Post(() => desktop.Shutdown())));
+
+            _statusItem.IsVisible = _services?.Settings.ShowStatusItem ?? true;
+            window.AttachStatusItem(_statusItem);
+
+            if (_services is not null)
+                _services.SettingsChanged += settings =>
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (_statusItem is not null) _statusItem.IsVisible = settings.ShowStatusItem;
+                    });
+        }
+        catch (Exception ex)
+        {
+            // A desktop with no notification area at all. The reader opens
+            // and works; it simply has no status item, and the window's close
+            // handler will refuse to hide into one that is not there.
+            Console.Error.WriteLine($"[StatusItem] {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     /// <summary>

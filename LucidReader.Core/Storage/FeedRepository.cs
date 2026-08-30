@@ -256,6 +256,39 @@ public class FeedRepository(ReaderDatabase db)
             new Dictionary<string, object?> { ["$id"] = id }, ct);
 
     /// <summary>
+    /// Pulls back any next_due_utc that sits further ahead than this app can
+    /// ever have scheduled, and returns how many rows were changed.
+    ///
+    /// Only ever reached when RefreshScheduler has seen the system clock step
+    /// backwards. next_due_utc is an absolute instant, so a clock corrected
+    /// back by a month leaves every feed scheduled a month out, and background
+    /// refresh stops for a month with no error anywhere: the tick still runs,
+    /// GetDueAsync still returns nothing, and "nothing is due" and "everything
+    /// is due in the far future" look exactly alike from outside. This is the
+    /// one statement that can tell them apart, because it is the only one that
+    /// knows what "further ahead than possible" means
+    /// (RefreshCatchUp.MaxSaneDueAhead).
+    ///
+    /// Virtual for the same narrow reason GetDueAsync is: so a test can
+    /// observe the call without a database.
+    /// </summary>
+    public virtual Task<int> ClampFutureDueAsync(
+        DateTimeOffset newDueUtc,
+        DateTimeOffset maxAheadUtc,
+        CancellationToken ct = default) =>
+        db.WriteAsync(
+            """
+            UPDATE feeds SET next_due_utc = $newDue
+            WHERE next_due_utc IS NOT NULL AND next_due_utc > $maxAhead;
+            """,
+            new Dictionary<string, object?>
+            {
+                ["$newDue"] = newDueUtc.ToDbString(),
+                ["$maxAhead"] = maxAheadUtc.ToDbString()
+            },
+            ct);
+
+    /// <summary>
     /// Updates only the publisher-owned title and site link a refresh adopts
     /// from the feed's own content. Deliberately narrower than UpdateAsync:
     /// a refresh runs against whatever Feed snapshot it loaded at the start
