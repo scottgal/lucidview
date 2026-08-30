@@ -1,4 +1,6 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 using Mostlylucid.Avalonia.UITesting.Players;
 using SkiaSharp;
@@ -145,6 +147,60 @@ public class LucidMarkdownViewRenderTests
                 .ToHashSet();
 
             Assert.Contains("MarkdownRenderer", descendantNames);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public Task LucidMarkdownView_replaces_flowchart_marker_inside_a_scrolling_column()
+    {
+        // A mermaid fence has to end up as a drawn FlowchartCanvas with no FLOWCHART: marker text
+        // anywhere, with the view hosted the way mylo hosts it: in a centred, explicitly sized
+        // column inside a ScrollViewer.
+        //
+        // Worth knowing what this does and does not prove. Under the headless session two settle
+        // passes are enough for LiveMarkdown to build the marker, so this also passed before the
+        // marker watch was added; it is a floor on the end state, not a reproduction of the timing
+        // that broke mylo. The real window takes two or three layout passes longer and only the
+        // driven run catches that, which is what ux-scripts/run-reader-mermaid.sh is for.
+        return _fx.DispatchAsync(async () =>
+        {
+            var view = new LucidMarkdownView
+            {
+                Markdown = "Before.\n\n```mermaid\nflowchart TD\n A[One]-->B[Two]\n```\n\nAfter.",
+                Width = 600
+            };
+
+            var window = new Window
+            {
+                Width = 800,
+                Height = 600,
+                Content = new ScrollViewer
+                {
+                    Content = new StackPanel
+                    {
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        Width = 600,
+                        Children = { view }
+                    }
+                }
+            };
+
+            window.Show();
+            await HeadlessRender.SettleAsync(window);
+            await HeadlessRender.SettleAsync(window);
+
+            var descendants = window.GetVisualDescendants().ToList();
+
+            var markerText = descendants
+                .OfType<TextBlock>()
+                .Select(tb => tb.Text ?? string.Concat(
+                    tb.Inlines?.OfType<Run>().Select(r => r.Text ?? "") ?? []))
+                .FirstOrDefault(t => t.Contains("FLOWCHART:", StringComparison.OrdinalIgnoreCase));
+
+            Assert.Null(markerText);
+            Assert.Contains(descendants, d => d.GetType().Name == "FlowchartCanvas");
 
             window.Close();
         });

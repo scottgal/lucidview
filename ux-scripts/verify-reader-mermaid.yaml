@@ -1,0 +1,75 @@
+name: verify-reader-mermaid
+description: >
+  A mermaid flowchart in an article body has to reach the reading pane as a
+  drawn diagram, not as the literal marker text the markdown pipeline puts
+  there on its way.
+
+  LucidMarkdownView turns a ```mermaid fence into a FLOWCHART:<key> marker,
+  hands that text to LiveMarkdown, then walks the visual tree and swaps the
+  control the marker was laid out as for a FlowchartCanvas. The walk can only
+  find it once LiveMarkdown has built it, which here is three layout passes
+  after the builder is swapped: mylo measures the pane inside a ScrollViewer
+  with a centred, explicitly sized column, so its layout settles late. A
+  single pass deferred to Loaded priority ran before any of that and found
+  nothing, and a flowchart has no async render step to bring the walk back,
+  so the article showed the string FLOWCHART:flowchart-0 where the diagram
+  should have been.
+
+  Run it through ux-scripts/run-reader-mermaid.sh, not directly: that script
+  seeds a throwaway profile whose first article body is the diagram, and
+  checks the captured pane for the diagram's colours afterwards.
+  Needs no network.
+
+  The FlowchartCanvas assertion below is the one that fails when the bug is
+  back, and it fails for the right reason: with one diagram in the document
+  the canvas exists only if the marker was found and replaced, so its
+  presence is the marker's absence. It cannot be asserted the other way
+  round. LiveMarkdown renders a paragraph as Runs inside a TextBlock's
+  Inlines rather than as its Text, and every text route the harness has
+  (the text= locator, HasText, ContainsText, the SVG export) reads only
+  TextBlock.Text, so no expectation here can see the marker string whether it
+  is present or not. That the diagram is really drawn, rather than merely not
+  written out as text, is what the pane snip and the colour check in the
+  shell script are for.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  # inside(name=ItemList) because by the time the button is released the same
+  # title is also on screen as the reading pane's heading, and an unscoped
+  # locator can resolve the release against that instead of the row.
+  - type: MouseDown
+    target: "inside(name=ItemList) text='Compositor internals explained'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=ItemList) text='Compositor internals explained'"
+    button: left
+  - type: Wait
+    value: "2500"
+    description: Selection, the article render and the diagram's layout passes
+
+  - type: Expect
+    target: "type=FlowchartCanvas"
+    matcher: IsVisible
+    description: The mermaid fence became a drawn flowchart, not marker text
+
+  - type: Screenshot
+    target: ReadingScroll
+    value: reading-pane
+    description: The pane on its own, which the colour check is run against
+
+  - type: Screenshot
+    value: window
+    description: Whole window, for looking at when the check surprises you

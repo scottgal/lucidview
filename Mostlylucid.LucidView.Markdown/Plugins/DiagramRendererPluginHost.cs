@@ -8,11 +8,15 @@ public sealed class DiagramRendererPluginHost(IEnumerable<IDiagramRendererPlugin
 
     public IReadOnlyList<IDiagramRendererPlugin> Plugins => _plugins;
 
-    public void ReplaceDiagramMarkers(Visual root)
+    /// <summary>Runs every plugin over the tree and returns the total number of markers replaced.</summary>
+    public int ReplaceDiagramMarkers(Visual root)
     {
+        var replaced = 0;
         foreach (var plugin in _plugins)
         {
-            plugin.ReplaceDiagramMarkers(root);
+            replaced += plugin.ReplaceDiagramMarkers(root);
         }
+
+        return replaced;
     }
 }

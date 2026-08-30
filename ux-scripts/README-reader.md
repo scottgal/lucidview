@@ -26,6 +26,7 @@ dotnet build LucidReader/LucidReader.csproj
 | `ux-scripts/run-alerts.sh [out]` | `verify-alerts.yaml` | The Alerts group of the settings dialog: the four notification and status-item switches, their defaults, a save-and-reopen round trip, and both changes put back inside the run | no |
 | `ux-scripts/run-close-to-status-item.sh [out]` | `verify-close-to-status-item.yaml` | Closing the window with "keep mylo running in the menu bar" on hides it instead of quitting, and the hidden window is still a working one: its list, its search and its toolbar commands all still run | no |
 | `ux-scripts/run-memory-soak.sh [out] [cycles]` | generated | A reading cycle repeated hundreds of times with refreshes happening throughout, sampling managed heap and process RSS into a CSV and printing a table and a flat-or-growing verdict | no |
+| `ux-scripts/run-reader-mermaid.sh [out]` | `verify-reader-mermaid.yaml` | A mermaid fence in an article body reaching the reading pane as a drawn flowchart rather than as the raw `FLOWCHART:` marker text, **checked in pixels**: the canvas has to be in the tree and the pane snip has to hold the saturated node colours only a drawn diagram produces | no |
 | `ux-scripts/run-add-feed-writes.sh [out]` | `verify-add-feed-writes.yaml` | Adding discovered feeds for real: the writes land, the sidebar reloads, the status bar says what happened | yes |
 | direct | `verify-add-feed-dialog.yaml` | The add-feed dialog: empty-address message, bare-domain normalising, autodiscovery finding two feeds, Add going live. Cancels, so it writes nothing | yes |
 | direct | `verify-feed-settings-dialog.yaml` | Opening per-feed settings from the toolbar against the two-feed development database. Cancels, so it writes nothing | no |
@@ -78,6 +79,15 @@ retention can never age them past the 30-day cutoff and change the counts.
 from a property. It snips the reading pane with `Screenshot` + `target:`, then
 `measure-reading-column.py` reads the PNG with PIL and reports where the
 content actually landed.
+
+`run-reader-mermaid.sh` reads pixels for a different reason: there is no
+property to ask. A `FlowchartCanvas` paints its nodes and labels onto a
+`DrawingContext`, so it has no children an expectation can see, and the
+marker it replaces is a `Run` inside a `TextBlock`'s `Inlines`, which every
+text route the harness has (`text=`, `HasText`, `ContainsText`, the SVG
+export) misses because they all read `TextBlock.Text`. So the presence of the
+canvas stands in for the absence of the marker, and the colour of the pane
+stands in for the diagram having actually been drawn.
 
 That is deliberate. A property assertion says what a control was told; it does
 not say what was drawn. A filter pill in this app had its padding silently

@@ -21,12 +21,13 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
 
     readonly record struct MarkerTarget(Visual Visual, string Prefix, string Key);
 
-    public void ReplaceDiagramMarkers(Visual root)
+    public int ReplaceDiagramMarkers(Visual root)
     {
+        var replacedCount = 0;
         var flowchartLayouts = markdownService.FlowchartLayouts;
         var diagramDocs = markdownService.DiagramDocuments;
         var c4Layouts = markdownService.C4Layouts;
-        if (flowchartLayouts.Count == 0 && diagramDocs.Count == 0 && c4Layouts.Count == 0) return;
+        if (flowchartLayouts.Count == 0 && diagramDocs.Count == 0 && c4Layouts.Count == 0) return 0;
 
         var markers = new List<MarkerTarget>();
         FindDiagramMarkers(root, markers);
@@ -120,11 +121,17 @@ public sealed class AvaloniaNativeDiagramRendererPlugin(
                 replacement.ContextMenu = contextMenu;
             }
 
-            if (!ReplaceControlInVisualTree(marker.Visual, replacement))
+            if (ReplaceControlInVisualTree(marker.Visual, replacement))
+            {
+                replacedCount++;
+            }
+            else
             {
                 Debug.WriteLine($"[DiagramCanvas:{Name}] Failed to replace marker for key '{marker.Key}' ({marker.Visual.GetType().Name})");
             }
         }
+
+        return replacedCount;
     }
 
     void OpenLink(string link)

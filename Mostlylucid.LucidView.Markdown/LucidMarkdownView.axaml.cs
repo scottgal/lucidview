@@ -61,6 +61,21 @@ public partial class LucidMarkdownView : UserControl
     private readonly DiagramRendererPluginHost _pluginHost;
     private int _renderGeneration;
 
+    // Marker replacement watch. See ScheduleDiagramMarkerReplacement.
+    private bool _markerWatchRunning;
+    private int _markerWatchGeneration;
+    private int _markerWatchPasses;
+    private int _markerWatchReplaced;
+    private int _markerWatchExpected;
+
+    /// <summary>
+    /// How many layout passes a marker gets to appear in before the watch gives up. Generous
+    /// because it costs one tree walk per pass and only runs while a document still has an
+    /// unreplaced diagram in it, and because a host that measures this view inside a scrolling,
+    /// centred column takes several passes to settle before LiveMarkdown's text is even built.
+    /// </summary>
+    private const int MaxMarkerWatchPasses = 60;
+
     // ── Constructor ─────────────────────────────────────────────────────────
 
     public LucidMarkdownView()
@@ -104,6 +119,7 @@ public partial class LucidMarkdownView : UserControl
         // correct lifetime behaviour for a closed document, this is essential under a *shared*
         // headless test session: a view that keeps re-driving layout after its window closes leaves
         // never-settling work on the single UI thread and eventually wedges a later test.
+        StopDiagramMarkerWatch();
         _markdownService.CancelRenderBatch();
         MdViewer.MarkdownBuilder = new ObservableStringBuilder();
     }
@@ -140,6 +156,7 @@ public partial class LucidMarkdownView : UserControl
 
         if (markdown is null)
         {
+            StopDiagramMarkerWatch();
             MdViewer.MarkdownBuilder = new ObservableStringBuilder();
             return;
         }
@@ -150,13 +167,7 @@ public partial class LucidMarkdownView : UserControl
         builder.Append(processed);
         MdViewer.MarkdownBuilder = builder;
 
-        // First pass runs synchronously, but on a fresh render the builder update hasn't been laid out into
-        // the visual tree yet, so this walk finds no marker Runs. That's fine for async diagrams (their
-        // await + second pass below catches them after layout) but flowcharts have no async step — without a
-        // deferred pass their FLOWCHART: marker never gets replaced (it renders as raw text). So always defer
-        // one more pass after a layout tick; ReplaceDiagramMarkers is idempotent (a replaced marker is gone).
-        _pluginHost.ReplaceDiagramMarkers(MdViewer);
-        Dispatcher.UIThread.Post(() => _pluginHost.ReplaceDiagramMarkers(MdViewer), DispatcherPriority.Loaded);
+        ScheduleDiagramMarkerReplacement(renderGeneration);
 
         if (pendingDiagrams.Count == 0) return;
 
@@ -175,12 +186,80 @@ public partial class LucidMarkdownView : UserControl
             diagramBuilder.Append(updated);
             MdViewer.MarkdownBuilder = diagramBuilder;
 
-            _pluginHost.ReplaceDiagramMarkers(MdViewer);
+            ScheduleDiagramMarkerReplacement(renderGeneration);
         }
         catch (OperationCanceledException)
         {
             // A new render batch was started (e.g. Markdown changed again) — this is expected.
         }
+    }
+
+    // ── Diagram marker replacement ──────────────────────────────────────────
+
+    /// <summary>
+    /// Keeps swapping diagram markers for their drawn controls until the document's diagrams are
+    /// all in place, or a bounded number of layout passes has gone by.
+    ///
+    /// The pipeline turns a mermaid fence into a marker (FLOWCHART:key and friends), hands the text
+    /// to LiveMarkdown, and then walks the visual tree looking for the Run that marker was laid out
+    /// as. The walk can only find that Run once LiveMarkdown has built it, which is at least one
+    /// layout pass after the builder is swapped, and in a host that measures this view inside a
+    /// ScrollViewer with a centred, explicitly sized column, later than that: the pane's own layout
+    /// has to settle first. A single deferred pass posted at Loaded priority therefore ran, found
+    /// nothing and stopped, and since a flowchart is laid out synchronously it has no later async
+    /// step to trigger another pass. The article showed the literal text FLOWCHART:flowchart-0.
+    ///
+    /// So the pass is driven off LayoutUpdated rather than a fixed delay: it runs exactly when the
+    /// tree changes shape, which is precisely when a marker can first become findable, and stops as
+    /// soon as every diagram the document declares has been replaced. The pass count is a backstop
+    /// for a document whose marker never appears (a key with no marker text left in the source),
+    /// so the handler cannot stay subscribed for the life of the window.
+    /// </summary>
+    private void ScheduleDiagramMarkerReplacement(int renderGeneration)
+    {
+        _markerWatchGeneration = renderGeneration;
+        _markerWatchPasses = 0;
+        _markerWatchReplaced = 0;
+        _markerWatchExpected =
+            _markdownService.FlowchartLayouts.Count +
+            _markdownService.DiagramDocuments.Count +
+            _markdownService.C4Layouts.Count;
+
+        // A re-render of an already laid out document can succeed straight away.
+        _markerWatchReplaced += _pluginHost.ReplaceDiagramMarkers(MdViewer);
+
+        if (_markerWatchExpected == 0 || _markerWatchReplaced >= _markerWatchExpected)
+        {
+            StopDiagramMarkerWatch();
+            return;
+        }
+
+        if (_markerWatchRunning) return;
+        _markerWatchRunning = true;
+        MdViewer.LayoutUpdated += OnDiagramMarkerLayoutUpdated;
+    }
+
+    private void OnDiagramMarkerLayoutUpdated(object? sender, EventArgs e)
+    {
+        // A newer document is rendering; its own schedule owns the watch from here.
+        if (_markerWatchGeneration != Volatile.Read(ref _renderGeneration))
+        {
+            StopDiagramMarkerWatch();
+            return;
+        }
+
+        _markerWatchPasses++;
+        _markerWatchReplaced += _pluginHost.ReplaceDiagramMarkers(MdViewer);
+
+        if (_markerWatchReplaced >= _markerWatchExpected || _markerWatchPasses >= MaxMarkerWatchPasses)
+            StopDiagramMarkerWatch();
+    }
+
+    private void StopDiagramMarkerWatch()
+    {
+        if (!_markerWatchRunning) return;
+        _markerWatchRunning = false;
+        MdViewer.LayoutUpdated -= OnDiagramMarkerLayoutUpdated;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
