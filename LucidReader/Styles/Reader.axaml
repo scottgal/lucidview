@@ -143,7 +143,7 @@
                             ones.
                         -->
                         <Border Name="PART_Segment" CornerRadius="5" Background="Transparent"
-                                Padding="14,5" MinWidth="62">
+                                Padding="10,5" MinWidth="52">
                             <ContentPresenter Content="{TemplateBinding Content}"
                                               TextBlock.Foreground="{TemplateBinding Foreground}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center" />

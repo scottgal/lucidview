@@ -302,7 +302,7 @@
 
             <GridSplitter Grid.Column="1" x:Name="SidebarSplitter" ResizeDirection="Columns" />
 
-            <Grid Grid.Column="2" x:Name="ItemListPane" RowDefinitions="Auto,Auto,*"
+            <Grid Grid.Column="2" x:Name="ItemListPane" RowDefinitions="Auto,*"
                   Background="{DynamicResource ListBackgroundBrush}">
                 <!--
                     The per-feed update line. One row, one sentence, one
@@ -326,18 +326,6 @@
                     a field of that name on this class, which would collide
                     with the bound property.
                 -->
-                <Grid Grid.Row="0" x:Name="FeedUpdateStrip" ColumnDefinitions="*,Auto"
-                      Margin="12,10,10,2"
-                      IsVisible="{Binding IsFeedUpdateVisible}">
-                    <TextBlock Grid.Column="0" x:Name="FeedUpdateLineText"
-                               Text="{Binding FeedUpdateText}" Classes="row-secondary"
-                               VerticalAlignment="Center" />
-                    <Button Grid.Column="1" x:Name="FeedUpdateRefreshButton"
-                            Classes="feed-update-refresh" Content="Refresh"
-                            IsVisible="{Binding CanRefreshSelectedFeed}"
-                            ToolTip.Tip="Refresh this feed now"
-                            Click="OnFeedUpdateRefreshClicked" />
-                </Grid>
 
                 <!--
                     A segmented control, not raw RadioButtons: same three
@@ -345,7 +333,18 @@
                     RadioButton.Theme changes what they look like. See
                     SegmentedRadioButtonTheme in Styles/Reader.axaml.
                 -->
-                <Border Grid.Row="1" Classes="segmented-container" Margin="10,8,10,8" HorizontalAlignment="Left">
+                <!--
+                    Filter and the feed-update line share one row to save
+                    vertical space in a pane that is mostly list. A WrapPanel
+                    rather than a Grid because the item list column is
+                    resizable and can be dragged narrow: when the two no
+                    longer fit side by side the update line drops to its own
+                    line instead of the Refresh button being clipped off the
+                    right edge.
+                -->
+                <WrapPanel Grid.Row="0" x:Name="ItemListHeaderBar" Orientation="Horizontal"
+                           Margin="10,8,10,8">
+                <Border Classes="segmented-container" VerticalAlignment="Center" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal" Spacing="0">
                         <RadioButton x:Name="FilterAll" Content="All" GroupName="ItemFilter"
                                      Theme="{StaticResource SegmentedRadioButtonTheme}"
@@ -359,7 +358,30 @@
                     </StackPanel>
                 </Border>
 
-                <ListBox Grid.Row="2" x:Name="ItemList"
+                    <!--
+                        StackPanel, not the old Grid with a star column: inside
+                        a WrapPanel a child is measured at its desired size, so
+                        a star column would have nothing to fill and the
+                        Refresh button would sit hard against the text.
+                    -->
+                    <StackPanel x:Name="FeedUpdateStrip" Orientation="Horizontal"
+                                VerticalAlignment="Center" Spacing="6"
+                                IsVisible="{Binding IsFeedUpdateVisible}">
+                        <TextBlock x:Name="FeedUpdateLineText"
+                                   Text="{Binding FeedUpdateShortText}" Classes="row-secondary"
+                                   ToolTip.Tip="{Binding FeedUpdateText}"
+                                   VerticalAlignment="Center" />
+                        <!-- Glyph, not the word "Refresh": the label alone was
+                             wider than the time it sits next to. -->
+                        <Button x:Name="FeedUpdateRefreshButton"
+                                Classes="feed-update-refresh" Content="&#x21BB;"
+                                IsVisible="{Binding CanRefreshSelectedFeed}"
+                                ToolTip.Tip="Refresh this feed now"
+                                Click="OnFeedUpdateRefreshClicked" />
+                    </StackPanel>
+                </WrapPanel>
+
+                <ListBox Grid.Row="1" x:Name="ItemList"
                          ItemsSource="{Binding ItemRows}"
                          SelectedItem="{Binding SelectedItemRow, Mode=TwoWay}"
                          ItemContainerTheme="{StaticResource ReaderListBoxItemTheme}">

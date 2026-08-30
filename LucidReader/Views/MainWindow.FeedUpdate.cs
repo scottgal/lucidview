@@ -27,6 +27,12 @@ public partial class MainWindow
     /// </summary>
     public string FeedUpdateText => _feedUpdate.Text;
 
+    /// <summary>
+    /// What the line actually renders. The full sentence is the tooltip: see
+    /// FeedUpdateSummary for why the visible form is abbreviated.
+    /// </summary>
+    public string FeedUpdateShortText => _feedUpdate.ShortText;
+
     public bool IsFeedUpdateVisible => _feedUpdate.IsVisible;
 
     public bool CanRefreshSelectedFeed => _feedUpdate.CanRefresh;
@@ -66,6 +72,7 @@ public partial class MainWindow
         _feedUpdate = next;
 
         if (previous.Text != next.Text) Raise(nameof(FeedUpdateText));
+        if (previous.ShortText != next.ShortText) Raise(nameof(FeedUpdateShortText));
         if (previous.IsVisible != next.IsVisible) Raise(nameof(IsFeedUpdateVisible));
         if (previous.CanRefresh != next.CanRefresh) Raise(nameof(CanRefreshSelectedFeed));
     }

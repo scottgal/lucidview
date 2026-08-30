@@ -91,13 +91,12 @@ actions:
 
   - type: Expect
     target: FeedUpdateLineText
-    matcher: ContainsText
-    value: "Updated 4 min ago"
-
-  - type: Expect
-    target: FeedUpdateLineText
-    matcher: ContainsText
-    value: "Next in 26 min"
+    matcher: HasText
+    value: "4 min ago"
+    description: >
+      The short form is what renders. The full sentence ("Updated 4 min ago
+      ... Next in 26 min") is the tooltip so the line fits beside the filter
+      control on one row, and the harness cannot read a tooltip.
 
   - type: Expect
     target: FeedUpdateRefreshButton
@@ -128,7 +127,7 @@ actions:
   - type: Expect
     target: FeedUpdateLineText
     matcher: HasText
-    value: "Not updated yet"
+    value: "Never"
     description: No next-due time either, so the line is the head half alone
 
   - type: Screenshot
@@ -151,7 +150,7 @@ actions:
   - type: Expect
     target: FeedUpdateLineText
     matcher: HasText
-    value: "Paused after repeated failures."
+    value: "Paused"
 
   - type: Expect
     target: FeedUpdateRefreshButton
@@ -197,7 +196,7 @@ actions:
   - type: Expect
     target: FeedUpdateLineText
     matcher: HasText
-    value: "Refreshing now..."
+    value: "Refreshing..."
 
   - type: Expect
     target: FeedUpdateRefreshButton

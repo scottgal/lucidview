@@ -20,9 +20,10 @@ namespace LucidReader.Models;
 /// one is Resume, which already has its own affordance, and a Refresh that
 /// silently left the feed paused would be a worse answer than no Refresh.
 /// </param>
-public readonly record struct FeedUpdateLine(bool IsVisible, string Text, bool CanRefresh)
+public readonly record struct FeedUpdateLine(
+    bool IsVisible, string Text, bool CanRefresh, string ShortText)
 {
-    public static readonly FeedUpdateLine Hidden = new(false, string.Empty, false);
+    public static readonly FeedUpdateLine Hidden = new(false, string.Empty, false, string.Empty);
 }
 
 /// <summary>
@@ -63,13 +64,13 @@ public static class FeedUpdateSummary
         // fetch is running "Paused after repeated failures" would be stale in
         // the one moment the user is watching.
         if (isRefreshing)
-            return new FeedUpdateLine(true, "Refreshing now...", false);
+            return new FeedUpdateLine(true, "Refreshing now...", false, "Refreshing...");
 
         if (isAutoPaused)
-            return new FeedUpdateLine(true, "Paused after repeated failures.", false);
+            return new FeedUpdateLine(true, "Paused after repeated failures.", false, "Paused");
 
         if (!isEnabled)
-            return new FeedUpdateLine(true, "Updates are turned off for this feed.", false);
+            return new FeedUpdateLine(true, "Updates are turned off for this feed.", false, "Updates off");
 
         var head =
             lastFetchedUtc is null ? "Not updated yet"
@@ -78,7 +79,22 @@ public static class FeedUpdateSummary
 
         var tail = DescribeNext(nextDueUtc, now);
 
-        return new FeedUpdateLine(true, tail.Length == 0 ? head : head + Separator + tail, true);
+        // The short form is what actually renders. At the item list's default
+        // 340px the segmented filter and a full sentence cannot share a line,
+        // so the line wrapped immediately and saved none of the space it was
+        // added to save. The long form survives as the tooltip, so nothing is
+        // lost, and the WrapPanel still drops to two lines if the column is
+        // dragged narrower than even the short form needs.
+        var shortHead =
+            lastFetchedUtc is null ? "Never"
+            : HasFailed(lastFetchedUtc, lastSuccessUtc, lastError) ? "Failed"
+            : DescribeElapsed(lastSuccessUtc ?? lastFetchedUtc, now);
+
+        return new FeedUpdateLine(
+            true,
+            tail.Length == 0 ? head : head + Separator + tail,
+            true,
+            shortHead);
     }
 
     /// <summary>

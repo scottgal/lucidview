@@ -234,4 +234,57 @@ public class FeedUpdateSummaryTests
 
         Assert.Equal("Refreshing now...", line.Text);
     }
+
+    // The short form is what actually renders; the long form is the tooltip.
+    // These pin the abbreviations because the whole reason they exist is to fit
+    // beside the filter control on one line, and a wording change that made one
+    // longer would quietly bring the wrap back.
+
+    [Fact]
+    public void A_feed_that_has_never_been_fetched_reads_Never_in_the_short_form()
+    {
+        var now = new DateTimeOffset(2026, 8, 31, 12, 0, 0, TimeSpan.Zero);
+        var line = FeedUpdateSummary.Describe(true, false, false, true, null, null, null, null, now);
+
+        Assert.Equal("Never", line.ShortText);
+        Assert.Equal("Not updated yet", line.Text);
+    }
+
+    [Fact]
+    public void A_failed_attempt_reads_Failed_in_the_short_form()
+    {
+        var now = new DateTimeOffset(2026, 8, 31, 12, 0, 0, TimeSpan.Zero);
+        var line = FeedUpdateSummary.Describe(
+            true, false, false, true, now.AddMinutes(-5), null, "boom", null, now);
+
+        Assert.Equal("Failed", line.ShortText);
+        Assert.Contains("Last update failed", line.Text);
+    }
+
+    [Fact]
+    public void A_successful_fetch_shows_only_the_elapsed_time_in_the_short_form()
+    {
+        var now = new DateTimeOffset(2026, 8, 31, 12, 0, 0, TimeSpan.Zero);
+        var line = FeedUpdateSummary.Describe(
+            true, false, false, true, now.AddMinutes(-4), now.AddMinutes(-4), null, now.AddMinutes(26), now);
+
+        Assert.Equal("4 min ago", line.ShortText);
+        Assert.Contains("Updated 4 min ago", line.Text);
+        Assert.Contains("Next", line.Text);
+    }
+
+    [Theory]
+    [InlineData(true, false, true, "Refreshing...")]
+    [InlineData(false, true, true, "Paused")]
+    [InlineData(false, false, false, "Updates off")]
+    public void The_short_form_stays_short_in_every_state(
+        bool refreshing, bool paused, bool enabled, string expected)
+    {
+        var now = new DateTimeOffset(2026, 8, 31, 12, 0, 0, TimeSpan.Zero);
+        var line = FeedUpdateSummary.Describe(
+            true, refreshing, paused, enabled, now.AddMinutes(-5), now.AddMinutes(-5), null, null, now);
+
+        Assert.Equal(expected, line.ShortText);
+        Assert.True(line.ShortText.Length <= line.Text.Length);
+    }
 }
