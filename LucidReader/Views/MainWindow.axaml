@@ -68,8 +68,16 @@
             at the right end of this same row rather than in the status bar,
             which now only shows StatusText.
         -->
+        <!--
+            DoubleTapped zooms the window. With
+            ExtendClientAreaToDecorationsHint the OS title bar band is drawn
+            over by this toolbar, so the platform never sees the double click
+            that normally zooms a macOS window: the app has to do it. The
+            handler ignores taps that landed on a control.
+        -->
         <Border Grid.Row="1" Background="{DynamicResource SidebarBackgroundBrush}"
-                BorderThickness="0,0,0,1" BorderBrush="{DynamicResource HairlineBrush}">
+                BorderThickness="0,0,0,1" BorderBrush="{DynamicResource HairlineBrush}"
+                DoubleTapped="OnTitleBarDoubleTapped">
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="80,10,12,10">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <!--

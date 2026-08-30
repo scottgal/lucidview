@@ -159,4 +159,48 @@ public partial class MainWindow
         LayoutMode = mode;
         ApplyLayoutMode(mode);
     }
+
+    /// <summary>
+    /// Zoom on a double click in the title bar band.
+    ///
+    /// ExtendClientAreaToDecorationsHint means the toolbar is painted over the
+    /// area the OS would otherwise own, so the platform never receives the
+    /// double click that zooms a macOS window and the gesture just does
+    /// nothing. Restoring it here keeps the window behaving the way every
+    /// other Mac app does.
+    ///
+    /// Taps that landed on a control are ignored: double clicking Refresh all,
+    /// or selecting a word in the search box, must not resize the window.
+    /// </summary>
+    private void OnTitleBarDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        if (IsInteractive(e.Source as Avalonia.Visual)) return;
+
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Walks up from the tapped element to the toolbar, looking for something
+    /// the user was actually aiming at. Checking only e.Source is not enough:
+    /// a click on a Button lands on the TextBlock inside its template, not on
+    /// the Button itself.
+    /// </summary>
+    private static bool IsInteractive(Avalonia.Visual? source)
+    {
+        for (var v = source; v is not null; v = Avalonia.VisualTree.VisualExtensions.GetVisualParent(v))
+        {
+            if (v is Avalonia.Controls.Primitives.TemplatedControl
+                and (Avalonia.Controls.Button
+                    or Avalonia.Controls.Primitives.ToggleButton
+                    or Avalonia.Controls.TextBox
+                    or Avalonia.Controls.Menu
+                    or Avalonia.Controls.MenuItem))
+                return true;
+        }
+
+        return false;
+    }
 }
