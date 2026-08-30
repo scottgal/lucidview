@@ -1,3 +1,4 @@
+using LucidReader.Core.Feeds;
 using LucidReader.Core.Model;
 
 namespace LucidReader.Services;
@@ -28,11 +29,12 @@ public sealed class ImageResolver(IRemoteImageFetcher fetcher, Func<ReaderSettin
         if (!settings().CacheImages) return null;
 
         // A favicon or OpenGraph URL comes from remote, attacker-controlled
-        // HTML (Task 8b's SiteMetadataExtractor), so it gets the same
-        // scheme allowlist as article images: refuse anything other than
-        // http/https before it ever reaches the fetcher.
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var absolute)) return null;
-        if (absolute.Scheme != Uri.UriSchemeHttp && absolute.Scheme != Uri.UriSchemeHttps) return null;
+        // HTML (Task 8b's SiteMetadataExtractor), so it gets the full
+        // FeedUrlPolicy gate rather than a scheme check on its own: an
+        // og:image pointing at http://192.168.1.1/setup.cgi?reboot=1 is a
+        // request this app would otherwise make, unattended, the moment the
+        // item is shown in a list.
+        if (!FeedUrlPolicy.TryValidate(url, out var absolute, out _) || absolute is null) return null;
 
         var fetched = await fetcher.FetchAsync(absolute.ToString(), ct);
         return fetched?.LocalPath;

@@ -58,7 +58,13 @@ public static class OpmlReader
             var feedUrl = Attribute(element, "xmlUrl");
             var siteUrl = Attribute(element, "htmlUrl");
 
-            results.Add(new OpmlOutline(title, feedUrl, siteUrl, ReadOutlines(element, depth + 1)));
+            // Written by this app's own export (see OpmlWriter); absent from
+            // everybody else's, where null correctly means "no rename to
+            // restore".
+            var titleOverride = Attribute(element, "lucidTitleOverride");
+
+            results.Add(new OpmlOutline(
+                title, feedUrl, siteUrl, ReadOutlines(element, depth + 1), titleOverride));
         }
 
         return results;

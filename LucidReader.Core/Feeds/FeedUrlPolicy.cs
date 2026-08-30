@@ -90,7 +90,7 @@ public static class FeedUrlPolicy
 
     private static bool IsLocalOrPrivateHost(Uri uri)
     {
-        var host = uri.DnsSafeHost;
+        var host = NormaliseHost(uri.DnsSafeHost);
         if (host.Length == 0) return true;
 
         if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
@@ -100,6 +100,18 @@ public static class FeedUrlPolicy
         // A name is left alone on purpose: see the class remarks.
         return IPAddress.TryParse(host, out var ip) && IsLocalOrPrivate(ip);
     }
+
+    /// <summary>
+    /// Drops the root label's trailing dot. "169.254.169.254." and
+    /// "localhost." resolve to exactly the same place as the forms without
+    /// it, but Uri.DnsSafeHost keeps the dot, so IPAddress.TryParse fails on
+    /// the first and the literal "localhost" comparison misses the second.
+    /// Both would then fall through to the "it is a name, allow it" path.
+    /// Only one dot is stripped: a host ending in two dots is not a name any
+    /// resolver accepts, so there is nothing to normalise it to.
+    /// </summary>
+    private static string NormaliseHost(string host) =>
+        host.EndsWith('.') ? host[..^1] : host;
 
     private static bool IsLocalOrPrivate(IPAddress ip)
     {
@@ -122,11 +134,50 @@ public static class FeedUrlPolicy
         }
 
         if (ip.AddressFamily == AddressFamily.InterNetworkV6)
-            return ip.IsIPv6LinkLocal        // fe80::/10
-                   || ip.IsIPv6SiteLocal     // fec0::/10, deprecated but still routed by some stacks
-                   || ip.IsIPv6UniqueLocal   // fc00::/7
-                   || IPAddress.IPv6Any.Equals(ip);
+        {
+            if (ip.IsIPv6LinkLocal        // fe80::/10
+                || ip.IsIPv6SiteLocal     // fec0::/10, deprecated but still routed by some stacks
+                || ip.IsIPv6UniqueLocal   // fc00::/7
+                || IPAddress.IPv6Any.Equals(ip))
+                return true;
+
+            // An IPv6 address can carry an IPv4 one inside it, and the stack
+            // that receives it ends up talking to that IPv4 address. The
+            // v4-mapped shape (::ffff:127.0.0.1) is handled above by
+            // MapToIPv4; NAT64 (64:ff9b::/96) and 6to4 (2002::/16) hide the
+            // same thing in a form MapToIPv4 does not recognise, so
+            // [64:ff9b::7f00:1] and [2002:7f00:1::] would otherwise be
+            // spellings of loopback that this policy waved through.
+            var embedded = EmbeddedIPv4(ip);
+            return embedded is not null && IsLocalOrPrivate(embedded);
+        }
 
         return false;
+    }
+
+    /// <summary>
+    /// The IPv4 address a NAT64 or 6to4 address translates to, or null when
+    /// the address is neither.
+    /// </summary>
+    private static IPAddress? EmbeddedIPv4(IPAddress ip)
+    {
+        var b = ip.GetAddressBytes();
+
+        // 64:ff9b::/96, the well-known NAT64 prefix: the last four bytes are
+        // the IPv4 address.
+        if (b[0] == 0x00 && b[1] == 0x64 && b[2] == 0xff && b[3] == 0x9b
+            && b.Skip(4).Take(8).All(x => x == 0))
+            return new IPAddress(b[12..16]);
+
+        // 2002::/16, 6to4: the IPv4 address is bytes 2 to 5.
+        if (b[0] == 0x20 && b[1] == 0x02)
+            return new IPAddress(b[2..6]);
+
+        // ::a.b.c.d, the deprecated v4-compatible form. Deprecated is not the
+        // same as unroutable, and it costs one comparison to refuse it.
+        if (b.Take(12).All(x => x == 0))
+            return new IPAddress(b[12..16]);
+
+        return null;
     }
 }

@@ -27,6 +27,23 @@ public sealed class ItemRepository(ReaderDatabase db)
     /// freshly-parsed FeedItem carries would silently erase every captured
     /// social-card image on the item's next poll.
     ///
+    /// Every publisher-owned column is written with COALESCE(excluded.x, x),
+    /// and any nullable column added to this list later must follow the same
+    /// rule. FeedParser.RequireIdentity only demands ONE of guid, link or
+    /// title, so a null title, link, summary or date is an ordinary parse
+    /// result, not a sign the fetch went wrong. A plain
+    /// "x = excluded.x" therefore erases what we already hold the moment a
+    /// publisher stops emitting a field: moving item bodies from
+    /// &lt;description&gt; to &lt;content:encoded&gt; would blank every stored
+    /// summary in that feed, and for an item whose download failed or that
+    /// was stored while auto-download was off (offline_state = 0, which
+    /// GetPendingOfflineAsync never re-queues) the summary is the only body
+    /// there is, so the reading pane shows "no content yet" permanently. A
+    /// nulled link is worse still: open-original and full-text fetch both
+    /// lose the only copy of the address. COALESCE keeps the last non-null
+    /// value the publisher ever sent, which is the closest thing to the
+    /// truth we have.
+    ///
     /// The WHERE NOT EXISTS guard is the other half of retention's tombstone
     /// design (see item_tombstones in Migrations.V2 and RetentionService): a
     /// (feed_id, guid) RetentionService has deliberately pruned must not come
@@ -52,12 +69,12 @@ public sealed class ItemRepository(ReaderDatabase db)
             WHERE t.feed_id = $feedId AND t.guid = $guid
         )
         ON CONFLICT(feed_id, guid) DO UPDATE SET
-            link = excluded.link,
-            title = excluded.title,
-            author = excluded.author,
-            published_utc = excluded.published_utc,
-            updated_utc = excluded.updated_utc,
-            summary = excluded.summary;
+            link = COALESCE(excluded.link, link),
+            title = COALESCE(excluded.title, title),
+            author = COALESCE(excluded.author, author),
+            published_utc = COALESCE(excluded.published_utc, published_utc),
+            updated_utc = COALESCE(excluded.updated_utc, updated_utc),
+            summary = COALESCE(excluded.summary, summary);
         """;
 
     /// <summary>

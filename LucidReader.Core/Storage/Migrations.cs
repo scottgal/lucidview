@@ -6,7 +6,7 @@ namespace LucidReader.Core.Storage;
 /// </summary>
 public static class Migrations
 {
-    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3 };
+    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4 };
 
     private const string V1 = """
         CREATE TABLE folders (
@@ -144,5 +144,30 @@ public static class Migrations
     // touches.
     private const string V3 = """
         ALTER TABLE items ADD COLUMN image_url TEXT NULL;
+        """;
+
+    // Narrows the FTS update trigger to the two columns the index actually
+    // mirrors. V1 created it as an unscoped AFTER UPDATE ON items, so every
+    // write to the row fired it: marking an article read, starring it,
+    // marking a whole feed read, recording a failed download. Each of those
+    // deleted and reinserted the item's entire content_markdown term list for
+    // no gain, on the path the user is on while reading. Measured over 2000
+    // items of about 10KB each, one "UPDATE items SET is_read = 1 WHERE
+    // is_read = 0" cost 148ms and 42MB with the V1 trigger against 26ms and
+    // 33MB with this one.
+    //
+    // Dropping and recreating a trigger does not touch the index contents, so
+    // no rebuild is needed: rows are unchanged, and every subsequent edit to
+    // title or content_markdown still maintains them.
+    private const string V4 = """
+        DROP TRIGGER items_fts_update;
+
+        CREATE TRIGGER items_fts_update
+        AFTER UPDATE OF title, content_markdown ON items BEGIN
+            INSERT INTO items_fts(items_fts, rowid, title, content_markdown)
+            VALUES ('delete', old.id, old.title, old.content_markdown);
+            INSERT INTO items_fts(rowid, title, content_markdown)
+            VALUES (new.id, new.title, new.content_markdown);
+        END;
         """;
 }

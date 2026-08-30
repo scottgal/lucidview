@@ -135,6 +135,14 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         var parser = new FeedParser();
         if (parser.CanParse(body))
         {
+            // effectiveUri is where the response actually came from, which is
+            // not necessarily where we aimed: a redirect chose it. Everything
+            // this method returns is offered to the user pre-ticked and then
+            // fetched unattended forever after, so no address leaves this
+            // method without passing FeedUrlPolicy first.
+            if (!FeedUrlPolicy.IsAllowed(effectiveUri.ToString()))
+                return Array.Empty<DiscoveredFeed>();
+
             string? title = null;
             try { title = parser.Parse(body, effectiveUri).Title; }
             catch (FeedParseException) { }
@@ -165,7 +173,14 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
             var href = AttributeValue(tag, "href");
             if (href.Length == 0) continue;
             if (!Uri.TryCreate(effectiveUri, href, out var absolute)) continue;
-            if (absolute.Scheme != Uri.UriSchemeHttp && absolute.Scheme != Uri.UriSchemeHttps) continue;
+
+            // The href came out of a downloaded page, so it gets the same gate
+            // the anchor and well-known stages apply through
+            // ConfirmCandidatesAsync. A scheme check alone is not that gate: it
+            // would still hand back http://169.254.169.254/ or an address
+            // carrying embedded credentials, pre-ticked in the chooser, stored,
+            // and then fetched on every scheduler tick from then on.
+            if (!FeedUrlPolicy.IsAllowed(absolute.ToString())) continue;
             if (!seen.Add(absolute.ToString())) continue;
 
             var linkTitle = AttributeValue(tag, "title");
@@ -316,7 +331,12 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
             var parser = new FeedParser();
             if (!parser.CanParse(body)) return null;
 
+            // The recorded URL is the one the response came from, so a redirect
+            // means the address about to be stored is not the address the
+            // policy was applied to above. Check the one actually being kept.
             var url = (response.RequestMessage?.RequestUri ?? candidate).ToString();
+            if (!FeedUrlPolicy.IsAllowed(url)) return null;
+
             string? title = null;
             try { title = parser.Parse(body, response.RequestMessage?.RequestUri ?? candidate).Title; }
             catch (FeedParseException) { }

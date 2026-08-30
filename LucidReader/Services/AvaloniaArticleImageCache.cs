@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using LucidReader.Core.Feeds;
 using LucidReader.Core.Model;
 using MarkdownViewer.Services;
 
@@ -37,6 +38,15 @@ public sealed partial class AvaloniaArticleImageCache(
     IRemoteImageFetcher fetcher,
     Func<ReaderSettings> settings) : IArticleImageCache
 {
+    /// <summary>
+    /// How many image URLs one article may cost in fetches. The markdown is
+    /// publisher-controlled and this runs unattended during offline download,
+    /// so without a cap a single item advertising ten thousand images is ten
+    /// thousand outbound requests. Far above what any real article carries.
+    /// </summary>
+    private const int MaxImagesPerArticle = 100;
+
+
     public async Task<string> RewriteAsync(
         string markdown,
         Uri? baseUri,
@@ -49,12 +59,19 @@ public sealed partial class AvaloniaArticleImageCache(
         if (markdownMatches.Count == 0 && htmlMatches.Count == 0) return markdown;
 
         var replacements = new Dictionary<string, string>(StringComparer.Ordinal);
+        var attempts = 0;
 
         foreach (Match match in markdownMatches)
+        {
+            if (attempts++ >= MaxImagesPerArticle) break;
             await ResolveAsync(match.Groups["url"].Value, baseUri, replacements, ct);
+        }
 
         foreach (Match match in htmlMatches)
+        {
+            if (attempts++ >= MaxImagesPerArticle) break;
             await ResolveAsync(match.Groups["url"].Value, baseUri, replacements, ct);
+        }
 
         if (replacements.Count == 0) return markdown;
 
@@ -95,11 +112,14 @@ public sealed partial class AvaloniaArticleImageCache(
         var url = rawUrl.Trim();
         if (url.Length == 0 || replacements.ContainsKey(url)) return;
 
-        // Refuse any scheme other than http and https: a feed is
-        // attacker-controlled input, and this is what keeps a `file:` or
-        // `data:` reference from ever reaching the fetcher.
+        // A feed is attacker-controlled input, so this runs the same gate
+        // every other document-supplied address in the app runs: the scheme
+        // allowlist keeps `file:` and `data:` away from the fetcher, and the
+        // host rules keep an <img src="http://192.168.1.1/setup.cgi?reboot=1">
+        // from turning automatic offline download into a request against the
+        // user's own network.
         if (!Uri.TryCreate(baseUri, url, out var absolute)) return;
-        if (absolute.Scheme != Uri.UriSchemeHttp && absolute.Scheme != Uri.UriSchemeHttps) return;
+        if (!FeedUrlPolicy.IsAllowed(absolute.ToString())) return;
 
         ct.ThrowIfCancellationRequested();
 

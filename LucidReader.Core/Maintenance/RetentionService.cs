@@ -97,6 +97,14 @@ public sealed class RetentionService(
 
         await PruneTombstonesAsync(now, ct);
 
+        // Deleting an item cascades its item_tags rows away but leaves the tag
+        // row itself, so without this the tag list only ever grows and a tag
+        // whose last item was pruned stays in the picker forever.
+        // TagRepository is a stateless wrapper over the same database, so it
+        // is built here rather than threaded through the composition root.
+        if (deleted > 0)
+            await new TagRepository(db).DeleteUnusedAsync(ct);
+
         // A DELETE only marks pages free inside the file; SQLite does not shrink
         // the file itself without help. The database was put into incremental
         // auto-vacuum mode once at startup (SchemaMigrator), so this returns

@@ -169,7 +169,19 @@ public sealed class ReaderServices : IAsyncDisposable
         var search = new SearchRepository(database);
         var tags = new TagRepository(database);
 
-        var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
+        // AllowAutoRedirect off, and redirects followed by PolicyHttpHandler
+        // instead, one hop at a time with FeedUrlPolicy applied to each. The
+        // default handler follows up to 50 hops silently, which turns every
+        // pre-request policy check in the app (OPML import, autodiscovery,
+        // the article fetch) into a check on the first URL only: a clean
+        // public address answering 302 with a private Location was followed
+        // and its body returned. Doing it here means the gate sits under
+        // every request this app makes rather than at each call site.
+        var http = new HttpClient(
+            new PolicyHttpHandler(new SocketsHttpHandler { AllowAutoRedirect = false }))
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
 
         // Timeouts are enforced per operation by FeedRefreshService and
         // OfflineDownloader with their own linked cancellation tokens, because

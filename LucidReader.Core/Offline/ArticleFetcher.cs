@@ -53,8 +53,13 @@ public sealed partial class ArticleFetcher(HttpClient http)
 
     public async Task<FetchedArticle?> FetchArticleAsync(string url, CancellationToken ct = default)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        // The URL is item.Link, straight out of feed XML, and auto-download
+        // fetches it with no user action at all, so it needs the same gate as
+        // the markdown alternate below rather than a scheme check on its own:
+        // a feed publishing <link>http://127.0.0.1:9200/_cluster/settings</link>
+        // would otherwise have that GET made for it and the response stored as
+        // the article body.
+        if (!FeedUrlPolicy.TryValidate(url, out var uri, out _) || uri is null)
             return null;
 
         try

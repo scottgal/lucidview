@@ -165,13 +165,35 @@ public sealed class FeedRefreshService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Refreshes one feed inline, bypassing the queue. Used by the synchronous
-    /// refresh path and by tests. Runs under the same timeout guard as the
-    /// queued path, for the same reason: a manual "refresh this feed" action
-    /// should not hang forever against a stalled server either.
+    /// Refreshes one feed inline, without going through the queue. Used by the
+    /// synchronous refresh path and by tests. Runs under the same timeout guard
+    /// as the queued path, for the same reason: a manual "refresh this feed"
+    /// action should not hang forever against a stalled server either.
+    ///
+    /// It also takes the same _inFlight slot the queued path takes. Skipping
+    /// that was what made two refreshes of one feed overlap without needing a
+    /// timing coincidence at all: a scheduler tick and a click on Refresh land
+    /// on the same feed routinely, and both would then fetch, both would store,
+    /// and both would record failures against a counter each had read before
+    /// the other wrote. When the slot is already taken there is a refresh of
+    /// this feed running right now, so this reports "nothing changed" rather
+    /// than starting a second one; it is not a failure and nothing is recorded
+    /// against the feed for it.
     /// </summary>
-    public Task<FeedRefreshOutcome> RefreshNowAsync(long feedId, CancellationToken ct = default) =>
-        RefreshWithTimeoutGuardAsync(feedId, ct);
+    public async Task<FeedRefreshOutcome> RefreshNowAsync(long feedId, CancellationToken ct = default)
+    {
+        if (!_inFlight.TryAdd(feedId, 0))
+            return new FeedRefreshOutcome(feedId, true, 0, true, null);
+
+        try
+        {
+            return await RefreshWithTimeoutGuardAsync(feedId, ct);
+        }
+        finally
+        {
+            _inFlight.TryRemove(feedId, out _);
+        }
+    }
 
     /// <summary>
     /// Runs one refresh under a timer this class owns, rather than trusting the
@@ -357,10 +379,22 @@ public sealed class FeedRefreshService : IAsyncDisposable
         EffectiveFeedSettings settings,
         CancellationToken ct)
     {
-        var failures = feed.ConsecutiveFailures + 1;
-        await _feeds.RecordFailureAsync(
+        // The backoff step is computed from the snapshot's count, which is only
+        // ever used to space out the next attempt and is harmless if it is one
+        // behind. The auto-pause decision is not: it comes from what
+        // RecordFailureAsync read back after incrementing in SQL. Deciding it
+        // from `feed.ConsecutiveFailures + 1` meant two overlapping refreshes
+        // of one feed could both compute 4 while the database went to 5, so the
+        // threshold was stepped over rather than hit and a dead feed never
+        // paused. The returned is_enabled matters for the same reason: the
+        // snapshot could say enabled for a feed the user paused, or paused for
+        // one they just resumed, during the fetch.
+        var projected = feed.ConsecutiveFailures + 1;
+        var state = await _feeds.RecordFailureAsync(
             feed.Id, error, now,
-            _backoff.NextDueAfterFailure(now, failures, settings), ct);
+            _backoff.NextDueAfterFailure(now, projected, settings), ct);
+
+        if (!state.Found) return;
 
         // Narrow update for the same reason as the title/site adoption above:
         // `feed` is a stale snapshot by the time auto-pause fires, and writing
@@ -368,7 +402,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
         // AutoPauseAsync (not SetEnabledAsync's disable branch) so the feed's
         // auto_paused_utc records that this disable was automatic, not a
         // deliberate user action - see FeedRepository.SetEnabledAsync's remarks.
-        if (BackoffPolicy.ShouldAutoPause(failures) && feed.IsEnabled)
+        if (BackoffPolicy.ShouldAutoPause(state.ConsecutiveFailures) && state.IsEnabled)
             await _feeds.AutoPauseAsync(feed.Id, now, ct);
     }
 

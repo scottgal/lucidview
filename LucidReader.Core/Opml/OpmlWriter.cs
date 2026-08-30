@@ -34,6 +34,14 @@ public static class OpmlWriter
             element.Add(new XAttribute("xmlUrl", feedUrl));
             if (outline.SiteUrl is { } siteUrl)
                 element.Add(new XAttribute("htmlUrl", siteUrl));
+
+            // An extra attribute rather than a namespace: OPML 2.0 allows
+            // outlines to carry attributes beyond the ones it defines, every
+            // reader that does not know this one ignores it, and it is what
+            // lets an import tell "the user renamed this feed" apart from
+            // "this is what the publisher calls it".
+            if (outline.TitleOverride is { } titleOverride)
+                element.Add(new XAttribute("lucidTitleOverride", titleOverride));
         }
 
         foreach (var child in outline.Children)

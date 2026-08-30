@@ -106,11 +106,23 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
                     {
                         try
                         {
+                            // A rename comes back into title_override, the
+                            // column that owns it. The outline's text is the
+                            // displayed name, so when an override is present
+                            // the text is that same override and storing it
+                            // in feeds.title as well would just plant the
+                            // user's name in the publisher's column, to be
+                            // overwritten by the first successful refresh.
+                            // Title is left null in that case and the
+                            // publisher's own title is adopted on that
+                            // refresh, with the override still winning in
+                            // DisplayTitle.
                             var feedId = await feeds.AddAsync(new Feed
                             {
                                 FeedUrl = feedUrl,
                                 SiteUrl = outline.SiteUrl,
-                                Title = outline.Title,
+                                Title = outline.TitleOverride is null ? outline.Title : null,
+                                TitleOverride = outline.TitleOverride,
                                 FolderId = folderId
                             }, ct);
                             added++;
@@ -200,8 +212,12 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
         var allFolders = await folders.GetAllAsync(ct);
         var allFeeds = await feeds.GetAllAsync(ct);
 
+        // text carries the displayed name so other readers show what this one
+        // shows; the override is carried separately so importing this file
+        // back can put it in the column that owns it rather than in
+        // feeds.title, where the next refresh would overwrite it.
         static OpmlOutline ToOutline(Feed feed) =>
-            new(feed.DisplayTitle, feed.FeedUrl, feed.SiteUrl, []);
+            new(feed.DisplayTitle, feed.FeedUrl, feed.SiteUrl, [], feed.TitleOverride);
 
         var outlines = new List<OpmlOutline>();
 

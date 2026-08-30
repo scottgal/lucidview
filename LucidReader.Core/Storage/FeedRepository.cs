@@ -3,6 +3,13 @@ using Microsoft.Data.Sqlite;
 
 namespace LucidReader.Core.Storage;
 
+/// <summary>
+/// The feed row as it stands immediately after a failure was recorded, read
+/// back from the same statement that wrote it. See
+/// <see cref="FeedRepository.RecordFailureAsync"/>.
+/// </summary>
+public readonly record struct FeedFailureState(bool Found, int ConsecutiveFailures, bool IsEnabled);
+
 public class FeedRepository(ReaderDatabase db)
 {
     public virtual Task<long> AddAsync(Feed feed, CancellationToken ct = default) =>
@@ -72,23 +79,45 @@ public class FeedRepository(ReaderDatabase db)
                 ["$limit"] = limit
             }, ct);
 
+    /// <summary>
+    /// Writes the columns a user edits. Deliberately does not write title or
+    /// site_url: those two belong to the publisher, and
+    /// UpdateTitleAndSiteUrlAsync exists precisely to own them. A refresh can
+    /// adopt a new publisher title at any moment, including while the settings
+    /// dialog is open, so a save that carried those columns along would revert
+    /// it; a rename the user typed goes to title_override, never here.
+    ///
+    /// Changing the refresh interval also recomputes next_due_utc, in the same
+    /// transaction as the write. Without that, a feed moved from daily to
+    /// every fifteen minutes keeps the due time the last fetch calculated
+    /// under the old interval, so the new one does not take effect until a day
+    /// later. The new due time is measured from the last fetch, which is where
+    /// the current one was measured from. Clearing the override entirely
+    /// (back to "use the global setting") nulls next_due_utc instead, since
+    /// the global interval is not known here and a null simply means the feed
+    /// is picked up on the next scheduler pass.
+    /// </summary>
     public Task UpdateAsync(Feed feed, CancellationToken ct = default) =>
-        db.WriteAsync(
-            """
-            UPDATE feeds SET
-                folder_id = $folder, site_url = $site, title = $title,
-                title_override = $titleOverride, icon_path = $icon,
-                is_enabled = $enabled,
-                refresh_interval_minutes = $interval, auto_download = $autoDownload,
-                fetch_full_text = $fullText, retention_days = $retention
-            WHERE id = $id;
-            """,
-            new Dictionary<string, object?>
+        db.Writer.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
+        {
+            var previousInterval = await ReadIntervalAsync(connection, transaction, feed.Id, innerCt);
+
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText =
+                """
+                UPDATE feeds SET
+                    folder_id = $folder,
+                    title_override = $titleOverride, icon_path = $icon,
+                    is_enabled = $enabled,
+                    refresh_interval_minutes = $interval, auto_download = $autoDownload,
+                    fetch_full_text = $fullText, retention_days = $retention
+                WHERE id = $id;
+                """;
+            var parameters = new Dictionary<string, object?>
             {
                 ["$id"] = feed.Id,
                 ["$folder"] = feed.FolderId,
-                ["$site"] = feed.SiteUrl,
-                ["$title"] = feed.Title,
                 ["$titleOverride"] = feed.TitleOverride,
                 ["$icon"] = feed.IconPath,
                 ["$enabled"] = feed.IsEnabled ? 1 : 0,
@@ -96,8 +125,67 @@ public class FeedRepository(ReaderDatabase db)
                 ["$autoDownload"] = feed.AutoDownload switch { true => 1, false => 0, null => (object?)null },
                 ["$fullText"] = feed.FetchFullText switch { true => 1, false => 0, null => (object?)null },
                 ["$retention"] = feed.RetentionDays
-            },
-            ct);
+            };
+            foreach (var (key, value) in parameters)
+                command.Parameters.AddWithValue(key, value ?? DBNull.Value);
+            var rows = await command.ExecuteNonQueryAsync(innerCt);
+
+            if (previousInterval.Found && previousInterval.Minutes != feed.RefreshIntervalMinutes)
+            {
+                await RescheduleForIntervalAsync(
+                    connection, transaction, feed.Id, feed.RefreshIntervalMinutes, innerCt);
+            }
+
+            return rows;
+        }, ct);
+
+    private static async Task<(bool Found, int? Minutes)> ReadIntervalAsync(
+        SqliteConnection connection, SqliteTransaction transaction, long feedId, CancellationToken ct)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT refresh_interval_minutes FROM feeds WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", feedId);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct)) return (false, null);
+        return (true, reader.IsDBNull(0) ? null : reader.GetInt32(0));
+    }
+
+    /// <summary>
+    /// Moves next_due_utc onto the interval that has just been set. A feed
+    /// with no fetch behind it, or one now inheriting the global interval,
+    /// gets a null due time, which GetDueAsync treats as due now.
+    /// </summary>
+    private static async Task RescheduleForIntervalAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        long feedId,
+        int? intervalMinutes,
+        CancellationToken ct)
+    {
+        DateTimeOffset? nextDue = null;
+
+        if (intervalMinutes is > 0)
+        {
+            await using var read = connection.CreateCommand();
+            read.Transaction = transaction;
+            read.CommandText = "SELECT last_fetched_utc FROM feeds WHERE id = $id;";
+            read.Parameters.AddWithValue("$id", feedId);
+            var lastFetched = await read.ExecuteScalarAsync(ct);
+
+            if (lastFetched is string text
+                && DateTimeOffset.TryParse(
+                    text, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+                nextDue = parsed.AddMinutes(intervalMinutes.Value);
+        }
+
+        await using var write = connection.CreateCommand();
+        write.Transaction = transaction;
+        write.CommandText = "UPDATE feeds SET next_due_utc = $nextDue WHERE id = $id;";
+        write.Parameters.AddWithValue("$id", feedId);
+        write.Parameters.AddWithValue("$nextDue", (object?)nextDue.ToDbString() ?? DBNull.Value);
+        await write.ExecuteNonQueryAsync(ct);
+    }
 
     public Task RecordSuccessAsync(
         long feedId, string? etag, string? lastModified,
@@ -121,26 +209,47 @@ public class FeedRepository(ReaderDatabase db)
             },
             ct);
 
-    public Task RecordFailureAsync(
+    /// <summary>
+    /// Records one failure and returns the row as it stands afterwards.
+    ///
+    /// The counter is incremented in SQL, so the returned count is the true
+    /// one even when two refreshes of the same feed overlap. The caller must
+    /// decide auto-pause from what comes back rather than from its own Feed
+    /// snapshot: that snapshot can be a minute old, and two concurrent
+    /// refreshes both reading 3 would each compute 4 while the database
+    /// reached 5, so a dead feed would never cross the threshold and never
+    /// pause. is_enabled comes back for the same reason - a stale snapshot
+    /// would re-pause a feed the user resumed while the fetch was in flight.
+    /// Found is false when the feed was deleted mid-fetch.
+    /// </summary>
+    public Task<FeedFailureState> RecordFailureAsync(
         long feedId, string error,
         DateTimeOffset nowUtc, DateTimeOffset nextDueUtc, CancellationToken ct = default) =>
-        db.WriteAsync(
-            """
-            UPDATE feeds SET
-                last_fetched_utc = $now,
-                consecutive_failures = consecutive_failures + 1,
-                last_error = $error,
-                next_due_utc = $nextDue
-            WHERE id = $id;
-            """,
-            new Dictionary<string, object?>
-            {
-                ["$id"] = feedId,
-                ["$now"] = nowUtc.ToDbString(),
-                ["$error"] = error,
-                ["$nextDue"] = nextDueUtc.ToDbString()
-            },
-            ct);
+        db.Writer.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText =
+                """
+                UPDATE feeds SET
+                    last_fetched_utc = $now,
+                    consecutive_failures = consecutive_failures + 1,
+                    last_error = $error,
+                    next_due_utc = $nextDue
+                WHERE id = $id
+                RETURNING consecutive_failures, is_enabled;
+                """;
+            command.Parameters.AddWithValue("$id", feedId);
+            command.Parameters.AddWithValue("$now", nowUtc.ToDbString());
+            command.Parameters.AddWithValue("$error", error);
+            command.Parameters.AddWithValue("$nextDue", nextDueUtc.ToDbString());
+
+            await using var reader = await command.ExecuteReaderAsync(innerCt);
+            if (!await reader.ReadAsync(innerCt))
+                return new FeedFailureState(false, 0, false);
+
+            return new FeedFailureState(true, reader.GetInt32(0), reader.GetInt32(1) != 0);
+        }, ct);
 
     public Task DeleteAsync(long id, CancellationToken ct = default) =>
         db.WriteAsync("DELETE FROM feeds WHERE id = $id;",
