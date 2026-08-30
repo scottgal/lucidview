@@ -468,11 +468,20 @@
                         corners as the list thumbnail for visual consistency
                         between the two surfaces that show article artwork.
                     -->
+                    <!--
+                        A social card is a banner above the headline, not the
+                        subject of the page. At 320 it took most of the first
+                        screen and pushed the article title below the fold on a
+                        laptop. 120 keeps it recognisable at the reading
+                        column's width while the headline stays first.
+                        UniformToFill plus ClipToBounds crops rather than
+                        letterboxes, which is what these 1200x630 cards expect.
+                    -->
                     <Border x:Name="HeroImageBorder" IsVisible="{Binding HasHero}"
-                            CornerRadius="8" MaxHeight="320" Margin="0,0,0,16"
+                            CornerRadius="8" MaxHeight="120" Margin="0,0,0,16"
                             ClipToBounds="True">
                         <Image Source="{Binding HeroImagePath, Converter={StaticResource PathToBitmapConverter}}"
-                               Stretch="UniformToFill" MaxHeight="320" />
+                               Stretch="UniformToFill" MaxHeight="120" />
                     </Border>
 
                     <TextBlock x:Name="ArticleTitleText" Text="{Binding ArticleTitle}" Classes="article-title" />

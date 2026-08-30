@@ -183,9 +183,22 @@ public partial class MainWindow
     /// <summary>
     /// Every link in the reading pane came from a remote feed, so it goes
     /// through the allowlist rather than straight to the platform opener.
+    ///
+    /// Handled is set on EVERY path, including refusal and the
+    /// OpenLinksExternally-off path, and that is the whole point rather than
+    /// tidiness. MarkdownTextBlock raises this event and then does
+    /// `e.Handled = args.Handled`; when it comes back unhandled, Link.Open()
+    /// runs `topLevel.Launcher.LaunchUriAsync(HRef)` itself. So leaving it
+    /// unhandled meant every link opened twice, and worse, a link this method
+    /// deliberately REFUSED (a relative href, file://, credentials in the
+    /// URL) was then opened by LiveMarkdown anyway, straight past
+    /// SafeLinkOpener. The allowlist only holds if nothing downstream gets a
+    /// second go at the URL.
     /// </summary>
     private void OnArticleLinkClicked(object? sender, LiveMarkdown.Avalonia.LinkClickedEventArgs e)
     {
+        e.Handled = true;
+
         if (!_services.Settings.OpenLinksExternally) return;
 
         if (!SafeLinkOpener.TryOpen(e.HRef?.ToString(), out var reason))
