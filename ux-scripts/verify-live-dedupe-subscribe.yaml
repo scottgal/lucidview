@@ -1,0 +1,130 @@
+name: verify-live-dedupe-subscribe
+description: >
+  Subscribes to https://www.mostlylucid.net through the add-feed dialog and
+  takes whatever the dialog offers by default, which is the exact thing that
+  used to produce two subscriptions carrying one set of articles.
+
+  mostlylucid.net publishes its posts as both RSS and Atom. Before the
+  alternate-format detection landed, discovery returned both and pre-ticked
+  both, so pressing Add subscribed twice and stored every post twice. This
+  script presses Add without unticking anything and lets
+  run-live-dedupe.sh check the database afterwards: one subscription, and one
+  row per article.
+
+  mostlylucid.net is the maintainer's own site and the only host sanctioned
+  for repeated automated fetching. No other publisher belongs in this file.
+
+  Run it through ux-scripts/run-live-dedupe.sh, which builds the throwaway
+  profile this runs against and removes it on the way out including on failure
+  and on interrupt.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load, against an empty profile
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+    description: Nothing here before the subscription, so every row below arrived in this run
+
+  # =====================================================================
+  # Discovery offers both formats, and says one of them is a duplicate.
+  # =====================================================================
+  - type: Click
+    target: AddFeedButton
+
+  - type: Wait
+    value: "800"
+
+  - type: TypeText
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    value: "mostlylucid.net"
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: ContainsText
+    value: "Found"
+    timeout: 40000
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: ContainsText
+    value: "same articles in another format"
+    timeout: 40000
+    description: >
+      The assertion this script exists for. Two feeds were found, and the app
+      worked out - by comparing what they actually contain, not by guessing
+      from their addresses - that they carry the same articles.
+
+  - type: Screenshot
+    value: 01-discovered-with-alternate
+    window_id: "Add Feed"
+
+  # Pressed with nothing unticked, deliberately. The default is the whole
+  # point: a user who presses Add without reading the list must end up with
+  # one subscription.
+  - type: Click
+    target: AddButton
+    window_id: "Add Feed"
+
+  - type: Wait
+    value: "3000"
+
+  - type: Expect
+    target: StatusText
+    matcher: ContainsText
+    value: "Added 1 feed"
+    description: One subscription, not two
+
+  # =====================================================================
+  # Real articles arrive, once each.
+  # =====================================================================
+  - type: Wait
+    value: "12000"
+    description: The fetch, the parse and the upsert
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Unread'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Unread'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "1500"
+
+  - type: Expect
+    target: StatusText
+    matcher: MatchesRegex
+    value: "^[1-9][0-9]* articles$"
+    timeout: 30000
+
+  - type: Screenshot
+    value: 02-one-copy-of-each-article

@@ -1,0 +1,72 @@
+name: verify-live-dedupe-existing
+description: >
+  The damage an existing user already has, and what the reader now does about
+  it.
+
+  run-live-dedupe.sh seeds this profile with BOTH of mostlylucid.net's feeds
+  already subscribed, which is what a user who pressed Add before the
+  alternate-format detection existed is living with. Nothing here unsubscribes
+  either of them: the two rows in feeds are the user's, and the app has no
+  business deleting a subscription to tidy up its own list.
+
+  This refreshes both and then asserts that the item list shows each article
+  once anyway. The script that drives it checks the other half in the
+  database: twice as many rows as articles, and the list showing the smaller
+  number.
+
+  mostlylucid.net is the maintainer's own site and the only host sanctioned
+  for repeated automated fetching.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  - type: Click
+    target: RefreshAllButton
+
+  - type: Wait
+    value: "20000"
+    description: Both feeds fetched, parsed and stored
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "1500"
+
+  - type: Expect
+    target: StatusText
+    matcher: MatchesRegex
+    value: "^[1-9][0-9]* articles$"
+    timeout: 30000
+
+  - type: Screenshot
+    value: 01-two-subscriptions-one-list
+
+  # Opening the first article marks it read after the dwell. The twin under
+  # the other subscription has to go read with it, or the article reappears
+  # in Unread the moment the list picks the other copy.
+  - type: PressKey
+    target: ItemList
+    value: "J"
+
+  - type: Wait
+    value: "2500"
+    description: Selection, then the mark-as-read dwell
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Unread'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Unread'"
+    button: left
+  - type: Wait
+    value: "1500"
+
+  - type: Screenshot
+    value: 02-unread-after-reading-one

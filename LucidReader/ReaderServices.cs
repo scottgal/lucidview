@@ -310,7 +310,12 @@ public sealed class ReaderServices : IAsyncDisposable
 
         var scheduler = new RefreshScheduler(feeds, refresh, time);
 
-        var imageCache = new ImageCacheService();
+        // The one User-Agent, here too. This cache is lucidVIEW's, and left to
+        // itself it identifies every image request as lucidVIEW; a site owner
+        // reading their logs should see the reader that actually fetched the
+        // article's pictures, and see it saying the same thing the feed and
+        // article fetches said.
+        var imageCache = new ImageCacheService(FeedFetcher.UserAgentString);
 
         var downloader = new OfflineDownloader(
             items, feeds,

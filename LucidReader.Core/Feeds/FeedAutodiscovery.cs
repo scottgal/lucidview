@@ -3,7 +3,23 @@ using System.Text.RegularExpressions;
 
 namespace LucidReader.Core.Feeds;
 
-public readonly record struct DiscoveredFeed(string FeedUrl, string? Title, string? IconUrl);
+/// <summary>
+/// One feed the user could subscribe to.
+///
+/// IsAlternate marks a feed that carries the same articles as another feed in
+/// the same result, in a different format - the RSS half of an RSS-and-Atom
+/// pair, say. It is still offered, because a user may have a reason to want
+/// that particular format, but the dialog leaves it unticked so the default
+/// action does not create two subscriptions to one publication.
+/// AlternateOfUrl names the feed it duplicates, so the dialog can say so
+/// rather than leaving an unticked row unexplained.
+/// </summary>
+public readonly record struct DiscoveredFeed(
+    string FeedUrl,
+    string? Title,
+    string? IconUrl,
+    bool IsAlternate = false,
+    string? AlternateOfUrl = null);
 
 /// <summary>
 /// Turns whatever the user pasted into feed URLs worth subscribing to.
@@ -159,6 +175,11 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         var found = new List<DiscoveredFeed>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // The type attribute each link element declared, kept so
+        // MarkAlternatesAsync can tell the Atom half of a pair from the RSS
+        // half without having to guess from the address.
+        var declaredTypes = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
         foreach (Match match in LinkTagPattern().Matches(body))
         {
             var tag = match.Value;
@@ -184,13 +205,14 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
             if (!seen.Add(absolute.ToString())) continue;
 
             var linkTitle = AttributeValue(tag, "title");
+            declaredTypes[absolute.ToString()] = type;
             found.Add(new DiscoveredFeed(
                 absolute.ToString(),
                 linkTitle.Length > 0 ? linkTitle : null,
                 siteIcon));
         }
 
-        if (found.Count > 0) return found;
+        if (found.Count > 0) return await MarkAlternatesAsync(found, declaredTypes, ct);
 
         // Plenty of sites never declare their feed in the head at all and
         // link it only from the page furniture, as an ordinary anchor in a
@@ -289,6 +311,7 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         var results = await Task.WhenAll(probes);
 
         var confirmed = new List<DiscoveredFeed>();
+        var kept = new List<FeedAlternateCandidate>();
         var bodies = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var result in results)
@@ -303,12 +326,83 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
             if (!bodies.Add(result.Body)) continue;
 
             confirmed.Add(new DiscoveredFeed(result.Url, result.Title, siteIcon));
+            kept.Add(new FeedAlternateCandidate(
+                result.Url, null, result.SiteUrl, result.ItemLinks));
         }
 
-        return confirmed;
+        // Byte-identical bodies were already collapsed above. This catches the
+        // other shape: two addresses serving the SAME ARTICLES in different
+        // formats, whose bodies share nothing. No extra requests are needed,
+        // since these candidates have already been fetched and parsed.
+        var verdicts = FeedAlternates.Classify(kept)
+            .ToDictionary(v => v.FeedUrl, StringComparer.Ordinal);
+
+        return confirmed
+            .Select(f => verdicts.TryGetValue(f.FeedUrl, out var verdict) && verdict.IsAlternate
+                ? f with { IsAlternate = true, AlternateOfUrl = verdict.AlternateOfUrl }
+                : f)
+            .ToList();
     }
 
-    private sealed record ProbeResult(string Url, string? Title, string Body);
+    /// <summary>
+    /// Decides which of several discovered feeds are alternate formats of one
+    /// another, and returns the same list with those marked.
+    ///
+    /// The feeds are fetched to do it. That is a real cost on a path that
+    /// previously made one request, so it is bounded three ways: it only runs
+    /// when more than one feed was found, it never fetches more than
+    /// MaxProbeRequests of them, and a fetch that fails costs nothing because
+    /// FeedAlternates falls back to weaker evidence for any candidate it has
+    /// no contents for. The cost buys the one thing address shapes cannot
+    /// give: proof that two feeds carry the same articles. Subscribing to both
+    /// halves of a pair stores every article twice, forever, on every refresh,
+    /// which is a much larger cost than a handful of requests to a site the
+    /// user is in the act of subscribing to anyway.
+    /// </summary>
+    private async Task<List<DiscoveredFeed>> MarkAlternatesAsync(
+        List<DiscoveredFeed> found,
+        IReadOnlyDictionary<string, string?> declaredTypes,
+        CancellationToken ct)
+    {
+        if (found.Count < 2) return found;
+
+        var probeTargets = found
+            .Take(MaxProbeRequests)
+            .Select(f => Uri.TryCreate(f.FeedUrl, UriKind.Absolute, out var uri) ? uri : null)
+            .Where(uri => uri is not null && FeedUrlPolicy.IsAllowed(uri.ToString()))
+            .Select(uri => uri!)
+            .ToList();
+
+        var probes = await Task.WhenAll(probeTargets.Select(uri => ProbeAsync(uri, ct)));
+
+        var identities = new Dictionary<string, ProbeResult>(StringComparer.OrdinalIgnoreCase);
+        foreach (var probe in probes)
+            if (probe is not null) identities[probe.Url] = probe;
+
+        var candidates = found
+            .Select(f => new FeedAlternateCandidate(
+                f.FeedUrl,
+                declaredTypes.GetValueOrDefault(f.FeedUrl),
+                identities.GetValueOrDefault(f.FeedUrl)?.SiteUrl,
+                identities.GetValueOrDefault(f.FeedUrl)?.ItemLinks))
+            .ToList();
+
+        var verdicts = FeedAlternates.Classify(candidates)
+            .ToDictionary(v => v.FeedUrl, StringComparer.Ordinal);
+
+        return found
+            .Select(f => verdicts.TryGetValue(f.FeedUrl, out var verdict) && verdict.IsAlternate
+                ? f with { IsAlternate = true, AlternateOfUrl = verdict.AlternateOfUrl }
+                : f)
+            .ToList();
+    }
+
+    private sealed record ProbeResult(
+        string Url,
+        string? Title,
+        string Body,
+        string? SiteUrl,
+        IReadOnlyList<string> ItemLinks);
 
     private async Task<ProbeResult?> ProbeAsync(Uri candidate, CancellationToken ct)
     {
@@ -338,10 +432,22 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
             if (!FeedUrlPolicy.IsAllowed(url)) return null;
 
             string? title = null;
-            try { title = parser.Parse(body, response.RequestMessage?.RequestUri ?? candidate).Title; }
+            string? siteUrl = null;
+            IReadOnlyList<string> itemLinks = [];
+            try
+            {
+                var feed = parser.Parse(body, response.RequestMessage?.RequestUri ?? candidate);
+                title = feed.Title;
+                siteUrl = feed.SiteUrl;
+                itemLinks = feed.Items
+                    .Select(i => i.Link)
+                    .Where(link => !string.IsNullOrWhiteSpace(link))
+                    .Select(link => link!)
+                    .ToList();
+            }
             catch (FeedParseException) { }
 
-            return new ProbeResult(url, title, body);
+            return new ProbeResult(url, title, body, siteUrl, itemLinks);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

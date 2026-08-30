@@ -496,7 +496,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         favourites.Nodes.Add(new FeedTreeNode
         {
             Title = "Unread", Kind = FeedTreeNodeKind.Smart, SmartFilter = ItemFilter.Unread,
-            UnreadCount = unreadByFeed.Values.Sum()
+            // Not unreadByFeed.Values.Sum(). An article carried by two
+            // subscriptions has two rows and one entry in the Unread list, so
+            // a sum of per-feed counts is a number that list can never reach.
+            UnreadCount = await _services.Items.GetUnreadTotalAsync()
         });
         favourites.Nodes.Add(new FeedTreeNode
         {
@@ -513,7 +516,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 Title = folder.Name,
                 Kind = FeedTreeNodeKind.Folder,
                 FolderId = folder.Id,
-                UnreadCount = children.Sum(f => unreadByFeed.GetValueOrDefault(f.Id))
+                // Deduplicated for the same reason the Unread row above is:
+                // two subscriptions to one site can easily sit in the same
+                // folder.
+                UnreadCount = await _services.Items.GetUnreadTotalAsync(folder.Id)
             });
 
             foreach (var feed in children) feedsSection.Nodes.Add(ToNode(feed, unreadByFeed));

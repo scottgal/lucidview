@@ -1,10 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\mylo-version.props" />
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <RootNamespace>LucidReader.Core</RootNamespace>
+
+    <!-- FeedFetcher reads this assembly's version to build the User-Agent, so
+         it has to carry one. Without it the assembly defaulted to 1.0.0.0 and
+         every request went out claiming a version the app has never had. -->
+    <Version>$(MyloVersion)</Version>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <FileVersion>$(Version).0</FileVersion>
+    <AssemblyVersion>$(Version).0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />

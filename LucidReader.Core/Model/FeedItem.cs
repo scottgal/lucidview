@@ -19,4 +19,12 @@ public sealed record FeedItem
     public OfflineState OfflineState { get; init; }
     public string? OfflineError { get; init; }
     public string? ImageUrl { get; init; }
+
+    /// <summary>
+    /// This article's identity across feeds, from
+    /// <see cref="Feeds.CanonicalArticleId.FromLink"/>. Null when the item has
+    /// no usable link, which means "stands alone": two nulls are never the
+    /// same article.
+    /// </summary>
+    public string? CanonicalId { get; init; }
 }

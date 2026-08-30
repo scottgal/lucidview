@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\mylo-version.props" />
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -8,7 +9,9 @@
 
     <AssemblyName>mylo</AssemblyName>
     <RootNamespace>LucidReader</RootNamespace>
-    <Version>0.1.0</Version>
+    <!-- From mylo-version.props, shared with LucidReader.Core so the
+         User-Agent that assembly builds cannot drift from what ships. -->
+    <Version>$(MyloVersion)</Version>
     <Product>mylo</Product>
     <Company>mostlylucid</Company>
     <Authors>Scott Galloway</Authors>

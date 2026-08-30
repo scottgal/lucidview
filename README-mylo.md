@@ -1,0 +1,108 @@
+# mylo
+
+**A native desktop RSS and Atom reader.** No browser engine, no account, no
+server: mylo runs on your machine, fetches feeds directly from the sites that
+publish them, and keeps everything it reads in a single SQLite file you own.
+
+If you have arrived here from a line in your access logs that looked like
+
+```
+mylo/0.1.0 (rss reader; +https://github.com/scottgal/lucidview/blob/main/README-mylo.md)
+```
+
+then someone is subscribed to your feed with this app. That is all it is: a
+reader, run by a person, fetching a feed they asked for. It sends conditional
+requests (`If-None-Match` and `If-Modified-Since`), honours `304 Not Modified`,
+backs off on failures and pauses a feed entirely after repeated ones, so a
+subscriber costs you a handful of small requests a day.
+
+mylo is part of the [lucidVIEW](https://github.com/scottgal/lucidview)
+repository and is built on the same native Avalonia rendering stack.
+
+---
+
+## What it does
+
+- **Subscribes to RSS 2.0, RSS 1.0/RDF and Atom.** Paste a site's address and
+  mylo finds its feeds: `<link rel="alternate">` first, then feed-shaped links
+  in the page, then the conventional addresses. When a site publishes the same
+  articles as both RSS and Atom, mylo says so and pre-ticks only one of them.
+- **Reads articles offline.** Optionally downloads each article's full text and
+  converts it to markdown, so the reading pane shows the piece rather than a
+  two-line summary, and shows it with no network.
+- **Renders natively.** Article bodies, images, code and mermaid diagrams are
+  drawn by Avalonia and the bundled diagram engine, not by an embedded browser.
+- **Full-text search** across titles, authors, summaries and downloaded bodies,
+  matching as you type.
+- **Folders, stars, tags and read state**, with a mark-as-read dwell so holding
+  the next-item key to scan a list does not mark everything read behind you.
+- **One article, once.** An article that arrives under two subscriptions is
+  shown a single time, and reading or starring it applies to both copies.
+- **Retention** you set: how long read and unread articles are kept, a cap per
+  feed, and starred articles exempt from all of it.
+- **OPML import and export**, so your subscriptions are yours to take elsewhere.
+- **Stays out of the way.** It can live in the menu bar and tell you when
+  something new arrives.
+
+## Where it keeps your data
+
+Everything lives in one folder, so copying that folder moves your reader:
+
+| Platform | Folder |
+|---|---|
+| macOS | `~/Library/Application Support/mylo/` |
+| Windows | `%APPDATA%\mylo\` |
+| Linux | `$XDG_CONFIG_HOME/mylo/`, or `~/.config/mylo/` |
+
+Inside it:
+
+- `reader.db` - a SQLite database holding your feeds, folders, articles, tags
+  and read/starred state.
+- `settings.json` - your preferences, in plain readable JSON.
+
+Cached article images go to a temporary directory and are evicted on a size and
+age budget; nothing there is precious. mylo has no server side, sends no
+telemetry, and creates no account.
+
+## Installing
+
+Download the build for your platform from the
+[releases page](https://github.com/scottgal/lucidview/releases) and run it. Each
+build is a single self-contained executable; no .NET runtime is needed on the
+machine.
+
+- **macOS**: open the `.app` bundle. On first launch, right-click and choose
+  Open if Gatekeeper asks.
+- **Windows**: run the `.exe`.
+- **Linux**: mark the file executable and run it.
+
+### Building it yourself
+
+.NET 10 SDK, then:
+
+```bash
+git clone --recurse-submodules https://github.com/scottgal/lucidview.git
+cd lucidview
+dotnet build LucidReader/LucidReader.csproj
+```
+
+The built app is at `LucidReader/bin/Debug/net10.0/<rid>/mylo`. The source lives
+under `LucidReader/` (the desktop app) and `LucidReader.Core/` (feeds, storage
+and sync). Those folder and namespace names predate the rename to mylo and are
+deliberately left alone.
+
+## For site owners
+
+- The User-Agent is `mylo/<version> (rss reader; +<this page>)` on every
+  request mylo makes: feeds, article pages, autodiscovery and images alike.
+- Conditional requests are always sent once mylo has seen a feed, and a `304`
+  is the cheapest possible answer for both of us.
+- The default poll interval is 30 minutes and is a user setting; failures back
+  off, and a feed that keeps failing is paused rather than retried forever.
+- `Retry-After` is honoured on the responses that carry it.
+- If mylo is doing something you would rather it did not, the issue tracker is
+  at <https://github.com/scottgal/lucidview/issues>.
+
+## Licence
+
+Unlicense. See [LICENSE](LICENSE).

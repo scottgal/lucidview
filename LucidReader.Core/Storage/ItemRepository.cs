@@ -1,3 +1,4 @@
+using LucidReader.Core.Feeds;
 using LucidReader.Core.Model;
 using Microsoft.Data.Sqlite;
 
@@ -53,17 +54,38 @@ public sealed class ItemRepository(ReaderDatabase db)
     /// either, leaving the item deleted. Once the tombstone itself ages out
     /// (RetentionService prunes those on a much longer horizon), the same guid
     /// is ordinary new-item territory again.
+    ///
+    /// The DO UPDATE carries a WHERE of its own, which is what "the publisher
+    /// edited this article" means in this codebase: at least one
+    /// publisher-owned field would end up different from what is stored. A
+    /// poll that brings back a byte-identical item therefore writes nothing at
+    /// all, which is the overwhelmingly common case - a feed's XML window
+    /// relists every item on every fetch, so without this, every poll rewrote
+    /// every row it had ever seen and fired the FTS triggers on each. An edit
+    /// still lands, because an edit is exactly the case where the comparison
+    /// finds a difference. The comparison uses IS NOT (null-safe) against the
+    /// same COALESCE the SET uses, so "the publisher stopped sending this
+    /// field" reads as no change rather than as an edit back to null.
+    ///
+    /// What an edit does not touch is unchanged: is_read, is_starred,
+    /// content_markdown, offline_state and image_url are not in the SET list,
+    /// the row id is preserved so item_tags rows stay attached, and the
+    /// tombstone guard above still stands between an edit and an item that was
+    /// deliberately pruned.
+    ///
+    /// canonical_id is publisher-owned in exactly the same sense as link,
+    /// since it is derived from it, so it follows the same COALESCE rule.
     /// </summary>
     private const string UpsertSql =
         """
         INSERT INTO items (
             feed_id, guid, link, title, author, published_utc, updated_utc,
             summary, content_markdown, content_source, is_read, is_starred,
-            first_seen_utc, offline_state, offline_error, image_url)
+            first_seen_utc, offline_state, offline_error, image_url, canonical_id)
         SELECT
             $feedId, $guid, $link, $title, $author, $published, $updated,
             $summary, $content, $contentSource, $isRead, $isStarred,
-            $firstSeen, $offlineState, $offlineError, $imageUrl
+            $firstSeen, $offlineState, $offlineError, $imageUrl, $canonicalId
         WHERE NOT EXISTS (
             SELECT 1 FROM item_tombstones t
             WHERE t.feed_id = $feedId AND t.guid = $guid
@@ -74,7 +96,15 @@ public sealed class ItemRepository(ReaderDatabase db)
             author = COALESCE(excluded.author, author),
             published_utc = COALESCE(excluded.published_utc, published_utc),
             updated_utc = COALESCE(excluded.updated_utc, updated_utc),
-            summary = COALESCE(excluded.summary, summary);
+            summary = COALESCE(excluded.summary, summary),
+            canonical_id = COALESCE(excluded.canonical_id, canonical_id)
+        WHERE COALESCE(excluded.link, items.link) IS NOT items.link
+           OR COALESCE(excluded.title, items.title) IS NOT items.title
+           OR COALESCE(excluded.author, items.author) IS NOT items.author
+           OR COALESCE(excluded.published_utc, items.published_utc) IS NOT items.published_utc
+           OR COALESCE(excluded.updated_utc, items.updated_utc) IS NOT items.updated_utc
+           OR COALESCE(excluded.summary, items.summary) IS NOT items.summary
+           OR COALESCE(excluded.canonical_id, items.canonical_id) IS NOT items.canonical_id;
         """;
 
     /// <summary>
@@ -196,14 +226,38 @@ public sealed class ItemRepository(ReaderDatabase db)
 
             var whereClause = where.Count > 0 ? "WHERE " + string.Join(" AND ", where) : "";
 
-            // COALESCE so an item with no published date sorts by when we first
-            // saw it, rather than sinking to the bottom of the list forever.
+            // One row per article, not one row per subscription that carries
+            // it. A site publishing both an RSS and an Atom feed gives every
+            // post two rows under two feed_ids, and they are the same article;
+            // the ROW_NUMBER picks the copy that arrived first (lowest id) and
+            // drops the rest.
+            //
+            // The partition key falls back to 'row:' || id, not to
+            // canonical_id alone: a null canonical_id means "no usable link,
+            // this row stands alone", and PARTITION BY on a bare null would
+            // group every such row together and show exactly one of them.
+            //
+            // Applied inside the query's own WHERE, so the suppression happens
+            // within whatever the user is looking at. Scoped to one feed there
+            // are normally no duplicates to remove anyway, and the two copies
+            // hold the same read and starred state (see SetReadAsync), so
+            // which one survives is not visible.
+            //
+            // COALESCE on the sort so an item with no published date sorts by
+            // when we first saw it, rather than sinking to the bottom forever.
             command.CommandText =
                 $"""
-                 SELECT i.* FROM items i
-                 JOIN feeds f ON f.id = i.feed_id
-                 {whereClause}
-                 ORDER BY COALESCE(i.published_utc, i.first_seen_utc) DESC, i.id DESC
+                 SELECT * FROM (
+                     SELECT i.*, ROW_NUMBER() OVER (
+                         PARTITION BY COALESCE(i.canonical_id, 'row:' || i.id)
+                         ORDER BY i.id
+                     ) AS duplicate_rank
+                     FROM items i
+                     JOIN feeds f ON f.id = i.feed_id
+                     {whereClause}
+                 )
+                 WHERE duplicate_rank = 1
+                 ORDER BY COALESCE(published_utc, first_seen_utc) DESC, id DESC
                  LIMIT $limit OFFSET $offset;
                  """;
             command.Parameters.AddWithValue("$limit", query.Limit > 0 ? query.Limit : DefaultQueryLimit);
@@ -238,16 +292,105 @@ public sealed class ItemRepository(ReaderDatabase db)
             return results;
         }, ct);
 
-    public Task SetReadAsync(long id, bool isRead, CancellationToken ct = default) =>
-        db.WriteAsync("UPDATE items SET is_read = $value WHERE id = $id;",
-            new Dictionary<string, object?> { ["$id"] = id, ["$value"] = isRead ? 1 : 0 }, ct);
+    /// <summary>
+    /// Marks one article read or unread, and every copy of it stored under
+    /// another feed with it. Returns the feed id of each row that actually
+    /// changed, one entry per row, so a caller keeping cached unread counts
+    /// can adjust every feed the change touched rather than only the one it
+    /// clicked in.
+    ///
+    /// The twin update is the other half of the dedupe in QueryAsync. That
+    /// query shows one row per article, and which copy it shows is not the
+    /// user's choice; if reading the shown copy left its twin unread, the
+    /// article would come straight back the moment the shown copy was pruned
+    /// or its feed unsubscribed, and the Unread count would never reach zero.
+    ///
+    /// A null canonical_id matches nothing here, deliberately: the subselect
+    /// yields null, and "canonical_id = null" is not true of any row, so an
+    /// item with no usable link only ever updates itself.
+    /// </summary>
+    public Task<IReadOnlyList<long>> SetReadAsync(long id, bool isRead, CancellationToken ct = default) =>
+        SetFlagAcrossCopiesAsync("is_read", id, isRead, ct);
 
-    public Task SetStarredAsync(long id, bool isStarred, CancellationToken ct = default) =>
-        db.WriteAsync("UPDATE items SET is_starred = $value WHERE id = $id;",
-            new Dictionary<string, object?> { ["$id"] = id, ["$value"] = isStarred ? 1 : 0 }, ct);
+    /// <summary>
+    /// Stars or unstars an article and every copy of it, for the same reason
+    /// SetReadAsync does: a star is a statement about the article, not about
+    /// which subscription happened to deliver it, and the Starred list is one
+    /// of the deduplicated views.
+    /// </summary>
+    public Task<IReadOnlyList<long>> SetStarredAsync(long id, bool isStarred, CancellationToken ct = default) =>
+        SetFlagAcrossCopiesAsync("is_starred", id, isStarred, ct);
 
+    /// <summary>
+    /// Column is interpolated, which is safe here for the same reason
+    /// RetentionService's starred clause is: it is one of two compile-time
+    /// constants chosen by the two callers above, never user input.
+    /// </summary>
+    private Task<IReadOnlyList<long>> SetFlagAcrossCopiesAsync(
+        string column, long id, bool value, CancellationToken ct)
+    {
+        var predicate =
+            $"""
+             {column} <> $value
+             AND (
+                 id = $id
+                 OR canonical_id = (
+                     SELECT canonical_id FROM items
+                     WHERE id = $id AND canonical_id IS NOT NULL
+                 )
+             )
+             """;
+
+        return db.Writer.ExecuteInTransactionAsync<IReadOnlyList<long>>(
+            async (connection, transaction, innerCt) =>
+            {
+                // Read the affected feeds before the update, inside the same
+                // transaction: afterwards the predicate no longer matches the
+                // rows it just changed, and computed outside a transaction the
+                // set could differ from the set actually written.
+                var feedIds = new List<long>();
+
+                await using (var selectCommand = connection.CreateCommand())
+                {
+                    selectCommand.Transaction = transaction;
+                    selectCommand.CommandText = $"SELECT feed_id FROM items WHERE {predicate};";
+                    selectCommand.Parameters.AddWithValue("$id", id);
+                    selectCommand.Parameters.AddWithValue("$value", value ? 1 : 0);
+
+                    await using var reader = await selectCommand.ExecuteReaderAsync(innerCt);
+                    while (await reader.ReadAsync(innerCt))
+                        feedIds.Add(reader.GetInt64(0));
+                }
+
+                await using var updateCommand = connection.CreateCommand();
+                updateCommand.Transaction = transaction;
+                updateCommand.CommandText =
+                    $"UPDATE items SET {column} = $value WHERE {predicate};";
+                updateCommand.Parameters.AddWithValue("$id", id);
+                updateCommand.Parameters.AddWithValue("$value", value ? 1 : 0);
+                await updateCommand.ExecuteNonQueryAsync(innerCt);
+
+                return feedIds;
+            }, ct);
+    }
+
+    /// <summary>
+    /// Marks a feed's unread articles read, and every copy of those articles
+    /// held under another feed with them, for the reason SetReadAsync gives.
+    /// </summary>
     public Task MarkFeedReadAsync(long feedId, CancellationToken ct = default) =>
-        db.WriteAsync("UPDATE items SET is_read = 1 WHERE feed_id = $feedId AND is_read = 0;",
+        db.WriteAsync(
+            """
+            UPDATE items SET is_read = 1
+            WHERE is_read = 0
+              AND (
+                  feed_id = $feedId
+                  OR canonical_id IN (
+                      SELECT canonical_id FROM items
+                      WHERE feed_id = $feedId AND canonical_id IS NOT NULL
+                  )
+              );
+            """,
             new Dictionary<string, object?> { ["$feedId"] = feedId }, ct);
 
     /// <summary>
@@ -315,6 +458,32 @@ public sealed class ItemRepository(ReaderDatabase db)
         }, ct);
 
     /// <summary>
+    /// How many unread ARTICLES there are, not how many unread rows: an
+    /// article stored under two subscriptions counts once, matching what the
+    /// deduplicated list actually shows. Summing the per-feed counts instead
+    /// would put a number in the sidebar that no list can ever get down to.
+    ///
+    /// folderId scopes it to one folder's feeds; null means every feed. The
+    /// same COALESCE fallback as QueryAsync keeps rows with no usable link
+    /// counting individually rather than collapsing into one.
+    /// </summary>
+    public Task<int> GetUnreadTotalAsync(long? folderId = null, CancellationToken ct = default) =>
+        db.QueryAsync(async connection =>
+        {
+            await using var command = connection.CreateCommand();
+            var scope = folderId is null ? "" : "AND f.folder_id = $folderId";
+            command.CommandText =
+                $"""
+                 SELECT count(DISTINCT COALESCE(i.canonical_id, 'row:' || i.id))
+                 FROM items i
+                 JOIN feeds f ON f.id = i.feed_id
+                 WHERE i.is_read = 0 {scope};
+                 """;
+            if (folderId is { } id) command.Parameters.AddWithValue("$folderId", id);
+            return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
+        }, ct);
+
+    /// <summary>
     /// How many stored articles a feed has, for callers that only need the
     /// number (the unsubscribe confirmation, say). Counting in SQL rather than
     /// via QueryAsync matters here: QueryAsync's SELECT i.* pulls every row's
@@ -363,6 +532,11 @@ public sealed class ItemRepository(ReaderDatabase db)
         ["$firstSeen"] = item.FirstSeenUtc.ToDbString(),
         ["$offlineState"] = (int)item.OfflineState,
         ["$offlineError"] = item.OfflineError,
-        ["$imageUrl"] = item.ImageUrl
+        ["$imageUrl"] = item.ImageUrl,
+        // Recomputed here rather than trusted from the caller, so every row
+        // reaching the database carries an identity produced by the one
+        // function (CanonicalArticleId) the backfill and the dedupe query also
+        // agree on, whatever a caller happened to set on the record.
+        ["$canonicalId"] = CanonicalArticleId.FromLink(item.Link)
     };
 }

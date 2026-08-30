@@ -24,11 +24,27 @@ public sealed class DiscoveredFeedChoice
 {
     public required DiscoveredFeed Feed { get; init; }
 
+    /// <summary>
+    /// Ticked unless this feed is another format of a feed already ticked.
+    /// Subscribing to what you asked for is still the common case, but "what
+    /// you asked for" is one subscription per publication: a site's RSS and
+    /// Atom feeds carry the same articles, and ticking both stored every one
+    /// of them twice.
+    /// </summary>
     public bool IsSelected { get; set; } = true;
 
     public string Label => string.IsNullOrWhiteSpace(Feed.Title)
-        ? Feed.FeedUrl
-        : $"{Feed.Title}  ({Feed.FeedUrl})";
+        ? Feed.FeedUrl + AlternateSuffix
+        : $"{Feed.Title}  ({Feed.FeedUrl}){AlternateSuffix}";
+
+    /// <summary>
+    /// Says why an unticked row is unticked. An unexplained empty checkbox
+    /// reads as a feed the app could not handle; this says it is the same
+    /// articles in another format and leaves the choice with the user.
+    /// </summary>
+    public string AlternateSuffix => Feed.IsAlternate
+        ? "  - same articles as " + (Feed.AlternateOfUrl ?? "the feed above")
+        : string.Empty;
 }
 
 /// <summary>
@@ -144,9 +160,14 @@ public partial class AddFeedDialog : Window
             var found = await _discovery.DiscoverAsync(input, _discoveryCts.Token);
 
             foreach (var feed in found)
-                Discovered.Add(new DiscoveredFeedChoice { Feed = feed });
+                Discovered.Add(new DiscoveredFeedChoice
+                {
+                    Feed = feed,
+                    IsSelected = !feed.IsAlternate
+                });
 
-            DiscoveryStatusText.Text = AddFeedInput.DescribeDiscovery(found.Count);
+            DiscoveryStatusText.Text = AddFeedInput.DescribeDiscovery(
+                found.Count, found.Count(f => f.IsAlternate));
         }
         catch (OperationCanceledException)
         {

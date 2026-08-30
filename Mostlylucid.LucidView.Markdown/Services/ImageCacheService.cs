@@ -40,10 +40,19 @@ public class ImageCacheService : IDisposable
         new(StringComparer.Ordinal);
     private readonly LinkedList<ImageCacheEntry> _lru = new();
 
-    public ImageCacheService()
+    /// <summary>
+    /// userAgent overrides what outbound image requests identify themselves
+    /// as. It exists because this cache is shared: lucidVIEW is a markdown
+    /// browser and mylo is an RSS reader, and a site owner reading their logs
+    /// should see the app that actually made the request rather than whichever
+    /// of the two happens to own this file. Left null it keeps lucidVIEW's own
+    /// string, so nothing that does not pass one changes.
+    /// </summary>
+    public ImageCacheService(string? userAgent = null)
     {
         _httpClient = new HttpClient();
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent.Value);
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(
+            string.IsNullOrWhiteSpace(userAgent) ? UserAgent.Value : userAgent);
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
 
         _cacheDir = Path.Combine(Path.GetTempPath(), "lucidview-images");

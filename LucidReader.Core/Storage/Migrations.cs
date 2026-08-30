@@ -6,7 +6,7 @@ namespace LucidReader.Core.Storage;
 /// </summary>
 public static class Migrations
 {
-    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5 };
+    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6 };
 
     private const string V1 = """
         CREATE TABLE folders (
@@ -242,5 +242,32 @@ public static class Migrations
         END;
 
         INSERT INTO items_fts(items_fts) VALUES('rebuild');
+        """;
+
+    // canonical_id: the article's identity across feeds, computed from its
+    // link by CanonicalArticleId. Two rows carrying the same canonical_id are
+    // the same article arriving under two subscriptions, which is what a site
+    // publishing both an RSS and an Atom feed produces for every post it has.
+    //
+    // Nullable, and left null by this migration rather than backfilled here.
+    // The normalisation is real code (scheme and host case, a trailing slash,
+    // tracking parameters, the fragment) and writing an approximation of it in
+    // SQL would give existing rows a slightly different identity from the one
+    // new rows get, which is worse than having none: rows that should pair up
+    // would not, and there would be no way to tell the two spellings apart
+    // later. CanonicalIdBackfill runs immediately after migration and fills
+    // them with the same function the write path uses. It is restartable
+    // (WHERE canonical_id IS NULL) so an interrupted backfill simply resumes.
+    //
+    // Safe on a populated database: one ALTER TABLE ADD COLUMN, which SQLite
+    // performs by rewriting the table header only, plus one index build. No
+    // row is read or rewritten, and nothing that already worked depends on the
+    // column being set - every query that partitions on it does so through
+    // COALESCE(canonical_id, 'row:' || id), so a row with a null identity
+    // stands alone exactly as it did before this column existed.
+    private const string V6 = """
+        ALTER TABLE items ADD COLUMN canonical_id TEXT NULL;
+
+        CREATE INDEX ix_items_canonical ON items(canonical_id) WHERE canonical_id IS NOT NULL;
         """;
 }

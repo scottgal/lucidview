@@ -100,11 +100,13 @@ actions:
     target: AddButton
     window_id: "Add Feed"
     description: >
-      Subscribes to everything discovery returned, which for this site is both
-      the RSS and the Atom feed. Two subscriptions carrying the same articles
-      is not the tidiest outcome, but unticking one would mean clicking a
-      CheckBox inside a ListBox item, and the counts below are all lower
-      bounds precisely so this does not have to be exact.
+      Subscribes to whatever discovery left ticked. For this site that is one
+      feed: mostlylucid.net publishes its posts as both RSS and Atom, and
+      discovery now recognises the second as the same articles in another
+      format and leaves it unticked. The counts below are lower bounds
+      regardless, since how many posts the site carries today is its own
+      business; run-live-dedupe.sh is the script that asserts on the exact
+      numbers.
 
   - type: Wait
     value: "4000"

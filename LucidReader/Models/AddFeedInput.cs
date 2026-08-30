@@ -91,12 +91,25 @@ public static class AddFeedInput
 
     public const string DiscoveryTimedOutMessage = "Timed out looking up that address.";
 
-    public static string DescribeDiscovery(int count) => count switch
+    /// <summary>
+    /// alternates counts the feeds that carry the same articles as another
+    /// feed in the same result, in a different format. They are offered but
+    /// left unticked, and the wording has to say so: an unexplained unticked
+    /// row looks like a feed the app refused rather than a deliberate default.
+    /// </summary>
+    public static string DescribeDiscovery(int count, int alternates = 0)
     {
-        <= 0 => "No feeds found at that address.",
-        1 => "Found one feed.",
-        _ => $"Found {count} feeds. Choose the ones you want."
-    };
+        if (count <= 0) return "No feeds found at that address.";
+        if (count == 1) return "Found one feed.";
+
+        var message = $"Found {count} feeds. Choose the ones you want.";
+        if (alternates <= 0) return message;
+
+        var subject = alternates == 1 ? "One of them carries" : $"{alternates} of them carry";
+        return message +
+               $" {subject} the same articles in another format, so " +
+               $"{(alternates == 1 ? "it is" : "they are")} left unticked.";
+    }
 
     /// <summary>
     /// The result of an add. Skipped means the URL was already subscribed,

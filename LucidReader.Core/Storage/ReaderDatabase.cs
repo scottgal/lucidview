@@ -92,6 +92,14 @@ public sealed class ReaderDatabase : IAsyncDisposable
             {
                 await connection.OpenAsync(ct);
                 await SchemaMigrator.MigrateAsync(connection, ct);
+
+                // Outside the migration transaction on purpose. V6 adds the
+                // canonical_id column; filling it needs the C# normalisation
+                // (see CanonicalIdBackfill), and doing that inside the
+                // migration would make one transaction out of a schema change
+                // and an arbitrarily large row rewrite. It is restartable, so
+                // an interrupted run just resumes on the next open.
+                await CanonicalIdBackfill.RunAsync(connection, ct);
             }
 
             // EnforceForeignKeys is true by default in SqliteSingleWriterOptions, but it is

@@ -95,12 +95,34 @@ public sealed class SearchRepository(ReaderDatabase db)
             command.Parameters.AddWithValue("$limit", query.Limit > 0 ? query.Limit : 200);
 
             var results = new List<SearchHit>();
+
+            // One row per article, the same rule the item list follows. An
+            // article stored under two subscriptions matches twice and would
+            // otherwise fill the result list with pairs.
+            //
+            // Done here rather than in SQL on purpose: the ordering is a bm25
+            // expression over the FTS table, and wrapping the query in a
+            // window function to pick a row per group would put that
+            // expression somewhere it cannot be evaluated. Reading in rank
+            // order and keeping the first copy of each article gives the same
+            // answer, and keeps the best-ranked copy rather than an arbitrary
+            // one. The consequence worth knowing: LIMIT is applied by SQLite
+            // before this runs, so a search whose results are all doubles
+            // returns fewer rows than the limit.
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
                 var row = (SqliteDataReader)reader;
+                var item = RowMappers.ReadItem(row);
+
+                // A null identity means the row stands alone, so it is keyed
+                // on its own id and can never collide with another.
+                if (!seen.Add(item.CanonicalId ?? "row:" + item.Id)) continue;
+
                 results.Add(new SearchHit(
-                    RowMappers.ReadItem(row),
+                    item,
                     row.GetNullableString("search_snippet") ?? string.Empty));
             }
 

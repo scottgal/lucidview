@@ -11,17 +11,69 @@ namespace LucidReader.Core.Feeds;
 /// </summary>
 public sealed class FeedFetcher(HttpClient http)
 {
-    public const string UserAgentString =
-        "mylo/1.0 (+https://www.mostlylucid.net)";
+    /// <summary>
+    /// What every outbound request in this app identifies itself as: the feed
+    /// fetch, the article download, autodiscovery, the feed search and the
+    /// image fetcher all send this one string.
+    ///
+    /// Shaped so a site owner reading their logs can find out what hit them.
+    /// The product token is "mylo/&lt;version&gt;" - no spaces, because a
+    /// product token cannot contain any - and everything descriptive goes in
+    /// the parenthesised comment RFC 9110 provides for exactly this: what kind
+    /// of thing it is, and a URL that explains it.
+    ///
+    /// The URL is the product README on the repository's default branch,
+    /// which is a page about mylo. It deliberately is not the maintainer's
+    /// blog, which is where the previous string pointed and which says nothing
+    /// about this app at all.
+    ///
+    /// The version comes from this assembly rather than a literal, so it
+    /// cannot drift from the version the build actually produced. It is a
+    /// static readonly rather than a const for the same reason - a const would
+    /// have to be a literal - which also means reading it now DOES touch this
+    /// type. The code-page registration this class used to depend on that for
+    /// still lives in ModuleInitialization.cs and must stay there: see the
+    /// comment below.
+    /// </summary>
+    public static readonly string UserAgentString =
+        $"mylo/{ProductVersion} (rss reader; +{ReadmeUrl})";
+
+    /// <summary>
+    /// The page the User-Agent points at. Kept as a named constant so a test
+    /// can assert the header carries it and so there is one place to change it
+    /// if the repository ever moves.
+    /// </summary>
+    public const string ReadmeUrl =
+        "https://github.com/scottgal/lucidview/blob/main/README-mylo.md";
+
+    /// <summary>
+    /// The assembly's own version, trimmed to major.minor.patch. The full
+    /// informational version can carry build metadata ("0.1.0+abc1234") that
+    /// belongs in nobody's access log, and AssemblyVersion's trailing ".0"
+    /// says nothing, so three parts is what a reader wants and all it gets.
+    /// </summary>
+    private static string ProductVersion
+    {
+        get
+        {
+            var version = typeof(FeedFetcher).Assembly.GetName().Version;
+            return version is null
+                ? "0"
+                : $"{version.Major}.{version.Minor}.{version.Build}";
+        }
+    }
 
     // The legacy code-page provider (System.Text.Encoding.CodePages) that
     // DecodeBody below depends on used to be registered by a static
     // constructor on this class. That is registered unconditionally now, by
     // a [ModuleInitializer] in ModuleInitialization.cs, because ArticleFetcher
     // depends on the exact same registration and its only reference to this
-    // class was FeedFetcher.UserAgentString - a const the compiler inlines at
-    // the call site, which does NOT trigger a type's static constructor. See
-    // ModuleInitialization.cs for the full explanation.
+    // class was FeedFetcher.UserAgentString - which was a const the compiler
+    // inlined at the call site, and reading an inlined const does NOT trigger
+    // a type's static constructor. The field is a static readonly now, so that
+    // particular hole is closed, but the [ModuleInitializer] stays: the
+    // registration must not depend on which type a caller happens to touch
+    // first. See ModuleInitialization.cs for the full explanation.
 
     private const int MaxFeedBytes = 8 * 1024 * 1024;
     private const int ReadBufferSize = 8192;

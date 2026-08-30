@@ -120,12 +120,12 @@ public partial class MainWindow
             try
             {
                 await Task.Delay(dwell, token);
-                await _services.Items.SetReadAsync(row.Id, true, token);
+                var affected = await _services.Items.SetReadAsync(row.Id, true, token);
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     row.IsRead = true;
-                    AdjustUnreadCount(row.Item.FeedId, -1);
+                    AdjustUnreadCount(affected, -1);
                 });
             }
             catch (OperationCanceledException) { }
@@ -159,9 +159,9 @@ public partial class MainWindow
     public async Task ToggleReadAsync(ItemRow row)
     {
         var target = !row.IsRead;
-        await _services.Items.SetReadAsync(row.Id, target);
+        var affected = await _services.Items.SetReadAsync(row.Id, target);
         row.IsRead = target;
-        AdjustUnreadCount(row.Item.FeedId, target ? -1 : 1);
+        AdjustUnreadCount(affected, target ? -1 : 1);
     }
 
     /// <summary>
@@ -169,23 +169,37 @@ public partial class MainWindow
     /// so scanning a list stays responsive. If this cache is ever observed to
     /// drift from the database (e.g. an external write racing a dwell mark),
     /// the resync path is a full LoadFeedTreeAsync, not a bigger clamp here.
+    ///
+    /// changedFeedIds holds one entry per ROW the write actually changed, which
+    /// is more than one when the same article is stored under two
+    /// subscriptions (see ItemRepository.SetReadAsync). Every feed named there
+    /// moves by delta, because each of those feeds really did gain or lose an
+    /// unread row. The folder and Unread totals move by delta ONCE however
+    /// many rows changed, because those counts are counts of articles and the
+    /// list shows the article once.
     /// </summary>
-    private void AdjustUnreadCount(long feedId, int delta)
+    private void AdjustUnreadCount(IReadOnlyList<long> changedFeedIds, int delta)
     {
+        if (changedFeedIds.Count == 0) return;
+
         var allNodes = AllFeedTreeNodes.ToList();
 
         foreach (var node in allNodes)
         {
-            var affected = node.Kind switch
+            var steps = node.Kind switch
             {
-                FeedTreeNodeKind.Feed => node.FeedId == feedId,
-                FeedTreeNodeKind.Smart => node.SmartFilter == ItemFilter.Unread,
+                FeedTreeNodeKind.Feed => changedFeedIds.Count(id => id == node.FeedId),
+                FeedTreeNodeKind.Smart => node.SmartFilter == ItemFilter.Unread ? 1 : 0,
                 FeedTreeNodeKind.Folder => allNodes.Any(n =>
-                    n.Kind == FeedTreeNodeKind.Feed && n.FeedId == feedId && n.FolderId == node.FolderId),
-                _ => false
+                    n.Kind == FeedTreeNodeKind.Feed
+                    && n.FolderId == node.FolderId
+                    && changedFeedIds.Contains(n.FeedId ?? -1))
+                    ? 1
+                    : 0,
+                _ => 0
             };
 
-            if (affected) node.UnreadCount = Math.Max(0, node.UnreadCount + delta);
+            if (steps > 0) node.UnreadCount = Math.Max(0, node.UnreadCount + delta * steps);
         }
 
         // The status item shows the same total the Unread row does, and this

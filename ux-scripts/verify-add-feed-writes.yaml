@@ -3,7 +3,7 @@ description: >
   The other half of verify-add-feed-dialog: this one actually clicks Add, so
   it proves the discovered feeds are written, the sidebar reloads and the
   status bar reports what happened. Run it against a database you do not mind
-  gaining two xkcd subscriptions; unsubscribing again is context-menu only,
+  gaining an xkcd subscription; unsubscribing again is context-menu only,
   which the harness cannot drive.
 
   Needs network access, same as verify-add-feed-dialog.
@@ -33,13 +33,17 @@ actions:
     target: DiscoveryStatusText
     window_id: "Add Feed"
     matcher: HasText
-    value: "Found 2 feeds. Choose the ones you want."
+    value: "Found 2 feeds. Choose the ones you want. One of them carries the same articles in another format, so it is left unticked."
     timeout: 15000
 
   - type: Click
     target: AddButton
     window_id: "Add Feed"
-    description: Subscribe to both
+    description: >
+      Subscribe to what discovery left ticked, which is one feed: xkcd
+      publishes the same strips as both Atom and RSS, and the second is
+      offered unticked as an alternate format rather than pre-ticked into a
+      second subscription carrying the same articles.
 
   - type: Wait
     value: "1500"

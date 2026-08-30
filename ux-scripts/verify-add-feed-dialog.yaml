@@ -84,7 +84,7 @@ actions:
     target: DiscoveryStatusText
     window_id: "Add Feed"
     matcher: HasText
-    value: "Found 2 feeds. Choose the ones you want."
+    value: "Found 2 feeds. Choose the ones you want. One of them carries the same articles in another format, so it is left unticked."
     timeout: 15000
 
   - type: Expect

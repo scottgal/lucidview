@@ -1,0 +1,18 @@
+<Project>
+  <!--
+    mylo's version, in one place.
+
+    Imported explicitly by LucidReader.csproj and LucidReader.Core.csproj
+    rather than dropped in as a repository-wide Directory.Build.props: this
+    solution holds a dozen other projects (lucidVIEW, Naiad, the ImageSharp
+    SVG libraries) that version on their own schedules, and none of them
+    should start following mylo's number because a file appeared at the root.
+
+    LucidReader.Core needs it because FeedFetcher builds the User-Agent from
+    its own assembly version. Before this file existed that assembly carried
+    no version at all, so it reported 1.0.0 while the app shipped as 0.1.0.
+  -->
+  <PropertyGroup>
+    <MyloVersion>0.1.0</MyloVersion>
+  </PropertyGroup>
+</Project>
