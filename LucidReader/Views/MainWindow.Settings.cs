@@ -9,7 +9,7 @@ public partial class MainWindow
     /// EphemeralWorkCoordinator fixes its concurrency at construction, and
     /// rebuilding both coordinators while work is in flight would be a far
     /// larger change than this setting justifies - so a change to either one
-    /// only takes effect the next time lucidREADER starts. Saying so here
+    /// only takes effect the next time mylo starts. Saying so here
     /// rather than letting the setting silently do nothing.
     /// </summary>
     public async Task ShowSettingsDialogAsync()
@@ -23,7 +23,7 @@ public partial class MainWindow
 
         StatusMessage = updated.MaxConcurrentFetches != _services.ConfiguredFetchConcurrency ||
                          updated.MaxConcurrentDownloads != _services.ConfiguredDownloadConcurrency
-            ? "Settings saved. The concurrency changes take effect next time lucidREADER starts."
+            ? "Settings saved. The concurrency changes take effect next time mylo starts."
             : "Settings saved.";
     }
 }

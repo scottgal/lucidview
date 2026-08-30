@@ -21,9 +21,9 @@ public static class SchemaMigrator
 
         if (current > target)
             throw new InvalidOperationException(
-                $"This database was written by a newer version of lucidREADER " +
+                $"This database was written by a newer version of mylo " +
                 $"(schema {current}, this build understands {target}). " +
-                $"Upgrade lucidREADER to open it.");
+                $"Upgrade mylo to open it.");
 
         if (current < target)
         {

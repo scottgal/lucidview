@@ -132,7 +132,7 @@ public class FeedFetcherTests
     }
 
     [Fact]
-    public async Task The_request_identifies_lucidREADER()
+    public async Task The_request_identifies_mylo()
     {
         var handler = StubHttpHandler.Returning(HttpStatusCode.OK, "<rss/>");
         var fetcher = new FeedFetcher(handler.CreateClient());
@@ -140,7 +140,7 @@ public class FeedFetcherTests
         await fetcher.FetchAsync(Url, null, null);
 
         var request = Assert.Single(handler.Requests);
-        Assert.Contains("lucidREADER", request.Headers.UserAgent.ToString());
+        Assert.Contains("mylo", request.Headers.UserAgent.ToString());
     }
 
     // --- Encoding ---

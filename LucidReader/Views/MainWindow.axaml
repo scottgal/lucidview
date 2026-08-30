@@ -3,7 +3,7 @@
         xmlns:md="clr-namespace:Mostlylucid.LucidView.Markdown;assembly=Mostlylucid.LucidView.Markdown"
         xmlns:controls="clr-namespace:LucidReader.Views.Controls"
         x:Class="LucidReader.Views.MainWindow"
-        Title="lucidREADER"
+        Title="mylo"
         Width="1280" Height="820"
         MinWidth="820" MinHeight="520"
         Background="{DynamicResource ListBackgroundBrush}"

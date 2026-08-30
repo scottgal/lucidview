@@ -8,6 +8,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using LucidReader.Core.Storage;
 using LucidReader.Views;
 
 namespace LucidReader;
@@ -161,7 +162,7 @@ public class App : Application
 
         var window = new Window
         {
-            Title = "lucidREADER could not start",
+            Title = "mylo could not start",
             Width = 480,
             Height = 200,
             CanResize = false,
@@ -182,7 +183,7 @@ public class App : Application
     /// Normally null/null, which makes ReaderServices use ReaderPaths' defaults
     /// under the platform application-data folder.
     ///
-    /// In a Debug build only, LUCIDREADER_DATA_DIR redirects both the database
+    /// In a Debug build only, MYLO_DATA_DIR redirects both the database
     /// and settings.json to a directory the caller chooses. That exists for the
     /// UI test scripts in ux-scripts/: a script that has to assert on what is in
     /// the sidebar, the item list or the settings dialog needs a database whose
@@ -198,13 +199,34 @@ public class App : Application
     private static (string? DatabasePath, string? SettingsPath) ResolveDataPaths()
     {
 #if DEBUG
-        var dir = Environment.GetEnvironmentVariable("LUCIDREADER_DATA_DIR");
+        var dir = Environment.GetEnvironmentVariable("MYLO_DATA_DIR");
         if (!string.IsNullOrWhiteSpace(dir))
         {
             Directory.CreateDirectory(dir);
             return (Path.Combine(dir, "reader.db"), Path.Combine(dir, "settings.json"));
         }
 #endif
+        MoveLegacyProfileIfNeeded();
         return (null, null);
+    }
+
+    /// <summary>
+    /// The product was renamed from lucidREADER to mylo, and the profile
+    /// directory under Application Data was renamed with it. Anyone who ran a
+    /// build from before the rename has a database under the old name, and
+    /// coming up silently empty beside it would look like data loss. So on the
+    /// one case where the answer is unambiguous, an old directory and no new
+    /// one, the directory is renamed. Nothing is copied, merged or deleted.
+    ///
+    /// Only reached for the real profile: a run pointed at a scratch directory
+    /// by MYLO_DATA_DIR has already returned above.
+    /// </summary>
+    private static void MoveLegacyProfileIfNeeded()
+    {
+        var legacy = ReaderPaths.LegacyAppDataDirectory;
+        var current = ReaderPaths.AppDataDirectory;
+
+        var result = LegacyProfileMove.Apply(legacy, current);
+        Console.WriteLine($"[Profile] {LegacyProfileMove.Describe(result, legacy, current)}");
     }
 }

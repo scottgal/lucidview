@@ -1,6 +1,6 @@
 name: reader-smoke
 description: >
-  Walks lucidREADER end to end against a seeded scratch database: the sidebar
+  Walks mylo end to end against a seeded scratch database: the sidebar
   (smart rows, a folder, a feed), the item-list filter segments, the reading
   pane and its offline badge, the hover row actions, the mark-as-read dwell,
   full-text search, and Refresh all.

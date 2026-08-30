@@ -123,11 +123,11 @@ public class PolicyHttpHandlerTests
         using var client = CreateClient(inner);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://example.com/old");
-        request.Headers.TryAddWithoutValidation("User-Agent", "lucidREADER-test");
+        request.Headers.TryAddWithoutValidation("User-Agent", "mylo-test");
         await client.SendAsync(request);
 
         var followed = inner.Requests[1];
-        Assert.Equal("lucidREADER-test", string.Join("", followed.Headers.GetValues("User-Agent")));
+        Assert.Equal("mylo-test", string.Join("", followed.Headers.GetValues("User-Agent")));
     }
 
     /// <summary>

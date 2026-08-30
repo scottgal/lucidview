@@ -1,4 +1,4 @@
-# lucidREADER Core Implementation Plan (Plan 1 of 3)
+# mylo Core Implementation Plan (Plan 1 of 3)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -18,7 +18,7 @@
 - `LucidReader.Core` must have **no** Avalonia dependency. It is a plain class library.
 - Mostlylucid.Ephemeral packages are version **3.0.0** from NuGet, not the local checkout in `../mostlylucid.atoms` (which is on 2.9.0).
 - lucidVIEW's existing test suites must pass unchanged after Tasks 1 and 2. That is the acceptance criterion for both refactors.
-- The shared libraries must not acquire dependencies that break lucidVIEW lean's small, AOT-capable publish profile. `LucidReader.Core` is exempt: lucidREADER publishes R2R, not AOT.
+- The shared libraries must not acquire dependencies that break lucidVIEW lean's small, AOT-capable publish profile. `LucidReader.Core` is exempt: mylo publishes R2R, not AOT.
 - No test touches the network. HTTP goes through an injected `HttpMessageHandler` stub.
 - All time-dependent code takes `TimeProvider` by constructor injection so tests use `FakeTimeProvider`, never `Task.Delay`.
 - All database writes go through `SqliteSingleWriter`. Reads use `QueryAsync`.
@@ -29,7 +29,7 @@
 
 ## File Structure
 
-**New shared library `Mostlylucid.LucidView.Content/`**: HTML to markdown conversion, consumed by lucidVIEW and lucidREADER.
+**New shared library `Mostlylucid.LucidView.Content/`**: HTML to markdown conversion, consumed by lucidVIEW and mylo.
 - `IHtmlToMarkdownService.cs`: the interface, moved verbatim.
 - `HtmlToMarkdownService.cs`: AngleSharp implementation, moved verbatim.
 - `HtmlPreProcessor.cs`: moved verbatim.

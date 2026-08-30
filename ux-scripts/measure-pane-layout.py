@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measures where lucidREADER's three panes actually are, from a screenshot.
+"""Measures where mylo's three panes actually are, from a screenshot.
 
 Called by run-pane-layout.sh with the four screenshots of the collapse cycle
 and the one from the restarted process. Nothing here reads a property: the

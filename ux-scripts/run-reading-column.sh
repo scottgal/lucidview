@@ -15,7 +15,7 @@
 #      rather than the column merely happening to look centred.
 #   3. A third run at a bigger font size and a looser line height pushes the
 #      article visibly further down the pane. FontSize was a dead setting in
-#      lucidREADER until now, and the reading pane's font sizes are set by
+#      mylo until now, and the reading pane's font sizes are set by
 #      LiveMarkdown.Avalonia's application-level stylesheet, so "the setting is
 #      stored" and "the text got bigger" are genuinely different claims.
 #   4. A fourth run raises only codeFontSize. The article gets taller while the
@@ -24,7 +24,7 @@
 #      given a fenced code block for this, in the scratch profile only.
 #
 # Needs no network and touches no real profile: every run gets its own
-# LUCIDREADER_DATA_DIR seeded from reader-fixture.sql, removed on the way out
+# MYLO_DATA_DIR seeded from reader-fixture.sql, removed on the way out
 # including on failure and on interrupt, so this is repeatable by construction
 # and can be run twice in a row. See reader-harness.sh for the rest of that.
 set -euo pipefail
@@ -93,7 +93,7 @@ var frame = compositor.BeginFrame();
 Rendering happens on its own thread.' WHERE guid = 'alpha-1';
 SQL
 
-    LUCIDREADER_DATA_DIR="$profile" "$READER_APP" \
+    MYLO_DATA_DIR="$profile" "$READER_APP" \
         --ux-test --script "$READER_REPO/ux-scripts/verify-reading-column.yaml" \
         --output "$out"
 

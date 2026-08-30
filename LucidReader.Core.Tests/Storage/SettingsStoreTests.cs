@@ -7,7 +7,7 @@ namespace LucidReader.Core.Tests.Storage;
 public class SettingsStoreTests : IDisposable
 {
     private readonly string _dir = Path.Combine(
-        Path.GetTempPath(), "lucidreader-tests", Guid.NewGuid().ToString("N"));
+        Path.GetTempPath(), "mylo-tests", Guid.NewGuid().ToString("N"));
 
     private string Path_ => Path.Combine(_dir, "settings.json");
 

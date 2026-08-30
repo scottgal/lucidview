@@ -1,7 +1,14 @@
-# lucidREADER Design
+# mylo Design
 
 **Date:** 2026-08-28
 **Status:** Approved design, ready for implementation planning
+
+**Name:** the product was called lucidREADER while this design and the two
+implementation plans were written, and is now called mylo, always lowercase.
+The prose here uses the new name. The C# namespaces, project folders and type
+names still say `LucidReader`; that is internal and was left alone. The plan
+documents keep the old name inside their code listings, because those are a
+record of what was written at the time.
 
 A native RSS/Atom reader built on the lucidVIEW rendering stack. Same visual
 language, same markdown render control, same themes. Feeds are fetched on a
@@ -35,7 +42,7 @@ locally, so reading is fully offline.
 
 ## 2. Project structure
 
-lucidREADER lives in the existing `lucidview` repository as sibling projects,
+mylo lives in the existing `lucidview` repository as sibling projects,
 reusing the shared libraries directly via `ProjectReference`.
 
 ```
@@ -72,11 +79,11 @@ Constraints on the move:
   FULL must gain the same `ProjectReference` set.
 - lucidVIEW's existing test suites must pass unchanged after the move. This is
   the acceptance criterion for the refactor.
-- Nothing beyond what lucidREADER needs is moved. No opportunistic refactoring.
+- Nothing beyond what mylo needs is moved. No opportunistic refactoring.
 
 ### 2.2 Build and publish profile
 
-lucidREADER does **not** target AOT. It publishes:
+mylo does **not** target AOT. It publishes:
 
 - `SelfContained=true`
 - `PublishSingleFile=true`
@@ -96,7 +103,7 @@ migration runner keyed on a `schema_version` pragma. Not EF Core: the schema is
 small, and EF's startup and reflection cost buys nothing here.
 
 Database file sits at the platform application-data path beside `settings.json`
-(`~/Library/Application Support/lucidREADER/reader.db` on macOS, equivalents
+(`~/Library/Application Support/mylo/reader.db` on macOS, equivalents
 elsewhere). WAL mode enabled.
 
 ### 3.1 Tables
@@ -225,7 +232,7 @@ failures before they are written. Reads stay direct and concurrent under WAL.
 
 Avalonia 11.3 with FluentAvaloniaUI, FluentIcons and the Raleway asset, using
 the shared `ThemeService` and its seven themes. A lucidVIEW user should
-recognise lucidREADER immediately.
+recognise mylo immediately.
 
 ### 5.1 Main window
 

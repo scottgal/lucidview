@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared plumbing for the lucidREADER driving scripts. Sourced, not run.
+# Shared plumbing for the mylo driving scripts. Sourced, not run.
 #
 # Both reader-smoke.yaml and reader-settings.yaml assert exact numbers: five
 # articles under All items, three under Harness Alpha, one starred, two search
@@ -11,14 +11,14 @@
 #
 # So each run gets its own profile directory, seeded from reader-fixture.sql,
 # and deletes it again on the way out including on failure and on interrupt.
-# LUCIDREADER_DATA_DIR (Debug builds only, see LucidReader/App.axaml.cs) is what
+# MYLO_DATA_DIR (Debug builds only, see LucidReader/App.axaml.cs) is what
 # points the app at it. The consequence worth having: these scripts are
 # repeatable by construction rather than by remembering to clean up, they can
 # be run twice in a row, they do not care what state they start from, and they
-# leave the real ~/Library/Application Support/lucidREADER untouched.
+# leave the real ~/Library/Application Support/mylo untouched.
 
 READER_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-READER_APP="$READER_REPO/LucidReader/bin/Debug/net10.0/osx-arm64/lucidREADER"
+READER_APP="$READER_REPO/LucidReader/bin/Debug/net10.0/osx-arm64/mylo"
 READER_FIXTURE="$READER_REPO/ux-scripts/reader-fixture.sql"
 
 reader_require_app() {
@@ -89,7 +89,7 @@ YAML
     # database rather than as a failed assertion.
     local attempt
     for attempt in 1 2 3; do
-        LUCIDREADER_DATA_DIR="$dir" "$READER_APP" \
+        MYLO_DATA_DIR="$dir" "$READER_APP" \
             --ux-test --script "$dir/bootstrap.yaml" --output "$dir/bootstrap" \
             >"$dir/bootstrap.log" 2>&1 || true
         [[ -f "$dir/reader.db" ]] && break
@@ -129,6 +129,6 @@ reader_run() {
 
     reader_seed_profile "$READER_PROFILE"
 
-    LUCIDREADER_DATA_DIR="$READER_PROFILE" "$READER_APP" \
+    MYLO_DATA_DIR="$READER_PROFILE" "$READER_APP" \
         --ux-test --script "$READER_REPO/ux-scripts/$script" --output "$out"
 }

@@ -12,7 +12,7 @@ public class AddFeedTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        _dir = Path.Combine(Path.GetTempPath(), "lucidreader-uitests", Guid.NewGuid().ToString("N"));
+        _dir = Path.Combine(Path.GetTempPath(), "mylo-uitests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_dir);
         _services = await ReaderServices.StartAsync(
             Path.Combine(_dir, "reader.db"), Path.Combine(_dir, "settings.json"));

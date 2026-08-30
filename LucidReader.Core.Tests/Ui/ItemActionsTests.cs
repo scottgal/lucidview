@@ -72,7 +72,7 @@ public class ItemActionsTests
     [Fact]
     public async Task Tags_round_trip_through_TagRepository()
     {
-        var dbPath = Path.Combine(Path.GetTempPath(), $"lucidreader-tags-{Guid.NewGuid():N}.db");
+        var dbPath = Path.Combine(Path.GetTempPath(), $"mylo-tags-{Guid.NewGuid():N}.db");
         await using var db = await ReaderDatabase.OpenAsync(dbPath);
         try
         {

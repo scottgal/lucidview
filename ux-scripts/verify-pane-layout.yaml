@@ -4,7 +4,7 @@ description: >
   is needed to prove, in pixels, that the panes actually moved.
 
   Run it through ux-scripts/run-pane-layout.sh, not directly. That script
-  seeds a scratch LUCIDREADER_DATA_DIR from reader-fixture.sql, forces the
+  seeds a scratch MYLO_DATA_DIR from reader-fixture.sql, forces the
   light theme so the measurement can name exact colours, deletes the profile
   on the way out including on failure, and then measures the screenshots this
   script leaves behind. Run against your own database the article this selects

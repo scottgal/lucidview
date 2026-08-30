@@ -6,7 +6,7 @@ description: >
 
   Needs a seeded auto-paused feed. Before running:
 
-    DB="$HOME/Library/Application Support/lucidREADER/reader.db"
+    DB="$HOME/Library/Application Support/mylo/reader.db"
     sqlite3 "$DB" "INSERT INTO feeds (feed_url, title, is_enabled, consecutive_failures, last_error, auto_paused_utc) VALUES ('https://paused.example/feed.xml', 'Paused Feed', 0, 20, 'Name or service not known', '2026-08-29T12:00:00.0000000+00:00');"
 
   and after:

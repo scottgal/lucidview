@@ -35,6 +35,6 @@
             already includes this; LucidReader's never did.
         -->
         <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml" />
-        <StyleInclude Source="avares://lucidREADER/Styles/Reader.axaml" />
+        <StyleInclude Source="avares://mylo/Styles/Reader.axaml" />
     </Application.Styles>
 </Application>

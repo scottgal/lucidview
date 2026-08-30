@@ -13,7 +13,7 @@ public class ReaderServicesTests
 {
     private static (string db, string settings, string dir) TempPaths()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "lucidreader-tests", Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(Path.GetTempPath(), "mylo-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         return (Path.Combine(dir, "reader.db"), Path.Combine(dir, "settings.json"), dir);
     }

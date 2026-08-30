@@ -1,6 +1,6 @@
 name: reader-settings
 description: >
-  Drives both of lucidREADER's settings dialogs against a seeded scratch
+  Drives both of mylo's settings dialogs against a seeded scratch
   profile: the four groups of the global dialog, saving and reopening to prove
   a change reached settings.json, the manual retention clean-up, and the
   per-feed dialog including its inherit-versus-override switches.
@@ -84,7 +84,7 @@ actions:
     target: ConcurrencyNoticeText
     window_id: Settings
     matcher: HasText
-    value: "Takes effect the next time lucidREADER starts."
+    value: "Takes effect the next time mylo starts."
 
   # Hover then MouseDown/MouseUp, never Click. The harness's Click on a
   # RadioButton raises ClickEvent without going through OnClick, so IsChecked

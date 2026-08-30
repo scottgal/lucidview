@@ -1,8 +1,8 @@
-# lucidREADER App Implementation Plan (Plan 2 of 3)
+# mylo App Implementation Plan (Plan 2 of 3)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the lucidREADER desktop application on top of the finished `LucidReader.Core` engine: a three-pane Avalonia window, item actions, search, global and per-feed settings, OPML import and export, and the composition root that wires the engine together and shuts it down cleanly.
+**Goal:** Build the mylo desktop application on top of the finished `LucidReader.Core` engine: a three-pane Avalonia window, item actions, search, global and per-feed settings, OPML import and export, and the composition root that wires the engine together and shuts it down cleanly.
 
 **Architecture:** A second Avalonia app alongside lucidVIEW, following lucidVIEW's own conventions: manual construction with no DI container, code-behind windows with `DataContext = this` and `RelayCommand`, XAML `KeyBindings`, and dialogs shown with `ShowDialog(this)`. The reading pane reuses `LucidMarkdownView` from `Mostlylucid.LucidView.Markdown`. All feed behaviour comes from `LucidReader.Core`; this plan adds no feed logic beyond four small Core services the app needs (tags, autodiscovery, OPML, image caching).
 
@@ -20,7 +20,7 @@
 
 - Target framework `net10.0`. Nullable enabled, implicit usings enabled.
 - `AvaloniaUseCompiledBindingsByDefault` is **false** in this solution. Bindings are reflection-based; do not assume compiled bindings.
-- lucidREADER publishes self-contained, single-file, ReadyToRun, **not** trimmed and **not** AOT. `IncludeNativeLibrariesForSelfExtract` must stay **false** (see spec 7.1; it breaks the macOS hardened runtime for the SQLite native library).
+- mylo publishes self-contained, single-file, ReadyToRun, **not** trimmed and **not** AOT. `IncludeNativeLibrariesForSelfExtract` must stay **false** (see spec 7.1; it breaks the macOS hardened runtime for the SQLite native library).
 - `LucidReader.Core` must keep having NO Avalonia dependency. Anything needing Avalonia lives in the app project or in `Mostlylucid.LucidView.*`.
 - No `DateTime.Now`; time comes from `TimeProvider`.
 - All engine writes go through `LucidReader.Core`; the app never opens its own SQLite connection.
@@ -60,9 +60,9 @@ These were consciously deferred and are now in scope. Each is assigned to a task
 
 ## Two decisions this plan makes
 
-**PDF export.** Spec 5.4 says article export reuses lucidVIEW's `PdfExportService`. Plan 1 established that is not possible: it depends on `MarkdownService`, a large mermaid and rendering service that was never in scope to move. **Decision: lucidREADER v1 exports an article as markdown only.** PDF export is dropped from v1 rather than triggering an unplanned extraction. Revisit once the reader is usable. Task 10 implements markdown export; no task implements PDF.
+**PDF export.** Spec 5.4 says article export reuses lucidVIEW's `PdfExportService`. Plan 1 established that is not possible: it depends on `MarkdownService`, a large mermaid and rendering service that was never in scope to move. **Decision: mylo v1 exports an article as markdown only.** PDF export is dropped from v1 rather than triggering an unplanned extraction. Revisit once the reader is usable. Task 10 implements markdown export; no task implements PDF.
 
-**The visual direction is macOS Mail.** Decided partway through execution, after the shell was built. lucidREADER drops the theme picker it inherited from lucidVIEW: the seven themes were never chosen for a reader, and Mail follows the system appearance rather than offering a palette. `ReaderSettings.Theme` stays in the settings file as an unused field rather than being deleted, so reversing this costs nothing. Task 8a establishes the visual language once so Tasks 9 to 15 inherit it instead of each being restyled afterwards. Task 11's settings dialog therefore loses its theme picker.
+**The visual direction is macOS Mail.** Decided partway through execution, after the shell was built. mylo drops the theme picker it inherited from lucidVIEW: the seven themes were never chosen for a reader, and Mail follows the system appearance rather than offering a palette. `ReaderSettings.Theme` stays in the settings file as an unused field rather than being deleted, so reversing this costs nothing. Task 8a establishes the visual language once so Tasks 9 to 15 inherit it instead of each being restyled afterwards. Task 11's settings dialog therefore loses its theme picker.
 
 **Discovery and visual richness.** Added mid-execution at the user's request. Three things, all of which mostly reuse machinery that already exists: favicons in the sidebar, OpenGraph thumbnails in the list and hero images in the reading pane (Task 8c), fed by metadata extracted from pages the app ALREADY fetches (Task 8b), plus opt-in online feed search (Task 8d). Paste-a-URL discovery was already built in Task 3 and only lacked a UI, which Task 13 supplies. `feeds.icon_path` has existed unused since the first migration and finally gets populated.
 
@@ -5937,7 +5937,7 @@ git commit -m "feat(reader): surface refresh health and let paused feeds resume"
 - Create: `ux-scripts/reader-settings.yaml`
 - Create: `ux-scripts/README-reader.md`
 
-lucidVIEW drives its UI with YAML scripts run through the Debug-only harness, and generates its user manual screenshots the same way. lucidREADER gets the same treatment. These are not a substitute for the unit tests; they catch the things unit tests cannot, such as a binding that silently fails or a control that never appears.
+lucidVIEW drives its UI with YAML scripts run through the Debug-only harness, and generates its user manual screenshots the same way. mylo gets the same treatment. These are not a substitute for the unit tests; they catch the things unit tests cannot, such as a binding that silently fails or a control that never appears.
 
 - [ ] **Step 1: Confirm how the harness is invoked**
 
@@ -6057,7 +6057,7 @@ git commit -m "test(reader): UI driving scripts"
 
 ## Done
 
-At this point lucidREADER is a usable application: subscribe by URL or OPML, refresh on a schedule with visible health, read articles offline, search, star, tag, export, and configure everything globally or per feed.
+At this point mylo is a usable application: subscribe by URL or OPML, refresh on a schedule with visible health, read articles offline, search, star, tag, export, and configure everything globally or per feed.
 
 **Plan 3 covers:** packaging as a single-file ReadyToRun binary per platform, the macOS `.app` bundle with correctly signed native SQLite libraries and notarisation, the FTS5 startup probe in the shipped app, the FULL StyloExtract binding, and the network-availability observation that `ReaderSettings.PauseWhenOffline` implies.
 

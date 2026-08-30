@@ -6,11 +6,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
 
-    <AssemblyName>lucidREADER</AssemblyName>
+    <AssemblyName>mylo</AssemblyName>
     <RootNamespace>LucidReader</RootNamespace>
     <Version>0.1.0</Version>
-    <Product>lucidREADER</Product>
-    <Description>A native RSS and Atom reader built on the lucidVIEW rendering stack</Description>
+    <Product>mylo</Product>
+    <Company>mostlylucid</Company>
+    <Authors>Scott Galloway</Authors>
+    <Copyright>Copyright (c) 2026 Scott Galloway</Copyright>
+    <Description>mylo, a native RSS and Atom reader built on the lucidVIEW rendering stack</Description>
 
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>

@@ -15,8 +15,8 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP="$REPO/LucidReader/bin/Debug/net10.0/osx-arm64/lucidREADER"
-DB="$HOME/Library/Application Support/lucidREADER/reader.db"
+APP="$REPO/LucidReader/bin/Debug/net10.0/osx-arm64/mylo"
+DB="$HOME/Library/Application Support/mylo/reader.db"
 OUT="${1:-/tmp/lr-add-feed-writes}"
 
 if [[ ! -x "$APP" ]]; then

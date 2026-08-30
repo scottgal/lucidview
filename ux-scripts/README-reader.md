@@ -1,9 +1,9 @@
-# lucidREADER UI driving scripts
+# mylo UI driving scripts
 
 Same harness as lucidVIEW ([Mostlylucid.Avalonia.UITesting](../external/lucidRESUME/src/Mostlylucid.Avalonia.UITesting)),
 Debug-only for the same reason: `--ux-test` is compiled out of Release.
 `ux-scripts/README.md` covers the harness itself. This file covers what
-lucidREADER's scripts check, and the rules they follow.
+mylo's scripts check, and the rules they follow.
 
 Build first:
 
@@ -27,7 +27,7 @@ dotnet build LucidReader/LucidReader.csproj
 | direct | `verify-feed-settings-dialog.yaml` | Opening per-feed settings from the toolbar against the two-feed development database. Cancels, so it writes nothing | no |
 
 Output defaults to `/tmp/lr-<name>`; pass a directory to put it elsewhere.
-`--ux-repl` and `--ux-mcp` work on lucidREADER too, if you want to poke at the
+`--ux-repl` and `--ux-mcp` work on mylo too, if you want to poke at the
 running app by hand.
 
 ## The rule these scripts follow
@@ -55,7 +55,7 @@ shapes are in use.
   `ON DELETE CASCADE`: SQLite defaults it off, and the CLI is not the app.
 - **A throwaway profile** (`run-reader-smoke.sh`, `run-reader-settings.sh`,
   `run-reading-column.sh`, `run-reading-typography.sh`, `run-pane-layout.sh`, via
-  `reader-harness.sh`). `LUCIDREADER_DATA_DIR` points a Debug build at a
+  `reader-harness.sh`). `MYLO_DATA_DIR` points a Debug build at a
   temporary directory, which is seeded from `reader-fixture.sql` and deleted on
   the way out. `run-reader-keyboard.sh` uses this shape too. This is the better shape where it fits: the script decides every
   count it asserts, needs no network, and cannot touch anything you care about.
@@ -105,7 +105,7 @@ Learned the hard way; none of it is obvious from a passing run.
   event and the release is ignored. Hover something else first. This showed up
   as an intermittent failure, not a consistent one.
 - **`PressKey` cannot test keyboard shortcuts.** It bypasses
-  `Window.KeyBindings`, which is where all of lucidREADER's shortcuts live.
+  `Window.KeyBindings`, which is where all of mylo's shortcuts live.
   Do not write a script claiming to cover them.
 - **The harness cannot see a ContextMenu.** It opens in its own `PopupRoot`,
   which `LocatorEngine` (single window root) and `ScreenshotCapture` (popups in

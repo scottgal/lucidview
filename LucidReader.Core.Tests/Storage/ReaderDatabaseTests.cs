@@ -26,7 +26,7 @@ public class ReaderDatabaseTests
     [Fact]
     public async Task Opening_creates_missing_parent_directories()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "lucidreader-tests", Guid.NewGuid().ToString("N"), "nested");
+        var dir = Path.Combine(Path.GetTempPath(), "mylo-tests", Guid.NewGuid().ToString("N"), "nested");
         var path = Path.Combine(dir, "reader.db");
         try
         {

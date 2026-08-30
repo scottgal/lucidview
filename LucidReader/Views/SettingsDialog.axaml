@@ -75,7 +75,7 @@
                         </Grid>
                         <Rectangle Classes="hairline" />
                         <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" Text="Refresh all feeds when lucidREADER starts" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="0" Text="Refresh all feeds when mylo starts" VerticalAlignment="Center" />
                             <CheckBox Grid.Column="1" x:Name="RefreshOnStartupCheck" />
                         </Grid>
                         <Rectangle Classes="hairline" />
@@ -94,7 +94,7 @@
                 </Border>
 
                 <TextBlock x:Name="ConcurrencyNoticeText"
-                           Text="Takes effect the next time lucidREADER starts."
+                           Text="Takes effect the next time mylo starts."
                            Classes="row-secondary" Margin="4,0,0,0" />
 
                 <!--
@@ -144,7 +144,7 @@
                         </Grid>
                     </StackPanel>
                 </Border>
-                <TextBlock Text="Takes effect the next time lucidREADER starts." Classes="row-secondary" Margin="4,0,0,0" />
+                <TextBlock Text="Takes effect the next time mylo starts." Classes="row-secondary" Margin="4,0,0,0" />
             </StackPanel>
 
             <!-- ================= Retention ================= -->

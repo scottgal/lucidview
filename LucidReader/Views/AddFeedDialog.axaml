@@ -39,7 +39,7 @@
         <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,12">
             <TextBlock Text="Add a feed" Classes="row-title" FontSize="16" />
             <TextBlock Classes="row-secondary"
-                       Text="Paste a feed address, or the address of a site and lucidREADER will look for its feeds." />
+                       Text="Paste a feed address, or the address of a site and mylo will look for its feeds." />
         </StackPanel>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,8">

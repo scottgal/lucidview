@@ -156,7 +156,7 @@ public partial class MainWindow
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "Export subscriptions as OPML",
-                SuggestedFileName = "lucidreader-subscriptions.opml",
+                SuggestedFileName = "mylo-subscriptions.opml",
                 DefaultExtension = "opml",
                 FileTypeChoices = [new FilePickerFileType("OPML") { Patterns = ["*.opml"] }]
             });

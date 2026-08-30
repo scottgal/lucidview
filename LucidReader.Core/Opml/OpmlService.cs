@@ -233,6 +233,6 @@ public sealed class OpmlService(FolderRepository folders, FeedRepository feeds)
 
         outlines.AddRange(allFeeds.Where(f => f.FolderId is null).Select(ToOutline));
 
-        return OpmlWriter.Write(outlines, "lucidREADER subscriptions", nowUtc);
+        return OpmlWriter.Write(outlines, "mylo subscriptions", nowUtc);
     }
 }

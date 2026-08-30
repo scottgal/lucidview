@@ -16,7 +16,7 @@ public sealed class TempDatabase : IDisposable
     {
         var dir = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(),
-            "lucidreader-tests",
+            "mylo-tests",
             Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         Path = System.IO.Path.Combine(dir, "reader.db");

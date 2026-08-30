@@ -1,7 +1,7 @@
--- The database lucidREADER's two driving scripts assert against.
+-- The database mylo's two driving scripts assert against.
 --
 -- Applied by run-reader-smoke.sh and run-reader-settings.sh to a throwaway
--- database in a temporary directory (see LUCIDREADER_DATA_DIR in
+-- database in a temporary directory (see MYLO_DATA_DIR in
 -- LucidReader/App.axaml.cs), never to a real profile. Every count, title and
 -- status line either script expects is decided here, which is what lets both
 -- run twice in a row from any starting state and assert exact numbers rather

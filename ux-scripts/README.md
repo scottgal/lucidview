@@ -1,6 +1,6 @@
 # lucidVIEW UI Tests
 
-lucidREADER's scripts live in this folder too, and are documented separately in
+mylo's scripts live in this folder too, and are documented separately in
 [README-reader.md](README-reader.md), including the repeatability rule they
 follow and a list of harness behaviour that is not obvious from a passing run.
 

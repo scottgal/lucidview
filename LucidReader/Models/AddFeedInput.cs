@@ -84,10 +84,10 @@ public static class AddFeedInput
     public const string EmptyAddressMessage = "Enter the address of a feed or a website.";
 
     public const string UnsupportedSchemeMessage =
-        "lucidREADER can only read feeds over http or https.";
+        "mylo can only read feeds over http or https.";
 
     public const string CredentialsMessage =
-        "Remove the username and password from that address; lucidREADER will not store credentials in a subscription.";
+        "Remove the username and password from that address; mylo will not store credentials in a subscription.";
 
     public const string DiscoveryTimedOutMessage = "Timed out looking up that address.";
 

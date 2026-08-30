@@ -21,7 +21,7 @@
 #      the second is launched afterwards and has to come up collapsed.
 #
 # Needs no network and touches no real profile: every run gets its own
-# LUCIDREADER_DATA_DIR seeded from reader-fixture.sql and removed on the way
+# MYLO_DATA_DIR seeded from reader-fixture.sql and removed on the way
 # out including on failure and on interrupt, so this is repeatable by
 # construction and can be run twice in a row. See reader-harness.sh.
 #
@@ -73,7 +73,7 @@ PY
 run_script() {
     local profile="$1" script="$2" out="$3"
 
-    LUCIDREADER_DATA_DIR="$profile" "$READER_APP" \
+    MYLO_DATA_DIR="$profile" "$READER_APP" \
         --ux-test --script "$READER_REPO/ux-scripts/$script" --output "$out"
 
     # Same launch-rate limit reader-harness.sh documents: macOS occasionally

@@ -12,7 +12,7 @@ namespace LucidReader.Core.Feeds;
 public sealed class FeedFetcher(HttpClient http)
 {
     public const string UserAgentString =
-        "lucidREADER/1.0 (+https://www.mostlylucid.net)";
+        "mylo/1.0 (+https://www.mostlylucid.net)";
 
     // The legacy code-page provider (System.Text.Encoding.CodePages) that
     // DecodeBody below depends on used to be registered by a static
