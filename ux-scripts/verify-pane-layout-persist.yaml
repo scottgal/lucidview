@@ -1,0 +1,32 @@
+name: verify-pane-layout-persist
+description: >
+  Half of the restart check. Collapses to the reading pane only, waits for the
+  settings write, and exits. run-pane-layout.sh then launches
+  verify-pane-layout-restore.yaml against the same profile directory, which is
+  what makes this a real restart rather than a re-read of a value still held in
+  memory.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+
+  - type: Click
+    target: LayoutButton
+  - type: Wait
+    value: "600"
+  - type: Click
+    target: LayoutButton
+  - type: Wait
+    value: "1200"
+    description: Long enough for UpdateSettingsAsync to have written settings.json
+
+  - type: Expect
+    target: SidebarPane
+    matcher: IsHidden
+  - type: Expect
+    target: ItemListPane
+    matcher: IsHidden
+
+  - type: Screenshot
+    value: persist-reading-only

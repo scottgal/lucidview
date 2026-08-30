@@ -333,6 +333,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ? parsed
             : AppTheme.Auto);
 
+        RestoreLayoutMode(settings);
         ApplyReadingColumnWidth();
         ApplyReadingTypography(settings);
 

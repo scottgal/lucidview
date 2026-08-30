@@ -56,6 +56,30 @@
                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource HairlineBrush}">
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="80,10,12,10">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <!--
+                        The layout button, first in the row because that is
+                        where macOS puts the sidebar toggle and because the
+                        pane it collapses first is the one directly below it.
+                        Icon-only and narrow: this toolbar already carries six
+                        labelled buttons, and a seventh word would cost the
+                        search box its width before it bought any clarity the
+                        icon does not already give.
+
+                        The icon is a PaneLayoutIcon, drawn from the current
+                        mode rather than a fixed glyph, so it shows which panes
+                        are on screen and which one goes next. See
+                        Views/Controls/PaneLayoutIcon.cs for why it is not an
+                        SF Symbol.
+                    -->
+                    <Button x:Name="LayoutButton" Classes="row-toolbar icon-toolbar"
+                            ToolTip.Tip="{Binding LayoutButtonTip}"
+                            Click="OnLayoutButtonClicked">
+                        <controls:PaneLayoutIcon x:Name="LayoutIcon"
+                                                 Width="18" Height="14"
+                                                 Mode="{Binding LayoutMode}"
+                                                 StrokeBrush="{DynamicResource RowTitleBrush}"
+                                                 PaneBrush="{DynamicResource RowSecondaryBrush}" />
+                    </Button>
                     <Button x:Name="AddFeedButton" Content="Add feed" Classes="row-toolbar"
                             Command="{Binding AddFeedCommand}" />
                     <Button x:Name="RefreshAllButton" Content="Refresh all" Classes="row-toolbar"
@@ -114,7 +138,13 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" ColumnDefinitions="260,4,340,4,*">
+        <!--
+            Named, because the layout button collapses panes by writing these
+            column widths from code (MainWindow.Layout.cs). Hiding the pane
+            content alone is not enough: a zero-content column still holds its
+            260px open.
+        -->
+        <Grid Grid.Row="1" x:Name="PaneGrid" ColumnDefinitions="260,4,340,4,*">
 
             <!--
                 The sidebar is the one translucent surface (Task 8a Step 8);
@@ -122,7 +152,7 @@
                 it. It no longer carries its own top-clearance padding: the
                 unified toolbar above already occupies the title-bar band.
             -->
-            <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}">
+            <Border Grid.Column="0" x:Name="SidebarPane" Background="{DynamicResource SidebarBackgroundBrush}">
                 <ScrollViewer>
                     <ItemsControl x:Name="SidebarSections" ItemsSource="{Binding Sidebar}" Margin="0,8,0,12">
                         <ItemsControl.ItemTemplate>
@@ -228,9 +258,10 @@
                 </ScrollViewer>
             </Border>
 
-            <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+            <GridSplitter Grid.Column="1" x:Name="SidebarSplitter" ResizeDirection="Columns" />
 
-            <Grid Grid.Column="2" RowDefinitions="Auto,*" Background="{DynamicResource ListBackgroundBrush}">
+            <Grid Grid.Column="2" x:Name="ItemListPane" RowDefinitions="Auto,*"
+                  Background="{DynamicResource ListBackgroundBrush}">
                 <!--
                     A segmented control, not raw RadioButtons: same three
                     bindings as before (IsFilterAll/Unread/Starred), only the
@@ -319,7 +350,7 @@
                 </ListBox>
             </Grid>
 
-            <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
+            <GridSplitter Grid.Column="3" x:Name="ItemListSplitter" ResizeDirection="Columns" />
 
             <ScrollViewer Grid.Column="4" x:Name="ReadingScroll" Background="{DynamicResource ReadingBackgroundBrush}">
                 <!--

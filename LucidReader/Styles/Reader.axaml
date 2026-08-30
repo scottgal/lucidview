@@ -347,6 +347,18 @@
         <Setter Property="Padding" Value="8,4" />
     </Style>
 
+    <!--
+        The layout button. Squarer and tighter than the labelled buttons
+        beside it, because its content is an 18x14 drawing rather than a word,
+        and the default 8,4 would leave it looking like a button with its
+        label missing.
+    -->
+    <Style Selector="Button.icon-toolbar">
+        <Setter Property="Padding" Value="6,5" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
     <!-- ================= Segmented filter control ================= -->
     <Style Selector="Border.segmented-container">
         <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />

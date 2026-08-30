@@ -1,0 +1,149 @@
+name: verify-pane-layout
+description: >
+  Drives the toolbar's layout button through its three modes and captures what
+  is needed to prove, in pixels, that the panes actually moved.
+
+  Run it through ux-scripts/run-pane-layout.sh, not directly. That script
+  seeds a scratch LUCIDREADER_DATA_DIR from reader-fixture.sql, forces the
+  light theme so the measurement can name exact colours, deletes the profile
+  on the way out including on failure, and then measures the screenshots this
+  script leaves behind. Run against your own database the article this selects
+  is a different one and the measurements mean nothing.
+
+  Two screenshots per mode. The full window is what the pane boundaries are
+  measured from: the sidebar is the one grey column, so its right edge is a
+  colour change that no property assertion could fake, and the reading
+  column's centre moves as the pane it is centred in gets wider. The second
+  is a snip of the layout button itself, so the icon can be looked at rather
+  than assumed - it is drawn from the current mode, and an icon that did not
+  change would mean the button lies about the state it is in.
+
+  Click, not MouseDown/MouseUp: LayoutButton is a real Button, which is the
+  one case the harness's Click drives properly.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  # An article has to be on screen before any of this means anything: the
+  # reading column is centred in the reading pane, so its centre is where the
+  # reading pane is, and with nothing selected there is no text to measure.
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "5"
+    description: The seeded fixture, so the run is measuring a known list
+
+  - type: PressKey
+    value: "J"
+    description: Select the first article, so the reading pane has content
+  - type: Wait
+    value: "1200"
+
+  # =====================================================================
+  # Mode 1: all three panes.
+  # =====================================================================
+  - type: Expect
+    target: LayoutButton
+    matcher: IsVisible
+  - type: Expect
+    target: SidebarPane
+    matcher: IsVisible
+  - type: Expect
+    target: ItemListPane
+    matcher: IsVisible
+
+  - type: Screenshot
+    value: 01-three-pane
+  - type: Screenshot
+    target: LayoutButton
+    value: 01-icon-three-pane
+    padding: 2
+
+  # =====================================================================
+  # Mode 2: the sidebar goes, leftmost first.
+  # =====================================================================
+  - type: Click
+    target: LayoutButton
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: SidebarPane
+    matcher: IsHidden
+  - type: Expect
+    target: SidebarSplitter
+    matcher: IsHidden
+    description: A splitter left behind would be a handle attached to nothing
+  - type: Expect
+    target: ItemListPane
+    matcher: IsVisible
+
+  - type: Screenshot
+    value: 02-list-and-reading
+  - type: Screenshot
+    target: LayoutButton
+    value: 02-icon-list-and-reading
+    padding: 2
+
+  # =====================================================================
+  # Mode 3: the article list goes too, so only the reading pane is left.
+  # =====================================================================
+  - type: Click
+    target: LayoutButton
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: SidebarPane
+    matcher: IsHidden
+  - type: Expect
+    target: ItemListPane
+    matcher: IsHidden
+  - type: Expect
+    target: ItemListSplitter
+    matcher: IsHidden
+  - type: Expect
+    target: ReadingScroll
+    matcher: IsVisible
+    description: The reading pane is never collapsed
+
+  - type: Screenshot
+    value: 03-reading-only
+  - type: Screenshot
+    target: LayoutButton
+    value: 03-icon-reading-only
+    padding: 2
+
+  # =====================================================================
+  # A fourth click comes back round to all three panes.
+  # =====================================================================
+  - type: Click
+    target: LayoutButton
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: SidebarPane
+    matcher: IsVisible
+  - type: Expect
+    target: ItemListPane
+    matcher: IsVisible
+
+  - type: Screenshot
+    value: 04-back-to-three-pane
+  - type: Screenshot
+    target: LayoutButton
+    value: 04-icon-back-to-three-pane
+    padding: 2

@@ -1,0 +1,30 @@
+name: verify-pane-layout-restore
+description: >
+  The other half of the restart check. Run against the profile
+  verify-pane-layout-persist.yaml left behind, in a second process, so what it
+  asserts is that the collapsed layout came back off disk. The screenshot is
+  measured too: a window that came up with the panes hidden but the columns
+  still holding their width would pass the two Expects below and still be
+  wrong.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+
+  - type: Expect
+    target: SidebarPane
+    matcher: IsHidden
+  - type: Expect
+    target: ItemListPane
+    matcher: IsHidden
+  - type: Expect
+    target: ReadingScroll
+    matcher: IsVisible
+
+  - type: Screenshot
+    value: restart-reading-only
+  - type: Screenshot
+    target: LayoutButton
+    value: restart-icon
+    padding: 2

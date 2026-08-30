@@ -18,6 +18,7 @@ dotnet build LucidReader/LucidReader.csproj
 | `ux-scripts/run-reader-smoke.sh [out]` | `reader-smoke.yaml` | The whole shell: sidebar smart rows, a folder, a feed, the All/Unread/Starred segments, the reading pane and its offline badge, the mark-as-read dwell, the hover row actions, full-text search, Refresh all | no |
 | `ux-scripts/run-reader-settings.sh [out]` | `reader-settings.yaml` | Both settings dialogs: all four global groups, save-and-reopen round trips, the retention clean-up, the per-feed override switches, and a global change showing up as the per-feed inherited label | no |
 | `ux-scripts/run-reading-column.sh [out]` | `verify-reading-column.yaml` | The reading column, **measured in pixels**: equal left and right margins at two different column widths, the margin growing as the column narrows, and bigger font/line-height/code-size changing what is rendered | no |
+| `ux-scripts/run-pane-layout.sh [out]` | `verify-pane-layout.yaml`, `verify-pane-layout-persist.yaml`, `verify-pane-layout-restore.yaml` | The toolbar's layout button, **measured in pixels**: each click collapses the leftmost pane still showing, the sidebar's 260px column and both splitters actually leave the window rather than going blank, the reading column re-centres in the wider pane, a fourth click restores the start exactly, and a second process comes up in the saved mode | no |
 | `ux-scripts/run-reading-typography.sh [out]` | `verify-reading-typography.yaml` | The four reading settings (font size, line height, code font size, column width) round-tripping through the settings dialog: change two, save, reopen, read them back | no |
 | `ux-scripts/run-reader-keyboard.sh [out]` | `verify-reader-keyboard.yaml` | The keyboard shortcuts, with real key events: S stars and unstars the selected article, and none of the ten bare gestures (J K N P M S R O T and `/`) does anything while focus is in the search box | no |
 | `ux-scripts/run-refresh-health.sh [out]` | `verify-refresh-health.yaml` | The status bar reporting auto-paused feeds, and putting one back into rotation with the Resume button | no |
@@ -53,7 +54,7 @@ shapes are in use.
   collide with. Set `PRAGMA foreign_keys=ON` in any cleanup that relies on
   `ON DELETE CASCADE`: SQLite defaults it off, and the CLI is not the app.
 - **A throwaway profile** (`run-reader-smoke.sh`, `run-reader-settings.sh`,
-  `run-reading-column.sh`, `run-reading-typography.sh`, via
+  `run-reading-column.sh`, `run-reading-typography.sh`, `run-pane-layout.sh`, via
   `reader-harness.sh`). `LUCIDREADER_DATA_DIR` points a Debug build at a
   temporary directory, which is seeded from `reader-fixture.sql` and deleted on
   the way out. `run-reader-keyboard.sh` uses this shape too. This is the better shape where it fits: the script decides every

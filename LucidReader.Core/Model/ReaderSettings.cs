@@ -59,6 +59,20 @@ public sealed record ReaderSettings
     /// </summary>
     public double ColumnWidth { get; init; } = 760;
     public int MarkReadDwellMilliseconds { get; init; } = 800;
+
+    /// <summary>
+    /// Which panes the window shows: "ThreePane", "ListAndReading" or
+    /// "ReadingOnly". A string rather than an enum for the same reason
+    /// <see cref="Theme"/> is one: this record is serialized straight to
+    /// settings.json, and a stored name this build does not recognise has to
+    /// degrade to the default instead of failing the whole file to parse.
+    /// LucidReader.Models.ReaderLayout owns the parsing and the cycle order.
+    ///
+    /// There is no control for this in the settings dialog. The toolbar's
+    /// layout button is the control; this is only where its last position is
+    /// kept so it survives a restart.
+    /// </summary>
+    public string LayoutMode { get; init; } = "ThreePane";
     public bool OpenLinksExternally { get; init; } = true;
 
     /// <summary>
