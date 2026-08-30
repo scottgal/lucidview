@@ -374,6 +374,27 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
+    <!--
+        The per-feed update line's Refresh control. Smaller and quieter than
+        row-toolbar: it sits beside a line of secondary text at the top of the
+        item list, and a full toolbar button there would be the loudest thing
+        in the column and would fight the segmented filter directly below it.
+    -->
+    <Style Selector="Button.feed-update-refresh">
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="Padding" Value="7,1" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{DynamicResource RowSecondaryBrush}" />
+    </Style>
+
+    <!--
+        No :pointerover rule here on purpose. The Fluent button theme sets
+        Foreground on the template's ContentPresenter for that state, so a
+        Foreground setter on the Button itself would never take effect and
+        would sit in this file looking like it did.
+    -->
+
     <!-- ================= Segmented filter control ================= -->
     <Style Selector="Border.segmented-container">
         <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />

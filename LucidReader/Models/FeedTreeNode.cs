@@ -29,6 +29,19 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
     public bool IsAutoPaused { get; init; }
     public bool IsEnabled { get; init; } = true;
 
+    /// <summary>
+    /// The three fetch timestamps the per-feed update line is built from (see
+    /// LucidReader.Models.FeedUpdateSummary). Carried on the node rather than
+    /// re-read from the database on every tick: the sidebar already reloads
+    /// after anything that changes them, so a second query would only add a
+    /// way for the two to disagree.
+    /// </summary>
+    public DateTimeOffset? LastFetchedUtc { get; init; }
+
+    public DateTimeOffset? LastSuccessUtc { get; init; }
+
+    public DateTimeOffset? NextDueUtc { get; init; }
+
     public int UnreadCount
     {
         get => _unreadCount;

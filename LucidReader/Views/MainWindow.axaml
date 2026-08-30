@@ -302,15 +302,50 @@
 
             <GridSplitter Grid.Column="1" x:Name="SidebarSplitter" ResizeDirection="Columns" />
 
-            <Grid Grid.Column="2" x:Name="ItemListPane" RowDefinitions="Auto,*"
+            <Grid Grid.Column="2" x:Name="ItemListPane" RowDefinitions="Auto,Auto,*"
                   Background="{DynamicResource ListBackgroundBrush}">
+                <!--
+                    The per-feed update line. One row, one sentence, one
+                    control, at the top of the column whose articles it
+                    describes. It is not on the toolbar for two reasons: that
+                    toolbar is window-wide and already carries six controls
+                    plus the search box, and this describes the selected feed
+                    rather than the window.
+
+                    Hidden outright on a folder or a smart row. A folder groups
+                    feeds with separate schedules and a smart row spans every
+                    feed there is, so neither has a last-updated time, a
+                    next-due time, or anything for a per-feed Refresh to act
+                    on. See LucidReader.Models.FeedUpdateSummary.
+
+                    Every binding here names a property on MainWindow
+                    (MainWindow.FeedUpdate.cs). Compiled bindings are off in
+                    this project, so a name that does not resolve fails
+                    silently and the line simply never appears. The TextBlock's
+                    x:Name is deliberately not FeedUpdateText: x:Name generates
+                    a field of that name on this class, which would collide
+                    with the bound property.
+                -->
+                <Grid Grid.Row="0" x:Name="FeedUpdateStrip" ColumnDefinitions="*,Auto"
+                      Margin="12,10,10,2"
+                      IsVisible="{Binding IsFeedUpdateVisible}">
+                    <TextBlock Grid.Column="0" x:Name="FeedUpdateLineText"
+                               Text="{Binding FeedUpdateText}" Classes="row-secondary"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="1" x:Name="FeedUpdateRefreshButton"
+                            Classes="feed-update-refresh" Content="Refresh"
+                            IsVisible="{Binding CanRefreshSelectedFeed}"
+                            ToolTip.Tip="Refresh this feed now"
+                            Click="OnFeedUpdateRefreshClicked" />
+                </Grid>
+
                 <!--
                     A segmented control, not raw RadioButtons: same three
                     bindings as before (IsFilterAll/Unread/Starred), only the
                     RadioButton.Theme changes what they look like. See
                     SegmentedRadioButtonTheme in Styles/Reader.axaml.
                 -->
-                <Border Grid.Row="0" Classes="segmented-container" Margin="10,10,10,8" HorizontalAlignment="Left">
+                <Border Grid.Row="1" Classes="segmented-container" Margin="10,8,10,8" HorizontalAlignment="Left">
                     <StackPanel Orientation="Horizontal" Spacing="0">
                         <RadioButton x:Name="FilterAll" Content="All" GroupName="ItemFilter"
                                      Theme="{StaticResource SegmentedRadioButtonTheme}"
@@ -324,7 +359,7 @@
                     </StackPanel>
                 </Border>
 
-                <ListBox Grid.Row="1" x:Name="ItemList"
+                <ListBox Grid.Row="2" x:Name="ItemList"
                          ItemsSource="{Binding ItemRows}"
                          SelectedItem="{Binding SelectedItemRow, Mode=TwoWay}"
                          ItemContainerTheme="{StaticResource ReaderListBoxItemTheme}">

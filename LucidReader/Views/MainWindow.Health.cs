@@ -142,11 +142,27 @@ public partial class MainWindow
     /// </summary>
     private async void OnHealthTimerTick(object? sender, EventArgs e)
     {
-        if (Interlocked.Exchange(ref _healthTickRunning, 1) != 0) return;
-
         try
         {
-            await CheckHealthAsync();
+            // Ahead of the overlap guard, because this is the one thing on the
+            // tick that does not await: it reads fields already in memory and
+            // writes bound properties on the UI thread, so a slow health read
+            // must not be able to stop the clock on the per-feed update line.
+            // Sharing this timer rather than starting a second DispatcherTimer
+            // is what keeps "Updated 4 min ago" honest with no extra timer to
+            // start, stop and leak.
+            RefreshFeedUpdateLine();
+
+            if (Interlocked.Exchange(ref _healthTickRunning, 1) != 0) return;
+
+            try
+            {
+                await CheckHealthAsync();
+            }
+            finally
+            {
+                Volatile.Write(ref _healthTickRunning, 0);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -162,10 +178,6 @@ public partial class MainWindow
                 _healthFailureReported = true;
                 Console.Error.WriteLine($"[Health] {ex.GetType().Name}: {ex.Message}");
             }
-        }
-        finally
-        {
-            Volatile.Write(ref _healthTickRunning, 0);
         }
     }
 

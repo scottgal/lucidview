@@ -1,5 +1,6 @@
 using LucidReader.Core.Feeds;
 using LucidReader.Core.Maintenance;
+using LucidReader.Core.Net;
 using LucidReader.Core.Model;
 using LucidReader.Core.Offline;
 using LucidReader.Core.Storage;
@@ -40,6 +41,22 @@ public sealed class ReaderServices : IAsyncDisposable
     // is the thing we are actually bounding here, so this needs to be at least
     // that long plus slack.
     private static readonly TimeSpan DownloadQueueDrainTimeout = TimeSpan.FromSeconds(200);
+
+    /// <summary>
+    /// How long a single TCP connect is allowed to take before the attempt is
+    /// abandoned. Finite on purpose: the default is Infinite, which is what let
+    /// one unreachable address consume a caller's entire per-operation budget.
+    /// Ten seconds is well past any reachable server's handshake and well short
+    /// of the 30/60/180 second budgets above it.
+    /// </summary>
+    private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// How long a pooled connection may be reused before it is retired and
+    /// redialled. Without a bound, an app left running for weeks keeps talking
+    /// to whatever address it first resolved, however long ago that host moved.
+    /// </summary>
+    private static readonly TimeSpan PooledConnectionLifetime = TimeSpan.FromMinutes(2);
 
     /// <summary>
     /// Test-only observation point (internal + InternalsVisibleTo, same as
@@ -239,8 +256,33 @@ public sealed class ReaderServices : IAsyncDisposable
         // public address answering 302 with a private Location was followed
         // and its body returned. Doing it here means the gate sits under
         // every request this app makes rather than at each call site.
+        // ConnectCallback, ConnectTimeout and PooledConnectionLifetime are the
+        // fix for a hang that made whole sites unusable, and none of the three
+        // is optional.
+        //
+        // SocketsHttpHandler connects to the first address DNS returns and
+        // waits for it: there is no Happy Eyeballs in .NET, and ConnectTimeout
+        // defaults to Infinite. A host publishing an AAAA record that is
+        // unreachable from the user's network therefore stalled every request
+        // against it until the caller's own per-operation budget expired - 30
+        // seconds for feed discovery, 60 for a refresh, 180 for an article
+        // download. news.ycombinator.com is one such host; on a network with no
+        // working IPv6 at all, so is most of the web.
+        // HappyEyeballsConnector races the families instead. ConnectTimeout is
+        // the backstop for the case it cannot help with, a host that is simply
+        // not there.
+        //
+        // PooledConnectionLifetime is a separate long-uptime problem: mylo is
+        // meant to be left running for weeks, and a pooled connection that is
+        // never retired never picks up a DNS change.
         var http = new HttpClient(
-            new PolicyHttpHandler(new SocketsHttpHandler { AllowAutoRedirect = false }))
+            new PolicyHttpHandler(new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                ConnectCallback = new HappyEyeballsConnector().ConnectAsync,
+                ConnectTimeout = ConnectTimeout,
+                PooledConnectionLifetime = PooledConnectionLifetime
+            }))
         {
             Timeout = Timeout.InfiniteTimeSpan
         };

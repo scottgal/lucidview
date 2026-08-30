@@ -262,6 +262,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Raise(nameof(IsFeedSelected));
             Raise(nameof(IsPausedFeedSelected));
 
+            // The update line describes the selected feed, so it changes with
+            // the selection and is hidden entirely when the selection is not a
+            // feed. See MainWindow.FeedUpdate.cs.
+            RefreshFeedUpdateLine();
+
             // The Feed menu's items are gated on the same two answers the two
             // properties above give, and a NativeMenuItem has no DataContext
             // to bind them through, so it has to be told.
@@ -523,6 +528,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         RepointSelectionAfterTreeReload();
 
+        // After the repoint, because the line reads its timestamps off the
+        // selected node and the repoint is what swaps in the freshly loaded
+        // one. This is the call that makes the line correct again after a
+        // refresh: "Updated 2 hours ago" becomes "Updated just now".
+        RefreshFeedUpdateLine();
+
         // The one place every unread count in the app is recomputed, so the
         // one place the status item can be kept in step without a second
         // count to maintain.
@@ -600,7 +611,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LastError = feed.LastError,
         IsAutoPaused = feed.AutoPausedUtc is not null,
         IsEnabled = feed.IsEnabled,
-        IconUrl = feed.IconPath
+        IconUrl = feed.IconPath,
+        LastFetchedUtc = feed.LastFetchedUtc,
+        LastSuccessUtc = feed.LastSuccessUtc,
+        NextDueUtc = feed.NextDueUtc
     };
 
     public new event PropertyChangedEventHandler? PropertyChanged;

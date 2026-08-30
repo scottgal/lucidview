@@ -28,6 +28,8 @@ dotnet build LucidReader/LucidReader.csproj
 | `ux-scripts/run-memory-soak.sh [out] [cycles]` | generated | A reading cycle repeated hundreds of times with refreshes happening throughout, sampling managed heap and process RSS into a CSV and printing a table and a flat-or-growing verdict | no |
 | `ux-scripts/run-reader-mermaid.sh [out]` | `verify-reader-mermaid.yaml` | A mermaid fence in an article body reaching the reading pane as a drawn flowchart rather than as the raw `FLOWCHART:` marker text, **checked in pixels**: the canvas has to be in the tree and the pane snip has to hold the saturated node colours only a drawn diagram produces | no |
 | `ux-scripts/run-add-feed-writes.sh [out]` | `verify-add-feed-writes.yaml` | Adding discovered feeds for real: the writes land, the sidebar reloads, the status bar says what happened | yes |
+| `ux-scripts/run-feed-update-chunk.sh [out] [theme]` | `verify-feed-update-chunk.yaml` | The per-feed update line at the top of the item list: hidden on a folder and a smart row, "Updated N min ago" and "Next in N min" on a healthy feed, "Not updated yet" on one never fetched, the paused wording with no Refresh on an auto-paused one, and "Refreshing now..." after the Refresh is pressed. `theme` is Auto, Light or Dark and only changes what the screenshots look like | no |
+| `ux-scripts/run-hn-discovery.sh [out]` | `verify-hn-discovery.yaml` | The IPv6 connect hang, checked against the host that exposed it: news.ycombinator.com has to resolve to a feed inside ten seconds, where it used to consume the whole 30 second discovery budget and then time out. Cancels, so it writes nothing | yes |
 | direct | `verify-add-feed-dialog.yaml` | The add-feed dialog: empty-address message, bare-domain normalising, autodiscovery finding two feeds, Add going live. Cancels, so it writes nothing | yes |
 | direct | `verify-feed-settings-dialog.yaml` | Opening per-feed settings from the toolbar against the two-feed development database. Cancels, so it writes nothing | no |
 
@@ -62,8 +64,13 @@ shapes are in use.
   `run-reading-column.sh`, `run-reading-typography.sh`, `run-pane-layout.sh`, via
   `reader-harness.sh`). `MYLO_DATA_DIR` points a Debug build at a
   temporary directory, which is seeded from `reader-fixture.sql` and deleted on
-  the way out. `run-reader-keyboard.sh` and `run-reader-search.sh` use this shape too. This is the better shape where it fits: the script decides every
-  count it asserts, needs no network, and cannot touch anything you care about.
+  the way out. `run-reader-keyboard.sh` and `run-reader-search.sh` use this
+  shape too, `run-feed-update-chunk.sh` uses it with extra SQL layered on after
+  the fixture (the fixture seeds no fetch timestamps and the update line is made
+  entirely of those), and `run-hn-discovery.sh` uses it for the isolation alone
+  rather than for the offline part, since checking a real host's DNS is the
+  whole point of that one. This is the better shape where it fits: the script
+  decides every count it asserts, and cannot touch anything you care about.
 
 `reader-fixture.sql` is that database: two feeds ("Harness Alpha" in a folder,
 "Harness Beta" loose), five articles, one already read, one starred, one with

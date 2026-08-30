@@ -1,0 +1,64 @@
+name: verify-hn-discovery
+description: >
+  Proves the IPv6 connect hang is gone, against the host that exposed it.
+
+  news.ycombinator.com publishes an AAAA record that is unreachable from many
+  networks. SocketsHttpHandler connects to the first address DNS returns and
+  waits for it, there is no Happy Eyeballs in .NET, and ConnectTimeout defaults
+  to Infinite - so before HappyEyeballsConnector this dialog sat on "Looking
+  for feeds..." for the full 30 second discovery budget and then reported
+  "Timed out looking up that address."
+
+  The proof is the Expect timeout below. Ten seconds is far longer than a
+  working discovery needs and far shorter than the budget the hang used to
+  consume, so a regression fails here rather than passing slowly.
+
+  Needs network. It makes a small number of requests to one third-party host
+  and never loops: run it to check the fix, not on a timer.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  - type: Click
+    target: AddFeedButton
+
+  - type: Wait
+    value: "600"
+
+  - type: TypeText
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    value: "news.ycombinator.com"
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: ContainsText
+    value: "Found"
+    timeout: 10000
+    description: >
+      ContainsText because the site may publish one feed or several, and which
+      it is is not the point. The point is that an answer arrives at all, and
+      quickly.
+
+  - type: Screenshot
+    value: 00-hn-discovered
+    window_id: "Add Feed"
+
+  - type: Click
+    target: CancelButton
+    window_id: "Add Feed"
+    description: >
+      Cancel, not Add. This script proves the lookup completes; it must not
+      leave a subscription behind, and the profile it runs against is thrown
+      away either way.
+
+  - type: Wait
+    value: "500"

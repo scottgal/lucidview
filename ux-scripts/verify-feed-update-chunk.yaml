@@ -1,0 +1,208 @@
+name: verify-feed-update-chunk
+description: >
+  The per-feed update line at the top of the item-list column: when the
+  selected feed last updated, when it is next due, and the manual Refresh
+  beside it.
+
+  Run it through ux-scripts/run-feed-update-chunk.sh, not directly. That script
+  seeds the fetch timestamps every assertion below depends on into a throwaway
+  profile and removes the profile afterwards, which is what lets this file
+  assert exact wording and be run twice in a row from any starting state.
+
+  The five states it walks:
+    - no selection, and a smart row: the line is hidden, because neither has a
+      last-updated time, a next-due time, or a feed for Refresh to act on
+    - a healthy feed: "Updated N min ago" and "Next in N min", Refresh offered
+    - a feed that has never been fetched: "Not updated yet"
+    - an auto-paused feed: it says so, and offers no Refresh, because Resume is
+      the way back and already has its own button
+    - a refresh in flight: "Refreshing now..." and no Refresh control
+
+  Sidebar rows are driven as MouseDown/MouseUp, not Click: the harness's Click
+  on a non-Button only calls Focus(), and sidebar selection is a PointerPressed
+  on each row's Border. FeedUpdateRefreshButton is a real Button, so Click is
+  correct for that one.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  - type: Expect
+    target: FeedUpdateStrip
+    matcher: IsHidden
+    description: Nothing is selected yet, so there is no feed to describe
+
+  - type: Screenshot
+    value: 00-no-selection
+
+  # =====================================================================
+  # A smart row spans every feed there is, so a per-feed line would have to
+  # invent something. It shows nothing instead.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='All items'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: Expect
+    target: FeedUpdateStrip
+    matcher: IsHidden
+
+  # =====================================================================
+  # A folder groups feeds with separate schedules, so the same applies.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Folder'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Folder'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: Expect
+    target: FeedUpdateStrip
+    matcher: IsHidden
+
+  # =====================================================================
+  # A healthy feed. The runner seeds this one as fetched four and a half
+  # minutes ago and due again in twenty-six and a half, so the two numbers
+  # below hold for the whole run rather than tipping over a boundary
+  # halfway through it.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: Expect
+    target: FeedUpdateStrip
+    matcher: IsVisible
+
+  - type: Expect
+    target: FeedUpdateLineText
+    matcher: ContainsText
+    value: "Updated 4 min ago"
+
+  - type: Expect
+    target: FeedUpdateLineText
+    matcher: ContainsText
+    value: "Next in 26 min"
+
+  - type: Expect
+    target: FeedUpdateRefreshButton
+    matcher: IsVisible
+
+  - type: Screenshot
+    value: 01-healthy-feed
+
+  - type: Screenshot
+    value: 02-healthy-feed-strip
+    target: FeedUpdateStrip
+    description: Cropped to the line itself, for the compactness and legibility check
+
+  # =====================================================================
+  # A feed nothing has ever fetched. Seeded with no timestamps at all, which
+  # is exactly the state a feed is in between being added and its first
+  # successful refresh.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Gamma'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Gamma'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: Expect
+    target: FeedUpdateLineText
+    matcher: HasText
+    value: "Not updated yet"
+    description: No next-due time either, so the line is the head half alone
+
+  - type: Screenshot
+    value: 03-never-fetched
+
+  # =====================================================================
+  # An auto-paused feed. Resume already has a toolbar button, so this line
+  # explains the state and stops there rather than offering a second route
+  # that would leave the feed paused anyway.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Beta'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Beta'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: Expect
+    target: FeedUpdateLineText
+    matcher: HasText
+    value: "Paused after repeated failures."
+
+  - type: Expect
+    target: FeedUpdateRefreshButton
+    matcher: IsHidden
+
+  - type: Expect
+    target: ResumeFeedButton
+    matcher: IsVisible
+    description: The one route back, unduplicated
+
+  - type: Screenshot
+    value: 04-auto-paused
+
+  # =====================================================================
+  # The manual refresh. Back on the healthy feed, because the paused one
+  # deliberately has no Refresh to press.
+  #
+  # The feed address is under the reserved .test TLD, so the fetch this
+  # queues cannot reach anything and cannot make the run depend on a
+  # network. What is being checked here is the queueing and the wording,
+  # not the fetch.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "700"
+
+  - type: Click
+    target: FeedUpdateRefreshButton
+
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Refreshing this feed..."
+
+  - type: Expect
+    target: FeedUpdateLineText
+    matcher: HasText
+    value: "Refreshing now..."
+
+  - type: Expect
+    target: FeedUpdateRefreshButton
+    matcher: IsHidden
+    description: Nothing to press while the thing it would start is already running
+
+  - type: Screenshot
+    value: 05-refreshing

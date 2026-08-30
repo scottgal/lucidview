@@ -91,6 +91,14 @@ public sealed class FeedRefreshService : IAsyncDisposable
     public event Action<FeedRefreshOutcome>? Completed;
 
     /// <summary>
+    /// Whether this feed is queued or currently being fetched. The same set
+    /// <see cref="TryQueue"/> coalesces on, exposed so a UI can say "refreshing
+    /// now" for the feed the user is looking at instead of having to keep its
+    /// own guess at what is in flight.
+    /// </summary>
+    public bool IsInFlight(long feedId) => _inFlight.ContainsKey(feedId);
+
+    /// <summary>
     /// Queues a refresh, or returns false if this feed is already queued or
     /// running. That is the coalescing rule: pressing Refresh twice does not
     /// fetch twice.
