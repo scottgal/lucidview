@@ -67,6 +67,7 @@
                  bar: roughly 6px horizontal inset, 5px corner radius. -->
             <Thickness x:Key="RowSelectionMargin">6,1</Thickness>
             <CornerRadius x:Key="RowCornerRadius">5</CornerRadius>
+            <Thickness x:Key="RowSelectionThickness">1.5</Thickness>
 
             <!-- ============ Inset rounded row selection ============ -->
             <!--
@@ -81,9 +82,18 @@
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="Template">
                     <ControlTemplate>
+                        <!--
+                            The border is always present and always the same
+                            thickness, transparent when the row is not
+                            selected. A BorderThickness that only appears on
+                            selection would inset the content and shift every
+                            row's text sideways as the selection moved.
+                        -->
                         <Border Name="PART_SelectionBorder"
                                 Margin="{DynamicResource RowSelectionMargin}"
                                 CornerRadius="{DynamicResource RowCornerRadius}"
+                                BorderThickness="{DynamicResource RowSelectionThickness}"
+                                BorderBrush="Transparent"
                                 Background="Transparent">
                             <ContentPresenter Name="PART_ContentPresenter"
                                               Content="{TemplateBinding Content}"
@@ -203,10 +213,10 @@
         it isn't.
     -->
     <Style Selector="ListBox:focus-within ListBoxItem:selected /template/ Border#PART_SelectionBorder">
-        <Setter Property="Background" Value="{DynamicResource AccentSelectionBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
     </Style>
     <Style Selector="ListBox:not(:focus-within) ListBoxItem:selected /template/ Border#PART_SelectionBorder">
-        <Setter Property="Background" Value="{DynamicResource AccentSelectionInactiveBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionInactiveBrush}" />
     </Style>
 
     <!-- A selected row's own text goes white-on-blue, like Mail, rather than
@@ -218,12 +228,7 @@
         contrast in the light theme. Leaving the normal row colours in place
         for an unfocused selection keeps it legible either way.
     -->
-    <Style Selector="ListBox:focus-within ListBoxItem:selected /template/ ContentPresenter TextBlock.row-title,
-                     ListBox:focus-within ListBoxItem:selected /template/ ContentPresenter TextBlock.row-secondary,
-                     ListBox:focus-within ListBoxItem:selected /template/ ContentPresenter TextBlock.row-snippet">
-        <Setter Property="Foreground" Value="{DynamicResource SelectedTitleBrush}" />
-        <Setter Property="Opacity" Value="1" />
-    </Style>
+
 
     <!-- ================= Hover row actions ================= -->
 
@@ -269,19 +274,16 @@
         <Setter Property="CornerRadius" Value="{DynamicResource RowCornerRadius}" />
         <Setter Property="Padding" Value="10,6" />
         <Setter Property="Background" Value="Transparent" />
+        <!-- Always present, transparent when unselected: see PART_SelectionBorder. -->
+        <Setter Property="BorderThickness" Value="{DynamicResource RowSelectionThickness}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style Selector="Border.node-row:pointerover">
         <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
     </Style>
     <Style Selector="Border.node-row.selected">
-        <Setter Property="Background" Value="{DynamicResource AccentSelectionBrush}" />
-    </Style>
-    <Style Selector="Border.node-row.selected TextBlock.row-title,
-                     Border.node-row.selected TextBlock.row-secondary,
-                     Border.node-row.selected TextBlock.row-problem">
-        <Setter Property="Foreground" Value="{DynamicResource SelectedTitleBrush}" />
-        <Setter Property="Opacity" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
     </Style>
 
     <!-- ================= Sidebar section header ================= -->
