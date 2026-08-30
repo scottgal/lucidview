@@ -73,9 +73,14 @@ public class ItemActionsTests
     public async Task Tags_round_trip_through_TagRepository()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"mylo-tags-{Guid.NewGuid():N}.db");
-        await using var db = await ReaderDatabase.OpenAsync(dbPath);
         try
         {
+            // Scoped, not `await using var`: a method-scoped declaration disposes
+            // after the finally below, so the delete ran against a database that
+            // was still open. Windows refuses that; Unix allows it, which is why
+            // this only ever failed on Windows CI.
+            await using var db = await ReaderDatabase.OpenAsync(dbPath);
+
             var feeds = new FeedRepository(db);
             var items = new ItemRepository(db);
             var tags = new TagRepository(db);
