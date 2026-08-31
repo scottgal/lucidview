@@ -27,6 +27,8 @@ dotnet build LucidReader/LucidReader.csproj
 | `ux-scripts/run-close-to-status-item.sh [out]` | `verify-close-to-status-item.yaml` | Closing the window with "keep mylo running in the menu bar" on hides it instead of quitting, and the hidden window is still a working one: its list, its search and its toolbar commands all still run | no |
 | `ux-scripts/run-memory-soak.sh [out] [cycles]` | generated | A reading cycle repeated hundreds of times with refreshes happening throughout, sampling managed heap and process RSS into a CSV and printing a table and a flat-or-growing verdict | no |
 | `ux-scripts/run-reader-mermaid.sh [out]` | `verify-reader-mermaid.yaml` | A mermaid fence in an article body reaching the reading pane as a drawn flowchart rather than as the raw `FLOWCHART:` marker text, **checked in pixels**: the canvas has to be in the tree and the pane snip has to hold the saturated node colours only a drawn diagram produces | no |
+| `ux-scripts/run-user-manual.sh [out]` | `verify-user-manual.yaml` | The bundled user manual: opened from the Help menu and from `F1`, its heading rendered, the feed selection and item list left where they were, the article selection dropped so the same row can be clicked back into, and - **checked in pixels** - its screenshots actually painted rather than merely referenced | no |
+| `ux-scripts/capture-reader-manual.sh [out]` | `capture-reader-manual.yaml`, `capture-reader-menus.yaml` | Not a check. Regenerates every screenshot the user manual references, into `LucidReader/Assets/manual/screenshots`, and sizes them to the reading column. One step (add-feed discovery, against xkcd.com) needs network | yes |
 | `ux-scripts/run-add-feed-writes.sh [out]` | `verify-add-feed-writes.yaml` | Adding discovered feeds for real: the writes land, the sidebar reloads, the status bar says what happened | yes |
 | `ux-scripts/run-feed-update-chunk.sh [out] [theme]` | `verify-feed-update-chunk.yaml` | The per-feed update line at the top of the item list: hidden on a folder and a smart row, "Updated N min ago" and "Next in N min" on a healthy feed, "Not updated yet" on one never fetched, the paused wording with no Refresh on an auto-paused one, and "Refreshing now..." after the Refresh is pressed. `theme` is Auto, Light or Dark and only changes what the screenshots look like | no |
 | `ux-scripts/run-live-dedupe.sh [out]` | `verify-live-dedupe-existing.yaml`, `verify-live-dedupe-subscribe.yaml` | One article, once, against a site that really does publish its posts twice. Two throwaway profiles: one seeded with both of mostlylucid.net's feeds already subscribed (what an existing user has), one subscribed through the dialog taking its defaults. Reads the real article count out of the live feed and asserts it against both, so "not double" is measured rather than assumed | yes |
@@ -129,9 +131,24 @@ Learned the hard way; none of it is obvious from a passing run.
   onto a control that sits where the pointer already is can raise no enter
   event and the release is ignored. Hover something else first. This showed up
   as an intermittent failure, not a consistent one.
-- **`PressKey` cannot test keyboard shortcuts.** It bypasses
-  `Window.KeyBindings`, which is where all of mylo's shortcuts live.
-  Do not write a script claiming to cover them.
+- **`PressKey` reaches a routed `KeyDown`, not a `KeyBinding`.** That used to
+  mean mylo's shortcuts had no coverage at all, since every one of them was a
+  `Window.KeyBindings` entry. They are not any more: `ReaderShortcuts` is
+  driven from a bubbling `KeyDown` handler, which `PressKey` does raise, and
+  `verify-reader-keyboard.yaml` and `verify-user-manual.yaml` both drive real
+  keystrokes through it.
+- **An in-window `Menu` CAN be driven and captured, which a `ContextMenu`
+  cannot.** This contradicts what `verify-menus.yaml` and
+  `verify-add-feed-dialog.yaml` say, and they were right when they were
+  written. Two things turn out to work: a `MenuItem` inside an open dropdown
+  resolves by `text='...'` and takes a `MouseDown`/`MouseUp` (that is how
+  `verify-user-manual.yaml` opens the manual from **Help**), and
+  `composite: true` puts the dropdown in the PNG, because composite mode
+  stacks every tracked Avalonia window rather than drawing one window's tree.
+  An ordinary window capture still misses it, which is why
+  `verify-menus.yaml`'s own screenshot shows a menu bar with nothing dropped
+  down. All of this needs `MYLO_FORCE_WINDOW_MENU=1`: on macOS the real menu
+  is a `NativeMenu` drawn by AppKit and none of it applies.
 - **The harness cannot see a ContextMenu.** It opens in its own `PopupRoot`,
   which `LocatorEngine` (single window root) and `ScreenshotCapture` (popups in
   the window tree only) both miss. `FeedSettingsButton` and `ResumeFeedButton`
@@ -175,8 +192,6 @@ Learned the hard way; none of it is obvious from a passing run.
 
 ## What has no coverage here, and why
 
-- Every keyboard shortcut, and article tagging, whose only route is the `T`
-  binding. `PressKey` cannot reach `Window.KeyBindings`.
 - Unsubscribe, Rename and Mark-all-read: sidebar context menu only.
 - Import OPML, Export OPML, Export article: native file pickers.
 - The numeric settings fields: `NumericUpDown`, which `TypeText` will not

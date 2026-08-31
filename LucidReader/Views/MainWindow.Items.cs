@@ -137,6 +137,36 @@ public partial class MainWindow
         }, token);
     }
 
+    /// <summary>
+    /// Drops the article selection and empties the reading pane, awaiting the
+    /// clear rather than leaving it to run on its own.
+    ///
+    /// Assigning null through the SelectedItemRow property would work, but its
+    /// setter fires OnItemSelectedAsync without awaiting it, so the caller has
+    /// no way to know when the pane has actually been emptied. A caller that
+    /// then writes its own content into the pane - ShowUserManualAsync is the
+    /// one that does - would race that continuation and have its text blanked
+    /// a moment later. Everything the setter does is done here instead, in
+    /// order, with the clear awaited.
+    ///
+    /// Raising SelectedItemRow is what un-highlights the row in the list. The
+    /// write-back from the ListBox's two-way binding lands in the setter as
+    /// null over null, which it discards.
+    /// </summary>
+    private async Task ClearArticleSelectionAsync()
+    {
+        _dwell.CancelPending();
+
+        if (_selectedItemRow is not null)
+        {
+            _selectedItemRow = null;
+            Raise(nameof(SelectedItemRow));
+            UpdateMenuEnablement();
+        }
+
+        await ShowArticleAsync(null);
+    }
+
     public async Task MarkSelectedReadAsync()
     {
         if (SelectedItemRow is not { } row) return;

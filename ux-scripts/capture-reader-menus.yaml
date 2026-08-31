@@ -1,0 +1,73 @@
+name: capture-reader-menus
+description: >
+  Captures the application menu for the user manual.
+
+  Separate from capture-reader-manual.yaml because this needs
+  MYLO_FORCE_WINDOW_MENU=1, a Debug-only switch that renders mylo's menu
+  description as an in-window Menu instead of the macOS NativeMenu. Without it
+  the harness cannot see the menus at all: AppKit draws them outside any
+  surface Avalonia owns. With it, every screenshot taken in the same run gains
+  a menu bar inside the window that a Mac user never sees, which is why the
+  rest of the manual's pictures are taken by the other script.
+
+  The dropdowns are captured with composite: true, and that is the whole
+  reason they appear at all. A MenuItem opens its children into a PopupRoot,
+  which an ordinary window capture does not draw - verify-menus.yaml records
+  that finding, and its 01-file-menu.png is a picture of a menu bar with
+  nothing dropped down. Composite mode instead stacks every tracked Avalonia
+  window into one PNG, and the popup is one of them.
+
+  The accelerators drawn beside the items read Ctrl rather than Cmd. That is
+  the headless renderer's platform settings reporting Control as the command
+  modifier; a Mac running the real build shows Cmd. The manual says so under
+  the picture rather than pretending otherwise.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  - type: Expect
+    target: WindowMenu
+    matcher: IsVisible
+    description: The forced in-window menu. Without the switch this stays hidden.
+
+  - type: Screenshot
+    target: WindowMenu
+    padding: 4
+    value: 22-menu-bar
+    description: The six menus, in the order ReaderMenu.Build declares them
+
+  - type: MouseDown
+    target: "text='File'"
+    button: left
+  - type: MouseUp
+    target: "text='File'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: Screenshot
+    value: 23-file-menu
+    composite: true
+    description: Add Feed, Import OPML, Export OPML and Export Article
+
+  - type: PressKey
+    value: Escape
+  - type: Wait
+    value: "600"
+
+  - type: MouseDown
+    target: "text='Help'"
+    button: left
+  - type: MouseUp
+    target: "text='Help'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: Screenshot
+    value: 24-help-menu
+    composite: true
+    description: Where the manual you are reading is opened from

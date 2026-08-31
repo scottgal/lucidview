@@ -1,0 +1,176 @@
+name: verify-user-manual
+description: >
+  The bundled user manual has to open from the Help menu, render in the
+  reading pane, and actually draw its screenshots.
+
+  "Actually draw" is the part worth a script. The manual references its images
+  relatively (screenshots/01-three-pane.png), and LucidMarkdownView resolves a
+  relative image against its own SourcePath, which mylo never sets - so the
+  obvious implementation renders the whole manual with every picture missing
+  and nothing anywhere says so. LucidReader.Services.UserManual rewrites those
+  references to absolute paths before the text reaches the view, deliberately
+  without setting SourcePath, because SourcePath also changes how relative
+  LINKS resolve and that is what once turned a relative href into a file:// URL
+  handed to the platform opener. The Expect and the pane snip below are what
+  hold the rewrite honest: a broken image leaves an Image control with no
+  source, nothing drawn, and a pane snip that is text on a background.
+
+  Run it through ux-scripts/run-user-manual.sh, not directly. That script
+  seeds the throwaway profile the counts below are measured against, pins the
+  theme so the colour check has fixed ground to stand on, sets
+  MYLO_FORCE_WINDOW_MENU=1 so the Help menu is something the harness can click
+  at all, and runs the colour check on the snip afterwards. Needs no network.
+
+  Two routes are exercised, because on macOS the real menu is a NativeMenu the
+  harness cannot touch: the Help menu, forced into the window, and F1.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: MouseDown
+    target: "inside(name=ItemList) text='An article already read'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=ItemList) text='An article already read'"
+    button: left
+  - type: Wait
+    value: "1500"
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: HasText
+    value: "An article already read"
+    description: A real article first, so the return trip below has somewhere to return to
+
+  # =====================================================================
+  # The menu route.
+  # =====================================================================
+  - type: MouseDown
+    target: "text='Help'"
+    button: left
+  - type: MouseUp
+    target: "text='Help'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: MouseDown
+    target: "text='mylo User Manual'"
+    button: left
+  - type: MouseUp
+    target: "text='mylo User Manual'"
+    button: left
+  - type: Wait
+    value: "3000"
+    description: The file read, the markdown render and the image loads
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: HasText
+    value: "mylo User Manual"
+    description: The heading. Nothing below this is worth checking without it.
+
+  - type: Expect
+    target: StatusText
+    matcher: ContainsText
+    value: "Showing the user manual"
+
+  # Opening help must not move the selection out from under the reader. The
+  # feed is still selected (so the feed-scoped toolbar action is still live)
+  # and its three articles are still listed.
+  - type: Expect
+    target: FeedSettingsButton
+    matcher: IsEnabled
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "3"
+
+  # The article selection is dropped, which is what lets a click back onto the
+  # same row reload it: SelectedItemRow's setter returns early on a reference
+  # match, so leaving the selection where it was would mean the reader clicks
+  # their article and nothing happens.
+  - type: Expect
+    target: ArticleTagStrip
+    matcher: IsHidden
+
+  - type: Expect
+    target: "inside(name=ReadingPane) type=Image"
+    matcher: IsVisible
+    description: >
+      At least one image control in the rendered manual. Necessary, not
+      sufficient: a broken image is still a control. The snip below is what
+      proves something was painted into it.
+
+  - type: Scroll
+    target: ReadingScroll
+    value: "520"
+    description: >
+      Down to the first screenshot. A fixed offset rather than a scroll to the
+      bottom, because what has to be in frame is a picture, and the bottom of
+      the manual is a table of keyboard shortcuts. If the manual's opening
+      sections are rewritten at length this offset needs moving with them, and
+      the colour check is what will say so.
+  - type: Wait
+    value: "1200"
+
+  - type: Screenshot
+    target: ReadingScroll
+    value: manual-pane
+    description: The pane the colour check is run against
+
+  - type: Screenshot
+    value: manual-window
+    description: Whole window, for looking at when the check surprises you
+
+  # =====================================================================
+  # Back to a real article, from the same row that was selected before.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=ItemList) text='An article already read'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=ItemList) text='An article already read'"
+    button: left
+  - type: Wait
+    value: "1800"
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: HasText
+    value: "An article already read"
+    description: The manual is not a dead end
+
+  - type: Expect
+    target: ArticleTagStrip
+    matcher: IsVisible
+
+  # =====================================================================
+  # The F1 route, which is the one that works on macOS where the Help menu
+  # is drawn by AppKit outside anything the harness can reach.
+  # =====================================================================
+  - type: PressKey
+    target: ItemList
+    value: F1
+  - type: Wait
+    value: "3000"
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: HasText
+    value: "mylo User Manual"
+
+  - type: Screenshot
+    value: manual-from-f1

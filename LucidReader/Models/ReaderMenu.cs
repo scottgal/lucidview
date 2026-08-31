@@ -52,6 +52,7 @@ public enum ReaderMenuAction
     Unsubscribe,
 
     // Help
+    OpenUserManual,
     OpenHelpSite,
     ShowKeyboardShortcuts
 }
@@ -276,6 +277,12 @@ public static class ReaderMenu
 
         var help = new ReaderMenuSection("Help",
         [
+            // No gesture drawn, for the same reason Edit Tags carries none:
+            // F1 opens the manual too, and F1 is not a command-modifier
+            // gesture, so a menu accelerator for it would claim the keystroke
+            // before the focused control could. The shortcut card below names
+            // it instead, and so does the manual itself.
+            new ReaderMenuItem { Header = "mylo User Manual", Action = ReaderMenuAction.OpenUserManual },
             new ReaderMenuItem { Header = "Keyboard Shortcuts", Action = ReaderMenuAction.ShowKeyboardShortcuts },
             new ReaderMenuItem { Header = "mylo on the Web", Action = ReaderMenuAction.OpenHelpSite }
         ]);
@@ -309,5 +316,5 @@ public static class ReaderMenu
     public static string KeyboardShortcutSummary =>
         "J next, K previous, N next unread, P previous unread, " +
         "M read, S star, R refresh feed, Shift+R refresh all, " +
-        "O open original, T tags, / search.";
+        "O open original, T tags, / search, F1 user manual.";
 }

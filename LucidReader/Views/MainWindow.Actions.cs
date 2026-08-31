@@ -158,6 +158,7 @@ public partial class MainWindow
             ReaderShortcut.AddFeed => AddFeedCommand,
             ReaderShortcut.OpenSettings => OpenSettingsCommand,
             ReaderShortcut.ExportArticle => ExportArticleCommand,
+            ReaderShortcut.OpenUserManual => OpenUserManualCommand,
 
             // The three reading-size gestures have no command of their own:
             // they are menu actions, and the View menu is where they are named
@@ -195,7 +196,7 @@ public partial class MainWindow
     private RelayCommand? _nextItem, _previousItem, _nextUnread, _previousUnread;
     private RelayCommand? _toggleRead, _toggleStar, _refreshCurrent, _refreshAll;
     private RelayCommand? _openOriginal, _focusSearch, _findInArticle;
-    private RelayCommand? _addFeed, _openSettings, _exportArticle, _editTags;
+    private RelayCommand? _addFeed, _openSettings, _exportArticle, _editTags, _openUserManual;
 
     public RelayCommand NextItemCommand => _nextItem ??= new RelayCommand(() => Move(true, false));
     public RelayCommand PreviousItemCommand => _previousItem ??= new RelayCommand(() => Move(false, false));
@@ -246,6 +247,15 @@ public partial class MainWindow
     /// box is honest about that.
     /// </summary>
     public RelayCommand EditTagsCommand => _editTags ??= new RelayCommand(async () => await EditTagsAsync());
+
+    /// <summary>
+    /// The bundled user manual, rendered in the reading pane. Reached from the
+    /// Help menu and from F1. A command rather than a direct call from both,
+    /// so the file read behind it goes through RelayCommand's catch like every
+    /// other action here.
+    /// </summary>
+    public RelayCommand OpenUserManualCommand =>
+        _openUserManual ??= new RelayCommand(async () => await ShowUserManualAsync());
 
     /// <summary>
     /// Navigation rule, kept static and list-shaped so it can be tested without

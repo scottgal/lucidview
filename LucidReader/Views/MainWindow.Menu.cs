@@ -327,6 +327,9 @@ public partial class MainWindow
                     _ = RunGuardedAsync(() => UnsubscribeAsync(unsubscribeId), "unsubscribe from this feed");
                 break;
 
+            case ReaderMenuAction.OpenUserManual:
+                OpenUserManualCommand.Execute(null);
+                break;
             case ReaderMenuAction.OpenHelpSite:
                 if (!SafeLinkOpener.TryOpen(HelpSiteUrl, out var reason))
                     StatusMessage = reason ?? "Could not open the help page.";
@@ -380,16 +383,28 @@ public partial class MainWindow
     /// moment anything else happens and About is the one place the version
     /// number can be read.
     /// </summary>
+    /// <summary>
+    /// The version this build reports, without the build metadata suffix a
+    /// source-linked build appends. Shared by the About box and the byline the
+    /// user manual is rendered under, so the two cannot disagree.
+    /// </summary>
+    internal static string ProductVersion
+    {
+        get
+        {
+            var version = Assembly.GetExecutingAssembly()
+                              .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                          ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+                          ?? "unknown";
+
+            var plus = version.IndexOf('+');
+            return plus > 0 ? version[..plus] : version;
+        }
+    }
+
     private async Task ShowAboutAsync()
     {
-        var version = Assembly.GetExecutingAssembly()
-                          .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-                      ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
-                      ?? "unknown";
-
-        // The build metadata suffix a source-linked build appends is noise here.
-        var plus = version.IndexOf('+');
-        if (plus > 0) version = version[..plus];
+        var version = ProductVersion;
 
         var dialog = new ConfirmDialog(
             "About mylo",

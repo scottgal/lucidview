@@ -155,6 +155,58 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// Renders the bundled user manual in the reading pane, as an article.
+    ///
+    /// Three things this must not do, each of which it would do by default.
+    ///
+    /// It must not mark anything read. Reading state is written by the dwell
+    /// timer OnItemSelectedAsync starts, so the manual never goes through
+    /// that path: it clears the article selection first, which cancels any
+    /// dwell already counting down against the article that was on screen.
+    ///
+    /// It must not disturb the sidebar. SelectedFeedNode is untouched, so the
+    /// item list still holds whatever feed or folder was selected and the
+    /// article the reader was on is still in it, one click away.
+    ///
+    /// And going back to a real article has to work. That is why the
+    /// selection is cleared rather than left where it was: SelectedItemRow's
+    /// setter returns early on a reference match, so a reader who clicks
+    /// straight back onto the row they were reading would otherwise get the
+    /// manual still on screen and nothing happening.
+    /// </summary>
+    public async Task ShowUserManualAsync()
+    {
+        await ClearArticleSelectionAsync();
+
+        string? markdown;
+        try
+        {
+            markdown = await UserManual.TryLoadAsync(AppContext.BaseDirectory);
+        }
+        catch (Exception ex)
+        {
+            // RelayCommand's own catch writes to stderr, which nobody reading
+            // the app can see. A manual that is present but unreadable belongs
+            // on the status line with the reason, like every other failure.
+            StatusMessage = "Could not open the user manual: " + ex.Message;
+            return;
+        }
+
+        if (markdown is null)
+        {
+            StatusMessage = UserManual.NotFoundMessage;
+            return;
+        }
+
+        ArticleTitle = UserManual.Title;
+        ArticleMeta = "mylo " + ProductVersion;
+        ArticleMarkdown = markdown;
+        ShowOfflineBadge = false;
+        CanFetchFullArticle = false;
+        StatusMessage = UserManual.ShowingMessage;
+    }
+
+    /// <summary>
     /// 0 idle, 1 running. A full-article fetch is bounded at
     /// OfflineDownloader.MaxArticleFetchDuration (180 seconds) and holds the
     /// status line for all of it, so without this a user watching nothing

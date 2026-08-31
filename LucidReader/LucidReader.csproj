@@ -84,7 +84,30 @@
        are read by the macOS bundle and the Windows PE header, never by the
        running app, so embedding them would add 150 KB nothing loads. -->
   <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
+    <!-- Assets\manual\** is excluded: it is shipped as loose files beside the
+         executable (see the Content items below) because the markdown is read
+         with File.ReadAllText and its screenshots are resolved as paths on
+         disk. Embedding them as well would put a second, unreachable copy of
+         every screenshot inside the binary. -->
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\manual\**" />
+  </ItemGroup>
+
+  <!-- The bundled user manual, read by the Help menu and by F1 (see
+       LucidReader/Services/UserManual.cs). Loose files rather than
+       AvaloniaResource, on purpose and unlike everything in Assets\** above:
+       the manual is markdown handed to LucidMarkdownView as text and its
+       screenshots are resolved as image paths on disk, neither of which can
+       come out of an avares: resource. Copied in every configuration, so the
+       Release single-file publish and the macOS .app bundle
+       (LucidReader/macos/make-bundle.sh copies the whole publish directory)
+       both carry it. Two items rather than a recursive one so the screenshots
+       keep their folder and the manual's relative references still line up. -->
+  <ItemGroup>
+    <Content Include="Assets\manual\user-manual.md" Link="manual\user-manual.md"
+             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\manual\screenshots\*.png"
+             Link="manual\screenshots\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

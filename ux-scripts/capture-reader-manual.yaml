@@ -1,0 +1,420 @@
+name: capture-reader-manual
+description: >
+  Drives mylo through everything the user manual describes and writes the
+  screenshots the manual references, so the pictures are regenerated from the
+  running app rather than taken by hand and left to rot.
+
+  Run it through ux-scripts/capture-reader-manual.sh, not directly. That
+  script seeds the throwaway profile every screenshot below is taken against
+  (the shared fixture plus tags and fetch timestamps, neither of which the
+  fixture has), pins the theme so the whole set matches, and writes the
+  results into LucidReader/Assets/manual/screenshots.
+
+  It runs headless, so nothing appears on screen and nothing steals focus.
+
+  The one step that needs network is the add-feed discovery pair, which
+  points at xkcd.com because it publishes exactly two autodiscovery link tags
+  and so exercises the multi-feed chooser. It cancels rather than adding, so
+  the run subscribes to nothing.
+
+  Menus are captured by a second script, capture-reader-menus.yaml, because
+  seeing them at all needs MYLO_FORCE_WINDOW_MENU=1 and that switch puts a
+  menu bar inside the window that macOS users do not have. Mixing the two
+  would put a menu bar mylo does not show into every other picture here.
+
+  Every toggle is driven as Hover-elsewhere, Hover-target, MouseDown, MouseUp:
+  the harness's Click on a RadioButton raises ClickEvent without going through
+  OnClick, so IsChecked never changes, and a toggle only flips on release if
+  the pointer entered it. Both are recorded at more length in reader-smoke.yaml.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup, the first tree load and the first health check
+
+  # =====================================================================
+  # The shell, with something in it. A screenshot of an empty reader says
+  # nothing about what the reader does, so the feed and the article are
+  # selected before the first capture rather than after it.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  # inside(name=ItemList): by the time the button is released the same title
+  # is also on screen as the reading pane's heading, and an unscoped locator
+  # can resolve the release against that instead of the row.
+  - type: MouseDown
+    target: "inside(name=ItemList) text='Compositor internals explained'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=ItemList) text='Compositor internals explained'"
+    button: left
+  - type: Wait
+    value: "2500"
+    description: Selection, the article render and the reading pane's layout passes
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: HasText
+    value: "Compositor internals explained"
+
+  - type: Screenshot
+    value: 01-three-pane
+    description: Sidebar, item list and article, which is what mylo opens as
+
+  # A region rather than the SidebarSections control. That control is an
+  # ItemsControl filling a ScrollViewer the height of the window, so snipping
+  # it gives eleven rows of sidebar above four hundred pixels of empty grey,
+  # and in the manual the empty grey is most of the picture. These coordinates
+  # are the sidebar column (260px wide) down to just past the last tag row.
+  - type: Screenshot
+    x: 0
+    y: 56
+    x2: 262
+    y2: 400
+    value: 02-sidebar
+    description: Favourites, Feeds with a folder, and the Tags section
+
+  - type: Screenshot
+    target: FeedUpdateStrip
+    padding: 8
+    value: 03-feed-update-line
+    description: When this feed was last fetched, when it is next due, and Refresh
+
+  - type: Screenshot
+    target: ItemListHeaderBar
+    padding: 6
+    value: 04-filter-segments
+    description: The All / Unread / Starred segments above the item list
+
+  - type: Screenshot
+    target: ReadingScroll
+    value: 05-reading-article
+    description: The reading pane on its own
+
+  - type: Screenshot
+    target: ArticleTagStrip
+    padding: 8
+    value: 06-article-tags
+    description: The tags on this article, and the box that adds one
+
+  # =====================================================================
+  # The filter segments, shown doing something rather than merely present.
+  # =====================================================================
+  - type: Hover
+    target: StatusText
+  - type: Hover
+    target: FilterUnread
+  - type: MouseDown
+    target: FilterUnread
+    button: left
+  - type: MouseUp
+    target: FilterUnread
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: FilterUnread
+    matcher: IsChecked
+
+  - type: Screenshot
+    value: 07-filter-unread
+    description: Unread only, with the read article gone from the list
+
+  - type: Hover
+    target: StatusText
+  - type: Hover
+    target: FilterAll
+  - type: MouseDown
+    target: FilterAll
+    button: left
+  - type: MouseUp
+    target: FilterAll
+    button: left
+  - type: Wait
+    value: "900"
+
+  # =====================================================================
+  # The offline badge. Weeknotes is seeded as summary-only, which is the one
+  # state that offers "Fetch full article".
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=ItemList) text='Weeknotes from the harness'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=ItemList) text='Weeknotes from the harness'"
+    button: left
+  - type: Wait
+    value: "1800"
+
+  - type: Expect
+    target: OfflineBadge
+    matcher: IsVisible
+
+  - type: Screenshot
+    target: OfflineBadge
+    padding: 10
+    value: 08-offline-badge
+    description: A summary-only article, and the button that fetches the rest
+
+  # =====================================================================
+  # The layout button, in each of its three states. The icon is drawn from
+  # the current mode, so the snip beside each window shot is a different
+  # picture each time rather than the same glyph three times.
+  # =====================================================================
+  - type: Screenshot
+    target: LayoutButton
+    padding: 6
+    value: 09-layout-button-three-pane
+
+  - type: Click
+    target: LayoutButton
+  - type: Wait
+    value: "700"
+
+  - type: Screenshot
+    target: LayoutButton
+    padding: 6
+    value: 10-layout-button-list-and-article
+  - type: Screenshot
+    value: 11-layout-list-and-article
+    description: The sidebar collapsed, list and article left
+
+  - type: Click
+    target: LayoutButton
+  - type: Wait
+    value: "700"
+
+  - type: Screenshot
+    target: LayoutButton
+    padding: 6
+    value: 12-layout-button-article-only
+  - type: Screenshot
+    value: 13-layout-article-only
+    description: Both left-hand panes collapsed, the article across the window
+
+  - type: Click
+    target: LayoutButton
+  - type: Wait
+    value: "700"
+    description: A third click returns to three panes, where the rest of this run expects to be
+
+  - type: Expect
+    target: SidebarSections
+    matcher: IsVisible
+
+  # =====================================================================
+  # Search. "kingfishers" sits past the 180th character of the Weeknotes
+  # body, so the row cannot be showing its ordinary preview: what is drawn
+  # is the passage FTS5 matched, with the term picked out.
+  # =====================================================================
+  - type: Click
+    target: SearchBox
+  - type: TypeText
+    target: SearchBox
+    value: "kingfishers"
+  - type: Wait
+    value: "1500"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+
+  # Opened, not merely listed: a picture of a search with an empty reading
+  # pane beside it shows half of what searching is for.
+  - type: MouseDown
+    target: "inside(name=ItemList) text='Weeknotes from the harness'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=ItemList) text='Weeknotes from the harness'"
+    button: left
+  - type: Wait
+    value: "1800"
+
+  - type: Screenshot
+    value: 14-search
+    description: One hit, found in a body the list preview never shows
+
+  # A region, for the same reason 02-sidebar is one: the ItemList control is
+  # the height of the pane and a search with one hit leaves the rest of it
+  # blank.
+  - type: Screenshot
+    x: 264
+    y: 92
+    x2: 606
+    y2: 260
+    value: 15-search-result
+    description: The matched passage in place of the row's usual preview
+
+  - type: Click
+    target: SearchBox
+  - type: PressKey
+    value: Ctrl+A
+  - type: PressKey
+    value: Delete
+  - type: Wait
+    value: "1200"
+
+  # =====================================================================
+  # The two settings dialogs. Both are cancelled, so the run saves nothing.
+  # =====================================================================
+  - type: Click
+    target: SettingsButton
+  - type: Wait
+    value: "900"
+
+  - type: Screenshot
+    value: 16-settings-updates
+    window_id: "Settings"
+    description: The Updates group, which is the one the dialog opens on
+
+  # Hover, MouseDown, MouseUp rather than Click, and with the pointer parked
+  # on Cancel first. A Click on a RadioButton raises ClickEvent without going
+  # through OnClick, so IsChecked never changes and the screenshot named for
+  # the Reading tab is a second picture of the Updates tab. That is exactly
+  # what this script did on its first run. The Expect after each switch is
+  # what stops it happening again quietly.
+  - type: Hover
+    target: CancelButton
+    window_id: "Settings"
+  - type: Hover
+    target: ReadingTabButton
+    window_id: "Settings"
+  - type: MouseDown
+    target: ReadingTabButton
+    window_id: "Settings"
+    button: left
+  - type: MouseUp
+    target: ReadingTabButton
+    window_id: "Settings"
+    button: left
+  - type: Wait
+    value: "600"
+
+  - type: Expect
+    target: ReadingPanel
+    window_id: "Settings"
+    matcher: IsVisible
+
+  - type: Screenshot
+    value: 17-settings-reading
+    window_id: "Settings"
+    description: Type size, line height, column width and the mark-as-read dwell
+
+  - type: Hover
+    target: CancelButton
+    window_id: "Settings"
+  - type: Hover
+    target: AlertsTabButton
+    window_id: "Settings"
+  - type: MouseDown
+    target: AlertsTabButton
+    window_id: "Settings"
+    button: left
+  - type: MouseUp
+    target: AlertsTabButton
+    window_id: "Settings"
+    button: left
+  - type: Wait
+    value: "600"
+
+  - type: Expect
+    target: AlertsPanel
+    window_id: "Settings"
+    matcher: IsVisible
+
+  - type: Screenshot
+    value: 18-settings-alerts
+    window_id: "Settings"
+    description: Notifications and the menu bar item
+
+  - type: Click
+    target: CancelButton
+    window_id: "Settings"
+  - type: Wait
+    value: "900"
+
+  # Reselect the feed: the search above cleared the sidebar selection, and
+  # per-feed settings needs a feed.
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: FeedSettingsButton
+    matcher: IsEnabled
+
+  - type: Click
+    target: FeedSettingsButton
+  - type: Wait
+    value: "900"
+
+  - type: Screenshot
+    value: 19-feed-settings
+    window_id: "Feed Settings"
+    description: Per-feed overrides, each one saying what it inherits
+
+  - type: Click
+    target: CancelButton
+    window_id: "Feed Settings"
+  - type: Wait
+    value: "900"
+
+  # =====================================================================
+  # Adding a feed by address. The only step here that needs network.
+  # =====================================================================
+  - type: Click
+    target: AddFeedButton
+  - type: Wait
+    value: "900"
+
+  - type: Screenshot
+    value: 20-add-feed
+    window_id: "Add Feed"
+    description: The dialog as it opens, before anything has been looked up
+
+  - type: TypeText
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    value: "xkcd.com"
+    description: A bare domain, with no scheme
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+  - type: Wait
+    value: "6000"
+    description: The page fetch and the link scan
+
+  - type: Expect
+    target: DiscoveredList
+    window_id: "Add Feed"
+    matcher: HasCount
+    value: "2"
+    timeout: 15000
+
+  - type: Screenshot
+    value: 21-add-feed-discovered
+    window_id: "Add Feed"
+    description: Two feeds found from the site address, one of them left unticked
+
+  - type: Click
+    target: CancelButton
+    window_id: "Add Feed"
+  - type: Wait
+    value: "900"
+    description: Cancel, so this run subscribes to nothing
