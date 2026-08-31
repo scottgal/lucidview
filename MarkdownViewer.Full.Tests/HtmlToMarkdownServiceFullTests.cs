@@ -75,7 +75,13 @@ public class HtmlToMarkdownServiceFullTests : IClassFixture<FullServicesFixture>
     [Fact]
     public async Task ConvertAsync_PopulatesTemplateStore()
     {
-        var storePath = Path.Combine(_fixture.TempDir, "styloextract-templates.db");
+        // AppPaths.TemplateStorePath, not a path recomputed from TempDir. The
+        // two are only equal if AppPaths resolved AFTER the fixture set
+        // LUCIDVIEW_STATE_DIR, and AppPaths.LocalState is a static initialiser
+        // that runs once on first touch. Asserting the recomputed path told us
+        // nothing about which file the store was actually configured with,
+        // which is why this failure stayed a mystery across several CI runs.
+        var storePath = AppPaths.TemplateStorePath;
 
         // Capture pre-call size — the IClassFixture-shared store may already exist
         // from the prior test. The assertion below verifies THIS call grew it.
@@ -89,7 +95,7 @@ public class HtmlToMarkdownServiceFullTests : IClassFixture<FullServicesFixture>
 
         await svc.ConvertAsync(html, new Uri("https://distinct-host-task4-fix.invalid/page"), CancellationToken.None);
 
-        Assert.True(File.Exists(storePath), $"Template store should exist at {storePath}");
+        Assert.True(File.Exists(storePath), Diagnose(storePath, _fixture.TempDir));
         long postCallLength = new FileInfo(storePath).Length;
         Assert.True(postCallLength > preCallLength,
             $"Template store size should grow after this extraction (pre={preCallLength}, post={postCallLength}).");
@@ -170,5 +176,38 @@ public class HtmlToMarkdownServiceFullTests : IClassFixture<FullServicesFixture>
         var md = await svc.ConvertAsync(novelHtml, new Uri("https://novel-test.invalid/"), CancellationToken.None);
         Assert.Contains("Novel Site", md);
         Assert.Contains("Unusual structure", md);
+    }
+
+    /// <summary>
+    /// Says what the store was actually configured with and what is on disk.
+    /// A bare "should exist at X" cannot distinguish "the write never happened"
+    /// from "the store was configured somewhere else entirely", and those want
+    /// completely different fixes.
+    /// </summary>
+    private static string Diagnose(string storePath, string tempDir)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Template store should exist at {storePath}");
+        sb.AppendLine($"  AppPaths.LocalState      = {AppPaths.LocalState}");
+        sb.AppendLine($"  fixture TempDir          = {tempDir}");
+        sb.AppendLine($"  LUCIDVIEW_STATE_DIR      = {Environment.GetEnvironmentVariable("LUCIDVIEW_STATE_DIR") ?? "(unset)"}");
+        sb.AppendLine($"  redirect honoured        = {string.Equals(AppPaths.LocalState, tempDir, StringComparison.Ordinal)}");
+        Listing(sb, "AppPaths.LocalState", AppPaths.LocalState);
+        if (!string.Equals(AppPaths.LocalState, tempDir, StringComparison.Ordinal))
+            Listing(sb, "fixture TempDir", tempDir);
+        return sb.ToString();
+    }
+
+    private static void Listing(System.Text.StringBuilder sb, string label, string dir)
+    {
+        sb.AppendLine($"  files under {label}:");
+        try
+        {
+            var files = Directory.GetFiles(dir, "*", SearchOption.AllDirectories);
+            if (files.Length == 0) sb.AppendLine("    (none)");
+            foreach (var f in files.Take(25))
+                sb.AppendLine($"    {Path.GetRelativePath(dir, f)} ({new FileInfo(f).Length} bytes)");
+        }
+        catch (Exception ex) { sb.AppendLine($"    (unreadable: {ex.GetType().Name})"); }
     }
 }
