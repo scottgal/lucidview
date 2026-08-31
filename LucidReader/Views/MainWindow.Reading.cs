@@ -26,6 +26,20 @@ public partial class MainWindow
     private bool _canFetchFullArticle;
     private string? _heroImagePath;
 
+    /// <summary>
+    /// Incremented on every article switch. A download started for one article
+    /// must not redraw the pane after the user has moved to another, so the
+    /// fetch captures this and checks it before touching anything.
+    /// </summary>
+    private int _articleGeneration;
+
+    /// <summary>
+    /// The last item an on-select fetch was started for. Without it, an article
+    /// whose download fails would be re-fetched by the re-render that reports
+    /// the failure, which re-renders, which fetches again.
+    /// </summary>
+    private long? _autoFetchedItemId;
+
     // Concurrency of 1 is deliberate: only one article's hero image is ever
     // resolving at a time, unlike the sidebar/list coordinators which fan
     // out across many rows.
@@ -94,6 +108,8 @@ public partial class MainWindow
         _heroCoordinator.CancelPending();
         HeroImagePath = null;
 
+        var generation = Interlocked.Increment(ref _articleGeneration);
+
         if (row is null)
         {
             ArticleTitle = string.Empty;
@@ -152,6 +168,66 @@ public partial class MainWindow
             if (ct.IsCancellationRequested) return;
             await Dispatcher.UIThread.InvokeAsync(() => HeroImagePath = local);
         });
+
+        // Opening an article is a request for the article, not for whatever
+        // summary the feed happened to carry. Auto-download runs in the
+        // background and usually gets there first, but until it does, the pane
+        // showed a badge and, in the Pending case, not even a button to press.
+        // So fetch it now if we do not already have the extracted body.
+        //
+        // Not awaited: the title, summary and hero are on screen already and
+        // this can take seconds. The generation check stops a slow fetch
+        // redrawing the pane after the user has moved on.
+        if (NeedsFullArticle(item) && _autoFetchedItemId != row.Id)
+        {
+            _autoFetchedItemId = row.Id;
+            _ = FetchOnSelectAsync(row, generation);
+        }
+    }
+
+    /// <summary>
+    /// Whether the stored copy is still the feed's summary rather than the
+    /// article. Failed is deliberately excluded: that one has already been
+    /// tried, and it keeps its Retry button rather than being retried on every
+    /// click.
+    /// </summary>
+    private static bool NeedsFullArticle(LucidReader.Core.Model.FeedItem item) =>
+        item.Link is not null
+        && item.OfflineState switch
+        {
+            // Not fetched yet, or the background sweep has not reached it.
+            OfflineState.None or OfflineState.Pending => true,
+
+            // Fetched, but what got stored is the feed's own text rather than
+            // the page. That is the case the badge already describes as
+            // "showing the summary the feed provided", so it is not the
+            // article either.
+            OfflineState.Downloaded => item.ContentSource != ContentSource.Extracted,
+
+            // Already tried and failed. Retrying on every open would hammer a
+            // site that is never going to yield; the Retry button is the way
+            // back.
+            _ => false
+        };
+
+    private async Task FetchOnSelectAsync(ItemRow row, int generation)
+    {
+        try
+        {
+            await _services.Downloader.DownloadNowAsync(row.Id);
+        }
+        catch (Exception ex)
+        {
+            if (generation == Volatile.Read(ref _articleGeneration))
+                StatusMessage = "Could not fetch the article: " + ex.Message;
+            return;
+        }
+
+        // The user moved on while this was running, so the pane is showing a
+        // different article and must be left alone.
+        if (generation != Volatile.Read(ref _articleGeneration)) return;
+
+        await ShowArticleAsync(row);
     }
 
     /// <summary>

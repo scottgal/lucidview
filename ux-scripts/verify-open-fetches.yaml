@@ -1,0 +1,40 @@
+name: verify-open-fetches
+description: >
+  Opens an article that has no extracted body and asserts that opening it is
+  what fetches the full text. The runner seeds one fixture item down to
+  offline_state 0 with no content_markdown and a real link, so the only thing
+  that can produce an extracted body is the on-open fetch.
+
+  The seeded item keeps the fixture's own title while pointing at a different
+  article's URL. That mismatch is deliberate and harmless here, though it does
+  mean ArticleMarkdownTidy finds no title to strip, so the rendered body keeps
+  the page's own heading. Needs network, and only touches mostlylucid.net.
+default_delay: 250
+actions:
+  - type: Wait
+    value: "2200"
+  - type: MouseDown
+    target: "text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "900"
+  - type: PressKey
+    target: ItemList
+    value: "J"
+  - type: Wait
+    value: "1000"
+  - type: Screenshot
+    value: 00-just-opened
+  - type: Wait
+    value: "12000"
+  - type: Expect
+    target: OfflineBadge
+    matcher: IsHidden
+    description: >
+      Hidden means Downloaded AND ContentSource.Extracted. Opening the article
+      is what fetched it: nothing else in this run downloads anything.
+  - type: Screenshot
+    value: 01-after-open-fetch
