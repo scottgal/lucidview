@@ -89,7 +89,7 @@ YAML
     # database rather than as a failed assertion.
     local attempt
     for attempt in 1 2 3; do
-        MYLO_DATA_DIR="$dir" "$READER_APP" \
+        MYLO_DATA_DIR="$dir" "$READER_APP" ${MYLO_UX_MODE:---ux-headless} \
             --ux-test --script "$dir/bootstrap.yaml" --output "$dir/bootstrap" \
             >"$dir/bootstrap.log" 2>&1 || true
         [[ -f "$dir/reader.db" ]] && break
@@ -129,6 +129,13 @@ reader_run() {
 
     reader_seed_profile "$READER_PROFILE"
 
-    MYLO_DATA_DIR="$READER_PROFILE" "$READER_APP" \
+    # Headless by default. Driving the app on the native platform puts a window
+    # on screen and takes keyboard focus on every launch, and a batch of twenty
+    # scripts makes the machine unusable for as long as it runs. Headless
+    # renders into a bitmap instead, so screenshots and assertions still work
+    # and nothing steals focus. Set MYLO_UX_ONSCREEN=1 to watch a run happen.
+    local mode="${MYLO_UX_MODE:---ux-headless}"
+
+    MYLO_DATA_DIR="$READER_PROFILE" "$READER_APP" $mode \
         --ux-test --script "$READER_REPO/ux-scripts/$script" --output "$out"
 }

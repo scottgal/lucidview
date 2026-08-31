@@ -96,6 +96,14 @@
 
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <ProjectReference Include="..\external\lucidRESUME\src\Mostlylucid.Avalonia.UITesting\Mostlylucid.Avalonia.UITesting.csproj" />
+    <!--
+      Pinned to match the Avalonia version this app uses. The UITesting project
+      brings Avalonia.Headless 11.3.4 transitively, and against Avalonia 11.3.12
+      that fails at startup with a TypeLoadException: HeadlessClipboardStub has
+      no implementation for the SetDataAsync the newer core declares. Debug only,
+      like the harness itself, so it never reaches a Release build.
+    -->
+    <PackageReference Include="Avalonia.Headless" Version="11.3.12" />
   </ItemGroup>
 
   <!-- Lets LucidReader.Core.Tests exercise ReaderServices.OnRefreshCompleted

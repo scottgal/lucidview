@@ -183,6 +183,30 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// Drag the window by its toolbar.
+    ///
+    /// ExtendClientAreaToDecorationsHint means this toolbar is painted over the
+    /// band the OS would normally own, and the OS only moves a window when it
+    /// owns the pixels under the pointer. So without this the window could not
+    /// be moved at all except by its edges, which is not how any Mac app
+    /// behaves.
+    ///
+    /// Left button only, and not on a control: dragging inside the search box
+    /// selects text, and pressing a toolbar button must press it rather than
+    /// pick the window up. ClickCount is checked so the second press of a
+    /// double click still reaches OnTitleBarDoubleTapped to zoom, instead of
+    /// being swallowed by a move that never moves anywhere.
+    /// </summary>
+    private void OnTitleBarPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (e.ClickCount != 1) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (IsInteractive(e.Source as Avalonia.Visual)) return;
+
+        BeginMoveDrag(e);
+    }
+
+    /// <summary>
     /// Walks up from the tapped element to the toolbar, looking for something
     /// the user was actually aiming at. Checking only e.Source is not enough:
     /// a click on a Button lands on the TextBlock inside its template, not on
