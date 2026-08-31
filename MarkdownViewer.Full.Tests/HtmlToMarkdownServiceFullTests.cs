@@ -89,10 +89,45 @@ public class HtmlToMarkdownServiceFullTests : IClassFixture<FullServicesFixture>
 
         await svc.ConvertAsync(html, new Uri("https://distinct-host-task4-fix.invalid/page"), CancellationToken.None);
 
+        // Poll rather than assert immediately. The template store is a
+        // SqliteSingleWriter, which is write-behind: ConvertAsync returns once
+        // the upsert is queued, not once it has reached the file. On a fast
+        // machine the write usually lands before the next statement, which is
+        // why this passed locally and on Windows; on a loaded CI runner it
+        // does not, and this test failed on most Linux and macOS runs.
+        // Waiting for the observable outcome is the fix, because "the store
+        // eventually records this extraction" is what the test is actually
+        // about.
+        long postCallLength = await WaitForStoreGrowthAsync(storePath, preCallLength, TimeSpan.FromSeconds(20));
+
         Assert.True(File.Exists(storePath), $"Template store should exist at {storePath}");
-        long postCallLength = new FileInfo(storePath).Length;
         Assert.True(postCallLength > preCallLength,
             $"Template store size should grow after this extraction (pre={preCallLength}, post={postCallLength}).");
+    }
+
+    /// <summary>
+    /// Returns the store's length once it exceeds <paramref name="startingLength"/>,
+    /// or its last observed length if it never does within the timeout, so the
+    /// caller's assertion reports the real numbers rather than a timeout.
+    /// </summary>
+    private static async Task<long> WaitForStoreGrowthAsync(
+        string storePath, long startingLength, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        long observed = 0;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (File.Exists(storePath))
+            {
+                observed = new FileInfo(storePath).Length;
+                if (observed > startingLength) return observed;
+            }
+
+            await Task.Delay(100);
+        }
+
+        return observed;
     }
 
     [Fact]
