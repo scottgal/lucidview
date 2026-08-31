@@ -27,7 +27,13 @@ namespace LucidReader.Core.Tests.Ui;
 /// </summary>
 public class UserManualTests
 {
-    private const string Directory = "/opt/mylo/manual";
+    // Path.GetFullPath, not a literal: RewriteImagePaths returns
+    // Path.GetFullPath(Path.Combine(dir, relative)), and on Windows that roots a
+    // POSIX-looking "/opt/mylo/manual" onto the current drive and joins with
+    // backslashes. A hardcoded "/opt/..." expectation passes on Unix and fails on
+    // Windows, which is exactly how this file broke CI.
+    private static readonly string Directory =
+        Path.GetFullPath(Path.Combine(Path.GetTempPath(), "mylo-manual-fixture"));
 
     [Fact]
     public void RewritesARelativeImageToAnAbsolutePath()
@@ -35,9 +41,10 @@ public class UserManualTests
         var result = UserManual.RewriteImagePaths(
             "![The three panes](screenshots/01-three-pane.png)", Directory);
 
-        Assert.Equal(
-            $"![The three panes]({Path.GetFullPath("/opt/mylo/manual/screenshots/01-three-pane.png")})",
-            result);
+        var expected = Path.GetFullPath(
+            Path.Combine(Directory, "screenshots", "01-three-pane.png"));
+
+        Assert.Equal($"![The three panes]({expected})", result);
     }
 
     [Fact]
@@ -78,8 +85,8 @@ public class UserManualTests
         var result = UserManual.RewriteImagePaths(
             "![one](screenshots/a.png)\n\ntext\n\n![two](screenshots/b.png)", Directory);
 
-        Assert.Contains(Path.Combine(Directory, "screenshots", "a.png"), result);
-        Assert.Contains(Path.Combine(Directory, "screenshots", "b.png"), result);
+        Assert.Contains(Path.GetFullPath(Path.Combine(Directory, "screenshots", "a.png")), result);
+        Assert.Contains(Path.GetFullPath(Path.Combine(Directory, "screenshots", "b.png")), result);
     }
 
     [Fact]
