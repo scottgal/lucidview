@@ -88,22 +88,37 @@ public sealed record ArticleListDetection
 ///   distinct     0.15  Distinct links as a fraction of members. Pagination
 ///                      and "share this" rows repeat one target.
 ///
-/// A group must also clear five gates before it is scored at all, listed on
-/// <see cref="Reject"/>. Those exist because a low score and a wrong answer
-/// are different failures: the gates rule out shapes that are not article
-/// lists at all, and the score then ranks the ones that might be.
+/// A group must also clear the gates listed on <see cref="Reject"/> before it
+/// is scored at all. Those exist because a low score and a wrong answer are
+/// different failures: the gates rule out shapes that are not article lists at
+/// all, and the score then ranks the ones that might be. Where the score is a
+/// judgement about degree, the gates are judgements about kind, and most of
+/// what a real corpus rejects turns out to be the second sort - a card of
+/// undated links, a documentation tree listed inside itself, a run of further
+/// reading at the foot of an article.
 ///
-/// One page-level rejection runs before any of that, and it is the one that
-/// carries the negative cases: a page that declares itself an article, either
-/// through og:type or through schema.org, is not scored at all. That is not a
-/// heuristic, it is the publisher's own statement, and it is worth more than
-/// anything this class can infer from the markup around it. It has to be,
-/// because a news article's "more stories" rail is a genuine, well-formed list
-/// of articles - structurally indistinguishable from an index, and measured to
-/// score 0.63 to 0.76 on real article pages with the declaration removed. The
-/// declaration is what tells the two apart, and where a page makes neither
-/// declaration the approval step is what stands between a wrong guess and a
-/// stored subscription.
+/// Two things narrow the search before any of that. Runs inside a nav, a
+/// header, a footer or an aside are not looked at, because a site's own markup
+/// has already said they are chrome. And a page that declares itself an
+/// article, through og:type or through schema.org, has to score
+/// <see cref="DeclaredConfidenceThreshold"/> rather than
+/// <see cref="ConfidenceThreshold"/> - the declaration is the publisher's own
+/// statement and is nearly always right, because a news article's "more
+/// stories" rail is a genuine, well-formed list of articles, structurally
+/// indistinguishable from an index and measured at 0.63 to 0.76 on real
+/// article pages. What it is not is infallible: github.blog serves its own
+/// front page as a schema.org TechArticle headed "Home". So the declaration
+/// raises the bar instead of closing the door, and a page whose address is a
+/// site root ignores it outright, because nothing that lives at "/" is one
+/// piece of writing.
+///
+/// Where a page makes no declaration at all, the approval step is what stands
+/// between a wrong guess and a stored subscription.
+///
+/// The whole thing is measured rather than argued about:
+/// ArticleListCorpusTests runs it over twenty-five saved pages and asserts
+/// both the per-page answers and the total. It went from 17 of 25 to 24 of 25
+/// when the gates above were added.
 ///
 /// Every link is resolved to an absolute address and run through
 /// <see cref="FeedUrlPolicy"/> before it can become a candidate. This class
@@ -144,7 +159,62 @@ public static partial class ArticleListDetector
     /// </summary>
     public const double ConfidenceThreshold = 0.55;
 
+    /// <summary>
+    /// The score a page that calls itself an article has to reach before the
+    /// structure is believed over the declaration.
+    ///
+    /// The declaration used to end the scan outright, and for article pages it
+    /// is still nearly always right: a news article's "more stories" rail is a
+    /// genuine, well-formed list of articles that scores 0.63 to 0.76, and
+    /// nothing structural tells it from an index. What the outright gate could
+    /// not survive is a site that mislabels its own front page, which
+    /// github.blog does. So the declaration now sets a much higher bar rather
+    /// than closing the door, and the bar sits above every measured article
+    /// page's rail and below a real index's score.
+    /// </summary>
+    public const double DeclaredConfidenceThreshold = 0.90;
+
+    /// <summary>
+    /// How long a paragraph has to be to count as prose rather than a caption,
+    /// a byline or a standfirst.
+    /// </summary>
+    private const int ProseParagraphLength = 250;
+
+    /// <summary>
+    /// How much prose a page carries before it is treated as being an article
+    /// itself, given its address also looks like one article's.
+    /// </summary>
+    private const int ArticleProseCharacters = 2000;
+
+    /// <summary>
+    /// The fewest links a run on a page that is itself an article has to hold
+    /// before it is read as an index anyway. A piece with a list of further
+    /// reading at the foot of it carries a handful; a genuine archive page
+    /// carries far more.
+    /// </summary>
+    private const int MinimumArticlesOnAnArticlePage = 20;
+
+    /// <summary>
+    /// The fewest entries a run carrying no date at all can hold and still be
+    /// an index. A date remains a bonus rather than a requirement - Hacker
+    /// News, Slashdot and danluu.com all publish lists without one - but an
+    /// undated run has to make the case on repetition instead, and the undated
+    /// lists that are real run to fifteen and a hundred entries while a
+    /// documentation hub's card of links runs to six. Half of
+    /// <see cref="RepetitionSaturation"/> is where that line is drawn.
+    /// </summary>
+    private const int MinimumUndatedRun = 10;
+
     private const int MinTitleLength = 15;
+
+    /// <summary>
+    /// The shortest a two-word heading can be and still be an article title,
+    /// used only when the entry also carries a date. Martin Fowler's bliki is
+    /// why: its entries are titled "Vibe Coding" and "November Inflection",
+    /// which the three-word rule rejects outright. A date next to a heading is
+    /// what separates those from "Contact Us".
+    /// </summary>
+    private const int MinDatedTitleLength = 10;
     private const int MaxTitleLength = 250;
     private const int MinSummaryLength = 60;
     private const int MaxSummaryLength = 500;
@@ -184,11 +254,8 @@ public static partial class ArticleListDetector
         if (string.IsNullOrWhiteSpace(html)) return ArticleListDetection.None;
 
         var root = HtmlOutline.Parse(html);
-
-        if (DeclaredAsArticle(html, root) is { } declaration)
-            return new ArticleListDetection { Reason = declaration };
-
-        var pageIdentity = CanonicalArticleId.FromLink(pageUri.ToString());
+        var declaration = DeclaredAsArticle(html, root, pageUri);
+        var page = PageShape.Of(pageUri, root);
 
         ScoredGroup? best = null;
 
@@ -196,25 +263,81 @@ public static partial class ArticleListDetector
         {
             foreach (var group in GroupSiblings(container))
             {
-                var scored = Score(group, pageUri, pageIdentity, maxArticles);
+                var scored = Score(group, page, maxArticles);
                 if (scored is null) continue;
                 if (best is null || scored.Confidence > best.Confidence) best = scored;
             }
         }
 
-        if (best is null) return ArticleListDetection.None;
+        if (best is null)
+            return declaration is null
+                ? ArticleListDetection.None
+                : new ArticleListDetection { Reason = declaration };
+
+        var required = declaration is null ? ConfidenceThreshold : DeclaredConfidenceThreshold;
 
         return new ArticleListDetection
         {
             Articles = best.Articles,
             Confidence = best.Confidence,
-            IsArticleList = best.Confidence >= ConfidenceThreshold,
-            Reason = best.Confidence >= ConfidenceThreshold
+            IsArticleList = best.Confidence >= required,
+            Reason = best.Confidence >= required
                 ? $"Found {best.Articles.Count} repeated article links " +
                   $"(confidence {best.Confidence:0.00})."
-                : $"The best run of repeated links scored {best.Confidence:0.00}, " +
-                  $"under the {ConfidenceThreshold:0.00} needed."
+                : declaration is null
+                    ? $"The best run of repeated links scored {best.Confidence:0.00}, " +
+                      $"under the {ConfidenceThreshold:0.00} needed."
+                    : $"{declaration} Its best run of repeated links scored " +
+                      $"{best.Confidence:0.00}, under the {DeclaredConfidenceThreshold:0.00} " +
+                      "that would outweigh the declaration."
         };
+    }
+
+    /// <summary>
+    /// The things about the whole page that change how a run inside it should
+    /// be read, worked out once because every group on the page shares them.
+    ///
+    /// ProseCharacters counts the text in substantial paragraphs. It does not
+    /// separate an index from an article on its own - plenty of indexes publish
+    /// entries in full, and Daring Fireball's front page carries more prose
+    /// than most articles do - but paired with an address that looks like one
+    /// article's it is what tells a piece with a list of further reading at the
+    /// bottom from a page whose whole purpose is that list.
+    /// </summary>
+    private sealed record PageShape(
+        Uri Uri, string? Identity, int ProseCharacters, bool AddressLooksLikeOneArticle)
+    {
+        public static PageShape Of(Uri pageUri, HtmlElement root) =>
+            new(pageUri,
+                CanonicalArticleId.FromLink(pageUri.ToString()),
+                ProseCharacters: root.Descendants()
+                    .Where(e => e.Tag == "p" && !e.Descendants().Any(d => d.Tag == "p"))
+                    .Select(e => e.TextContent.Length)
+                    .Where(length => length >= ProseParagraphLength)
+                    .Sum(),
+                AddressLooksLikeOneArticle: HasSlugLikeAddress(pageUri));
+
+        /// <summary>
+        /// Whether the page's own address is the shape a single article's is
+        /// rather than a section's. Index pages sit at a bare host or a short
+        /// section name; articles sit at a slug or a page file. Every index in
+        /// the measured corpus is at "/", "/blog", "/news" or "/bliki/", and
+        /// every article at a hyphenated slug or an .html file.
+        /// </summary>
+        private static bool HasSlugLikeAddress(Uri pageUri)
+        {
+            var segments = pageUri.AbsolutePath
+                .Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 0) return false;
+
+            var last = segments[^1];
+            return last.Contains('-')
+                   || last.Contains('_')
+                   || last.EndsWith(".html", StringComparison.OrdinalIgnoreCase)
+                   || last.EndsWith(".htm", StringComparison.OrdinalIgnoreCase)
+                   || last.EndsWith(".php", StringComparison.OrdinalIgnoreCase)
+                   || last.EndsWith(".aspx", StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     /// <summary>
@@ -236,8 +359,16 @@ public static partial class ArticleListDetector
     /// left alone. Everything is read out of the raw HTML because the outline
     /// deliberately skips script contents.
     /// </summary>
-    private static string? DeclaredAsArticle(string html, HtmlElement root)
+    private static string? DeclaredAsArticle(string html, HtmlElement root, Uri pageUri)
     {
+        // A site's front page is not one article, whatever its markup says.
+        // github.blog serves its homepage with a schema.org TechArticle headed
+        // "Home" whose mainEntityOfPage is the site root, and the outright gate
+        // believed it. Nothing that lives at "/" is a single piece of writing,
+        // so the declaration is read as the template misfiring and dropped.
+        if (pageUri.AbsolutePath.Trim('/').Length == 0
+            && string.IsNullOrEmpty(pageUri.Query)) return null;
+
         var openGraph = root.Descendants().Any(e =>
             e.Tag == "meta"
             && string.Equals(e.Attribute("property"), "og:type", StringComparison.OrdinalIgnoreCase)
@@ -266,34 +397,88 @@ public static partial class ArticleListDetector
     private static readonly string[] ListingMarkers =
         ["itemListElement", "\"ItemList\"", "\"CollectionPage\"", "\"Blog\"", "blogPost"];
 
+    /// <summary>
+    /// Elements the page's own markup says are chrome. A run of repeated links
+    /// inside one of these is a menu, a breadcrumb, a site footer or a sidebar
+    /// rail, and no amount of structural scoring separates those from an index
+    /// - GitHub's global header holds five links whose text reads exactly like
+    /// article titles ("Actions Automate any workflow") and scored 0.62.
+    ///
+    /// The whole subtree is skipped rather than penalised. An index page does
+    /// not put its index inside its own nav, and the elements that do show up
+    /// inside cards - a per-card &lt;header&gt; wrapping the heading - are not
+    /// where the run's container is anyway.
+    /// </summary>
+    private static readonly HashSet<string> ChromeElements =
+        new(StringComparer.OrdinalIgnoreCase) { "nav", "header", "footer", "aside" };
+
     private static IEnumerable<HtmlElement> EnumerateContainers(HtmlElement root)
     {
         if (root.Children.Count >= MinimumArticles) yield return root;
 
-        foreach (var element in root.Descendants())
-            if (element.Children.Count >= MinimumArticles)
-                yield return element;
+        var pending = new Stack<HtmlElement>();
+        for (var i = root.Children.Count - 1; i >= 0; i--) pending.Push(root.Children[i]);
+
+        while (pending.Count > 0)
+        {
+            var element = pending.Pop();
+            if (ChromeElements.Contains(element.Tag)) continue;
+
+            if (element.Children.Count >= MinimumArticles) yield return element;
+
+            for (var i = element.Children.Count - 1; i >= 0; i--) pending.Push(element.Children[i]);
+        }
     }
 
     /// <summary>
     /// The element children of one container, split into runs that share a
-    /// tag and a class list. Groups smaller than MinimumArticles are dropped
-    /// here rather than scored and rejected, since a group that small can
-    /// never clear the size gate anyway.
+    /// tag and a class list, plus a run per tag with the classes ignored.
+    ///
+    /// The class-exact grouping is the precise one and is what most templates
+    /// produce. The tag-only run is there because a large family of templates
+    /// stamps a per-item class on every row: WordPress writes
+    /// "post-98460 category-ai-and-ml tag-github-copilot" on each list item, so
+    /// no two rows share a signature and the strongest evidence on the page -
+    /// twenty identical cards - split into twenty runs of one. Ignoring the
+    /// classes puts those back together.
+    ///
+    /// Both are offered and the higher score wins, so the loose grouping can
+    /// only find a run the strict one missed. It cannot smuggle a weak one
+    /// past, because a tag bucket that mixes a list with other markup loses on
+    /// the coverage and title gates in <see cref="Reject"/>.
+    ///
+    /// Groups smaller than MinimumArticles are dropped here rather than scored
+    /// and rejected, since a group that small can never clear the size gate.
     /// </summary>
     private static IEnumerable<List<HtmlElement>> GroupSiblings(HtmlElement container)
     {
-        var groups = new Dictionary<string, List<HtmlElement>>(StringComparer.Ordinal);
+        var byShape = new Dictionary<string, List<HtmlElement>>(StringComparer.Ordinal);
+        var byTag = new Dictionary<string, List<HtmlElement>>(StringComparer.Ordinal);
 
         foreach (var child in container.Children)
         {
             var signature = child.Tag + "|" + child.ClassSignature;
-            if (!groups.TryGetValue(signature, out var members))
-                groups[signature] = members = [];
+            if (!byShape.TryGetValue(signature, out var members))
+                byShape[signature] = members = [];
             members.Add(child);
+
+            if (!byTag.TryGetValue(child.Tag, out var sameTag))
+                byTag[child.Tag] = sameTag = [];
+            sameTag.Add(child);
         }
 
-        return groups.Values.Where(g => g.Count >= MinimumArticles);
+        foreach (var group in byShape.Values)
+            if (group.Count >= MinimumArticles)
+                yield return group;
+
+        foreach (var (tag, group) in byTag)
+        {
+            if (group.Count < MinimumArticles) continue;
+            if (byShape.ContainsKey(tag + "|" + group[0].ClassSignature)
+                && group.All(e => e.ClassSignature == group[0].ClassSignature)) continue;
+
+            yield return group;
+        }
     }
 
     private sealed record ScoredGroup(IReadOnlyList<DetectedArticle> Articles, double Confidence);
@@ -302,23 +487,23 @@ public static partial class ArticleListDetector
         DetectedArticle Article,
         bool TitleIsPlausible,
         bool IsSameHost,
-        string LinkHost);
+        string LinkHost,
+        string PathKey);
 
-    private static ScoredGroup? Score(
-        List<HtmlElement> members, Uri pageUri, string? pageIdentity, int maxArticles)
+    private static ScoredGroup? Score(List<HtmlElement> members, PageShape page, int maxArticles)
     {
         var candidates = new List<Candidate>(members.Count);
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var member in members)
         {
-            var candidate = ReadCandidate(member, pageUri, pageIdentity);
+            var candidate = ReadCandidate(member, page);
             if (candidate is null) continue;
             if (!seen.Add(candidate.Article.CanonicalId)) continue;
             candidates.Add(candidate);
         }
 
-        if (Reject(candidates, members.Count)) return null;
+        if (Reject(candidates, members.Count, page)) return null;
 
         var count = candidates.Count;
         var repetition = Math.Min(count, RepetitionSaturation) / (double)RepetitionSaturation;
@@ -361,10 +546,31 @@ public static partial class ArticleListDetector
     ///                    embedded widget pointing at somebody else's site.
     ///                    An aggregator is the opposite shape, dozens of
     ///                    distinct hosts, and is deliberately not caught here.
+    ///   nested paths     More than a tenth of the links sit underneath another
+    ///                    link in the same run. That is a documentation tree
+    ///                    describing itself, where "/aspnet/core" and
+    ///                    "/aspnet/core/tutorials" are both entries. Articles
+    ///                    are never filed inside one another.
+    ///   article's own    The page is itself an article and the run is small.
+    ///     footer         A piece with further reading at the foot of it holds
+    ///                    a handful of links that are, individually, real
+    ///                    articles; only a genuine archive holds twenty.
+    ///   short and        A short run with no date anywhere in it. Undated
+    ///     undated        indexes exist and are welcome, but they are archives
+    ///                    of dozens of entries, not cards of six.
     /// </summary>
-    private static bool Reject(List<Candidate> candidates, int memberCount)
+    private static bool Reject(List<Candidate> candidates, int memberCount, PageShape page)
     {
         if (candidates.Count < MinimumArticles) return true;
+
+        if (page.AddressLooksLikeOneArticle
+            && page.ProseCharacters >= ArticleProseCharacters
+            && candidates.Count < MinimumArticlesOnAnArticlePage) return true;
+
+        if (NestedPathFraction(candidates) > 0.10) return true;
+
+        if (candidates.Count < MinimumUndatedRun
+            && candidates.All(c => c.Article.PublishedUtc is null)) return true;
 
         if (candidates.Count / (double)memberCount < 0.60) return true;
 
@@ -393,13 +599,49 @@ public static partial class ArticleListDetector
     private static string NormaliseTitle(string title) =>
         title.Trim().ToLowerInvariant();
 
-    private static Candidate? ReadCandidate(HtmlElement member, Uri pageUri, string? pageIdentity)
+    /// <summary>
+    /// The share of the run's links that another link in the same run sits
+    /// above in the path hierarchy. Zero on every article index measured; a
+    /// third on a documentation hub, which lists a section and that section's
+    /// pages side by side.
+    /// </summary>
+    private static double NestedPathFraction(List<Candidate> candidates)
     {
+        var paths = candidates.Select(c => c.PathKey).ToList();
+        var prefixes = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
+
+        var nested = 0;
+        foreach (var path in paths)
+        {
+            var parent = path;
+            while (true)
+            {
+                var cut = parent.LastIndexOf('/');
+                if (cut <= 0) break;
+                parent = parent[..cut];
+                if (!prefixes.Contains(parent)) continue;
+                nested++;
+                break;
+            }
+        }
+
+        return nested / (double)paths.Count;
+    }
+
+    private static Candidate? ReadCandidate(HtmlElement member, PageShape page)
+    {
+        var pageUri = page.Uri;
+        var pageIdentity = page.Identity;
+
         HtmlElement? bestAnchor = null;
         var bestText = string.Empty;
         string? bestLink = null;
 
-        foreach (var anchor in member.Descendants())
+        // Prepend rather than Descendants alone: plenty of templates make the
+        // repeated element itself the link and put the heading, date and
+        // standfirst inside it. Looking only at descendants found no anchor on
+        // those pages at all, so the run scored nothing.
+        foreach (var anchor in member.Descendants().Prepend(member))
         {
             if (anchor.Tag != "a") continue;
 
@@ -439,31 +681,41 @@ public static partial class ArticleListDetector
         var title = Truncate(bestText, MaxTitleLength);
         if (title.Length == 0) return null;
 
-        var host = Uri.TryCreate(bestLink, UriKind.Absolute, out var linkUri)
-            ? linkUri.Host
-            : string.Empty;
+        var hasLinkUri = Uri.TryCreate(bestLink, UriKind.Absolute, out var linkUri);
+        var host = hasLinkUri ? linkUri!.Host : string.Empty;
+        var pathKey = hasLinkUri
+            ? host + "/" + linkUri!.AbsolutePath.Trim('/')
+            : bestLink;
+
+        var published = FindDate(member);
 
         return new Candidate(
             new DetectedArticle(
                 title,
                 bestLink,
                 canonical,
-                FindDate(member),
+                published,
                 FindSummary(member, title)),
-            IsPlausibleTitle(bestText),
+            IsPlausibleTitle(bestText, published is not null),
             string.Equals(host, pageUri.Host, StringComparison.OrdinalIgnoreCase),
-            host);
+            host,
+            pathKey);
     }
 
-    private static bool IsPlausibleTitle(string text)
+    private static bool IsPlausibleTitle(string text, bool dated = false)
     {
-        if (text.Length < MinTitleLength || text.Length > MaxTitleLength) return false;
+        if (text.Length > MaxTitleLength) return false;
 
         var trimmed = text.Trim(' ', '.', ',', ':', ';', '→', '»', '>', '-');
         if (ChromeText.Contains(trimmed)) return false;
 
         var words = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
-        return words >= 3;
+
+        // A heading of two words with a publication date beside it is an
+        // article title; two words on their own is as likely to be a menu.
+        if (dated && text.Length >= MinDatedTitleLength && words >= 2) return true;
+
+        return text.Length >= MinTitleLength && words >= 3;
     }
 
     /// <summary>

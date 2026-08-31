@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="canonical" href="https://simonwillison.net/">
+<title>Simon Willison’s Weblog</title>
+<script defer data-domain="simonwillison.net" src="https://plausible.io/js/plausible.js"></script>
+<link rel="alternate" type="application/atom+xml" title="Atom" href="/atom/everything/">
+<link rel="stylesheet" type="text/css" href="/static/css/all.7977d7c44aeb.css">
+<link rel="webmention" href="https://webmention.io/simonwillison.net/webmention">
+<link rel="pingback" href="https://webmention.io/simonwillison.net/xmlrpc">
+<meta name="author" content="Simon Willison">
+<meta property="og:site_name" content="Simon Willison’s Weblog">
+
+<link href="https://github.com/simonw" rel="me">
+<link href="https://twitter.com/simonw" rel="me">
+<link href="https://fedi.simonwillison.net/@simon" rel="me">
+<link rel="authorization_endpoint" href="https://indieauth.com/auth">
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+const entryId = 9277;
+
+let lastUpdateId = null; // Initially set to null
+let sortOrder = 'oldest-first'; // Default sorting is oldest first
+
+// Function to find the highest data-update-id from the current DOM
+function findLastUpdateId() {
+  const updateElements = document.querySelectorAll('[data-update-id]');
+  let maxId = null;
+
+  updateElements.forEach(element => {
+    const updateId = parseInt(element.getAttribute('data-update-id'), 10);
+    if (!isNaN(updateId) && (maxId === null || updateId > maxId)) {
+      maxId = updateId;
+    }
+  });
+
+  return maxId;
+}
+
+// Function to toggle the sort order and re-order the elements
+function toggleSortOrder() {
+  const toggleLink = document.getElementById('sort-toggle');
+  const liveUpdatesDiv = document.getElementById('live-updates');
+  const updates = Array.from(liveUpdatesDiv.children); // Convert HTMLCollection to array
+
+  // Toggle the sort order
+  if (sortOrder === 'oldest-first') {
+    sortOrder = 'latest-first';
+    toggleLink.textContent = 'Show oldest first';
+  } else {
+    sortOrder = 'oldest-first';
+    toggleLink.textContent = 'Show latest first';
+  }
+
+  // Sort the updates based on data-update-id
+  updates.sort((a, b) => {
+    const aId = parseInt(a.getAttribute('data-update-id'), 10);
+    const bId = parseInt(b.getAttribute('data-update-id'), 10);
+    
+    // Depending on the sort order, adjust the sorting logic
+    return sortOrder === 'latest-first' ? bId - aId : aId - bId;
+  });
+
+  // Clear and re-append the sorted elements
+  liveUpdatesDiv.innerHTML = '';
+  updates.forEach(update => liveUpdatesDiv.appendChild(update));
+}
+
+// Function to insert the sort toggle link before the live-updates div
+function addSortToggleLink() {
+  const liveUpdatesDiv = document.getElementById('live-updates');
+  if (!liveUpdatesDiv) { return; }
+  const sortLink = document.createElement('a');
+  sortLink.href = '#';
+  sortLink.id = 'sort-toggle';
+  sortLink.textContent = 'Sort latest first'; // Initially show "Sort latest first"
+  sortLink.style.cursor = 'pointer';
+  sortLink.style.display = 'block';
+  sortLink.style.marginBottom = '10px';
+
+  // Add click event to toggle sorting
+  sortLink.addEventListener('click', (event) => {
+    event.preventDefault();
+    toggleSortOrder();
+  });
+
+  // Insert the link before the live-updates div
+  liveUpdatesDiv.parentNode.insertBefore(sortLink, liveUpdatesDiv);
+}
+
+// Update polling function to respect the sorting
+function pollUpdates() {
+  let url = `/updates/${entryId}.json`;
+  if (lastUpdateId !== null) {
+    url += `?since=${lastUpdateId}`;
+  }
+
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      const updates = data.updates;
+
+      if (updates && updates.length > 0) {
+        // Create a document fragment to batch updates
+        const fragment = document.createDocumentFragment();
+
+        updates.forEach(update => {
+          // Create the new HTML for each update using the template
+          const p = document.createElement('p');
+          p.setAttribute('data-update-id', update.id);
+          const strong = document.createElement('strong');
+          strong.textContent = update.created_str;
+          p.appendChild(strong);
+          const span = document.createElement('span');
+          span.innerHTML = ' ' + update.content;
+          p.appendChild(span);
+          
+          // Append the new <p> element to the fragment
+          fragment.appendChild(p);
+
+          // Update the lastUpdateId with the latest ID
+          if (update.id) {
+            lastUpdateId = update.id;
+          }
+        });
+
+        // Insert updates in the correct order based on the sortOrder
+        const liveUpdatesDiv = document.getElementById('live-updates');
+        if (sortOrder === 'oldest-first') {
+          // Append updates to the end for "oldest-first"
+          liveUpdatesDiv.appendChild(fragment);
+        } else {
+          // Prepend updates for "latest-first"
+          liveUpdatesDiv.insertBefore(fragment, liveUpdatesDiv.firstChild);
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching updates:', error);
+    })
+    .finally(() => {
+      // Poll every 5 seconds
+      setTimeout(pollUpdates, 5000);
+    });
+}
+
+// Set the lastUpdateId on initial load
+lastUpdateId = findLastUpdateId();
+
+// Start polling
+// pollUpdates();
+
+// Add the sorting toggle link
+addSortToggleLink();
+});
+</script>
+
+<script>
+(function() { // Apply theme immediately to prevent flash
+  const theme = localStorage.getItem('theme');
+  if (theme === 'light' || theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+})();
+</script>
+</head>
+<body class="homepage">
+
+<div id="bighead">
+  <a id="atomfeedlink" href="/atom/everything/" title="My Atom feed"><svg xmlns="http://www.w3.org/2000/svg" width="14px" height="14px" viewBox="0 0 256 256"><defs><linearGradient id="a" x1=".1" x2=".9" y1=".1" y2=".9"><stop offset="0" stop-color="#E3702D"/><stop offset=".1" stop-color="#EA7D31"/><stop offset=".4" stop-color="#F69537"/><stop offset=".5" stop-color="#FB9E3A"/><stop offset=".7" stop-color="#EA7C31"/><stop offset=".9" stop-color="#DE642B"/><stop offset="1" stop-color="#D95B29"/></linearGradient></defs><rect width="256" height="256" fill="#CC5D15" rx="55" ry="55"/><rect width="246" height="246" x="5" y="5" fill="#F49C52" rx="50" ry="50"/><rect width="236" height="236" x="10" y="10" fill="url(#a)" rx="47" ry="47"/><circle cx="68" cy="189" r="24" fill="#FFF"/><path fill="#FFF" d="M160 213h-34a82 82 0 0 0-82-82V97a116 116 0 0 1 116 116z"/><path fill="#FFF" d="M184 213A140 140 0 0 0 44 73V38a175 175 0 0 1 175 175z"/></svg></a> 
+  <div id="h1-nav-wrapper">
+    <h1>Simon Willison’s Weblog</h1>
+    <nav>
+      <ul>
+        <li><a href="/about/">About</a></li>
+        <li><a href="/about/#subscribe">Subscribe</a></li>
+        <li><a href="https://til.simonwillison.net/">TILs</a></li>
+        <li><a href="https://tools.simonwillison.net/">Tools</a></li>
+      </ul>
+    </nav>
+  </div>
+  <div id="bigheadcontainer">
+  <p id="currenttags">On <a href="/tags/claude/" class="item-tag">claude <span>304</span></a> <a href="/tags/sandboxing/" class="item-tag">sandboxing <span>55</span></a> <a href="/tags/sqlite-utils/" class="item-tag">sqlite-utils <span>237</span></a> <a href="/tags/ai-security-research/" class="item-tag">ai-security-research <span>38</span></a> <a href="/tags/python/" class="item-tag">python <span>1,278</span></a> <a href="/tags/" class="more">...</a></p>
+  <form action="/search/" method="GET"><div>
+    <input type="search" placeholder="Search this site" class="search-input" name="q" value="" style="max-width: 560px; margin-top: 0.5em">
+    <input type="submit" class="search-submit" value="Search">
+  </div></form>
+  </div><!-- #bigheadcontainer -->
+</div><!-- #bighead -->
+
+
+<div id="sponsored-banner" class="sponsor-scheme-sky">
+  <div id="sponsored-banner-inner">
+    <strong class="sponsored-label">Sponsored by:</strong> Greptile &mdash; The Al code reviewer that runs your code. Catch bugs that only show up at runtime. <a class="sponsor-learn-more-label" href="https://10xn.link/sw-greptile" rel="sponsored noopener" target="_blank">Try it for free</a>
+  </div>
+</div>
+
+
+<div id="band">&nbsp;</div>
+
+<div id="wrapper">
+<div id="primary">
+
+<h2 class="overband"><span class="overband-nav"><a href="/entries/">Entries</a> <a href="/blogmarks/">Links</a> <a href="/quotations/">Quotes</a> <a href="/notes/">Notes</a> <a href="/guides/">Guides</a> <a href="/elsewhere/" class="elsewhere-link">Elsewhere</a></span></h2>
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 30, 2026</h3>
+
+
+<div class="entry segment" data-type="entry" data-id="9438">
+  <h3><a href="/2026/Aug/30/understanding-chatgpt-work/" rel="bookmark">Understanding ChatGPT Work</a></h3>
+  
+    <div class="card-container">
+      <a href="/2026/Aug/30/understanding-chatgpt-work/"><img src="https://static.simonwillison.net/static/2026/chatgpt-work-card.jpg" alt="Visit Understanding ChatGPT Work"></a>
+    </div>
+  
+  <p>
+    <p>OpenAI <a href="https://openai.com/index/chatgpt-for-your-most-ambitious-work/">announced ChatGPT Work</a> on July 9th, and have been furiously iterating on it ever since. It is an extraordinarily confusing and very powerful product. Here’s what I’ve figured out about it so far.</p>
+
+    <span style="font-size: 0.9em">[... <a href="/2026/Aug/30/understanding-chatgpt-work/">2,214 words</a>]</span>
+  </p>
+  <div class="entryFooter">
+  <a href="/2026/Aug/30/understanding-chatgpt-work/" title="Permalink for &quot;Understanding ChatGPT Work&quot;">11:59 pm</a> / <a href="/tags/ai/">ai</a>, <a href="/tags/openai/">openai</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/chatgpt/">chatgpt</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/code-interpreter/">code-interpreter</a>, <a href="/tags/lethal-trifecta/">lethal-trifecta</a>, <a href="/tags/skills/">skills</a>, <a href="/tags/general-agents/">general-agents</a>
+  </div>
+</div> <!-- end div.entry -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment beat-sighting" data-type="beat" data-id="4881">
+  <div class="beat-content">
+    <div class="beat-row1">
+      <a class="beat-label sighting" href="/elsewhere/sighting/">Sighting</a>
+      <span class="beat-title"><a href="/2026/Aug/30/sighting-395988569/">4:59 PM – 5:16 PM</a></span>
+      <span class="beat-commit">&mdash; California Brown Pelican, House Sparrow, in Monterey Bay National Marine Sanctuary, CA, US, CA</span>
+    </div>
+    <captioned-image-gallery>
+      <figure><a href="https://static.inaturalist.org/photos/726145345/large.jpg"><img src="https://static.inaturalist.org/photos/726145345/small.jpg" alt="California Brown Pelican" loading="lazy" data-width="2048" data-height="1365"></a><figcaption><a href="https://www.inaturalist.org/observations/395988633" title="View observation on iNaturalist">California Brown Pelican</a></figcaption></figure><figure><a href="https://static.inaturalist.org/photos/726145199/large.jpg"><img src="https://static.inaturalist.org/photos/726145199/small.jpg" alt="House Sparrow" loading="lazy" data-width="2048" data-height="1365"></a><figcaption><a href="https://www.inaturalist.org/observations/395988569" title="View observation on iNaturalist">House Sparrow</a></figcaption></figure>
+    </captioned-image-gallery>
+    
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/30/sighting-395988569/" rel="bookmark">30th Aug 2026</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 29, 2026</h3>
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9609">
+  <p><strong><a href="https://hy.tencent.ai/research/hy4-preview">Introducing Hy4 Preview</a></strong>.
+    New open weight text input (no vision)  LLM from Chinese company Tencent today: 770B total parameters, 49B active parameters, 1M token context window, <a href="https://huggingface.co/tencent/Hy4-preview">1.56TB on Hugging Face</a>.</p>
+<p>This is a big size increase from their previous <a href="https://huggingface.co/tencent/Hy3">Hy3</a> in July, which was 295B, 21B active, 256,000 context, 598GB.</p>
+<p>I recently started using model chat templates to better understand their capabilities. Here's Hy4's  <a href="https://huggingface.co/tencent/Hy4-preview/blob/main/chat_template.jinja">chat_template.jinja</a> on Hugging Face, which includes this section:</p>
+<div class="highlight highlight-text-html-django"><pre><span class="pl-e">{%</span>- <span class="pl-k">if</span> <span class="pl-k">not</span> <span class="pl-s">reasoning_effort</span> <span class="pl-s">is</span> <span class="pl-s">defined</span> <span class="pl-e">%}</span>
+    <span class="pl-e">{%</span>- <span class="pl-s">set</span> <span class="pl-s">reasoning_effort</span> = <span class="pl-s">'high'</span> <span class="pl-e">%}</span>
+<span class="pl-e">{%</span>- <span class="pl-s">elif</span> <span class="pl-s">reasoning_effort</span> <span class="pl-k">not</span> <span class="pl-k">in</span> [<span class="pl-s">'high'</span>, <span class="pl-s">'no_think'</span>] <span class="pl-e">%}</span>
+    <span class="pl-e">{%</span>- <span class="pl-k">if</span> <span class="pl-s">reasoning_effort</span> <span class="pl-s">is</span> <span class="pl-s">none</span> <span class="pl-e">%}</span>
+        {{- raise_exception('reasoning_effort error : None, should be no_think/high') }}
+    <span class="pl-e">{%</span>- <span class="pl-k">else</span> <span class="pl-e">%}</span>
+        {{- raise_exception('reasoning_effort error : ' + reasoning_effort + ', should be no_think/high') }}
+    <span class="pl-e">{%</span>- <span class="pl-k">endif</span> <span class="pl-e">%}</span>
+<span class="pl-e">{%</span>- <span class="pl-k">endif</span> <span class="pl-e">%}</span></pre></div>
+<p>So it looks like there are just two reasoning effort levels: "high" (the default) and "no_think" (reason by disabled).</p>
+<p>I tried my "Generate an SVG of a pelican riding a bicycle" prompt with the default high reasoning <a href="https://openrouter.ai/tencent/hy4-preview#apps">via OpenRouter</a> and <a href="https://tools.simonwillison.net/markdown-svg-renderer#url=https%3A%2F%2Fgist.github.com%2Fsimonw%2Fcb69816b3fb940f2782569a82a523af1">got this</a>:</p>
+<p><img alt="Flat vector cartoon illustration of a white pelican with a large orange bill riding a red bicycle to the right along a grey road with a dashed white centre line, its orange webbed feet on the pedals and grey tail feathers fanned out behind, against a pale blue sky with a yellow sun, white clouds and horizontal white motion lines suggesting speed" src="https://static.simonwillison.net/static/2026-08-29/IMG_7725.jpeg" /></p>
+<p>Quoting the reasoning trace:</p>
+<blockquote>
+<p>[...] Let's maybe add a helmet? It could improve riding theme, but may obscure head. Maybe a small cycling cap or helmet? The user didn't ask; can add red helmet? Might be cute. But pelican with big beak; a helmet might obscure. Better maybe no.</p>
+<p>Maybe add sunglasses? no.</p>
+<p>Maybe add water? no.</p>
+</blockquote>
+<p>It's interesting how the reasoning trace uses slightly truncated English, presumably because perfect grammar isn't useful or token efficient for hidden reasoning text.</p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/29/hy4/" rel="bookmark">#</a>
+    <a href="/2026/Aug/29/hy4/">11:53 pm</a>
+     / <a href="/tags/ai/">ai</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/pelican-riding-a-bicycle/">pelican-riding-a-bicycle</a>, <a href="/tags/llm-reasoning/">llm-reasoning</a>, <a href="/tags/llm-release/">llm-release</a>, <a href="/tags/ai-in-china/">ai-in-china</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 28, 2026</h3>
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9608">
+  <p><strong><a href="https://anil.recoil.org/notes/rumour-is-the-exploit">Just a rumour of a bug is enough to find a security exploit these days</a></strong>
+    (<a href="https://news.ycombinator.com/item?id=49480466" title="Hacker News">via</a>)
+    Anil Madhavapeddy is a professor of computer science at Cambridge and a core maintainer of the OCaml compiler. In this somewhat alarming post he reports that security issues in OCaml projects are seeing evidence of attempted exploits within minutes of patches being shared for discussion:</p>
+<blockquote>
+<p>This normally takes a few days and a release within a week or two is reasonable. Within about ten minutes (!) this website was fielding probes for percent-encoded traversal sequences, indicating that automated watchers are keeping an eye on public repositories.</p>
+</blockquote>
+<p>Modern coding agents have become so effective at finding flaws that the slightest hint at a new bug can be enough information for them to find it, something Anil has been able to demonstrate using his own agents, switching to DeepSeek V4 Pro⁠ when Claude Fable refused the task.</p>
+<p>Anil points out that this rate of discovery appears incompatible with existing open source embargo practices for new issues. If an issue can become an exploit this fast, we need to figure out new processes for keeping our communities safe.</p>
+<p>rclone maintainer Nick Craig-Wood <a href="https://news.ycombinator.com/item?id=49480466#49480777">confirms in the Hacker News comments</a> that his project is seeing this problem:</p>
+<blockquote>
+<p>In the first 10 years of the rclone project we received about 20 security disclosures through GitHub. We had to deal with over 40 in the last month! That has taken a huge amount of my time, even using AI tools to triage and come up with fixes for review.</p>
+<p>The hit rate for those security disclosures is pretty good - about 75% of them have a nugget of something which needs looking at. [...]</p>
+<p>GitHub assigns CVEs for the advisories. Before the AI apocalypse they took 2-3 days for an assignment but now it they are running at 3-4 weeks so I have to send the point releases out with CVE-PENDING in the changelog which isn't ideal.</p>
+</blockquote></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/28/just-a-rumour-of-a-bug/" rel="bookmark">#</a>
+    <a href="/2026/Aug/28/just-a-rumour-of-a-bug/">10:12 pm</a>
+     / <a href="/tags/open-source/">open-source</a>, <a href="/tags/security/">security</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/coding-agents/">coding-agents</a>, <a href="/tags/ocaml/">ocaml</a>, <a href="/tags/ai-security-research/">ai-security-research</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 27, 2026</h3>
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9607">
+  <p><strong><a href="https://embracethered.com/blog/posts/2026/breaking-claude-code-opus-5-and-automode/">Breaking Claude Code Opus 5 Auto Mode</a></strong>.
+    Anthropic are putting a great deal of faith in Claude Code's auto mode for protecting their coding agent users against prompt injection attacks. They recently <a href="https://simonwillison.net/2026/Aug/8/auto-mode/">made that the default</a> and have made bold claims about its effectiveness.</p>
+<p>Johann Rehberger is one of the most credible prompt injection researchers active today. He found an attack against auto mode which he claims works 80% of the time, by tricking Claude Code into downloading and uncompressing a zip archive, then executing code that imports <code>base64</code> without noticing that this will import and execute a local <code>struct.py</code> file extracted from the archive.</p>
+<p>In a few cases auto mode directly prevented the agent from preventing harmful code from continuing to execute!</p>
+<blockquote>
+<p>In a few runs Claude tried to terminate the malware process once it noticed the compromise, but Auto Mode denied the cleanup command.</p>
+<p>Claude detects the compromise, but <strong>Auto Mode blocks its cleanup command</strong></p>
+<p>The safety mechanism itself can become part of the failure. The classifier allowed the creation of the malware process, but then it blocked the command intended to stop it!</p>
+</blockquote>
+<p>I agree with Johann's conclusion here: the only safe way to run agents if there's any risk of attracting the attention of an adversarial attack is with a sandbox:</p>
+<blockquote>
+<ul>
+<li>Run unattended coding agents in a container, VM or OS sandbox.</li>
+<li>Restrict network egress.</li>
+<li>Monitor your agents.</li>
+<li>Do not expose home directories, SSH keys, cloud credentials,… to the agent runtime. [...]</li>
+</ul>
+</blockquote>
+<p><strong>Update 30th August 2026</strong>: On Lobste.rs <a href="https://lobste.rs/s/ktbweg/prompt_injection_claude_code_opus_5_auto#c_gi7eqj">hyperpape points out</a> that this doesn't fit the bill of a classic prompt injection attack because at no point are malicious instructions from the website accidentally followed by the LLM. They're right: this is more of a confused environment attack where the nature of the environment that the agent is exposed to results in an exploit.</p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/27/breaking-claude-code-opus-5-auto-mode/" rel="bookmark">#</a>
+    <a href="/2026/Aug/27/breaking-claude-code-opus-5-auto-mode/">10:50 pm</a>
+     / <a href="/tags/sandboxing/">sandboxing</a>, <a href="/tags/security/">security</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/prompt-injection/">prompt-injection</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/anthropic/">anthropic</a>, <a href="/tags/claude/">claude</a>, <a href="/tags/johann-rehberger/">johann-rehberger</a>, <a href="/tags/claude-code/">claude-code</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 26, 2026</h3>
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9606">
+  <p><strong><a href="https://qwen.ai/blog?id=qwen3.8-flash-next">Qwen3.8-Flash-Next</a></strong>
+    (<a href="https://news.ycombinator.com/item?id=49448210" title="Hacker News">via</a>)
+    Another open weights model from Qwen. This one is "a multimodal MoE model that also serves as an early preview of the architecture used in Qwen4".</p>
+<p>It's pretty big: 125B tokens, but only 6B active which means it gets a significant performance boost.</p>
+<p>I've been trying it out on a DGX Spark using <a href="https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF">these Unsloth quantized models</a>. I'm still exploring the model - so far I've tried the 72.5GB UD-IQ1_S one (producing <a href="https://tools.simonwillison.net/markdown-svg-renderer#url=https%3A%2F%2Fgist.github.com%2Fsimonw%2Ff9c69ebdab90d8a45b8de4742cc7b840">these pelicans</a>) and the 78.9GB UD-Q2_K_XL (producing <a href="https://tools.simonwillison.net/markdown-svg-renderer#url=https%3A%2F%2Fgist.github.com%2Fsimonw%2F6ba7cbfc1a9336986703b41f7fccd73a">these</a>).</p>
+<p>My favorite so far was this xhigh reasoning effort one from UD-Q2_K_XL:</p>
+<p><img alt="Flat vector illustration: a white pelican with an orange beak and orange legs rides a red bicycle along a sandy path, a wicker basket on the handlebars holding a blue fish, with green rolling hills, a small tree and bushes, white clouds and a bright yellow sun in a blue sky behind it" src="https://static.simonwillison.net/static/2026-08-27/IMG_7667.png" /></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/26/qwen38-flash-next/" rel="bookmark">#</a>
+    <a href="/2026/Aug/26/qwen38-flash-next/">11:52 pm</a>
+     / <a href="/tags/ai/">ai</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/qwen/">qwen</a>, <a href="/tags/pelican-riding-a-bicycle/">pelican-riding-a-bicycle</a>, <a href="/tags/ai-in-china/">ai-in-china</a>, <a href="/tags/nvidia-spark/">nvidia-spark</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="quote segment" data-type="quotation" data-id="2332">
+  <blockquote cite="https://pauldix.com/the-end-of-programming"><p>The fact that AI wrote 1M LOC and then refined it over the course of the next couple of months to produce a reliable piece of software that is currently running on millions of developer machines is absolutely mind blowing. And you can say, “well it’s not that impressive because they had an oracle to compare against, so it was simple to go from one language to another”, but I think that’s selling this entire thing short. If you can build a verification system and give proper direction, AI can produce a highly complex, highly sophisticated piece of software and it can continue to refine it until it just works.</p></blockquote>
+  <p class="cite">&mdash; <a href="https://pauldix.com/the-end-of-programming">Paul Dix</a>, <span class="context">The end of programming</span></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/26/paul-dix/" rel="bookmark">#</a>
+    <a href="/2026/Aug/26/paul-dix/">8:07 am</a>
+     / <a href="/tags/coding-agents/">coding-agents</a>, <a href="/tags/ai-assisted-programming/">ai-assisted-programming</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/bun/">bun</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/llms/">llms</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 25, 2026</h3>
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9605">
+  <p><strong><a href="https://www.eveonline.com/news/view/the-move-to-python-3-begins">EVE Online: The Move to Python 3 Begins!</a></strong>
+    (<a href="https://lobste.rs/s/e1oalq/move_python_3_begins" title="Lobster.rs">via</a>)
+    EVE Online has been one of the most interesting case studies in Python at scale for over twenty years now.</p>
+<p>They've been running on <a href="https://github.com/stackless-dev/stackless/wiki/">Stackless Python</a> since their launch in 2003, and their last major upgrade was 16 years ago, to Stackless Python 2.7 <a href="https://www.eveonline.com/news/view/stackless-python-2.7">in 2010</a>.</p>
+<p>Their upgrade to Python 3 will start using the <a href="https://python-future.org/futurize.html">futurize</a> script against 2.4 million lines of code, followed by careful manual review of the ~20,000 places where Python 2 and 3 behavior differ - for example <code>1 / 2</code> is <code>0</code> in Python 2 but is <code>0.5</code> in Python 3.</p>
+<p>There's nothing in this announcement about how they plan to replace Stackless, but at their conference last year they presented <a href="https://youtu.be/-x299qHLQs0">Scheduling in Carbon: Leaving Stackless Python Behind</a> describing how they replaced Stackless in the Carbon engine for their more recent game EVE Frontier, using their (now open source) <a href="https://github.com/carbonengine/scheduler">carbonengine/scheduler</a> library.</p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/25/eve-online-move-to-python-3/" rel="bookmark">#</a>
+    <a href="/2026/Aug/25/eve-online-move-to-python-3/">10:59 pm</a>
+     / <a href="/tags/eve-online/">eve-online</a>, <a href="/tags/migrations/">migrations</a>, <a href="/tags/python/">python</a>, <a href="/tags/python3/">python3</a>, <a href="/tags/stackless/">stackless</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment beat-sighting" data-type="beat" data-id="4880">
+  <div class="beat-content">
+    <div class="beat-row1">
+      <a class="beat-label sighting" href="/elsewhere/sighting/">Sighting</a>
+      <span class="beat-title"><a href="/2026/Aug/25/sighting-394363840/">12:27 PM</a></span>
+      <span class="beat-commit">&mdash; Common Wood-Pigeon, in Devon, England, GB</span>
+    </div>
+    <captioned-image-gallery>
+      <figure><a href="https://static.inaturalist.org/photos/722970873/large.jpg"><img src="https://static.inaturalist.org/photos/722970873/small.jpg" alt="Common Wood-Pigeon" loading="lazy" data-width="2048" data-height="1365"></a><figcaption><a href="https://www.inaturalist.org/observations/394363840" title="View observation on iNaturalist">Common Wood-Pigeon</a></figcaption></figure><figure><a href="https://static.inaturalist.org/photos/722970905/large.jpg"><img src="https://static.inaturalist.org/photos/722970905/small.jpg" alt="Common Wood-Pigeon" loading="lazy" data-width="1365" data-height="2048"></a><figcaption><a href="https://www.inaturalist.org/observations/394363840" title="View observation on iNaturalist">Common Wood-Pigeon</a></figcaption></figure>
+    </captioned-image-gallery>
+    
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/25/sighting-394363840/" rel="bookmark">25th Aug 2026</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 24, 2026</h3>
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment" data-type="beat" data-id="4878">
+  
+  <div class="beat-content">
+    <div class="beat-row1">
+      
+        <a class="beat-label release" href="/elsewhere/release/">Release</a>
+      
+      <span class="beat-title"><a href="https://github.com/simonw/llm-anthropic/releases/tag/0.27">llm-anthropic 0.27</a></span>
+      
+    </div>
+    <div class="beat-note blogmark-body"><p>This release of the Anthropic plugin for <a href="https://llm.datasette.io/">LLM</a> mainly provides compatibility with the recently released <a href="https://github.com/anthropics/anthropic-sdk-python/releases/tag/v1.0.0">anthropic v1.0.0</a> Python library, which switches from <code>httpx</code> to <a href="https://github.com/pydantic/httpx2">httpx2</a>. OpenAI made the same change in their <a href="https://github.com/openai/openai-python/releases/tag/v3.0.0">v3.0.0 release</a> two weeks ago.</p>
+<p>Anthropic provide this <a href="https://github.com/anthropics/anthropic-sdk-python/blob/v1.0.0/MIGRATION.md">migration guide</a> for upgrading to 1.0, so I prompted Fable 5 in Claude Code with:</p>
+<blockquote>
+<p><code>Upgrade to anthropic&gt;=1 - read https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/refs/heads/main/MIGRATION.md and get the tests passing</code></p>
+</blockquote>
+<p>Here's <a href="https://github.com/simonw/llm-anthropic/pull/84">the resulting PR</a>.</p></div>
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/24/llm-anthropic/" rel="bookmark">24th Aug 2026, 4:27 pm</a> &middot; <a href="/tags/httpx/">httpx</a>, <a href="/tags/llm/">llm</a>, <a href="/tags/anthropic/">anthropic</a>, <a href="/tags/claude/">claude</a>, <a href="/tags/python/">python</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9603">
+  <p><strong><a href="https://fzakaria.com/2026/08/23/your-executable-is-a-sqlite-database">Your executable is a SQLite database</a></strong>
+    (<a href="https://news.ycombinator.com/item?id=49415271" title="Hacker News">via</a>)
+    Farid Zakaria describes a neat Linux pattern for creating a SQLite database file that can be directly used as an executable binary.</p>
+<p>The trick sets the SQLite file format's 4-byte application ID (68 bytes into the file) to SELF, standing for Structured Executable &amp; Linkable Format.  The various components of the ELF executable format are then arranged into a number of different SQLite tables, using <a href="https://github.com/fzakaria/selfdb/blob/main/schema/self.sql">this schema</a>.</p>
+<p>Their <code>self-exec</code> interpreter (<a href="https://github.com/fzakaria/selfdb/blob/main/loader/self-exec.c">C code here</a>) can then extract and execute the necessary pieces.</p>
+<p>You can additionally use a Linux mechanism called <a href="https://docs.kernel.org/admin-guide/binfmt-misc.html">binfmt_misc</a> to teach the kernel to execute that any time it encounters an executable matching that binary pattern. Farid uses NixOS here, but without NixOS I think registration looks something like this:</p>
+<pre><code>printf '%s\n' ':self:M:68:SELF::/usr/local/bin/self-exec:' \
+  &gt; /proc/sys/fs/binfmt_misc/register
+</code></pre></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/24/your-executable-is-a-sqlite-database/" rel="bookmark">#</a>
+    <a href="/2026/Aug/24/your-executable-is-a-sqlite-database/">11:38 am</a>
+     / <a href="/tags/c/">c</a>, <a href="/tags/linux/">linux</a>, <a href="/tags/sqlite/">sqlite</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment beat-sighting" data-type="beat" data-id="4877">
+  <div class="beat-content">
+    <div class="beat-row1">
+      <a class="beat-label sighting" href="/elsewhere/sighting/">Sighting</a>
+      <span class="beat-title"><a href="/2026/Aug/24/sighting-394071393/">10:47 AM – 11:33 AM</a></span>
+      <span class="beat-commit">&mdash; Great Cormorant, Grey Heron, in Devon, England, GB</span>
+    </div>
+    <captioned-image-gallery>
+      <figure><a href="https://static.inaturalist.org/photos/722391830/large.jpg"><img src="https://static.inaturalist.org/photos/722391830/small.jpg" alt="Great Cormorant" loading="lazy" data-width="1365" data-height="2048"></a><figcaption><a href="https://www.inaturalist.org/observations/394071393" title="View observation on iNaturalist">Great Cormorant</a></figcaption></figure><figure><a href="https://static.inaturalist.org/photos/722391867/large.jpg"><img src="https://static.inaturalist.org/photos/722391867/small.jpg" alt="Great Cormorant" loading="lazy" data-width="2048" data-height="1365"></a><figcaption><a href="https://www.inaturalist.org/observations/394071393" title="View observation on iNaturalist">Great Cormorant</a></figcaption></figure><figure><a href="https://static.inaturalist.org/photos/722397714/large.jpg"><img src="https://static.inaturalist.org/photos/722397714/small.jpg" alt="Grey Heron" loading="lazy" data-width="1365" data-height="2048"></a><figcaption><a href="https://www.inaturalist.org/observations/394073868" title="View observation on iNaturalist">Grey Heron</a></figcaption></figure>
+    </captioned-image-gallery>
+    
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/24/sighting-394071393/" rel="bookmark">24th Aug 2026</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 23, 2026</h3>
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9602">
+  <p><strong><a href="https://www.ft.com/content/5ee49718-c258-4f01-aa32-7e5b76ae5245">Anthropic’s best AI model struggles to attract users as cheaper tools thrive</a></strong>
+    (<a href="https://news.ycombinator.com/item?id=49411102" title="Hacker News">via</a>)
+    A few interesting numbers in this FT story gathered from "people with knowledge of the matter":</p>
+<ul>
+<li>Anthropic's "annualized revenue" for July is up to $65bn - it was $47bn in May, and I collected <a href="https://simonwillison.net/2026/May/29/anthropic/">more historic numbers here</a>.</li>
+<li>Anthropic expect Q3 to be profitable according to the same model they used to declare Q2 profitable. "It also told investors that it had 6,000 customers that spend $100,000 annually or more."</li>
+<li>As for OpenAI, "annualised revenue has jumped 35 per cent in the quarter to date and is now over $40bn, with the launch of GPT 5.6 in July jolting the company’s performance after a sluggish start to the year".</li>
+</ul>
+<p>This article also introduced me to the <a href="https://ramp.com/data/ai-index">Ramp AI index</a>, which uses billing data from 70,000 Ramp credit card using companies to estimate model adoption.</p>
+<p>Here's Ramp's breakdown of Anthropic model spend for July 2026, which looks reasonable given that Opus 5 was only released on July 24th, and supports the idea that Fable's cost has made it a less popular model:</p>
+<ol>
+<li>Opus 4.8: 28.0%</li>
+<li>Sonnet 4.6: 8.3%</li>
+<li>Fable 5: 8.0%</li>
+<li>Opus 4.6: 6.9%</li>
+<li>Sonnet 5: 3.6%</li>
+<li>Opus 5: 3.5%</li>
+<li>Opus 4.7: 1.7%</li>
+<li>Sonnet 4.5: 1.3%</li>
+<li>Haiku 4.5: 1.0%</li>
+<li>Opus 4.5: 0.7%</li>
+</ol></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/23/anthropics-best-ai-model-struggles-to-attract-users-as-cheaper-t/" rel="bookmark">#</a>
+    <a href="/2026/Aug/23/anthropics-best-ai-model-struggles-to-attract-users-as-cheaper-t/">8:24 pm</a>
+     / <a href="/tags/ai/">ai</a>, <a href="/tags/openai/">openai</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/anthropic/">anthropic</a>, <a href="/tags/claude/">claude</a>, <a href="/tags/claude-mythos-fable/">claude-mythos-fable</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="quote segment" data-type="quotation" data-id="2331">
+  <blockquote cite="https://www.dbreunig.com/2026/08/23/fable-the-end-of-moore-s-law.html"><p>Prior to Fable, it felt silly to waste <em>too</em> much time improving your coding harness or context strategies. A new model would arrive at the same price (or cheaper!) and paper over most of your problems.</p>
+<p>But then Fable landed. It was (and still is!) <em>incredible</em>. But the cost was so high and Opus was <em>good enough</em> (as was 5.6, K3, and even GLM) for <em>most</em> of the code we needed.</p>
+<p><em>So we started to think about what work went where.</em></p></blockquote>
+  <p class="cite">&mdash; <a href="https://www.dbreunig.com/2026/08/23/fable-the-end-of-moore-s-law.html">Drew Breunig</a>, <span class="context">Fable &amp; The End of the Free Lunch</span></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/23/drew-breunig/" rel="bookmark">#</a>
+    <a href="/2026/Aug/23/drew-breunig/">7:55 pm</a>
+     / <a href="/tags/drew-breunig/">drew-breunig</a>, <a href="/tags/anthropic/">anthropic</a>, <a href="/tags/claude/">claude</a>, <a href="/tags/llm-pricing/">llm-pricing</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/claude-mythos-fable/">claude-mythos-fable</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment beat-sighting" data-type="beat" data-id="4875">
+  <div class="beat-content">
+    <div class="beat-row1">
+      <a class="beat-label sighting" href="/elsewhere/sighting/">Sighting</a>
+      <span class="beat-title"><a href="/2026/Aug/23/sighting-393763247/">1:52 PM – 1:57 PM</a></span>
+      <span class="beat-commit">&mdash; European Herring Gull, Eurasian Jackdaw, in Devon, England, GB</span>
+    </div>
+    <captioned-image-gallery>
+      <figure><a href="https://static.inaturalist.org/photos/721786008/large.jpg"><img src="https://static.inaturalist.org/photos/721786008/small.jpg" alt="European Herring Gull" loading="lazy" data-width="2048" data-height="1365"></a><figcaption><a href="https://www.inaturalist.org/observations/393763309" title="View observation on iNaturalist">European Herring Gull</a></figcaption></figure><figure><a href="https://static.inaturalist.org/photos/721785815/large.jpg"><img src="https://static.inaturalist.org/photos/721785815/small.jpg" alt="Eurasian Jackdaw" loading="lazy" data-width="2048" data-height="1365"></a><figcaption><a href="https://www.inaturalist.org/observations/393763247" title="View observation on iNaturalist">Eurasian Jackdaw</a></figcaption></figure>
+    </captioned-image-gallery>
+    
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/23/sighting-393763247/" rel="bookmark">23rd Aug 2026</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 22, 2026</h3>
+
+
+
+
+
+
+<div class="quote segment" data-type="quotation" data-id="2330">
+  <blockquote cite="https://github.com/torvalds/linux/commit/818bebeb63dd6bf5f4e07e145f6cdbace520a34c"><p>And this was a debug session from hell, enormously helped by an AI doing much of the grunt-work.</p>
+<p>I'd like to call it my tireless helper, but the AI several times stated flat out that this was impossible and unsolvable and that we should just write a report about it.</p>
+<p>I suspect those things have been trained by people who may not be quite as stubborn as I am.</p>
+<p>But while the AI was ready to give up several times, it did keep adding debug code and analyzing it faithfully when I pushed. So credit where credit is due and I let the AI write the commit message above.</p></blockquote>
+  <p class="cite">&mdash; <a href="https://github.com/torvalds/linux/commit/818bebeb63dd6bf5f4e07e145f6cdbace520a34c">Linus Torvalds</a>, <span class="context">drm/xe: Don't hand out the flat CCS storage as usable VRAM</span></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/22/linus-torvalds/" rel="bookmark">#</a>
+    <a href="/2026/Aug/22/linus-torvalds/">9:04 pm</a>
+     / <a href="/tags/linus-torvalds/">linus-torvalds</a>, <a href="/tags/linux/">linux</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/ai-assisted-programming/">ai-assisted-programming</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/llms/">llms</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment" data-type="beat" data-id="4874">
+  
+  <div class="beat-content">
+    <div class="beat-row1">
+      
+        <a class="beat-label release" href="/elsewhere/release/">Release</a>
+      
+      <span class="beat-title"><a href="https://github.com/simonw/llm/releases/tag/0.33">llm 0.33</a></span>
+      
+    </div>
+    <div class="beat-note blogmark-body"><p>My highlights from this release:</p>
+<blockquote>
+<ul>
+<li>Upgraded to the OpenAI Python library 3.x and switched the HTTP client dependency from <code>httpx</code> to <code>httpx2</code>. <a href="https://github.com/simonw/llm/issues/1608">#1608</a>, <a href="https://github.com/simonw/llm/pull/1631">#1631</a></li>
+</ul>
+</blockquote>
+<p>I shipped a quick <a href="https://simonwillison.net/2026/Aug/21/llm/">0.32.1 fix</a> for this yesterday, but this is the more comprehensive fix.</p>
+<blockquote>
+<ul>
+<li><code>llm embed</code> and <code>llm embed-multi</code> now accept <code>--key</code>. The Python <code>EmbeddingModel.embed()</code>, <code>EmbeddingModel.embed_multi()</code>, <code>Collection.embed()</code> and <code>Collection.embed_multi()</code> methods accept <code>key=</code> too, passing the resolved per-call key to embedding plugins without changing shared model state. Existing plugins that read <code>self.key</code> continue to work through a compatibility fallback. Thanks, <a href="https://github.com/ChrisJr404">ChrisJr404</a>. <a href="https://github.com/simonw/llm/issues/757">#757</a>, <a href="https://github.com/simonw/llm/pull/1620">#1620</a></li>
+</ul>
+</blockquote>
+<p>The embedding models now use the same pattern for keys that regular LLM models do.</p>
+<blockquote>
+<ul>
+<li><code>llm prompt -t/--template</code> can now be repeated to combine templates in order. This allows model configuration and options from one template to be used with a prompt from another.</li>
+</ul>
+</blockquote>
+<p>This unlocks a neat pattern where you can create templates that package a model with a set of default options:</p>
+<pre><code>llm -m gpt-5.6-luna -o reasoning_effort high --save lhigh
+llm "Generate an SVG of a pelican riding a bicycle" --save pelican
+# Combine and run the templates
+llm -t lhigh -t pelican
+</code></pre>
+<blockquote>
+<ul>
+<li>Reasoning-capable Responses API models now support a <code>reasoning_summary</code> option with <code>auto</code>, <code>concise</code>, and <code>detailed</code> values. This can be used with <a href="https://llm.datasette.io/en/stable/other-models.html#openai-endpoint">llm openai endpoint --responses</a>. <a href="https://github.com/simonw/llm/issues/1600">#1600</a></li>
+</ul>
+</blockquote>
+<p>This is particularly useful for exercising different models that provide their own imitation of the OpenAI Responses API.</p></div>
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/22/llm/" rel="bookmark">22nd Aug 2026, 5:01 pm</a> &middot; <a href="/tags/annotated-release-notes/">annotated-release-notes</a>, <a href="/tags/llm/">llm</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="note segment" data-type="note" data-id="563">
+  <p>The key skill required to make productive use of coding agents is being able to confidently instruct them on how to make changes and then confidently verify that those changes have been applied in the correct way.</p>
+<p>Sometimes this involves reviewing every line of code they have written, but there are other ways to achieve that goal. Eyeballing every line of code has never been the most effective way to validate a change to a piece of software.</p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/22/more-than-just-code-review/" rel="bookmark">#</a>
+    <a href="/2026/Aug/22/more-than-just-code-review/">3:56 pm</a>
+     / <a href="/tags/code-review/">code-review</a>, <a href="/tags/coding-agents/">coding-agents</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/agentic-engineering/">agentic-engineering</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/llms/">llms</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 21, 2026</h3>
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment" data-type="beat" data-id="4872">
+  
+  <div class="beat-content">
+    <div class="beat-row1">
+      
+        <a class="beat-label release" href="/elsewhere/release/">Release</a>
+      
+      <span class="beat-title"><a href="https://github.com/simonw/llm/releases/tag/0.32.1">llm 0.32.1</a></span>
+      
+    </div>
+    <div class="beat-note blogmark-body"><p>Fresh installs of LLM stopped working the other day because the OpenAI Python library dropped its usage of <code>httpx</code>, and it turned out LLM depended on that library but only installed it via a transitive <code>openai</code> dependency.</p>
+<p>This dot-release fixes that for the moment by pinning to <code>openai&lt;3</code>, and a soon-to-drop 0.33 release will switch from <code>httpx</code> to <a href="https://github.com/pydantic/httpx2">httpx2</a>.</p></div>
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/21/llm/" rel="bookmark">21st Aug 2026, 5:16 pm</a> &middot; <a href="/tags/httpx/">httpx</a>, <a href="/tags/openai/">openai</a>, <a href="/tags/llm/">llm</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment" data-type="beat" data-id="4873">
+  
+  <div class="beat-content">
+    <div class="beat-row1">
+      
+        <a class="beat-label release" href="/elsewhere/release/">Release</a>
+      
+      <span class="beat-title"><a href="https://github.com/simonw/llm-openrouter/releases/tag/0.7">llm-openrouter 0.7</a></span>
+      
+    </div>
+    <div class="beat-note blogmark-body"><p>Now that this plugin is compatible with <a href="https://simonwillison.net/2026/Aug/4/new-release-of-llm/">LLM 0.32</a> it can display the reasoning traces for LLMs available through OpenRouter.</p>
+<blockquote>
+<ul>
+<li>Updated for compatibility with <a href="https://llm.datasette.io/en/stable/changelog.html#v0-32">LLM 0.32</a>.</li>
+<li>Models now use OpenRouter's implementation of the <a href="https://openrouter.ai/docs/api_reference/responses/overview">Responses API</a>.</li>
+<li>Three new server-side tools: <a href="https://github.com/simonw/llm-openrouter#shell">Shell</a>, <a href="https://github.com/simonw/llm-openrouter#web-fetch">WebFetch</a>, and <a href="https://github.com/simonw/llm-openrouter#web-search">WebSearch</a>. Enable these with options like <code>-T WebSearch</code>.</li>
+</ul>
+</blockquote></div>
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/21/llm-openrouter/" rel="bookmark">21st Aug 2026, 4:58 pm</a> &middot; <a href="/tags/openrouter/">openrouter</a>, <a href="/tags/llm/">llm</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9601">
+  <p><strong><a href="https://sockpuppet.org/blog/2026/08/20/stop-making-tuis/">Stop Making TUIs</a></strong>.
+    Thomas Ptacek advocates for building real native user interfaces for even the smallest of personal tools, because coding agents have reduced the cost of getting a usable-enough GUI up and running to almost nothing.</p>
+<p>I wrote about my vibe-coded bandwidth and GPU monitoring macOS task bar apps <a href="https://simonwillison.net/2026/Mar/27/vibe-coding-swiftui/">back in March</a>, and I'm still using both of those on a daily basis.</p>
+<p>I'm not habitually knocking out real UIs for my other projects yet, but I'm running out of excuses!</p>
+<p>Thomas:</p>
+<blockquote>
+<p>If you haven’t tried your hand at turning one of your 500 throwaway CLIs into a native app, you’re doing yourself a disservice. Go build a native UI. It’ll probably change the way you think.</p>
+</blockquote></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/21/stop-making-tuis/" rel="bookmark">#</a>
+    <a href="/2026/Aug/21/stop-making-tuis/">4:07 pm</a>
+     / <a href="/tags/thomas-ptacek/">thomas-ptacek</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/vibe-coding/">vibe-coding</a>, <a href="/tags/coding-agents/">coding-agents</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="quote segment" data-type="quotation" data-id="2329">
+  <blockquote cite="https://interconnected.org/home/2026/08/21/galactic"><p>After I released version 1.0, I figured I would have to do the rotations myself. So I sat down with ChatGPT and I didn’t get it to write the code, but I got it to educate me. With a patient, interactive tutor, I was able to finally do what I hadn’t by reading books and asking mathematician friends – I learnt how to use quaternions just enough to make the app work.</p>
+<p>So learning doesn’t stop just because I outsource a bunch of thinking to AI. It pushes me to learn more. I like that as an outcome.</p></blockquote>
+  <p class="cite">&mdash; <a href="https://interconnected.org/home/2026/08/21/galactic">Matt Webb</a>, <span class="context">Galactic Compass 2: now with new augmented reality mode</span></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/21/matt-webb/" rel="bookmark">#</a>
+    <a href="/2026/Aug/21/matt-webb/">3:06 pm</a>
+     / <a href="/tags/matt-webb/">matt-webb</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/chatgpt/">chatgpt</a>, <a href="/tags/education/">education</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/llms/">llms</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment beat-sighting" data-type="beat" data-id="4871">
+  <div class="beat-content">
+    <div class="beat-row1">
+      <a class="beat-label sighting" href="/elsewhere/sighting/">Sighting</a>
+      <span class="beat-title"><a href="/2026/Aug/21/sighting-393274664/">1:58 PM – 2:08 PM</a></span>
+      <span class="beat-commit">&mdash; Great Cormorant, Grey Heron, in Devon, England, GB</span>
+    </div>
+    <captioned-image-gallery>
+      <figure><a href="https://static.inaturalist.org/photos/720825944/large.jpg"><img src="https://static.inaturalist.org/photos/720825944/small.jpg" alt="Great Cormorant" loading="lazy" data-width="2048" data-height="1365"></a><figcaption><a href="https://www.inaturalist.org/observations/393274664" title="View observation on iNaturalist">Great Cormorant</a></figcaption></figure><figure><a href="https://static.inaturalist.org/photos/720827986/large.jpg"><img src="https://static.inaturalist.org/photos/720827986/small.jpg" alt="Grey Heron" loading="lazy" data-width="2048" data-height="1365"></a><figcaption><a href="https://www.inaturalist.org/observations/393275569" title="View observation on iNaturalist">Grey Heron</a></figcaption></figure>
+    </captioned-image-gallery>
+    
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/21/sighting-393274664/" rel="bookmark">21st Aug 2026</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 20, 2026</h3>
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9600">
+  <p><strong><a href="https://promptwatch.com/data/chatgpt-site-operator-fanouts">ChatGPT search now uses the site:operator at scale</a></strong>.
+    Promptwatch is part of the emerging "GEO" space, for Generative Engine Optimization - the chatbot version of SEO, where companies offer tools and consulting to help your site increase its presence in replies to prompts inside tools like ChatGPT.</p>
+<p>The Promptwatch product uses automation to track responses to prompts across end-user chat products like ChatGPT, Claude, and Gemini. They publish aggregate reports on this as part of their own content marketing strategy, which do seem to provide credible hints as to otherwise invisible design changes to those products.</p>
+<p>Their own tracking shows a notable change aligned with the GPT-5.6 rollout earlier this month:</p>
+<blockquote>
+<p>The percentage of all ChatGPT Search fanout queries that contain the site:operator, per day. The share hovered between 0.3% and 0.5% for weeks, dipped briefly to 0.15% on August 3 to 5 (consistent with a staged rollout or pre-launch experiment), then jumped to 16-17% on August 8.</p>
+</blockquote>
+<p>It's important to note that these figures only reflect the prompts for which they have automated tracking enabled.</p>
+<p>This corresponds to OpenAI's somewhat vague <a href="https://openai.com/index/improving-gpt-5-6-sol-in-chatgpt/">August 6th announcement</a>:</p>
+<blockquote>
+<p>For Plus and Pro users, we’re updating GPT‑5.6 Sol in Chat to be more reliable with facts and provide more focused answers.</p>
+</blockquote>
+<p>Once again I am hampered by OpenAI's decision to actively obscure their system prompts, but from poking at ChatGPT I believe their latest search tool has a shape like <code>search(query, recency, domains)</code> rather than encouraging a <code>site:</code> operator directly.</p>
+<p>In <a href="https://promptwatch.com/data/reddit-citations-are-dropping-in-chatgpt">a follow-up</a> on August 18th Promptwatch reported that ChatGPT appeared to have greatly reduced the likelihood of Reddit being used in those searches. My own attempts to ascertain if the system prompt has been updated to discourage Reddit sourcing have been unsuccessful - the <a href="https://github.com/asgeirtj/system_prompts_leaks/commits/main/OpenAI">most thorough leaked system prompt</a> collection I know of doesn't yet show any relevant changes.</p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/20/chatgpt-search-now-uses-the-siteoperator-at-scale/" rel="bookmark">#</a>
+    <a href="/2026/Aug/20/chatgpt-search-now-uses-the-siteoperator-at-scale/">11:57 pm</a>
+     / <a href="/tags/reddit/">reddit</a>, <a href="/tags/seo/">seo</a>, <a href="/tags/openai/">openai</a>, <a href="/tags/chatgpt/">chatgpt</a>, <a href="/tags/ai-assisted-search/">ai-assisted-search</a>, <a href="/tags/system-prompts/">system-prompts</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment" data-type="beat" data-id="4869">
+  
+  <div class="beat-content">
+    <div class="beat-row1">
+      
+        <a class="beat-label research" href="/elsewhere/research/">Research</a>
+      
+      <span class="beat-title"><a href="https://github.com/simonw/research/tree/main/bun-webview-json-api#readme">A shot-scraper-style JSON API on Bun 1.4&#x27;s new Bun.WebView</a></span>
+      
+    </div>
+    <div class="beat-note blogmark-body"><p>Today saw the long awaited <a href="https://bun.com/blog/bun-v1.4">release of Bun 1.4</a>, the first stable version since the infamous Rust rewrite <a href="https://simonwillison.net/2026/Jul/8/rewriting-bun-in-rust/">a few months ago</a>.</p>
+<p>Interestingly, the Rust rewrite was downplayed in the release notes, which introduced a bewildering array of new features and claimed 2,900 additional bug fixes:</p>
+<blockquote>
+<p>Bun 1.4 adds +1,517 tests from the Node.js test suite - our biggest jump in Node.js compatibility since Bun 1.0. Bun v1.4 also fixes over 2,900 issues. It reduces idle CPU usage by 5x, reduces memory usage by up to 35%, and starts 50% faster on Linux. It adds <a href="https://bun.com/blog/bun-v1.4#bun-image"><code>Bun.Image</code></a>, <a href="https://bun.com/blog/bun-v1.4#bun-webview"><code>Bun.WebView</code></a>, <a href="https://bun.com/blog/bun-v1.4#bun-markdown"><code>Bun.markdown</code></a>, <a href="https://bun.com/blog/bun-v1.4#bun-cron"><code>Bun.cron()</code></a>, <a href="https://bun.com/blog/bun-v1.4#bun-terminal"><code>Bun.Terminal</code></a>, <a href="https://bun.com/blog/bun-v1.4#bun-run-parallel"><code>bun run --parallel</code></a>, <a href="https://bun.com/blog/bun-v1.4#bun-test-parallel"><code>bun test --parallel</code></a>, <a href="https://bun.com/blog/bun-v1.4#bun-audit-fix"><code>bun audit fix</code></a>, <a href="https://bun.com/blog/bun-v1.4#bun-dedupe"><code>bun dedupe</code></a>, and <a href="https://bun.com/blog/bun-v1.4#bun-prune"><code>bun prune</code></a>. And it rewrites Bun from Zig to Rust.</p>
+</blockquote>
+<p>Of these the one that most caught my eye was <code>Bun.WebView</code>, which adds first class support for browser automation to Bun core using either macOS WebKit or control of a local Chromium process via the Chrome DevTools Protocol (CDP).</p>
+<p>I had Claude Code for web build a prototype of a web API providing the ability to load a web page and then execute JavaScript against it, inspired by my <a href="https://shot-scraper.datasette.io/en/stable/javascript.html">shot-scraper javascript</a> CLI tool - partly to see how much RAM would be needed by such a service.</p>
+<p>Here's <a href="https://github.com/simonw/research/blob/main/bun-webview-json-api/server.ts">that TypeScript server implementation</a>, which appears to need a 192MB-256MB container to run a full Chrome against complex web pages - tested using cgroups.</p></div>
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/20/bun-webview-json-api/" rel="bookmark">20th Aug 2026, 3:37 pm</a> &middot; <a href="/tags/bun/">bun</a>, <a href="/tags/javascript/">javascript</a>, <a href="/tags/browsers/">browsers</a>, <a href="/tags/rust/">rust</a>, <a href="/tags/coding-agents/">coding-agents</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/typescript/">typescript</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/llms/">llms</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 19, 2026</h3>
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment" data-type="beat" data-id="4868">
+  
+  <div class="beat-content">
+    <div class="beat-row1">
+      
+        <a class="beat-label research" href="/elsewhere/research/">Research</a>
+      
+      <span class="beat-title"><a href="https://github.com/simonw/research/tree/main/smolmachines-untrusted-sandbox#readme">smolmachines / smolvm as a sandbox for untrusted Python &amp; JavaScript</a></span>
+      
+    </div>
+    <div class="beat-note blogmark-body"><p>I tasked Claude Fable 5 running in Claude Code for web with the following research task:</p>
+<blockquote>
+<p><code>Put https://smolmachines.com through its paces as a fast secure sandbox. Explore what it would take to use this to run untrusted Python and JavaScript code in a way that is limited in what RAM and CPU time it can take up (protection against "while true") with no network access and filesystem access only to designated files</code></p>
+<p><code>Goal is to be able to use this to execute user-provided tasks for things like data transformations</code></p>
+</blockquote>
+<p>It quickly ran into a problem: the Claude Code for web environment can't run <a href="https://smolmachines.com">smol machines</a>. Quoting the <a href="https://github.com/simonw/research/blob/5e6861e54441472d194de96b49b901fd99ebc153/smolmachines-untrusted-sandbox/notes.md#environment-check">notes it wrote</a>:</p>
+<blockquote>
+<ul>
+<li>This Claude Code container: Linux 6.18.5-fc-v20 (itself a Firecracker guest), 4 vCPU, 15GB RAM. <strong>No /dev/kvm, no vmx/svm CPU flags</strong> → no nested virt.</li>
+<li><code>smolvm machine run</code> fails as expected: "kvm not available".</li>
+<li>Plan B: GitHub Actions ubuntu runners DO expose /dev/kvm → run the real test battery via a temporary workflow on this branch, collect logs, remove workflow in final commit.</li>
+</ul>
+</blockquote>
+<p>And Plan B is <a href="https://github.com/simonw/research/blob/5e6861e54441472d194de96b49b901fd99ebc153/.github/workflows/smolvm-sandbox-test.yml">what it did</a>, installing smolvm and running <a href="https://github.com/simonw/research/blob/5e6861e54441472d194de96b49b901fd99ebc153/smolmachines-untrusted-sandbox/run-tests.sh">these tests</a> directly in a GitHub Actions runner against that branch.</p>
+<p>That was a creative solution to the environmental limits posed by Claude Code for web. Another example of Fable being <a href="https://simonwillison.net/2026/Jun/11/fable-is-relentlessly-proactive/">relentlessly proactive</a>.</p></div>
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/19/smolmachines-untrusted-sandbox/" rel="bookmark">19th Aug 2026, 11:16 pm</a> &middot; <a href="/tags/research/">research</a>, <a href="/tags/github-actions/">github-actions</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/sandboxing/">sandboxing</a>, <a href="/tags/claude-mythos-fable/">claude-mythos-fable</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/coding-agents/">coding-agents</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="quote segment" data-type="quotation" data-id="2328">
+  <blockquote cite="https://jeremymorrell.dev/blog/extensible-software-in-the-age-of-llms/"><p>My hypothesis is that <strong>there is a new opportunity for Extensible Software on the web</strong>. LLMs radically lower the cost of authoring extensions, and modern sandbox primitives lower the deployment cost and provide good security boundaries. We can build our app as a solid, accountable core, and allow users to safely extend it in many directions by having LLMs fill in the missing pieces. <strong>We can give our users super powers.</strong></p></blockquote>
+  <p class="cite">&mdash; <a href="https://jeremymorrell.dev/blog/extensible-software-in-the-age-of-llms/">Jeremy Morrell</a>, <span class="context">Extensible Software in the age of LLMs</span></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/19/jeremy-morrell/" rel="bookmark">#</a>
+    <a href="/2026/Aug/19/jeremy-morrell/">10:56 pm</a>
+     / <a href="/tags/sandboxing/">sandboxing</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/generative-ai/">generative-ai</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+<div class="entry segment" data-type="entry" data-id="9437">
+  <h3><a href="/2026/Aug/19/conceptual-integrity-and-counting-lines-of-code/" rel="bookmark">Conceptual integrity and counting lines of code</a></h3>
+  
+  <p>
+    <p>Last week I recorded <a href="https://talkingpostgres.com/episodes/how-ai-is-changing-software-development-with-simon-willison">an episode of the Talking Postgres podcast</a> with Claire Giordano on the subject of “How AI is changing software development”. We had a really great conversation. Here are a couple of my highlights from a lightly edited transcript (prompt to Claude: “very minor edits to remove disfluencies”).</p>
+
+    <span style="font-size: 0.9em">[... <a href="/2026/Aug/19/conceptual-integrity-and-counting-lines-of-code/">610 words</a>]</span>
+  </p>
+  <div class="entryFooter">
+  <a href="/2026/Aug/19/conceptual-integrity-and-counting-lines-of-code/" title="Permalink for &quot;Conceptual integrity and counting lines of code&quot;">10:46 pm</a> / <a href="/tags/ai/">ai</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/podcast-appearances/">podcast-appearances</a>, <a href="/tags/coding-agents/">coding-agents</a>
+  </div>
+</div> <!-- end div.entry -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment beat-sighting" data-type="beat" data-id="4870">
+  <div class="beat-content">
+    <div class="beat-row1">
+      <a class="beat-label sighting" href="/elsewhere/sighting/">Sighting</a>
+      <span class="beat-title"><a href="/2026/Aug/19/sighting-393259092/">2:16 PM – 2:25 PM</a></span>
+      <span class="beat-commit">&mdash; Carrion Crow, European Fallow Deer, in Hackney, England, GB</span>
+    </div>
+    <captioned-image-gallery>
+      <figure><a href="https://static.inaturalist.org/photos/720795182/large.jpg"><img src="https://static.inaturalist.org/photos/720795182/small.jpg" alt="Carrion Crow" loading="lazy" data-width="2048" data-height="1536"></a><figcaption><a href="https://www.inaturalist.org/observations/393259092" title="View observation on iNaturalist">Carrion Crow</a></figcaption></figure><figure><a href="https://static.inaturalist.org/photos/720795339/large.jpg"><img src="https://static.inaturalist.org/photos/720795339/small.jpg" alt="European Fallow Deer" loading="lazy" data-width="1536" data-height="2048"></a><figcaption><a href="https://www.inaturalist.org/observations/393259182" title="View observation on iNaturalist">European Fallow Deer</a></figcaption></figure>
+    </captioned-image-gallery>
+    
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/19/sighting-393259092/" rel="bookmark">19th Aug 2026</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 18, 2026</h3>
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9599">
+  <p><strong><a href="https://www.modular.com/blog/mojo-open-source">Mojo🔥 is now open source</a></strong>
+    (<a href="https://lobste.rs/s/01lxuf/mojo_is_now_open_source" title="Lobste.rs">via</a>)
+    The Mojo programming language has been promising an open source release <a href="https://simonwillison.net/2023/May/4/mojo/">since May 2023</a>. Last week they <a href="https://www.modular.com/blog/modular-26-5-mojo-1-0-is-here">shipped their 1.0</a> and today they have followed through on that original promise, releasing the compiler and toolchain under an Apache 2 license.</p>
+<p>When Mojo first launched the stated goal was to produce a superset of Python, so existing Python code could be used to bootstrap their own ecosystem. That plan changed <a href="https://forum.modular.com/t/mojo-vision-document-and-roadmap/2187">around August 2025</a>:</p>
+<blockquote>
+<p>Mojo may or may not evolve into a full superset of Python, and it’s okay if it doesn’t.</p>
+<p>We’re encouraged by how well AI-assisted coding tools already help migrate Python to Mojo today, and we’re confident that future tooling and ecosystem maturity will make this evolution even smoother.</p>
+</blockquote>
+<p>Today Mojo is its own language, optimized to make GPU programming as painless as possible using syntax inspired by Python, if not 100% compatible with existing code.</p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/18/mojo-is-now-open-source/" rel="bookmark">#</a>
+    <a href="/2026/Aug/18/mojo-is-now-open-source/">9:39 pm</a>
+     / <a href="/tags/open-source/">open-source</a>, <a href="/tags/python/">python</a>, <a href="/tags/mojo/">mojo</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 17, 2026</h3>
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9598">
+  <p><strong><a href="https://artificialanalysis.ai/models/qwen3-8-27b">Qwen 3.8 27B scores 52 on the Artificial Analysis Intelligence Index</a></strong>
+    (<a href="https://news.ycombinator.com/item?id=49334544" title="Hacker News">via</a>)
+    That's the same score as GPT-5.6 Luna (max), and just one point behind GLM-5.2 (max) and DeepSeek V4 Pro 0813 (max) - that GLM is <a href="https://huggingface.co/zai-org/GLM-5.2">753B</a> and that DeepSeek is <a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813">1.7T parameters</a>, and Luna is size unknown but presumably a whole lot bigger than 27B.</p>
+<p>Qwen 3.8 27B is <a href="https://simonwillison.net/2026/Aug/16/qwen-38-27b/">a truly astonishing model</a>.</p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/17/qwen-38-27b-scores-52/" rel="bookmark">#</a>
+    <a href="/2026/Aug/17/qwen-38-27b-scores-52/">11:58 pm</a>
+     / <a href="/tags/ai/">ai</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/qwen/">qwen</a>, <a href="/tags/ai-in-china/">ai-in-china</a>, <a href="/tags/artificial-analysis/">artificial-analysis</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="blogmark segment" data-type="blogmark" data-id="9597">
+  <p><strong><a href="https://www.404media.co/we-tracked-a-shipment-of-rare-books-it-ended-at-an-amazon-ai-training-facility/">We Tracked a Shipment of Rare Books. It Ended at an Amazon AI Training Facility</a></strong>.
+    Excellent piece of reporting from 404 Media. For a while now there have been stories of book dealers receiving orders for large volumes of books from apparently price-insensitive anonymous customers, widely suspected to be companies looking to scan them for AI training (see <a href="https://simonwillison.net/2025/Jun/24/anthropic-training/">my previous coverage</a> of Anthropic's book scanning from June 2025.)</p>
+<p>404 Media investigated with an AirTag!</p>
+<blockquote>
+<p>In July, one bookseller told me they received a very large order of around 1,000 books on Biblio, one of these marketplaces. The seller agreed to put an Apple AirTag provided by 404 Media in one of the books included in this order so we could see where the book was going. And by extension, which company, AI or otherwise, was behind this massive order.</p>
+</blockquote>
+<p>The book ended up delivered to the VGT3 corner of the <a href="https://maps.app.goo.gl/2hMqbHrovTSZxh1U9">LAS8 Amazon facility</a> in the north east of Las Vegas, where the entrance carried this on-the-nose logo of a dinosaur with a book!</p>
+<p><img alt="Photo of an office entrance. A logo in the window shows a red tyrannosaurus with a book, its claws clearly digging in and with a hint that it is more interested in destruction than reading." src="https://static.simonwillison.net/static/2026-08-17/IMG_7418.jpeg" /></p>
+<p style="margin-top: -1em"><small>Photo credit: 404 Media</small></p>
+
+<p>Online forum discussions between Amazon workers confirmed that VGT3 destructively scans large volumes of books.</p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/17/we-tracked-a-shipment-of-rare-books-it-ended-at-an-amazon-ai-tra/" rel="bookmark">#</a>
+    <a href="/2026/Aug/17/we-tracked-a-shipment-of-rare-books-it-ended-at-an-amazon-ai-tra/">3:21 pm</a>
+     / <a href="/tags/amazon/">amazon</a>, <a href="/tags/journalism/">journalism</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/training-data/">training-data</a>, <a href="/tags/ai-ethics/">ai-ethics</a>, <a href="/tags/404-media/">404-media</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 16, 2026</h3>
+
+
+
+
+
+
+
+<div class="note segment" data-type="note" data-id="562">
+  <p>I started building my <a href="https://tools.simonwillison.net/markdown-svg-renderer">markdown-svg-renderer</a> tool <a href="https://tools.simonwillison.net/colophon#markdown-svg-renderer.html">in May</a>, but I've since added enough features to it that it's worth talking about here again.</p>
+<p>It's evolved into my ideal tool for sharing Markdown transcripts that include SVG documents. Given my <a href="https://simonwillison.net/tags/pelican-riding-a-bicycle/">proclivity for drawing pelicans riding bicycles</a> this is a problem that I needed to solve!</p>
+<p>The tool is very simple. Navigate to <a href="https://tools.simonwillison.net/markdown-svg-renderer">markdown-svg-renderer</a> in your browser and paste in some Markdown to see it rendered... or save that Markdown to a CORS-friendly URL or a GitHub Gist and paste in a URL to that document.</p>
+<p>The URL option will give you a bookmarkable page, for example <a style="overflow-wrap: anywhere;" href="https://tools.simonwillison.net/markdown-svg-renderer#url=https%3A%2F%2Fgist.github.com%2Fsimonw%2F6f9e48293be5c916652d29f0dc0b0657">https://tools.simonwillison.net/markdown-svg-renderer#url=https%3A%2F%2Fgist.github.com%2Fsimonw%2F6f9e48293be5c916652d29f0dc0b0657</a> - which bakes in the URL to <a href="https://gist.github.com/simonw/6f9e48293be5c916652d29f0dc0b0657">this Gist</a>.</p>
+<p>If you visit <a href="https://gist.github.com/simonw/6f9e48293be5c916652d29f0dc0b0657">the Gist</a> you'll see raw SVG:</p>
+<p><img alt="beautiful-circle.md. Here's a self-contained SVG — a &quot;compass study&quot; of a circle with construction lines, a slowly rotating tick ring, and an orbiting accent dot: a block of SVG code" src="https://static.simonwillison.net/static/2026/raw-svg.webp" /></p>
+<p>In the rendered tool that <a href="https://tools.simonwillison.net/markdown-svg-renderer#url=https%3A%2F%2Fgist.github.com%2Fsimonw%2F6f9e48293be5c916652d29f0dc0b0657">looks like this</a> instead:</p>
+<p><img alt="The same text, but now the code block has been replaced by a tabbed panel. The selected tab reads &quot;Rendered&quot; and shows the rendered PNG. The other tabs are PNG, JPEG, MP4, and Code" src="https://static.simonwillison.net/static/2026/rendered-svg.webp" /></p>
+<p>As you can see, that SVG block in the Markdown has been transformed into a rendered SVG (in this case animated) plus several tabs.</p>
+<p>The tabs are the really fun bit. The PNG and JPEG tabs render that SVG to those image formats in the browser and lets you copy or download them - useful for sharing on platforms that don't support SVG directly.</p>
+<p>The MP4 tab is <a href="https://github.com/simonw/tools/commit/73e0327f6df9887ba2a9f9f16a2d06a45451d248">new today</a> - it examines the SVG to see if it contains any animations, attempts to guess how long the looped video should be, then renders a whole bunch of frames of the animation and loads 30+MB of <a href="https://github.com/ffmpegwasm/ffmpeg.wasm">ffmpeg.wasm</a> so it can compile those frames into an MP4 video using the full power of FFMPEG compiled to WebAssembly and running in the browser.</p>
+<p>Being able to turn an animated SVG into a MP4 again makes it easy to share on platforms that can't support SVG animation natively. It's a neat trick!</p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/16/markdown-svg-upgrades/" rel="bookmark">#</a>
+    <a href="/2026/Aug/16/markdown-svg-upgrades/">11:59 pm</a>
+     / <a href="/tags/svg/">svg</a>, <a href="/tags/markdown/">markdown</a>, <a href="/tags/tools/">tools</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+
+
+<div class="entry segment" data-type="entry" data-id="9436">
+  <h3><a href="/2026/Aug/16/qwen-38-27b/" rel="bookmark">Qwen 3.8 27B is excellent, but it defaults to wildly overthinking things</a></h3>
+  
+    <div class="card-container">
+      <a href="/2026/Aug/16/qwen-38-27b/"><img src="https://static.simonwillison.net/static/2026/qwen-thinking-bicycle-27b.jpg" alt="Visit Qwen 3.8 27B is excellent, but it defaults to wildly overthinking things"></a>
+    </div>
+  
+  <p>
+    <p>Friday’s big release was <a href="https://huggingface.co/Qwen/Qwen3.8-27B">Qwen 3.8 27B</a>, an Apache 2 licensed 27B parameter vision-capable LLM from Alibaba’s Qwen research lab. I’ve been looking forward to this one: 27B is an excellent size for running a model on a reasonably specced laptop, and its predecessor <a href="https://simonwillison.net/2026/Apr/22/qwen36-27b/">Qwen 3.6 27B</a> was impressive.</p>
+
+    <span style="font-size: 0.9em">[... <a href="/2026/Aug/16/qwen-38-27b/">2,543 words</a>]</span>
+  </p>
+  <div class="entryFooter">
+  <a href="/2026/Aug/16/qwen-38-27b/" title="Permalink for &quot;Qwen 3.8 27B is excellent, but it defaults to wildly overthinking things&quot;">10 pm</a> / <a href="/tags/ai/">ai</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/local-llms/">local-llms</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/qwen/">qwen</a>, <a href="/tags/pelican-riding-a-bicycle/">pelican-riding-a-bicycle</a>, <a href="/tags/llm-reasoning/">llm-reasoning</a>, <a href="/tags/llama-cpp/">llama-cpp</a>, <a href="/tags/llm-release/">llm-release</a>, <a href="/tags/coding-agents/">coding-agents</a>, <a href="/tags/lm-studio/">lm-studio</a>, <a href="/tags/ai-in-china/">ai-in-china</a>, <a href="/tags/nvidia-spark/">nvidia-spark</a>, <a href="/tags/pi/">pi</a>
+  </div>
+</div> <!-- end div.entry -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="quote segment" data-type="quotation" data-id="2327">
+  <blockquote cite="https://twitter.com/darioamodei/status/2088758819304443967"><p>I do agree that the public has a negative view of AI (and that this is a big problem), but I don’t think it is primarily caused by me or any other AI leader warning about AI’s risks.  I think it is fundamentally a crisis of trust.  I think that ordinary people don’t trust companies, governments, or the tech industry and always suspect that we are cooking up some new way to screw them over.  The causes of this go back decades and AI is just the latest iteration of it.  I don’t think that a glitzy marketing campaign with a positive spin (which some have advocated that Anthropic do) is the way to win back that trust — at this point, saying that AI will cure cancer is more a cliche than it is inspiring, and most people think it is deceptive.  The thing that will work is <em>actually curing cancer</em>.  I think by far the most accurate criticism of AI companies including Anthropic is that we haven’t yet delivered on our big promises to benefit the world.  That is totally on us, and I think it’s the criticism you should be making, instead of all this stuff about messaging and marketing.</p></blockquote>
+  <p class="cite">&mdash; <a href="https://twitter.com/darioamodei/status/2088758819304443967">Dario Amodei</a></span></p>
+  
+  <p class="date-and-tags">
+    <a href="/2026/Aug/16/dario-amodei/" rel="bookmark">#</a>
+    <a href="/2026/Aug/16/dario-amodei/">3:05 pm</a>
+     / <a href="/tags/anthropic/">anthropic</a>, <a href="/tags/ai/">ai</a>, <a href="/tags/ai-backlash/">ai-backlash</a>
+  </p>
+
+</div>
+
+
+
+
+
+
+
+<h3 class="blog-mixed-list-year">Aug. 15, 2026</h3>
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment beat-sighting" data-type="beat" data-id="4867">
+  <div class="beat-content">
+    <div class="beat-row1">
+      <a class="beat-label sighting" href="/elsewhere/sighting/">Sighting</a>
+      <span class="beat-title"><a href="/2026/Aug/15/sighting-391533950/">10:51 AM</a></span>
+      <span class="beat-commit">&mdash; Anna&#x27;s Hummingbird, in San Mateo County, CA, US</span>
+    </div>
+    <captioned-image-gallery>
+      <figure><a href="https://static.inaturalist.org/photos/717439134/large.jpg"><img src="https://static.inaturalist.org/photos/717439134/large.jpg" alt="Anna&#x27;s Hummingbird" loading="lazy" data-width="2048" data-height="1536"></a><figcaption><a href="https://www.inaturalist.org/observations/391533950" title="View observation on iNaturalist">Anna&#x27;s Hummingbird</a></figcaption></figure>
+    </captioned-image-gallery>
+    
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/15/sighting-391533950/" rel="bookmark">15th Aug 2026</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="beat segment" data-type="beat" data-id="4866">
+  
+  <div class="beat-content">
+    <div class="beat-row1">
+      
+        <a class="beat-label tool" href="/elsewhere/tool/">Tool</a>
+      
+      <span class="beat-title"><a href="https://tools.simonwillison.net/cors-chat">CORS Chat</a></span>
+      
+    </div>
+    <div class="beat-note blogmark-body"><p>I built this today (<a href="https://gist.github.com/simonw/92a1d97773744b45bf259e003013cf36">with GPT-5.6-Sol xhigh</a>) to help test Qwen 3.8 27B running in LM Studio on both my M5 MacBook Pro and an NVIDIA DGX Spark.</p>
+<p>It provides a web UI for exercising an OpenAI-Responses-compatible chat endpoint. I've tried it against LM Studio with the <code>--cors</code> option and OpenRouter, and both work fine.</p>
+<p>Conversations are persisted in the browser and can be exported as copy-pasted JSON. One fun detail is that it notices SVG images that are being generated and progressively renders them in the chat while the tokens are still streaming in.</p>
+<p><img alt="Alt text generated by Qwen-3.8 27B: Screenshot of the CORS Chat web interface. The left sidebar lists three saved conversations, with &quot;render an svg of five intersecting squares&quot; selected. The main panel shows a chat with the qwen3.8‑27b model: the user asked &quot;render an svg of five intersecting squares. don't overthink this,&quot; followed by the model's reasoning trace describing the design (five semi‑transparent squares rotated around a common center on a dark background). Below is an SVG preview pane displaying five overlapping, semi‑transparent colored squares—pink, blue, green, yellow, and purple—with white outlines, rotated at different angles to form a starburst pattern on a dark navy background. Top controls include endpoint/model selectors and a &quot;New chat&quot; button; the bottom has a message input and a &quot;Send&quot; button." src="https://static.simonwillison.net/static/2026/cors-chat.webp" /></p></div>
+    <div class="beat-meta beat-row2">
+      <a href="/2026/Aug/15/cors-chat/" rel="bookmark">15th Aug 2026, 2:49 pm</a> &middot; <a href="/tags/cors/">cors</a>, <a href="/tags/llms/">llms</a>, <a href="/tags/svg/">svg</a>, <a href="/tags/generative-ai/">generative-ai</a>, <a href="/tags/openrouter/">openrouter</a>, <a href="/tags/lm-studio/">lm-studio</a>, <a href="/tags/ai/">ai</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+</div> <!-- #primary -->
+
+<div id="secondary">
+
+<h2 class="overband">Highlights</h2>
+<ul>
+
+  <li><a href="/2026/Aug/30/understanding-chatgpt-work/">Understanding ChatGPT Work</a> - Aug. 30, 2026</li>
+
+  <li><a href="/2026/Aug/19/conceptual-integrity-and-counting-lines-of-code/">Conceptual integrity and counting lines of code</a> - Aug. 19, 2026</li>
+
+  <li><a href="/2026/Aug/16/qwen-38-27b/">Qwen 3.8 27B is excellent, but it defaults to wildly overthinking things</a> - Aug. 16, 2026</li>
+
+  <li><a href="/2026/Aug/7/openai-timeline/">Now we have a timeline of the OpenAI accidental attack against Hugging Face</a> - Aug. 7, 2026</li>
+
+  <li><a href="/2026/Aug/5/raccoon-heist/">One-shotting a Raccoon Heist game using Claude Fable 5</a> - Aug. 5, 2026</li>
+
+  <li><a href="/2026/Aug/4/new-release-of-llm/">New release of LLM adds support for reasoning traces, OpenAI Responses, server-side tools, and smarter logging</a> - Aug. 4, 2026</li>
+
+  <li><a href="/2026/Jul/31/stateless-mcp/">Stateless MCP has recaptured my interest (and inspired mcp-explorer and datasette-mcp)</a> - July 31, 2026</li>
+
+  <li><a href="/2026/Jul/22/openai-cyberattack/">OpenAI’s accidental cyberattack against Hugging Face is science fiction that happened</a> - July 22, 2026</li>
+
+  <li><a href="/2026/Jul/21/cat-and-thariq/">A Fireside Chat with Cat and Thariq from the Claude Code team</a> - July 21, 2026</li>
+
+  <li><a href="/2026/Jul/16/kimi-k3/">Kimi K3, and what we can still learn from the pelican benchmark</a> - July 16, 2026</li>
+
+  <li><a href="/2026/Jul/9/gpt-5-6/">The new GPT-5.6 family: Luna, Terra, Sol</a> - July 9, 2026</li>
+
+  <li><a href="/2026/Jul/7/sqlite-utils-4/">sqlite-utils 4.0, now with database schema migrations</a> - July 7, 2026</li>
+
+  <li><a href="/2026/Jul/5/sqlite-utils-fable/">sqlite-utils 4.0rc2, mostly written by Claude Fable (for about $149.25)</a> - July 5, 2026</li>
+
+  <li><a href="/2026/Jun/30/shot-scraper-video/">Have your agent record video demos of its work with shot-scraper video</a> - June 30, 2026</li>
+
+  <li><a href="/2026/Jun/22/porting-moebius/">Porting the Moebius 0.2B image inpainting model to run in the browser with Claude Code</a> - June 22, 2026</li>
+
+  <li><a href="/2026/Jun/21/sqlite-utils-40rc1/">sqlite-utils 4.0rc1 adds migrations and nested transactions</a> - June 21, 2026</li>
+
+  <li><a href="/2026/Jun/18/datasette-apps/">Datasette Apps: Host custom HTML applications inside Datasette</a> - June 18, 2026</li>
+
+  <li><a href="/2026/Jun/17/glm-52/">GLM-5.2 is probably the most powerful text-only open weights LLM</a> - June 17, 2026</li>
+
+  <li><a href="/2026/Jun/13/publishing-wasm-wheels/">Publishing WASM wheels to PyPI for use with Pyodide</a> - June 13, 2026</li>
+
+  <li><a href="/2026/Jun/11/fable-is-relentlessly-proactive/">Claude Fable is relentlessly proactive</a> - June 11, 2026</li>
+
+  <li><a href="/2026/Jun/9/claude-fable-5/">Initial impressions of Claude Fable 5</a> - June 9, 2026</li>
+
+  <li><a href="/2026/Jun/6/micropython-in-a-sandbox/">Running Python code in a sandbox with MicroPython and WASM</a> - June 6, 2026</li>
+
+  <li><a href="/2026/May/28/claude-opus-4-8/">Claude Opus 4.8: &quot;a modest but tangible improvement&quot;</a> - May 28, 2026</li>
+
+  <li><a href="/2026/May/27/product-market-fit/">I think Anthropic and OpenAI have found product-market fit</a> - May 27, 2026</li>
+
+  <li><a href="/2026/May/25/encyclical-on-ai/">Notes on Pope Leo XIV&#x27;s encyclical on AI</a> - May 25, 2026</li>
+
+  <li><a href="/2026/May/21/datasette-agent/">Datasette Agent</a> - May 21, 2026</li>
+
+  <li><a href="/2026/May/19/gemini-35-flash/">Gemini 3.5 Flash: more expensive, but Google plan to use it for everything</a> - May 19, 2026</li>
+
+  <li><a href="/2026/May/19/5-minute-llms/">The last six months in LLMs in five minutes</a> - May 19, 2026</li>
+
+  <li><a href="/2026/May/7/xai-anthropic/">Notes on the xAI/Anthropic data center deal</a> - May 7, 2026</li>
+
+  <li><a href="/2026/May/6/code-w-claude-2026/">Live blog: Code w/ Claude 2026</a> - May 6, 2026</li>
+
+  <li><a href="/2026/May/6/vibe-coding-and-agentic-engineering/">Vibe coding and agentic engineering are getting closer than I&#x27;d like</a> - May 6, 2026</li>
+
+  <li><a href="/2026/Apr/29/llm/">LLM 0.32a0  is a major backwards-compatible refactor</a> - April 29, 2026</li>
+
+  <li><a href="/2026/Apr/27/now-deceased-agi-clause/">Tracking the history of the now-deceased OpenAI Microsoft AGI clause</a> - April 27, 2026</li>
+
+  <li><a href="/2026/Apr/24/deepseek-v4/">DeepSeek V4 - almost on the frontier, a fraction of the price</a> - April 24, 2026</li>
+
+  <li><a href="/2026/Apr/23/liteparse-for-the-web/">Extract PDF text in your browser with LiteParse for the web</a> - April 23, 2026</li>
+
+  <li><a href="/2026/Apr/23/gpt-5-5/">A pelican for GPT-5.5 via the semi-official Codex backdoor API</a> - April 23, 2026</li>
+
+  <li><a href="/2026/Apr/22/claude-code-confusion/">Is Claude Code going to cost $100/month? Probably not - it&#x27;s all very confusing</a> - April 22, 2026</li>
+
+  <li><a href="/2026/Apr/21/gpt-image-2/">Where&#x27;s the raccoon with the ham radio? (ChatGPT Images 2.0)</a> - April 21, 2026</li>
+
+  <li><a href="/2026/Apr/18/opus-system-prompt/">Changes in the system prompt between Claude Opus 4.6 and 4.7</a> - April 18, 2026</li>
+
+  <li><a href="/2026/Apr/17/pycon-us-2026/">Join us at PyCon US 2026 in Long Beach - we have new AI and security tracks this year</a> - April 17, 2026</li>
+
+</ul>
+<section style="
+    /* .promo */
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    /* .variant-a */
+    border: 2px solid #6c3eb9;
+  ">
+  <h3 style="
+      /* h3 */
+      margin: 0 0 0.5rem;
+      font-size: 1.25rem;
+    ">
+    Monthly briefing
+  </h3>
+  <p style="
+      /* p */
+      margin: 0 0 1rem;
+      line-height: 1.4;
+    ">
+    Sponsor me for <strong>$10/month</strong> and get a curated email digest of the month's most important LLM developments.
+  </p>
+  <p style="
+      /* p */
+      margin: 0 0 1rem;
+      line-height: 1.4;
+    ">
+    Pay me to send you less!
+  </p>
+  <a href="https://github.com/sponsors/simonw/" style="
+      /* a.button */
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: #6c3eb9;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: 600;
+    ">
+    Sponsor &amp; subscribe
+  </a>
+</section>
+
+</div> <!-- #secondary -->
+</div> <!-- #wrapper -->
+
+
+
+<div id="ft">
+    <ul>
+      <li><a href="/about/#disclosures">Disclosures</a></li>
+      <li><a href="/about/#about-site">Colophon</a></li>
+      <li>&copy;</li>
+      <li><a href="/2002/">2002</a></li>
+      <li><a href="/2003/">2003</a></li>
+      <li><a href="/2004/">2004</a></li>
+      <li><a href="/2005/">2005</a></li>
+      <li><a href="/2006/">2006</a></li>
+      <li><a href="/2007/">2007</a></li>
+      <li><a href="/2008/">2008</a></li>
+      <li><a href="/2009/">2009</a></li>
+      <li><a href="/2010/">2010</a></li>
+      <li><a href="/2011/">2011</a></li>
+      <li><a href="/2012/">2012</a></li>
+      <li><a href="/2013/">2013</a></li>
+      <li><a href="/2014/">2014</a></li>
+      <li><a href="/2015/">2015</a></li>
+      <li><a href="/2016/">2016</a></li>
+      <li><a href="/2017/">2017</a></li>
+      <li><a href="/2018/">2018</a></li>
+      <li><a href="/2019/">2019</a></li>
+      <li><a href="/2020/">2020</a></li>
+      <li><a href="/2021/">2021</a></li>
+      <li><a href="/2022/">2022</a></li>
+      <li><a href="/2023/">2023</a></li>
+      <li><a href="/2024/">2024</a></li>
+      <li><a href="/2025/">2025</a></li>
+      <li><a href="/2026/">2026</a></li>
+      <li>
+        <button id="theme-toggle" type="button" aria-label="Toggle theme">
+          <!-- Auto/System icon (default) -->
+          <svg id="icon-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2V4a8 8 0 1 0 0 16z"/></svg>
+          <!-- Light icon -->
+          <svg id="icon-light" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="display:none"><path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0-2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM11 1h2v3h-2V1zm0 19h2v3h-2v-3zM3.515 4.929l1.414-1.414L7.05 5.636 5.636 7.05 3.515 4.93zM16.95 18.364l1.414-1.414 2.121 2.121-1.414 1.414-2.121-2.121zm2.121-14.85l1.414 1.415-2.121 2.121-1.414-1.414 2.121-2.121zM5.636 16.95l1.414 1.414-2.121 2.121-1.414-1.414 2.121-2.121zM23 11v2h-3v-2h3zM4 11v2H1v-2h3z"/></svg>
+          <!-- Dark icon -->
+          <svg id="icon-dark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="display:none"><path d="M10 7a7 7 0 0 0 12 4.9v.1c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2h.1A6.979 6.979 0 0 0 10 7zm-6 5a8 8 0 0 0 15.062 3.762A9 9 0 0 1 8.238 4.938 7.999 7.999 0 0 0 4 12z"/></svg>
+        </button>
+      </li>
+    </ul>
+</div>
+
+<style>image-gallery:not(:defined) img {max-height: 150px;} captioned-image-gallery:not(:defined) > figure {max-height: 240px; overflow: hidden;}</style>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('h2[id],h3[id],h4[id],h5[id],h6[id]').forEach(el => {
+    const id = el.getAttribute('id');
+    const permalinkContext = el.closest('[data-permalink-context]');
+    if (permalinkContext) {
+      const url = permalinkContext.getAttribute('data-permalink-context');
+      const hashLink = document.createElement('a');
+      hashLink.style.borderBottom = 'none';
+      hashLink.style.color = '#666';
+      hashLink.style.fontSize = '1em';
+      hashLink.style.opacity = 0.8;
+      hashLink.setAttribute('href', url + '#' + id);
+      hashLink.innerText = '#';
+      el.appendChild(document.createTextNode('\u00A0'));
+      el.appendChild(hashLink);
+    }
+  });
+});
+</script>
+<script type="module">
+const config = [
+  {"tag": "lite-youtube", "js": "/static/lite-yt-embed.js", "css": "/static/lite-yt-embed.css"},
+  {"tag": "image-gallery", "js": "/static/image-gallery.js", "css": null},
+  {"tag": "captioned-image-gallery", "js": "/static/captioned-image-gallery.js", "css": null},
+  {"tag": "click-to-play", "js": "/static/click-to-play.js", "css": "/static/click-to-play.css"},
+  {"tag": "github-code", "js": "/static/github-code.js", "css": null}
+];
+for (const {tag, js, css} of config) {
+  if (document.querySelector(tag)) {
+    if (css) {
+      document.head.appendChild(
+        Object.assign(document.createElement('link'), {
+          rel: 'stylesheet',
+          href: css
+        })
+      );
+    }
+    if (js) {
+      await import(js);
+    }
+  }
+}
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.localStorage.getItem('ADMIN')) {
+      document.querySelectorAll('.edit-page-link').forEach(el => {
+        const url = el.getAttribute('data-admin-url');
+        if (url) {
+          const a = document.createElement('a');
+          a.href = url;
+          a.className = 'edit-link';
+          a.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Edit';
+          el.appendChild(a);
+          el.style.display = 'block';
+        }
+      });
+    }
+  });
+</script>
+<script>
+// Random tag navigation - shows button if recently came from tag random
+(function() {
+  const stored = localStorage.getItem('random_tag');
+  if (!stored) return;
+
+  try {
+    const data = JSON.parse(stored);
+    const elapsed = Date.now() - data.timestamp;
+
+    // Only show if within 5 seconds
+    if (elapsed > 5000) return;
+
+    const header = document.getElementById('smallhead-inner');
+    if (!header) return;
+
+    const btn = document.createElement('a');
+    btn.href = '/random/' + encodeURIComponent(data.tag) + '/';
+    btn.className = 'random-tag-nav';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"></circle></svg> Random ' + data.tag;
+
+    btn.addEventListener('click', function(e) {
+      // Bump the timestamp before navigating
+      localStorage.setItem('random_tag', JSON.stringify({
+        tag: data.tag,
+        timestamp: Date.now()
+      }));
+    });
+
+    // Insert before the Subscribe link
+    const subscribeLink = document.getElementById('smallhead-about');
+    if (subscribeLink) {
+      header.insertBefore(btn, subscribeLink);
+    } else {
+      header.appendChild(btn);
+    }
+  } catch (e) {
+    // Invalid JSON, clear it
+    localStorage.removeItem('random_tag');
+  }
+})();
+</script>
+<script>
+// Theme toggle functionality
+(function() {
+  const toggle = document.getElementById('theme-toggle');
+  const iconAuto = document.getElementById('icon-auto');
+  const iconLight = document.getElementById('icon-light');
+  const iconDark = document.getElementById('icon-dark');
+
+  // Theme states: 'auto' (default), 'light', 'dark'
+  function getTheme() {
+    return localStorage.getItem('theme') || 'auto';
+  }
+
+  function setTheme(theme) {
+    if (theme === 'auto') {
+      localStorage.removeItem('theme');
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      localStorage.setItem('theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    updateIcon(theme);
+  }
+
+  function updateIcon(theme) {
+    iconAuto.style.display = theme === 'auto' ? 'block' : 'none';
+    iconLight.style.display = theme === 'light' ? 'block' : 'none';
+    iconDark.style.display = theme === 'dark' ? 'block' : 'none';
+
+    // Update aria-label for accessibility
+    const labels = {
+      'auto': 'Theme: Auto (system preference). Click to switch to light.',
+      'light': 'Theme: Light. Click to switch to dark.',
+      'dark': 'Theme: Dark. Click to switch to auto.'
+    };
+    toggle.setAttribute('aria-label', labels[theme]);
+  }
+
+  // Cycle through themes: auto -> light -> dark -> auto
+  function cycleTheme() {
+    const current = getTheme();
+    const next = current === 'auto' ? 'light' : current === 'light' ? 'dark' : 'auto';
+    setTheme(next);
+  }
+
+  // Initialize
+  updateIcon(getTheme());
+  toggle.addEventListener('click', cycleTheme);
+})();
+</script>
+</body>
+</html>

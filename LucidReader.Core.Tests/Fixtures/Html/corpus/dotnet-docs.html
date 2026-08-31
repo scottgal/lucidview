@@ -1,0 +1,1282 @@
+ <!DOCTYPE html>
+		<html
+			class="layout layout-single    hub show-breadcrumb default-focus"
+			lang="en-us"
+			dir="ltr"
+			data-authenticated="false"
+			data-auth-status-determined="false"
+			data-target="docs"
+			x-ms-format-detection="none"
+		>
+			
+		<head>
+			<title>C# Guide - .NET managed language - C# | Microsoft Learn</title>
+			<meta charset="utf-8" />
+			<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+			<meta name="color-scheme" content="light dark" />
+
+			<meta name="description" content="The C# guide has everything you need to learn C# and get started writing .NET apps. Learn C# programming - for beginning developers, developers new to C#, and experienced C# / .NET developers." />
+			<link rel="canonical" href="https://learn.microsoft.com/en-us/dotnet/csharp/" /> 
+
+			<!-- Non-customizable open graph and sharing-related metadata -->
+			<meta name="twitter:card" content="summary" />
+			<meta name="twitter:site" content="@MicrosoftLearn" />
+			<meta property="og:type" content="website" />
+			<meta property="og:image:alt" content="C# Guide - .NET managed language - C# | Microsoft Learn" />
+			<meta property="og:image" content="https://learn.microsoft.com/dotnet/media/logo_csharp.png" />
+			<!-- Page specific open graph and sharing-related metadata -->
+			<meta property="og:title" content="C# Guide - .NET managed language - C#" />
+			<meta property="og:url" content="https://learn.microsoft.com/en-us/dotnet/csharp/" />
+			<meta property="og:description" content="The C# guide has everything you need to learn C# and get started writing .NET apps. Learn C# programming - for beginning developers, developers new to C#, and experienced C# / .NET developers." />
+			<meta name="platform_id" content="db8a0f69-64ed-f88e-42ce-2d64a3421349" /> <meta name="scope" content=".NET" />
+			<meta name="locale" content="en-us" />
+			 
+			<meta name="uhfHeaderId" content="MSDocsHeader-DotNetCSharp" />
+
+			<meta name="page_type" content="hub" />
+
+			<!--page specific meta tags-->
+			
+
+			<!-- custom meta tags -->
+			
+		<meta name="summary" content="The C# guide contains articles, tutorials, and code samples to help you get started with C# and the .NET platform. Experienced developers can learn about new features in the What&#39;s new section. Experienced developers can learn details of language behavior from the reference and language specifications.
+" />
+	
+		<meta name="schema" content="Hub" />
+	
+		<meta name="apiPlatform" content="dotnet" />
+	
+		<meta name="author" content="BillWagner" />
+	
+		<meta name="breadcrumb_path" content="/dotnet/breadcrumb/toc.json" />
+	
+		<meta name="feedback_system" content="OpenSource" />
+	
+		<meta name="feedback_product_url" content="https://aka.ms/feedback/report?space=61" />
+	
+		<meta name="ms.author" content="wiwagn" />
+	
+		<meta name="ms.devlang" content="csharp" />
+	
+		<meta name="ms.service" content="dotnet-csharp" />
+	
+		<meta name="ms.topic" content="hub-page" />
+	
+		<meta name="show_latex" content="true" />
+	
+		<meta name="ms.date" content="2026-02-06T00:00:00Z" />
+	
+		<meta name="document_id" content="3dff5a94-d9cd-e31b-4056-362abbe8d782" />
+	
+		<meta name="document_version_independent_id" content="cfb1ad21-e822-4075-2726-bd130ec2358d" />
+	
+		<meta name="updated_at" content="2026-07-01T21:14:00Z" />
+	
+		<meta name="original_content_git_url" content="https://github.com/dotnet/docs/blob/live/docs/csharp/index.yml" />
+	
+		<meta name="gitcommit" content="https://github.com/dotnet/docs/blob/7adc9e36ea54bb7952815bd0a5f9bf04551b6faa/docs/csharp/index.yml" />
+	
+		<meta name="git_commit_id" content="7adc9e36ea54bb7952815bd0a5f9bf04551b6faa" />
+	
+		<meta name="site_name" content="Docs" />
+	
+		<meta name="depot_name" content="VS.core-docs" />
+	
+		<meta name="feedback_help_link_type" content="" />
+	
+		<meta name="feedback_help_link_url" content="" />
+	
+		<meta name="search.mshattr.devlang" content="csharp" />
+	
+		<meta name="asset_id" content="csharp/index" />
+	
+		<meta name="moniker_range_name" content="" />
+	
+		<meta name="item_type" content="Content" />
+	
+		<meta name="source_path" content="docs/csharp/index.yml" />
+	
+		<meta name="github_feedback_content_git_url" content="https://github.com/dotnet/docs/blob/main/docs/csharp/index.yml" />
+	
+		<meta name="markdown_url" content="https://learn.microsoft.com/en-us/dotnet/csharp/?accept=text/markdown" />
+	 
+		<meta name="cmProducts" content="https://microsoft-devrel.poolparty.biz/DevRelOfferingOntology/c6f99e62-1cf6-4b71-af9b-649b05f80cce" data-source="generated" />
+	
+		<meta name="cmProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/7696cda6-0510-47f6-8302-71bb5d2e28cf" data-source="generated" />
+	
+		<meta name="spProducts" content="https://microsoft-devrel.poolparty.biz/DevRelOfferingOntology/3f56b378-07a9-4fa1-afe8-9889fdc77628" data-source="generated" />
+	
+		<meta name="spProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/69c76c32-967e-4c65-b89a-74cc527db725" data-source="generated" />
+	
+
+			<!-- Apply persisted/system theme before first paint to prevent wrong-theme flash when scripts are deferred. -->
+			<script id="theme-preference">
+				(function () {
+			try {
+				var stored = localStorage.getItem('theme');
+				var theme = /^(light|dark|high-contrast)$/.test(stored)
+					? stored
+					: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+				document.documentElement.classList.add('theme-' + theme);
+			} catch (e) {}
+		})();;
+			</script>
+
+			<script id="atlas-layout-preferences">
+				(function () {
+			try {
+				var state = JSON.parse(localStorage.getItem('atlas-layout-preferences') || '{}');
+				var view = state["Hub"] || {};
+				var excludesKey = "";
+				var blocked = {};
+				if (excludesKey) {
+					var exclusions = JSON.parse(localStorage.getItem('atlas-layout-exclusions') || '{}');
+					if (Object.prototype.hasOwnProperty.call(exclusions, excludesKey)) {
+						var scoped = exclusions[excludesKey];
+						if (scoped) {
+							if (typeof scoped === 'object') blocked = scoped;
+						}
+					}
+				}
+				var html = document.documentElement;
+				for (var c in view) {
+					if (Object.prototype.hasOwnProperty.call(blocked, c)) continue;
+					if (view[c]) html.classList.add(c);
+					else html.classList.remove(c);
+				}
+			} catch (e) {}
+		})();;
+			</script>
+
+			<!-- assets and js globals -->
+			
+			<link rel="stylesheet" href="/static/assets/0.4.03524.8175-9553bcde/styles/site.css" />
+			
+			<script src="https://wcpstatic.microsoft.com/mscc/lib/v2/wcp-consent.js"></script>
+			<!-- Keep this URL in sync with oneDSScriptSelector in instrumentation/one-ds.ts. -->
+			<script async src="https://js.monitor.azure.com/scripts/c/ms.jsll-4.min.js"></script>
+			
+
+			<!-- msdocs global object -->
+			<script id="msdocs-script">
+		var msDocs = {
+  "environment": {
+    "accessLevel": "online",
+    "azurePortalHostname": "portal.azure.com",
+    "reviewFeatures": false,
+    "supportLevel": "production",
+    "systemContent": true,
+    "siteName": "learn",
+    "legacyHosting": false
+  },
+  "data": {
+    "contentLocale": "en-us",
+    "contentDir": "ltr",
+    "userLocale": "en-us",
+    "userDir": "ltr",
+    "pageTemplate": "Hub",
+    "layoutStateStorageKey": "Hub",
+    "brand": "dotnet",
+    "context": {},
+    "standardFeedback": false,
+    "showFeedbackReport": false,
+    "feedbackHelpLinkType": "",
+    "feedbackHelpLinkUrl": "",
+    "feedbackSystem": "OpenSource",
+    "feedbackGitHubRepo": "dotnet/docs",
+    "feedbackProductUrl": "https://aka.ms/feedback/report?space=61",
+    "extendBreadcrumb": false,
+    "isEditDisplayable": true,
+    "isPrivateUnauthorized": false,
+    "hideViewSource": false,
+    "isPermissioned": false,
+    "hasRecommendations": false,
+    "mathjax": {}
+  },
+  "functions": {}
+};;
+	</script>
+
+			<!-- base scripts, msdocs global should be before this -->
+			<script
+				src="/static/assets/0.4.03524.8175-9553bcde/scripts/en-us/index-docs.js"
+				async
+			></script>
+			
+
+			<!-- json-ld -->
+			
+		</head>
+	
+			<body
+				id="body"
+				data-bi-name="body"
+				class="layout-body "
+				lang="en-us"
+				dir="ltr"
+			>
+				<header class="layout-body-header background-color-body-medium">
+		<div class="header-holder has-default-focus">
+			
+		<a
+			href="#main"
+			
+			style="z-index: 1070"
+			class="outline-color-text visually-hidden-until-focused position-fixed inner-focus focus-visible top-0 left-0 right-0 padding-xs text-align-center background-color-body"
+			
+		>
+			Skip to main content
+		</a>
+	
+
+			<div hidden id="cookie-consent-holder" data-test-id="cookie-consent-container"></div>
+			<!-- Unsupported browser warning -->
+			<div
+				id="unsupported-browser"
+				style="background-color: white; color: black; padding: 16px; border-bottom: 1px solid grey;"
+				hidden
+			>
+				<div style="max-width: 800px; margin: 0 auto;">
+					<p style="font-size: 24px">This browser is no longer supported.</p>
+					<p style="font-size: 16px; margin-top: 16px;">
+						Upgrade to Microsoft Edge to take advantage of the latest features, security updates, and technical support.
+					</p>
+					<div style="margin-top: 12px;">
+						<a
+							href="https://go.microsoft.com/fwlink/p/?LinkID=2092881 "
+							style="background-color: #0078d4; border: 1px solid #0078d4; color: white; padding: 6px 12px; border-radius: 2px; display: inline-block;"
+						>
+							Download Microsoft Edge
+						</a>
+						<a
+							href="https://learn.microsoft.com/en-us/lifecycle/faq/internet-explorer-microsoft-edge"
+							style="background-color: white; padding: 6px 12px; border: 1px solid #505050; color: #171717; border-radius: 2px; display: inline-block;"
+						>
+							More info about Internet Explorer and Microsoft Edge
+						</a>
+					</div>
+				</div>
+			</div>
+			<!-- site header -->
+			<div
+				id="ms--site-header"
+				data-test-id="site-header-wrapper"
+				itemscope="itemscope"
+				itemtype="http://schema.org/Organization"
+			>
+				<div
+					id="ms--mobile-nav"
+					class="site-header display-none-tablet padding-inline-none gap-none"
+					data-bi-name="mobile-header"
+					data-test-id="mobile-header"
+				></div>
+				<div
+					id="ms--primary-nav"
+					class="site-header display-none display-flex-tablet"
+					data-bi-name="L1-header"
+					data-test-id="primary-header"
+				></div>
+				<div
+					id="ms--secondary-nav"
+					class="site-header display-none display-flex-tablet"
+					data-bi-name="L2-header"
+					data-test-id="secondary-header"
+					
+				></div>
+			</div>
+			
+		<!-- banner -->
+		<div data-banner>
+			<div id="disclaimer-holder"></div>
+			
+		</div>
+		<!-- banner end -->
+	
+		</div>
+	</header>
+				 
+
+				<main
+					id="main"
+					role="main"
+					class="layout-body-main "
+					data-bi-name="content"
+					lang="en-us"
+					dir="ltr"
+				>
+					
+			<div data-main-column class=" ">
+				 <div id="ms--hub-page-content">
+	<section id="hero" data-bi-name="hero" class="hero  has-background-dotnet has-text-dotnet-invert background-image-pattern-plus hero-xs background-image-pattern background-size-200">
+		<div class="hero-content">
+			<h1 id="hero-title" class="title is-1">C# language documentation</h1>
+				<p>The C# guide contains articles, tutorials, and code samples to help you get started with C# and the .NET platform. Experienced developers can learn about new features in the What's new section. Experienced developers can learn details of language behavior from the reference and language specifications.
+</p>
+		</div>
+	</section>
+
+		<section id="highlighted-content" data-bi-name="highlighted-content">
+			<div class="uhf-container padding-block-sm">
+<div class="columns is-multiline">
+		<div class="column is-4-tablet is-4-desktop">
+			<article data-bi-name="icon-card" class="card is-full-height position-relative">
+				<div class="card-content display-flex">
+					<div class="media align-items-stretch">
+						<div class="media-left display-none display-block-tablet">
+							<div class="image image-64x64" aria-hidden="true">
+								<img src="/en-us/media/hubs/shared/icon-get-started.svg?branch=main" alt="" role="presentation" data-linktype="absolute-path">
+							</div>
+						</div>
+						<div class="media-content">
+							<p class="card-supertitle margin-top-none margin-top-xs-tablet">Get started</p>
+							<a href="tour-of-csharp/overview" class="card-title stretched-link has-external-link-indicator" data-linktype="relative-path">Tour of C#</a>
+						</div>
+					</div>
+				</div>
+			</article>
+		</div>
+		<div class="column is-4-tablet is-4-desktop">
+			<article data-bi-name="icon-card" class="card is-full-height position-relative">
+				<div class="card-content display-flex">
+					<div class="media align-items-stretch">
+						<div class="media-left display-none display-block-tablet">
+							<div class="image image-64x64" aria-hidden="true">
+								<img src="/en-us/media/hubs/shared/icon-concept.svg?branch=main" alt="" role="presentation" data-linktype="absolute-path">
+							</div>
+						</div>
+						<div class="media-content">
+							<p class="card-supertitle margin-top-none margin-top-xs-tablet">Concept</p>
+							<a href="fundamentals/program-structure/" class="card-title stretched-link has-external-link-indicator" data-linktype="relative-path">Fundamentals</a>
+						</div>
+					</div>
+				</div>
+			</article>
+		</div>
+		<div class="column is-4-tablet is-4-desktop">
+			<article data-bi-name="icon-card" class="card is-full-height position-relative">
+				<div class="card-content display-flex">
+					<div class="media align-items-stretch">
+						<div class="media-left display-none display-block-tablet">
+							<div class="image image-64x64" aria-hidden="true">
+								<img src="/en-us/media/hubs/shared/icon-whats-new.svg?branch=main" alt="" role="presentation" data-linktype="absolute-path">
+							</div>
+						</div>
+						<div class="media-content">
+							<p class="card-supertitle margin-top-none margin-top-xs-tablet">What's new</p>
+							<a href="whats-new/csharp-15" class="card-title stretched-link has-external-link-indicator" data-linktype="relative-path">What's new</a>
+						</div>
+					</div>
+				</div>
+			</article>
+		</div>
+		<div class="column is-4-tablet is-4-desktop">
+			<article data-bi-name="icon-card" class="card is-full-height position-relative">
+				<div class="card-content display-flex">
+					<div class="media align-items-stretch">
+						<div class="media-left display-none display-block-tablet">
+							<div class="image image-64x64" aria-hidden="true">
+								<img src="/en-us/media/hubs/shared/icon-video.svg?branch=main" alt="" role="presentation" data-linktype="absolute-path">
+							</div>
+						</div>
+						<div class="media-content">
+							<p class="card-supertitle margin-top-none margin-top-xs-tablet">video</p>
+							<a href="https://aka.ms/dotnet/beginnervideos/learn/csharp" class="card-title stretched-link has-external-link-indicator" data-linktype="external">Learn C# video series</a>
+						</div>
+					</div>
+				</div>
+			</article>
+		</div>
+		<div class="column is-4-tablet is-4-desktop">
+			<article data-bi-name="icon-card" class="card is-full-height position-relative">
+				<div class="card-content display-flex">
+					<div class="media align-items-stretch">
+						<div class="media-left display-none display-block-tablet">
+							<div class="image image-64x64" aria-hidden="true">
+								<img src="/en-us/media/hubs/shared/icon-training.svg?branch=main" alt="" role="presentation" data-linktype="absolute-path">
+							</div>
+						</div>
+						<div class="media-content">
+							<p class="card-supertitle margin-top-none margin-top-xs-tablet">Training</p>
+							<a href="/en-us/collections/yz26f8y64n7k07" class="card-title stretched-link has-external-link-indicator" data-linktype="absolute-path">C# learning paths</a>
+						</div>
+					</div>
+				</div>
+			</article>
+		</div>
+		<div class="column is-4-tablet is-4-desktop">
+			<article data-bi-name="icon-card" class="card is-full-height position-relative">
+				<div class="card-content display-flex">
+					<div class="media align-items-stretch">
+						<div class="media-left display-none display-block-tablet">
+							<div class="image image-64x64" aria-hidden="true">
+								<img src="/en-us/media/hubs/shared/icon-training.svg?branch=main" alt="" role="presentation" data-linktype="absolute-path">
+							</div>
+						</div>
+						<div class="media-content">
+							<p class="card-supertitle margin-top-none margin-top-xs-tablet">Training</p>
+							<a href="https://www.freecodecamp.org/learn/foundational-c-sharp-with-microsoft/" class="card-title stretched-link has-external-link-indicator" data-linktype="external">Foundational C# Certification - freeCodeCamp</a>
+						</div>
+					</div>
+				</div>
+			</article>
+		</div>
+</div>
+			</div>
+		</section>
+
+		<section id="product-directory" data-bi-name="product-directory">
+			<div class="uhf-container anchor-headings padding-block-lg">
+	<h2 class="title is-2 is-responsive margin-top-none ">Learn to program</h2>
+	<p class="margin-top-none margin-bottom-sm">Major concepts and features of the C# language</p>
+<div class="columns">
+	<div id="tabpanel" role="tabpanel" class="column">
+		<div id="product-cards" class="columns is-multiline " data-bi-name="hub-product-cards">
+				<div class="column is-6-tablet is-3-desktop item-column" data-categories="">
+						<div data-bi-name="product-card" class="box margin-none is-full-height padding-sm">
+								<img src="../media/logo_csharp.png" alt="" loading="lazy" class="image is-48x48 margin-bottom-xxs" data-linktype="relative-path">
+							<h3 id="get-started-0" class="font-size-h6 margin-none">Get started</h3>
+							<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xxs">
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="tour-of-csharp/overview" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">A tour of C#</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="tour-of-csharp/what-you-can-build" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">What you can build with C#</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="tour-of-csharp/tutorials/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Beginner C# tutorials</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="tour-of-csharp/tips-for-java-developers" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">C# for Java developers</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="https://aka.ms/dotnet/beginnervideos/learn/csharp" class="has-external-link-indicator display-block font-size-sm" data-linktype="external">C# for beginners video series</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="https://aka.ms/csharp-certification" class="has-external-link-indicator display-block font-size-sm" data-linktype="external">Foundational C# Certification</a>
+									</li>
+							</ul>
+						</div>
+				</div>
+				<div class="column is-6-tablet is-3-desktop item-column" data-categories="">
+						<div data-bi-name="product-card" class="box margin-none is-full-height padding-sm">
+								<img src="../media/dotnet-bot.svg" alt="" loading="lazy" class="image is-48x48 margin-bottom-xxs" data-linktype="relative-path">
+							<h3 id="fundamentals-1" class="font-size-h6 margin-none">Fundamentals</h3>
+							<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xxs">
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="fundamentals/types/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Type system</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="fundamentals/object-oriented/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Object oriented programming</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="fundamentals/functional/pattern-matching" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Functional techniques</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="fundamentals/exceptions/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Exceptions</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="fundamentals/coding-style/identifier-names" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Coding style</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="tour-of-csharp/strategy" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">C# language strategy</a>
+									</li>
+							</ul>
+						</div>
+				</div>
+				<div class="column is-6-tablet is-3-desktop item-column" data-categories="">
+						<div data-bi-name="product-card" class="box margin-none is-full-height padding-sm">
+								<img src="../media/dotnet-bot_presenting.svg" alt="" loading="lazy" class="image is-48x48 margin-bottom-xxs" data-linktype="relative-path">
+							<h3 id="language-concepts-2" class="font-size-h6 margin-none">Language concepts</h3>
+							<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xxs">
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="programming-guide/concepts/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Programming concepts</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="linq/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">LINQ</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="asynchronous-programming/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Asynchronous programming</a>
+									</li>
+							</ul>
+						</div>
+				</div>
+				<div class="column is-6-tablet is-3-desktop item-column" data-categories="">
+						<div data-bi-name="product-card" class="box margin-none is-full-height padding-sm">
+								<img src="../media/dotnet-bot_jetpack-faceing-right.svg" alt="" loading="lazy" class="image is-48x48 margin-bottom-xxs" data-linktype="relative-path">
+							<h3 id="advanced-language-concepts-3" class="font-size-h6 margin-none">Advanced language concepts</h3>
+							<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xxs">
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="advanced-topics/reflection-and-attributes/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Reflection and attributes</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="advanced-topics/interface-implementation/default-interface-methods-versions" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Interface implementations</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="advanced-topics/expression-trees/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Expression trees</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="advanced-topics/interop/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Native interoperability</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="advanced-topics/performance/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">Performance engineering</a>
+									</li>
+									<li class="is-unstyled margin-bottom-xxs">
+										<a href="roslyn-sdk/" class="has-external-link-indicator display-block font-size-sm" data-linktype="relative-path">.NET compiler platform (roslyn) SDK</a>
+									</li>
+							</ul>
+						</div>
+				</div>
+		</div>
+	</div>
+</div>
+			</div>
+		</section>
+
+		<section id="conceptual-content" data-bi-name="conceptual-content" class="padding-block-lg">
+			<div class="uhf-container anchor-headings">
+	<h2 class="title is-2 is-responsive margin-top-none ">Reference</h2>
+	<p class="margin-top-xs margin-bottom-sm">Read C# language reference material, and the C# language specifications. The C# reference provides an informative reference for the C# language. The C# language specification is the normative reference for the C# language. It's the official source for C# language syntax and semantics. Feature specifications document features not yet incorporated in the standard.
+</p>
+<div class="columns is-multiline">
+		<div class="column is-4-tablet is-4-desktop">
+			<article data-bi-name="card" class="card is-full-height">
+				<div class="card-content">
+					<h3 class="card-title color-text font-size-lg">Language reference</h3>
+						<p class="card-content-description">The C# language reference provides an informative explanation of the C# language.</p>
+					<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xs">
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/" class="has-external-link-indicator" data-linktype="relative-path">C# language reference</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/builtin-types/value-types" class="has-external-link-indicator" data-linktype="relative-path">Built-in types</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/keywords/" class="has-external-link-indicator" data-linktype="relative-path">Keywords</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/operators/" class="has-external-link-indicator" data-linktype="relative-path">Operators</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/statements/declarations" class="has-external-link-indicator" data-linktype="relative-path">Statements</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/tokens/" class="has-external-link-indicator" data-linktype="relative-path">Special characters</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/xmldoc/" class="has-external-link-indicator" data-linktype="relative-path">Documentation comments</a>
+								</div>
+							</li>
+					</ul>
+				</div>
+			</article>
+		</div>
+		<div class="column is-4-tablet is-4-desktop">
+			<article data-bi-name="card" class="card is-full-height">
+				<div class="card-content">
+					<h3 class="card-title color-text font-size-lg">Language reference</h3>
+						<p class="card-content-description">Unsafe code and compiler options</p>
+					<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xs">
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/attributes/global" class="has-external-link-indicator" data-linktype="relative-path">Special attributes</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/unsafe-code" class="has-external-link-indicator" data-linktype="relative-path">Unsafe code</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/preprocessor-directives" class="has-external-link-indicator" data-linktype="relative-path">Preprocessor directives</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/compiler-options/" class="has-external-link-indicator" data-linktype="relative-path">Compiler options</a>
+								</div>
+							</li>
+					</ul>
+				</div>
+			</article>
+		</div>
+		<div class="column is-4-tablet is-4-desktop">
+			<article data-bi-name="card" class="card is-full-height">
+				<div class="card-content">
+					<h3 class="card-title color-text font-size-lg">Language specification</h3>
+						<p class="card-content-description">The official specification for the C# language</p>
+					<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xs">
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="specification/" class="has-external-link-indicator" data-linktype="relative-path">Standard and specifications</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="specification/overview" class="has-external-link-indicator" data-linktype="relative-path">The specification process</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="language-reference/language-specification/readme" class="has-external-link-indicator" data-linktype="relative-path">C# draft standard</a>
+								</div>
+							</li>
+							<li class="is-unstyled margin-bottom-xxs font-size-sm">
+								<div class="justify-content-flex-start display-flex is-fullwidth font-size-sm has-text-wrap">
+									<span class="icon font-size-md has-text-primary margin-right-xxs" aria-hidden="true">
+										<span class="docon docon-topic-reference"></span>
+									</span>
+									<a href="specification/feature-spec-overview" class="has-external-link-indicator" data-linktype="relative-path">Feature specifications</a>
+								</div>
+							</li>
+					</ul>
+				</div>
+			</article>
+		</div>
+</div>
+			</div>
+		</section>
+
+		<section id="tools" data-bi-name="tools" class="padding-block-lg">
+			<div class="uhf-container anchor-headings padding-bottom-sm">
+	<h2 class="title is-2 is-responsive margin-top-none ">Build C# apps with the Visual Studio family</h2>
+	<p class="margin-top-xs margin-bottom-sm">Choose Visual Studio or Visual Studio Code to build your C# applications.</p>
+<div class="columns is-multiline">
+		<div class="column is-6-tablet">
+			<article data-bi-name="icon-card" class="card is-full-height position-relative">
+				<div class="card-content display-flex">
+					<div class="media align-items-center">
+						<div class="media-left">
+							<div class="image image-32x32">
+								<img src="/en-us/visualstudio/media/vs-ide-2022.svg" alt="" aria-hidden="true" data-linktype="absolute-path">
+							</div>
+						</div>
+						<div class="media-content">
+							<a id="visual-studio-0" href="/en-us/visualstudio/windows" class="card-title stretched-link has-external-link-indicator" data-linktype="absolute-path">Visual Studio</a>
+						</div>
+					</div>
+				</div>
+			</article>
+		</div>
+		<div class="column is-6-tablet">
+			<article data-bi-name="icon-card" class="card is-full-height position-relative">
+				<div class="card-content display-flex">
+					<div class="media align-items-center">
+						<div class="media-left">
+							<div class="image image-32x32">
+								<img src="/en-us/visualstudio/media/vs-code-logo.svg" alt="" aria-hidden="true" data-linktype="absolute-path">
+							</div>
+						</div>
+						<div class="media-content">
+							<a id="visual-studio-code-1" href="https://code.visualstudio.com/docs/csharp/get-started" class="card-title stretched-link has-external-link-indicator" data-linktype="external">Visual Studio Code</a>
+						</div>
+					</div>
+				</div>
+			</article>
+		</div>
+</div>
+			</div>
+		</section>
+
+		<section id="additional-content" data-bi-name="additional-content" class="padding-block-lg">
+			<div class="uhf-container anchor-headings">
+						<h2 class="title is-2 is-responsive margin-top-none ">Create your application</h2>
+						<p class="margin-top-xs margin-bottom-sm">You can choose web, mobile, desktop, gaming, IoT, and more.</p>
+					<div class="columns is-multiline">
+						<div class="column is-4-tablet is-4-desktop">
+								<article data-bi-name="summary-card" class="card is-full-height">
+									<div class="card-content">
+										<h3 class="card-title color-text font-size-lg">Machine learning and AI</h3>
+										<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xs">
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../machine-learning/" class="has-external-link-indicator" data-linktype="relative-path">
+														Build custom AI solutions with ML.NET
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/azure/cognitive-services/" class="has-external-link-indicator" data-linktype="absolute-path">
+														Azure Cognitive Services
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/azure/machine-learning" class="has-external-link-indicator" data-linktype="absolute-path">
+														Azure Machine Learning
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../fsharp/scenarios/machine-learning" class="has-external-link-indicator" data-linktype="relative-path">
+														F# for machine learning
+													</a>
+												</li>
+										</ul>
+									</div>
+								</article>
+						</div>
+						<div class="column is-4-tablet is-4-desktop">
+								<article data-bi-name="summary-card" class="card is-full-height">
+									<div class="card-content">
+										<h3 class="card-title color-text font-size-lg">Cloud</h3>
+										<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xs">
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../azure/" class="has-external-link-indicator" data-linktype="relative-path">
+														Azure for .NET developers
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="https://aspire.dev/" class="has-external-link-indicator" data-linktype="external">
+														Aspire
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="https://aspire.dev/get-started/first-app/" class="has-external-link-indicator" data-linktype="external">
+														Build cloud-native apps with Aspire
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../azure/migration/app-service?preserve-view=true&amp;view=azure-dotnet" class="has-external-link-indicator" data-linktype="relative-path">
+														Migrate on-premises .NET web apps or services
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../azure/key-azure-services" class="has-external-link-indicator" data-linktype="relative-path">
+														Azure services for .NET developers
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../azure/sdk/azure-sdk-for-dotnet" class="has-external-link-indicator" data-linktype="relative-path">
+														Azure SDK for .NET
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../fsharp/using-fsharp-on-azure/deploying-and-managing" class="has-external-link-indicator" data-linktype="relative-path">
+														Deploy Azure resources with F#
+													</a>
+												</li>
+										</ul>
+									</div>
+								</article>
+						</div>
+						<div class="column is-4-tablet is-4-desktop">
+								<article data-bi-name="summary-card" class="card is-full-height">
+									<div class="card-content">
+										<h3 class="card-title color-text font-size-lg">Web</h3>
+										<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xs">
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/aspnet/core/tutorials" class="has-external-link-indicator" data-linktype="absolute-path">
+														ASP.NET Core tutorials
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/aspnet/core" class="has-external-link-indicator" data-linktype="absolute-path">
+														What is ASP.NET Core?
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/aspnet/core/tutorials/first-mvc-app/start-mvc" class="has-external-link-indicator" data-linktype="absolute-path">
+														ASP.NET Core in Visual Studio
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/aspnet/mvc/overview/deployment/docker-aspnetmvc" class="has-external-link-indicator" data-linktype="absolute-path">
+														ASP.NET MVC apps in Windows containers
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/aspnet/core/blazor/" class="has-external-link-indicator" data-linktype="absolute-path">
+														Blazor: Interactive client-side web UI with .NET
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../fsharp/scenarios/web-development" class="has-external-link-indicator" data-linktype="relative-path">
+														F# for web development
+													</a>
+												</li>
+										</ul>
+									</div>
+								</article>
+						</div>
+						<div class="column is-4-tablet is-4-desktop">
+								<article data-bi-name="summary-card" class="card is-full-height">
+									<div class="card-content">
+										<h3 class="card-title color-text font-size-lg">Microservices</h3>
+										<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xs">
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../architecture/dapr-for-net-developers/" class="has-external-link-indicator" data-linktype="relative-path">
+														Dapr for .NET developers
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../architecture/cloud-native/" class="has-external-link-indicator" data-linktype="relative-path">
+														Cloud native .NET apps
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../architecture/serverless/" class="has-external-link-indicator" data-linktype="relative-path">
+														Serverless apps with Azure
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../architecture/microservices/" class="has-external-link-indicator" data-linktype="relative-path">
+														Architecture for containerized .NET apps
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../core/extensions/cloud-service" class="has-external-link-indicator" data-linktype="relative-path">
+														Deploy a Worker Service to Azure
+													</a>
+												</li>
+										</ul>
+									</div>
+								</article>
+						</div>
+						<div class="column is-4-tablet is-4-desktop">
+								<article data-bi-name="summary-card" class="card is-full-height">
+									<div class="card-content">
+										<h3 class="card-title color-text font-size-lg">Mobile, Desktop, and IoT</h3>
+										<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xs">
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/dotnet/desktop/wpf/" class="has-external-link-indicator" data-linktype="absolute-path">
+														Windows Presentation Foundation
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/dotnet/desktop/winforms/" class="has-external-link-indicator" data-linktype="absolute-path">
+														Windows Forms
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/dotnet/maui" class="has-external-link-indicator" data-linktype="absolute-path">
+														.NET Multi-platform App UI (.NET MAUI)
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="/en-us/azure/developer/mobile-apps" class="has-external-link-indicator" data-linktype="absolute-path">
+														Develop mobile apps with Azure
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../iot/" class="has-external-link-indicator" data-linktype="relative-path">
+														.NET IoT libraries
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../iot/quickstarts/sensehat" class="has-external-link-indicator" data-linktype="relative-path">
+														Get started with IOT in 5 minutes
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="../iot/tutorials/blink-led" class="has-external-link-indicator" data-linktype="relative-path">
+														Blink an LED
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="https://aka.ms/dotnet/beginnervideos/youtube/iot" class="has-external-link-indicator" data-linktype="external">
+														.NET IoT 101 video series
+													</a>
+												</li>
+										</ul>
+									</div>
+								</article>
+						</div>
+						<div class="column is-4-tablet is-4-desktop">
+								<article data-bi-name="summary-card" class="card is-full-height">
+									<div class="card-content">
+										<h3 class="card-title color-text font-size-lg">Game development</h3>
+										<ul class="has-line-height-reset margin-left-none margin-bottom-none margin-top-xs">
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="https://visualstudio.microsoft.com/vs/features/game-development/?utm_medium=microsoft&amp;utm_source=learn.microsoft.com&amp;utm_campaign=inline+link" class="has-external-link-indicator" data-linktype="external">
+														Game development with Visual Studio
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="https://docs.cryengine.com/display/CEPROG/C%23+Programming" class="has-external-link-indicator" data-linktype="external">
+														Learn how to use CRYENGINE to build games with C#
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="https://docs.monogame.net/?page=main" class="has-external-link-indicator" data-linktype="external">
+														Build games with C# using the MonoGame library
+													</a>
+												</li>
+												<li class="is-unstyled margin-bottom-xxs font-size-sm">
+													<a href="https://docs.unity3d.com/Manual/index.html" class="has-external-link-indicator" data-linktype="external">
+														Learn how to use Unity to build 2D and 3D games with C#
+													</a>
+												</li>
+										</ul>
+									</div>
+								</article>
+						</div>
+					</div>
+						<h2 class="title is-2 is-responsive margin-top-none ">API and language reference</h2>
+						<p class="margin-top-xs margin-bottom-sm">Search the .NET API and language reference documentation.</p>
+					<div class="columns is-multiline">
+						<div class="column is-4-tablet is-4-desktop">
+								<article data-bi-name="summary-card" class="card is-full-height position-relative">
+									<div class="card-content">
+										<a href="../api/" class="card-title stretched-link has-external-link-indicator" data-linktype="relative-path">.NET API reference</a>
+										<p class="card-content-description">API reference documentation for .NET</p>
+									</div>
+								</article>
+						</div>
+						<div class="column is-4-tablet is-4-desktop">
+								<article data-bi-name="summary-card" class="card is-full-height position-relative">
+									<div class="card-content">
+										<a href="../api/" class="card-title stretched-link has-external-link-indicator" data-linktype="relative-path">ASP.NET Core API reference</a>
+										<p class="card-content-description">API reference documentation for ASP.NET Core</p>
+									</div>
+								</article>
+						</div>
+						<div class="column is-4-tablet is-4-desktop">
+								<article data-bi-name="summary-card" class="card is-full-height position-relative">
+									<div class="card-content">
+										<a href="../api/?view=netframework-4.8&amp;preserve-view=true" class="card-title stretched-link has-external-link-indicator" data-linktype="relative-path">.NET Framework API reference</a>
+										<p class="card-content-description">API reference documentation for .NET Framework</p>
+									</div>
+								</article>
+						</div>
+					</div>
+					<div class="columns">
+						<div class="column is-12 font-size-sm has-line-height-reset">
+							<p>Are you interested in contributing to the .NET docs? For more information, see our <a href="/en-us/contribute/dotnet/dotnet-contribute" data-linktype="absolute-path">contributor guide</a>.</p>
+
+						</div>
+					</div>
+			</div>
+		</section>
+</div>
+
+
+			</div>
+		
+				</main>
+				  <div class="layout-body-footer " data-bi-name="layout-footer">
+		<footer
+			id="footer"
+			data-test-id="footer"
+			data-bi-name="footer"
+			class="footer-layout padding-xs padding-sm-desktop has-default-focus border-top"
+			role="contentinfo"
+		>
+			<div class="display-flex gap-xs flex-wrap-wrap is-full-height padding-right-lg-desktop">
+				
+		<a
+			data-mscc-ic="false"
+			href="#"
+			data-bi-name="select-locale"
+			class="locale-selector-link flex-shrink-0 button button-sm button-clear external-link-indicator"
+			id=""
+			title=""
+			><span class="icon" aria-hidden="true"
+				><span class="docon docon-world"></span></span
+			><span class="local-selector-link-text">en-us</span></a
+		>
+	 <div class="ccpa-privacy-link" data-ccpa-privacy-link hidden>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://aka.ms/yourcaliforniaprivacychoices"
+			data-bi-name="your-privacy-choices"
+			class="button button-sm button-clear flex-shrink-0 external-link-indicator"
+			id=""
+			title=""
+			>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 30 14"
+			xml:space="preserve"
+			height="16"
+			width="43"
+			aria-hidden="true"
+			focusable="false"
+		>
+			<path
+				d="M7.4 12.8h6.8l3.1-11.6H7.4C4.2 1.2 1.6 3.8 1.6 7s2.6 5.8 5.8 5.8z"
+				style="fill-rule:evenodd;clip-rule:evenodd;fill:#fff"
+			></path>
+			<path
+				d="M22.6 0H7.4c-3.9 0-7 3.1-7 7s3.1 7 7 7h15.2c3.9 0 7-3.1 7-7s-3.2-7-7-7zm-21 7c0-3.2 2.6-5.8 5.8-5.8h9.9l-3.1 11.6H7.4c-3.2 0-5.8-2.6-5.8-5.8z"
+				style="fill-rule:evenodd;clip-rule:evenodd;fill:#06f"
+			></path>
+			<path
+				d="M24.6 4c.2.2.2.6 0 .8L22.5 7l2.2 2.2c.2.2.2.6 0 .8-.2.2-.6.2-.8 0l-2.2-2.2-2.2 2.2c-.2.2-.6.2-.8 0-.2-.2-.2-.6 0-.8L20.8 7l-2.2-2.2c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0l2.2 2.2L23.8 4c.2-.2.6-.2.8 0z"
+				style="fill:#fff"
+			></path>
+			<path
+				d="M12.7 4.1c.2.2.3.6.1.8L8.6 9.8c-.1.1-.2.2-.3.2-.2.1-.5.1-.7-.1L5.4 7.7c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0L8 8.6l3.8-4.5c.2-.2.6-.2.9 0z"
+				style="fill:#06f"
+			></path>
+		</svg>
+	
+			<span>Your Privacy Choices</span></a
+		>
+	
+	</div>
+				<div class="flex-shrink-0">
+		<div class="dropdown has-caret-up">
+			<button
+				data-test-id="theme-selector-button"
+				class="dropdown-trigger button button-clear button-sm inner-focus theme-dropdown-trigger"
+				aria-controls="{{ themeMenuId }}"
+				aria-haspopup="true"
+				aria-expanded="false"
+				data-bi-name="theme"
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-sun"></span></span>
+				<span>Theme</span>
+				<span class="icon expanded-indicator" aria-hidden="true">
+					<span class="docon docon-chevron-down-light"></span>
+				</span>
+			</button>
+			<div class="dropdown-menu" id="{{ themeMenuId }}" role="menu">
+				<ul class="theme-selector padding-xxs" data-test-id="theme-dropdown-menu" role="none">
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="light"
+							tabindex="-1"
+						>
+							<span class="theme-light margin-right-xxs">
+								<span
+									class="theme-selector-icon border display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> Light </span>
+						</button>
+					</li>
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="dark"
+							tabindex="-1"
+						>
+							<span class="theme-dark margin-right-xxs">
+								<span
+									class="border theme-selector-icon display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> Dark </span>
+						</button>
+					</li>
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="high-contrast"
+							tabindex="-1"
+						>
+							<span class="theme-high-contrast margin-right-xxs">
+								<span
+									class="border theme-selector-icon display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> High contrast </span>
+						</button>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+			</div>
+			<ul class="links" data-bi-name="footerlinks">
+				<li class="manage-cookies-holder" hidden=""></li>
+				<li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/principles-for-ai-generated-content"
+			data-bi-name="aiDisclaimer"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>AI Disclaimer</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/previous-versions/"
+			data-bi-name="archivelink"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Previous Versions</a
+		>
+	
+	</li> <li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://techcommunity.microsoft.com/t5/microsoft-learn-blog/bg-p/MicrosoftLearnBlog"
+			data-bi-name="bloglink"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Blog</a
+		>
+	
+	</li> <li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/contribute"
+			data-bi-name="contributorGuide"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Contribute</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://go.microsoft.com/fwlink/?LinkId=521839"
+			data-bi-name="privacy"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Privacy</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://go.microsoft.com/fwlink/?linkid=2259814"
+			data-bi-name="consumer-health-privacy"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Consumer Health Privacy</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/legal/termsofuse"
+			data-bi-name="termsofuse"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Terms of Use</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://www.microsoft.com/legal/intellectualproperty/Trademarks/"
+			data-bi-name="trademarks"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Trademarks</a
+		>
+	
+	</li>
+				<li>&copy; Microsoft 2026</li>
+			</ul>
+		</footer>
+	</footer>
+			</body>
+		</html>

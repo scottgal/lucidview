@@ -1,0 +1,520 @@
+        <!DOCTYPE html>
+        <html lang="en">
+        <head><title>Welcome to LWN.net [LWN.net]</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+<META NAME="robots" CONTENT="noai, noimageai">
+        <link rel="icon" href="https://static.lwn.net/images/favicon.png"
+              type="image/png">
+        <link rel="alternate" type="application/rss+xml" title="LWN.net headlines" href="https://lwn.net/headlines/rss">
+        <link rel="stylesheet" href="/CSS/lwn">
+<style>div.MakeALink { display: none }</style>
+
+        
+        </head>
+        <body>
+        <a name="t"></a>
+<div id="menu"><a href="/" aria-label="Return to the front page">
+            <img src="https://static.lwn.net/images/logo/barepenguin-70.webp" class="logo"
+                 border="0" alt="LWN.net Logo">
+            <span class="logo">LWN<br>.net</span>
+            <span class="logobl">News from the source</span></a>
+            <a href="/" aria-label="Return to the front page">
+            <img src="https://static.lwn.net/images/lcorner-ss.png" class="sslogo"
+                 border="0" alt="LWN"></a><div class="navmenu-container">
+           <ul class="navmenu">
+        <li><a class="navmenu" href="#t"><b>Content</b></a><ul><li><a href="/current/">Weekly Edition</a></li><li><a href="/Archives/">Archives</a></li><li><a href="/Search/">Search</a></li><li><a href="/Kernel/">Kernel</a></li><li><a href="/Security/">Security</a></li><li><a href="/Calendar/">Events calendar</a></li><li><a href="/Comments/unread">Unread comments</a></li><li><hr></li><li><a href="/op/FAQ.lwn">LWN FAQ</a></li><li><a href="/op/AuthorGuide.lwn">Write for us</a></li></ul></li>
+</ul></div>
+</div> <!-- menu -->
+<div class="topnav-spacer"></div>
+<div class="top-banner not-print"><!-- no top ad served --></div>
+<div class="topnav-container">
+<div class="not-handset"><form action="https://lwn.net/Login/" method="post" name="loginform"
+                 class="loginform">
+        <label><b>User:</b> <input type="text" name="uname" value="" size="8" id="uc" /></label> 
+		<label><b>Password:</b> <input type="password" name="pword" size="8" id="pc" /></label> <input type="hidden" name="target" value="/" /> <input type="submit" name="submit" value="Log in" /></form> |
+           <form action="https://lwn.net/subscribe/" method="post" class="loginform">
+           <input type="submit" name="submit" value="Subscribe" />
+           </form> |
+           <form action="https://lwn.net/Login/newaccount" method="post" class="loginform">
+           <input type="submit" name="submit" value="Register" />
+           </form>
+        </div>
+               <div class="handset-only">
+               <a href="/Login/"><b>Log in</b></a> /
+               <a href="/subscribe/"><b>Subscribe</b></a> /
+               <a href="/Login/newaccount"><b>Register</b></a>
+               </div>
+               </div><div class="maincolumn flexcol">
+<div class="middlecolumn">
+<div class="PageHeadline">
+<h1>Welcome to LWN.net</h1>
+</div>
+<div class="ArticleText"><main>
+<blockquote style="margin-top: 0">
+       LWN.net is a reader-supported news site dedicated to producing the best
+       coverage from within the Linux and free software development communities.
+       See <a href="/op/FAQ.lwn">the LWN FAQ</a> for more information, and
+       please consider <a href="/subscribe/Info">subscribing</a> to gain full
+       access and support our activities.
+       </blockquote>
+       <p>
+       <div class="FPBox"><div class="FPLeft">
+<h2 class="Headline">[<span class="Subscription">$</span>] The &quot;rnull&quot; Rust block driver</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Kernel] Posted Aug 28, 2026 18:26 UTC (Fri) by daroc</span>
+        <p>
+        <p>
+The
+<a href="https://www.kernel.org/doc/html/latest/block/null_blk.html">null block
+driver</a> (<tt>null_blk</tt>)
+is a small driver that is mostly useful for benchmarking block-layer
+implementations. It accepts all requests and marks them complete as quickly as
+possible, doing as little work as possible. In June&nbsp;2026, Andreas Hindborg shared
+<a href="https://lwn.net/ml/all/20260609-rnull-v6-19-rc5-send-v2-0-82c7404542e2@kernel.org/">
+a patch set</a> implementing the same functionality in Rust, in order to show
+that a simple block driver is now possible to write using the kernel's
+Rust APIs and to enable comparisons between the C and Rust
+implementations.
+A minimal version of the "rnull" driver is already present in the mainline
+kernel, but Hindborg's patch set brings it up to feature parity with the C
+version.
+</p>
+
+        <p>
+        <a href="/Articles/1090378/">Full Story</a> (<a href="/Articles/1090378/#Comments">comments: 18</a>)
+<p>
+</div>
+<h2 class="Headline">[<span class="Subscription">$</span>] Using steal time to moderate CPU demands</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Kernel] Posted Aug 27, 2026 14:11 UTC (Thu) by corbet</span>
+        <p>
+        Virtualization can increase CPU utilization by allowing a large number of
+virtual CPUs to share a smaller number of physical CPUs.  The amount of CPU
+time that is actually available does not change, though, so heavy activity
+on too many virtual CPUs can lead to contention and significant performance
+loss.  The <a
+href="/ml/all/20260825103855.721013-1-sshegde@linux.ibm.com">steal governor
+patch series</a> from Shrikanth Hegde is an attempt to address that problem
+with a mechanism that allows virtual machines to voluntarily reduce the
+number of virtual CPUs they use when contention is high.
+
+        <p>
+        <a href="/Articles/1090381/">Full Story</a> (<a href="/Articles/1090381/#Comments">comments: 1</a>)
+<p>
+</div>
+<h2 class="Headline">[<span class="Subscription">$</span>] LWN.net Weekly Edition for August 27, 2026</h2>
+        
+        <span class="Smaller">Posted Aug 27, 2026 0:54 UTC (Thu)</span><p>
+        The LWN.net Weekly Edition for August 27, 2026 is available.
+<p>
+        <b>Inside this week's LWN.net Weekly Edition</b>
+        <ul>
+<li> <a href="/Articles/1089643/">Front</a>: AGPL violations; OpenMDW license; quantum computing and encryption; 7.3 merge window; Remind; Quickshell.
+            <li> <a href="/Articles/1089645/">Briefs</a>: arrayref; RIP Steve French; Armbian 26.8; Vanilla OS 3; Emacs 31.1; KDE Gear 26.08; LibreOffice 26.8; RPM 6.1.0; Quotes; ...
+            <li> <a href="/Articles/1089646/">Announcements</a>: Newsletters, conferences, security updates, patches, and more.
+            </ul>
+<a href="/Articles/1089643/">Read the full article</a>
+<p>
+
+<h2 class="Headline">[<span class="Subscription">$</span>] An ongoing 3D-printer AGPL violation</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Front] Posted Aug 26, 2026 15:29 UTC (Wed) by jake</span>
+        <p>
+        At <a href="https://2026.fossy.ca/">FOSSY 2026</a>, several people from the
+<a href="https://sfconservancy.org/">Software Freedom Conservancy</a> (SFC),
+which organizes the conference, gave a presentation about an <a href="https://sfconservancy.org/news/2026/may/18/bambu-studio-3d-printer-agpl-violation-response/">ongoing
+violation</a> of the <a
+href="https://www.gnu.org/licenses/agpl-3.0.en.html">Affero General Public
+License version 3</a> (AGPLv3).  Bradley Kühn, Karen Sandler, and Denver
+Gingerich spoke about different aspects of the violation, which is in
+regard to 3D-printer software from Bambu Lab, and what is being
+done to try to provide users with alternatives.  One aspect that is
+particularly interesting is that the circumvention that the company is
+employing is precisely what the AGPL was written to prevent.
+
+        <p>
+        <a href="/Articles/1089390/">Full Story</a> (<a href="/Articles/1089390/#Comments">comments: 24</a>)
+<p>
+</div>
+<h2 class="Headline">[<span class="Subscription">$</span>] Old-school calendaring at the command line with Remind</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Development] Posted Aug 25, 2026 14:03 UTC (Tue) by jzb</span>
+        <p>
+        <p><a href="https://dianne.skoll.ca/projects/remind/">Remind</a> is a
+command-line calendar and alarm program, with an optional Tk-based graphical
+interface, for Linux and Unix-like operating systems. It has its own scripting
+language that allows users to create reminders that are difficult (if not
+impossible) to specify in other calendaring programs. It is wholly unsuitable for use in
+corporate environments that require calendar sharing and exchanging meeting
+invitations; however, it may be precisely the calendaring tool for users who
+prefer the command line and fast, flexible tools that can help keep track of
+messy schedules.</p>
+
+        <p>
+        <a href="/Articles/1090376/">Full Story</a> (<a href="/Articles/1090376/#Comments">comments: 16</a>)
+<p>
+</div>
+<h2 class="Headline">[<span class="Subscription">$</span>] How to be safe from quantum computing</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Security] Posted Aug 24, 2026 14:57 UTC (Mon) by daroc</span>
+        <p>
+        <p>
+Practical quantum computers have been ten years away for the last several
+decades. Now, however, it's beginning to look as though they will be
+possible in just a few years. Recent
+<a href="/Articles/1066156/">
+research with obfuscated results</a> demonstrated much lower memory requirements to factor
+<a href="https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm">
+ECDSA</a> keys on a quantum computer, with
+<a href="https://www.ecdsa.fail/">
+work by other researchers in the open</a> more than halving memory use compared
+to the state of the art in 2023.
+At the same time, computer
+manufacturers are
+<a href="https://abit.ee/en/processors/ibm-quantum-processor-nighthawk-ibm-miami-quantum-computing-qubits-coherence-heron-r3-quantum-advant-en">
+boasting</a> quantum processors that retain viable superpositions over longer periods.
+Given how slowly software updates filter out to stable systems, it's worth
+looking at what configuration changes and protocol updates are needed to be safe
+from quantum computers now.
+</p>
+
+        <p>
+        <a href="/Articles/1088305/">Full Story</a> (<a href="/Articles/1088305/#Comments">comments: 29</a>)
+<p>
+</div>
+<h2 class="Headline">[<span class="Subscription">$</span>] Considering the OpenMDW license</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Front] Posted Aug 21, 2026 13:42 UTC (Fri) by corbet</span>
+        <p>
+        The open-source world has been struggling for a few years now to understand
+how to approach large language models (LLMs) and the licensing applied to
+them.  What constitutes "freedom" with respect to a black box filled with
+numerical weights?  The process taken by the Open Source Initiative (OSI)
+in the <a href="/Articles/995159/">development</a> of its <a
+href="https://opensource.org/ai/open-source-ai-definition">Open Source AI
+Definition</a> was controversial at best, as was its output.  Now, the
+Linux Foundation's Mike Dolan has <a
+href="/ml/all/CAFV=PSG=bsLTemzjyCKYYz9j=rX9dcNo6=2T6htbxTRgervMrA@mail.gmail.com">brought
+a new license to the OSI</a> for approval.  It is called the OpenMDW ("Open
+Model, Data, and Weights"), and it aims to clarify licensing for the
+distribution of LLMs and related materials, but consensus is proving hard
+to find for this license as well.
+
+        <p>
+        <a href="/Articles/1089251/">Full Story</a> (<a href="/Articles/1089251/#Comments">comments: 6</a>)
+<p>
+</div>
+<h2 class="Headline">[<span class="Subscription">$</span>] A look at the Quickshell desktop-component toolkit</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Development] Posted Aug 20, 2026 19:39 UTC (Thu) by tjl</span>
+        <p>
+        <p><a href="https://quickshell.org/">Quickshell</a> is a toolkit for
+building desktop components, such as toolbars or menus. It uses <a
+href="https://doc.qt.io/qt-6/qmlreference.html">QML</a>, which is a declarative language
+for designing GUI applications. Quickshell helps developers create graphical tools
+for common desktop use cases with a focus on ease of development. It offers a
+convenient method for writing user interfaces and has been adopted by a number
+of projects, such as <a
+href="https://github.com/caelestia-dots/shell#caelestia-shell">caelestia-shell</a> and <a href="https://danklinux.com/">DankMaterialShell</a>, that
+provide desktop environments for minimal window managers like <a
+href="https://swaywm.org/">Sway</a> and <a
+href="https://niri-wm.github.io/niri/">niri</a>.</p>
+
+        <p>
+        <a href="/Articles/1083090/">Full Story</a> (<a href="/Articles/1083090/#Comments">comments: 18</a>)
+<p>
+</div>
+<h2 class="Headline">[<span class="Subscription">$</span>] The beginning of the 7.3 merge window</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Kernel] Posted Aug 20, 2026 13:11 UTC (Thu) by corbet</span>
+        <p>
+        As of this writing, 2,346 non-merge changesets have been pulled into the
+mainline repository for the 7.3 kernel release.  That, clearly, is a mere
+down payment on the flood that is to come.  Even so, those early pulls
+brought in some noteworthy changes, including (but not limited to) a
+significant reworking of how group scheduling works on multiprocessor
+systems.
+
+        <p>
+        <a href="/Articles/1089244/">Full Story</a> (<a href="/Articles/1089244/#Comments">comments: 16</a>)
+<p>
+</div>
+<h2 class="Headline">LWN.net Weekly Edition for August 20, 2026</h2>
+        
+        <span class="Smaller">Posted Aug 20, 2026 0:05 UTC (Thu)</span><p>
+        The LWN.net Weekly Edition for August 20, 2026 is available.
+<p>
+        <b>Inside this week's LWN.net Weekly Edition</b>
+        <ul>
+<li> <a href="/Articles/1088565/">Front</a>: Debian AI GR; Python pathlib; bootstrappable builds; Fedora and AF_ALG; Arm 128-bit PTEs; BPF CI; 7.2 statistics.
+            <li> <a href="/Articles/1088567/">Briefs</a>: Brief news items from throughout the community.
+            <li> <a href="/Articles/1088568/">Announcements</a>: Newsletters, conferences, security updates, patches, and more.
+            </ul>
+<a href="/Articles/1088565/">Read the full article</a>
+<p>
+
+</div>
+<div class="FPRight">
+<h2 class="Headline">Kernel prepatch 7.3-rc1</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Kernel] Posted Aug 30, 2026 22:52 UTC (Sun) by corbet</span>
+        <p>
+        Linus has <a href="/Articles/1091420/">released 7.3-rc1</a> and closed the
+merge window for this release.  "<q>Nothing really stands out - except for
+the fact that it's big. It's not the biggest rc1 we've ever had, but it's
+certainly up there, at least in number of commits.</q>"  He pulled 15,267
+commits during this merge window, making it the second busiest ever; only
+6.7 has exceeded it.
+        <p>
+        <a href="/Articles/1091421/">Comments (none posted)</a>
+<p>
+</div>
+<h2 class="Headline">Debian votes to allow &quot;responsible use of generative AI&quot;</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Distributions] Posted Aug 29, 2026 13:58 UTC (Sat) by corbet</span>
+        <p>
+        The <a href="/ml/all/E1x06W1-00AjNI-1i@vento.debian.org">results</a> of the
+<a href="/Articles/1087134/">Debian general-resolution vote</a> on the use
+of large language models have been posted; the winner is <a
+href="https://www.debian.org/vote/2026/vote_002#texte">choice 5:
+Responsible Use of Generative AI</a>.
+<p>
+<blockquote class="bq">
+	Debian neither endorses nor prohibits the use of generative AI
+	tools in the development, maintenance, or documentation of
+	software, packaging, documentation, and other media published
+	within the Debian Project. We recognize that such tools can
+	substantially improve the productivity of contributors when used
+	responsibly, allowing volunteers to spend more of their limited
+	time on work that requires technical expertise, judgment, review,
+	and collaboration.
+<p>
+	The Debian Project nevertheless expects that all contributions
+	submitted to Debian, regardless of how and with which tools they
+	were produced, satisfy the same standards of quality, correctness,
+	maintainability, and legal compliance. The use of a generative AI
+	tool does not diminish the contributor's responsibility for the
+	work they submit. Contributors are expected to understand, review,
+	test, and, where appropriate, modify AI-assisted output before
+	incorporating it into Debian.
+</blockquote>
+        <p>
+        <a href="/Articles/1091231/#Comments">Comments (64 posted)</a>
+<p>
+</div>
+<h2 class="Headline">Ryabitsev: Creepy crawlies</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Kernel] Posted Aug 29, 2026 9:32 UTC (Sat) by jzb</span>
+        <p>
+        <p>Konstantin Ryabitsev has written a <a
+href="https://people.kernel.org/monsieuricon/creepy-crawlies">blog post with
+hard numbers</a> about the impact of AI crawlers on the Linux kernel
+repositories at <a href="https://git.kernel.org/">git.kernel.org</a>:</p>
+
+<blockquote class="bq">
+<p>Today, git.kernel.org receives about 6M daily requests demanding to see
+random commits. Of these, 66% are still immediately batted away with the Anubis
+challenge, but 33% are now solving the math and getting through to the main site
+— because apparently what we have to offer is worth spending a ton of cycles to
+calculate the Anubis challenge.</p>
+
+<p>It's impossible to tell with certainty which of these are bots and which are
+real humans — but chances are, if it's asking for an old commit in a random old
+fork, it's probably not a real developer trying to do their work.</p>
+
+<p>With a bunch of generous assumptions, legitimate requests are only about 2%
+of git.kernel.org traffic — everything else are scrapers.</p>
+</blockquote>
+
+<p></p>
+        <p>
+        <a href="/Articles/1091203/#Comments">Comments (64 posted)</a>
+<p>
+</div>
+<h2 class="Headline">Car: Dolphin 26.08 and KIO performance improvements</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Development] Posted Aug 28, 2026 20:00 UTC (Fri) by jzb</span>
+        <p>
+        <p>Méven Car has written a pair of interesting blog posts (<a
+href="https://blogs.kde.org/2026/08/26/dolphin-26.08-and-kio-perf-improvements/">part&nbsp;1</a>,
+<a
+href="https://blogs.kde.org/2026/08/27/dolphin-26.08-and-kio-part-two-what-got-faster-and-smaller/">part&nbsp;2</a>). The
+first post is largely about some of the recent new features and performance work
+that have gone into the <a href="https://apps.kde.org/dolphin/">Dolphin</a> file
+manager 26.08 release, as well as the <a
+href="https://en.wikipedia.org/wiki/KIO">KIO</a> framework. The second looks at
+the performance improvements and benchmarks for previous, current, and upcoming
+releases.</p>
+
+<blockquote class="bq">
+<p>Copying many small files is more than twice as fast as it was in April. The
+gain falls off as files get larger, which is what you would expect: the fix is
+to the per-file overhead, and once each file carries a megabyte of actual I/O
+the overhead stops being what you are waiting for.</p>
+
+<p>There is still a gap with <tt>cp</tt>, discussed at length in <a
+href="https://blogs.kde.org/2026/07/28/making-kio-copy-many-files-fast/">the
+July post</a>. KIO is doing more than <tt>cp</tt> does, but not five times more,
+and the batching work that closes most of the rest of that gap is still in
+progress.</p>
+</blockquote>
+        <p>
+        <a href="/Articles/1091177/#Comments">Comments (4 posted)</a>
+<p>
+</div>
+<h2 class="Headline">Eight stable kernels with fix for a single vulnerability</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Kernel] Posted Aug 28, 2026 13:42 UTC (Fri) by jzb</span>
+        <p>
+        <p>Greg Kroah-Hartman has announced the release of the <a
+href="/Articles/1091120/">7.2.2</a>, <a href="/Articles/1091121/">7.1.12</a>, <a
+href="/Articles/1091122/">6.18.48</a>, <a
+href="/Articles/1091123/">6.12.107</a>, <a
+href="/Articles/1091124/">6.6.155</a>, <a href="/Articles/1091125/">6.1.186</a>,
+<a href="/Articles/1091126/">5.15.219</a>, and <a
+href="/Articles/1091127/">5.10.268</a> stable kernels.</p>
+
+<p>Each of these contains a
+single fix for <a
+href="https://lwn.net/ml/all/2026082816-CVE-2026-80590-241e%40gregkh/">a
+vulnerability</a> (<a
+href="https://www.cve.org/CVERecord/?id=CVE-2026-80590">CVE-2026-80590</a>)
+that allows marking IPv4 or IPv6 fragments as <a
+href="https://docs.kernel.org/networking/segmentation-offloads.html#generic-segmentation-offload">GSO</a>,
+which can allow an unprivileged user to cause a kernel panic. This vulnerability
+has been present since Linux&nbsp;2.6.27. Users are advised to upgrade.</p>
+
+<p>
+        <p>
+        <a href="/Articles/1091118/#Comments">Comments (none posted)</a>
+<p>
+</div>
+<h2 class="Headline">Security updates for Friday</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Security] Posted Aug 28, 2026 13:16 UTC (Fri) by jzb</span>
+        <p>
+        Security updates have been issued by <b>AlmaLinux</b> (assertj-core, golang, httpd, kernel, and libxml2), <b>Debian</b> (chromium and suricata-update), <b>Fedora</b> (rust-h2), <b>Mageia</b> (avahi and python-django), <b>Oracle</b> (kernel and mingw-openssl), <b>SUSE</b> (c-ares-devel, dracut, gh, gstreamer-plugins-bad, java-11-openjdk, liboqs, librest0_7, openssl, openssl-3, pcp, python313-mistune, python36-pip, qt6-svg, rmt-server, rsync, suseconnect-ng, texlive, tor, wicked, and xmlrpc-c), and <b>Ubuntu</b> (linux-azure, linux-azure-4.15, linux-azure-fips, linux-azure-6.8, linux-ibm, linux-ibm-6.8, linux-oracle-6.8, linux-raspi,
+ linux-raspi-realtime, linux-azure-fde-5.15, linux-fips, linux-gke, linux-gcp-fips, opencryptoki, and pam).
+
+        <p>
+        <a href="/Articles/1091117/">Full Story</a> (<a href="/Articles/1091117/#Comments">comments: none</a>)
+<p>
+</div>
+<h2 class="Headline">Eight stable kernels for Thursday</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Kernel] Posted Aug 27, 2026 13:10 UTC (Thu) by jzb</span>
+        <p>
+        <p>Greg Kroah-Hartman has announced the release of the <a
+href="/Articles/1090942/">7.2.1</a>, <a href="/Articles/1090943/">7.1.11</a>, <a
+href="/Articles/1090944/">6.18.47</a>, <a
+href="/Articles/1090945/">6.12.106</a>, <a
+href="/Articles/1090946/">6.6.154</a>, <a href="/Articles/1090947/">6.1.185</a>,
+<a href="/Articles/1090948/">5.15.218</a>, and <a
+href="/Articles/1090949/">5.10.267</a> stable kernels. Each of these has
+important updates throughout the tree; users are advised to upgrade.</p>
+
+<p></p>
+        <p>
+        <a href="/Articles/1090940/">Comments (none posted)</a>
+<p>
+</div>
+<h2 class="Headline">Security updates for Thursday</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Security] Posted Aug 27, 2026 13:00 UTC (Thu) by jzb</span>
+        <p>
+        Security updates have been issued by <b>AlmaLinux</b> (assertj-core, attr, firefox, go-toolset:rhel8, golang, grafana, gstreamer1-plugins-good, httpd, kernel, mingw-openssl, mod_http2, nginx, nginx:1.24, pam, polkit, and sqlite), <b>Debian</b> (bubblewrap, cockpit, emacs, gimp, libdbi-perl, openjdk-11, openjdk-17, wireshark, and xrdp), <b>Fedora</b> (bluez, curl, emacs, golang, knot, libopenmpt, libsoup3, openbao, openssh, rsync, rust-anstyle-hyperlink, rust-anstyle-progress, rust-cargo, rust-cargo-c, rust-cargo-credential-libsecret, rust-cargo-util, rust-cargo-util-schemas, rust-cargo-util-terminal, rust-crates-io, and rust-rustfix), <b>Gentoo</b> (Chromium, Google Chrome, Microsoft Edge, Opera, Chromium, Google Chrome, Microsoft Edge, Opera, Vivaldi, Chromium, Google Chrome, Microsoft Edge. Opera, and OpenRGB), <b>Oracle</b> (abrt, assertj-core, attr, gstreamer1-plugins-base, gstreamer1-plugins-good, httpd, nginx:1.24, nginx:1.26, nodejs24, and polkit), <b>SUSE</b> (apache2-mod_auth_openidc, buildah, curl, docker, dracut, evince, go1.25-openssl, go1.26-openssl, go1.27, gstreamer-plugins-bad, kernel, kubernetes, kubernetes-old, libarchive, LibVNCServer, libwireshark19, pcp, python310-pip, qemu, rootlesskit, rsync, snpguest, and util-linux), and <b>Ubuntu</b> (bind9, libheif, and openssl, openssl1.0).
+
+        <p>
+        <a href="/Articles/1090938/">Full Story</a> (<a href="/Articles/1090938/#Comments">comments: none</a>)
+<p>
+</div>
+<h2 class="Headline">Armbian 26.8 released</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Distributions] Posted Aug 26, 2026 13:54 UTC (Wed) by jzb</span>
+        <p>
+        <p><a href="https://blog.armbian.com/armbian-release-26-8/">Version 26.8</a> of
+the <a href="https://armbian.com/">Armbian</a> distribution for Arm hardware has
+been released.</p>
+
+<blockquote class="bq">
+<p>Most releases are a long list of small improvements. This one had three
+larger pieces landing at roughly the same time, and all three touch parts of
+Armbian that people use directly rather than parts they only read about in
+changelogs.</p>
+
+<p>The installer was rewritten. Armbian Imager reached 2.0. And our CI moved out
+of the repository it had outgrown into one built for the job. None of these were
+planned to coincide; they simply reached the point where postponing them again
+would have cost more than doing them.</p>
+
+<p>The installer rewrite is the one I expect people to notice first. It now
+ships as an armbian-config module, which means it is unit-tested, the same way
+the rest of armbian-config is tested, rather than living as a script that
+everyone was slightly afraid to touch. It can target SPI and MTD, treats eMMC
+and NVMe as separate flows instead of pretending they are the same thing, can
+flash a bootloader on its own, and — this one is overdue — reports when a
+bootloader write fails instead of printing "Done." and leaving you to find out
+at the next boot.</p>
+</blockquote>
+
+<p>See the <a href="https://docs.armbian.com/releases/26.8/">release notes</a>
+for a full list of changes.</p>
+
+<p></p>
+        <p>
+        <a href="/Articles/1090741/#Comments">Comments (none posted)</a>
+<p>
+</div>
+<h2 class="Headline">Security updates for Wednesday</h2>
+        
+        <div class="BlurbListing">
+        <span class="Smaller">[Security] Posted Aug 26, 2026 13:16 UTC (Wed) by jzb</span>
+        <p>
+        Security updates have been issued by <b>AlmaLinux</b> (firefox, gstreamer1-plugins-base, kernel, kernel-rt, and sqlite), <b>Debian</b> (freecad, kernel, libvncserver, and openssl), <b>Fedora</b> (apr-util, chromium, nnn, perl-DBI, python-tablib, python3.10, python3.11, python3.12, and sympa), <b>Gentoo</b> (DTrace, GNU screen, UnrealIRCd, and Vinyl Cache), <b>Oracle</b> (389-ds-base, attr, firefox, gegl04, grafana, gstreamer1-plugins-base, gstreamer1-plugins-good, httpd, mod_http2, nginx, pam, python-pyasn1, python-urwid, python3.12, python3.14, sqlite, and xorg-x11-server), <b>SUSE</b> (amazon-ecs-init, containerd, curl, distribution, dracut, ffmpeg-7, fuse-overlayfs, gd, git-lfs, go1.25-openssl, go1.26-openssl, govulncheck-vulndb, hauler, himmelblau, kernel, librest, libssh2_org, open-iscsi, openssh, patch, perl-Date-Manip, podman, postgresql14, postgresql16, python-cryptography, python-Pillow, python311, rmt-server, rootlesskit, rpm, rsync, runc, snpguest, sssd, suseconnect-ng, unbound, and util-linux), and <b>Ubuntu</b> (curl, ffmpeg, linux-aws-6.8, linux-azure-fde, linux-azure-fde-6.8, linux-azure-fips,
+ linux-nvidia-tegra, linux-azure, linux-azure-fde, linux-azure, linux-azure-fde, linux-nvidia-tegra-igx, linux-azure-5.4, linux-azure-fips, linux-oracle, linux-raspi, linux-raspi-realtime, openjdk-17, openjdk-21, openjdk-25, openjdk-8, openjdk-lts, openssl, perl, and vim).
+
+        <p>
+        <a href="/Articles/1090732/">Full Story</a> (<a href="/Articles/1090732/#Comments">comments: none</a>)
+<p>
+</div>
+</div>
+       </div>
+       <p><a href="/Articles/?offset=10">--&gt; More news items</a>
+       
+</main></div> <!-- ArticleText -->
+</div> <!-- middlecolumn -->
+<div class="rightcol not-print">
+<!-- no side ad served -->
+</div>
+</div> <!-- maincolumn -->
+
+            <br clear="all">
+            <center>
+            <P>
+            <span class="ReallySmall">
+            Copyright &copy; 2026, Eklektix, Inc.<BR>
+            
+            Comments and public postings are copyrighted by their creators.<br>
+            Linux  is a registered trademark of Linus Torvalds<br>
+            </span>
+            </center>
+            
+            </body></html>

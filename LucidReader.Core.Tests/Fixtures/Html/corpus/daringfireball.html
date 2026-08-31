@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en"  class="daringfireball-net">
+<head>
+	<meta charset="UTF-8" />
+	<title>Daring Fireball</title>
+
+	<link rel="apple-touch-icon-precomposed" href="/graphics/apple-touch-icon.png" />
+	<link rel="shortcut icon" href="/graphics/favicon.ico?v=005" />
+	<link rel="mask-icon" href="/graphics/dfstar.svg" color="#4a525a">
+	<link rel="stylesheet" type="text/css" media="screen"  href="/css/fireball_screen.css?v1.2026-08-25" />
+	<link rel="stylesheet" type="text/css" media="screen"  href="/css/ie_sucks.php" />
+	<link rel="stylesheet" type="text/css" media="print"   href="/css/fireball_print.css?v01" />
+	<link rel="alternate"  type="application/atom+xml"     href="/feeds/main" />
+	<link rel="alternate"  type="application/json"         href="/feeds/json" />
+	<link rel="me"                                         href="https://mastodon.social/@gruber" />
+	<link rel="me"                                         href="https://mastodon.social/@daringfireball" />
+	<script src="/js/js-global/FancyZoom.js"></script>
+	<script src="/js/js-global/FancyZoomHTML.js"></script>
+
+	<!-- Open Graph bullshit, for home page: -->
+	<meta property="og:title"       content="Daring Fireball, by John Gruber" />
+	<meta property="og:type"        content="website" />
+	<meta property="og:url"         content="https://daringfireball.net/" />
+	<meta property="og:image"       content="https://daringfireball.net/graphics/df-wide-card.png" />
+	<meta property="og:site_name"   content="Daring Fireball" />
+	<meta property="og:description" content="Commentary on Apple, technology, design, politics, and more." />
+</head>
+<body  class="daringfireball-net"  onload="setupZoom()">
+<div id="Box">
+
+<div id="Banner">
+<a href="/" title="Daring Fireball: Home"><img src="/graphics/logos/" alt="Daring Fireball" height="56" /></a>
+</div>
+<div id="Sidebar">
+<p>By <strong>John&nbsp;Gruber</strong></p>
+
+<ul><!--&#9733;-->
+<li><a href="/archive/" title="Previous articles.">Archive</a></li><li><script>
+// <![CDATA[
+function ReadCookie(name) {
+	var nameEQ = name + "=";
+	var ca = document.cookie.split(';');
+	for(var i=0; i < ca.length; i++) {
+		var c = ca[i];
+		while (c.charAt(0)==' ') c = c.substring(1, c.length);
+		if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+	}
+	return null;
+}
+var display_linked_list = ReadCookie('displayLinkedList');
+var li_linked = '<a href="/linked/" title="The Linked List.">Linked List<\/a>';
+if (display_linked_list == "hide") {
+	// Linked List is off on home page, so show it in menu:
+	document.write(li_linked + "<\/li>\n<li>");
+}
+else {
+	// Default to not putting separate LL item in sidebar:
+}
+// ]]>
+</script></li>
+<li><a href="/thetalkshow/" title="America’s favorite 3-star podcast.">The Talk Show</a></li>
+<li><a href="https://dithering.fm/" title="Two episodes per week, 15 minutes per episode. Not a minute less, not a minute more.">Dithering</a></li>
+<li><a href="/projects/" title="Software projects, including SmartyPants and Markdown.">Projects</a></li>
+<li><a href="/contact/" title="How to send email or feedback regarding Daring Fireball.">Contact</a></li>
+<li><a href="/colophon/" title="About this site and the tools used to produce it.">Colophon</a></li>
+<li><a href="/feeds/">Feeds / Social</a></li>
+<!-- 
+<li><a href="https://twitter.com/daringfireball">Twitter</a></li>
+ -->
+<li><a href="/feeds/sponsors/">Sponsorship</a></li>
+</ul>
+
+<div id="SidebarMartini">
+<a href="https://www.finalist.works/?utm_source=df-aug-2026">
+	<img alt="Finalist" src="/martini/images/finalist-1.png" height="90">
+</a>
+<p><a href="https://www.finalist.works/?utm_source=df-aug-2026">Finalist 4</a>: Inspired by<br>Paper Day Planners</p>
+</div>
+
+</div> <!-- Sidebar -->
+
+<div id="Main">
+
+<dl class="linkedlist">
+<dt>
+<a href="https://www.finalist.works/?utm_source=df-aug-2026">Finalist 4</a>&nbsp;<a class="permalink" title="Permanent link to ‘Finalist 4’" href="https://daringfireball.net/linked/2026/08/30/finalist-4">&#9733;</a>
+</dt>
+<dd>
+<p>My thanks to Finalist for sponsoring last week at Daring Fireball. Finalist is a remarkable, ambitious, and novel app for iPhone, iPad, and the Mac from indie developer Slaven Radic. It’s a planner inspired by paper day planners. I wrote quite a bit about Finalist when it first sponsored DF back in December — <a href="https://daringfireball.net/linked/2025/12/21/finalist">you should read that post</a>. I’ve been using Finalist ever since. It’s a really good app. I’ll just reiterate from the first post that what really resonates for me is the idea of adding tasks to days, not assigning dates to tasks. If you add some tasks and then never actually do them, they’re still there, but they’re in the past, not harassing you in an ever-growing list of undone stuff today.</p>
+
+<p>Finalist 4, which just came out a few weeks ago, is the biggest update yet. The headline new feature is notes, in the app or as a folder of Markdown files that round-trips with <a href="https://obsidian.md/">Obsidian</a>. Tasks in those files land on the right day, next to your reminders and events, even inside the Mac menu bar app. Finalist’s rebuilt Timeline lets you pencil tasks into your day, and Apple Pencil gets special powers to sketch the plan in seconds.</p>
+
+<p><a href="https://www.finalist.works/changelog-4-0/">There’s tons more</a>, brewed over four months with 1,000 beta testers. <a href="https://apps.apple.com/app/id6447014685?ref=finalist.works">Try it free on the App Store</a> — for iPhone, iPad, Mac, and now Apple Watch.</p>
+
+</dd>
+
+
+</dl>
+
+<hr class="ookiaks" />
+
+
+<div class="article">
+<h1><a href="https://daringfireball.net/2026/08/thoughts_and_observations_apple_immersive_mlb_broadcast" title="Permanent link to ‘Thoughts and Observations on Apple’s First Immersive MLB Broadcast, a Yankees 1-0 Win Over the Red Sox’">Thoughts and Observations on Apple’s First Immersive MLB Broadcast, a Yankees 1-0 Win Over the Red&#160;Sox</a></h1>
+<h6 class="dateline">Saturday, 29 August 2026</h6>
+
+<p>Jason Snell, writing at Six Colors, <a href="https://sixcolors.com/post/2026/08/apple-takes-first-immersive-baseball-swings-from-the-on-deck-circle/">has an exemplary review of the experience</a>:</p>
+
+<blockquote>
+  <p>I didn’t mind the reduced pace of the NBA broadcast, which toggled
+between cameras under each basket, but Stratechery’s Ben Thompson
+<a href="https://stratechery.com/2026/apple-you-still-dont-understand-the-vision-pro/">felt strongly</a> that the best option would’ve been a single
+camera at mid-court, to completely eliminate the disorienting cuts
+and replicate being at the game in person.</p>
+
+<p>Apple’s approach with baseball, at least based on Friday’s game,
+seems to lean toward Thompson’s preferred approach — and it does
+benefit from it. Each half inning was shown from a single camera
+on the dugout rail next to the on-deck circle, giving a great view
+of pitcher and hitter and the infield, as well as the goings on
+right in front of the dugout in foul territory. The camera
+switched between innings, so you were always viewing from the
+perspective of the at-bat team’s dugout.</p>
+
+<p>Making it all work better was Apple’s addition of a “virtual
+jumbotron” floating in the sky, a scoreboard with graphics and a
+video feed of the standard 16:9 telecast on Apple TV. It was easy
+to look up and catch a replay or even get a better view of
+something happening in the far-off outfield, without getting in
+the way of my view of the game itself.</p>
+</blockquote>
+
+<p>I concur with Snell’s review. The camera placement was terrific. You watched each team bat from the perspective of its own dugout. Perfect. A few other thoughts:</p>
+
+<ul>
+<li><p>The whole thing was legit <em>exciting</em>. Vision Pro continues to get a bad rap because Apple hasn’t sold many of them, and isn’t going to sell many of them until they come out with new models that are cheaper and lighter and less fussy. But there’s no denying that these immersive experiences are fucking cool. And an immersive <em>live</em> experience adds something else. It’s ineffable. Hard to say <em>why</em>, but feeling like you’re at another place watching something happen <em>live</em> is magic. Just a few years ago it would have required literal magic. It wasn’t possible. Now it is.</p></li>
+<li><p>The immersive audio was terrific. It really sounded like being at Yankee Stadium, and truly added to the you-are-there feel of the experience. It seems corny to say this, but I really had the urge to stand during the national anthem, and it felt slightly wrong not to take the “hat” off my head (where the “hat” was the Vision Pro). It’s exciting to feel 43,000 fans roar <em>around</em> you. Baseball is a slow game but when the crowd roars, it erupts. That never comes across on regular TV broadcasts. It did here.</p></li>
+<li><p>Like Snell though, I felt Apple’s commentators were too chatty. I’d love an option to toggle the commentary on and off, to just experience the natural audio of the ballpark.<sup id="fnr1-2026-08-29"><a href="#fn1-2026-08-29">1</a></sup> </p></li>
+<li><p>The only thing missing was aroma. Cement, grass, dirt, sweat, beer, peanuts, hot dogs with the works. Ballparks smell like fun. (Even Fenway.) But the you-are-there experience was so visceral I swear I could <em>almost</em> smell it. It’s like my brain was filling in the missing sensation. It didn’t feel like watching a 3D TV broadcast. It didn’t feel like a better version of TV broadcasting. It felt like something new and different. Something at least as different from watching on TV as watching on TV is different from merely listening on radio. It’s profound. TVs are small — laptops, tablets, and phones are even smaller. Yankee Stadium is huge. Watching this game immersively felt huge. Awesome, in the literal sense.</p></li>
+<li><p>I love how you could look around and see how filthy everything really is in baseball: the on-deck mats, the interior of the dugouts, the tiny bits of schmutz on the warning track. It’s a lot of dirt and quite a bit of spit. <a href="https://rotowear.com/products/thats-baseball-suzyn-mens-t-shirt">That’s baseball, Suzyn</a>.</p></li>
+<li><p>There’s a resolution and/or depth of field limitation with the cameras, exacerbated by the fact that Vision Pro’s displays are, compared to reality, low resolution. They’re the highest-resolution VR displays on the market but I still couldn’t see the ball once it left the infield. When balls were hit to the outfield you just kind of had to judge what was happening by what the infielders and baserunners were doing. Ben Rice hit a double in the first inning and I thought the Sox outfielder caught it and I was confused why Rice was running to second base. Turns out the outfielder stopped running because Rice hit the ball over his head and he was waiting to play the carom off the left field wall. I was happy to be wrong. A few years from now, with better cameras and better Vision headset displays, these problems will be solved. But in the meantime, the outfield is fuzzy.</p></li>
+<li><p>The best part about the immersive perspective compared to a traditional broadcast is watching how complex infield play really is. It’s fun to quickly look around the whole infield right before the pitch. You really see how much more stressful it is for the pitcher once there’s a runner on base — let alone more than one. It’s what I love about going to the ballpark — so much more complexity and intricacy is revealed — and watching this immersive broadcast enables the same thing. You can see the whole game, at all times, not just the pitcher, catcher, and batter.</p></li>
+<li><p>The virtual “jumbotron” is a fine idea but I wish you could move it a bit higher, and it would be even better if you could configure it with the stats <em>you</em> want to see. But positioning it higher is my big request.</p></li>
+<li><p>I have to admit I hadn’t used my Vision Pro in quite a few weeks before last night’s game. One thing that really struck me, almost certainly because baseball is a long game, is how heavy it is. My chin wants to droop and my face wants to look down when I’m wearing it. It’s the weight more than the isolation that makes it tiresome for anything other than short-form content, for me at least.</p></li>
+</ul>
+
+<p>The whole thing was a great success. I’m writing these notes on Saturday afternoon while watching the old flat broadcast of game 2 of this 4-game series, and it feels ... well, boring. And small. Bodes well for the future of sports.&nbsp;<a class="permalink" title="Permanent link to ‘Thoughts and Observations on Apple’s First Immersive MLB Broadcast, a Yankees 1-0 Win Over the Red Sox’" href="https://daringfireball.net/2026/08/thoughts_and_observations_apple_immersive_mlb_broadcast">&#9733;</a></p>
+
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1-2026-08-29">
+<p>Even better would be an option to swap in the local radio broadcasts, like bringing a portable radio to the ballpark. Go skeuomorphic with the UI and make it look like an old handheld <a href="https://www.amazon.com/Sony-ICF-P27-Portable-Radio-Speaker/dp/B09QBZSYTS/?tag=df-amzn-20">Sony</a> or <a href="https://www.amazon.com/Panasonic-RF-P50d-Pocket-Silver-RF-P50D/dp/B0756S4BM7/?tag=df-amzn-20">Panasonic</a> transistor radio, and make the toggle “click” on and off. Go skeuomorphic with the audio too — make it sound like it’s coming out of a little speaker or a little earpiece and have the tuner play static as you switch between home/away (and English/Spanish) stations. That’d be so fun. And the regular old flat Friday Night Baseball telecast <a href="https://www.apple.com/newsroom/2026/08/apple-mlb-announce-september-friday-night-baseball-schedule/#:~:text=local%20radio%20broadcasts">already supports</a> swapping in local radio broadcasts — they’ve already got the rights. Bring that to these immersive games!&nbsp;<a href="#fnr1-2026-08-29"  class="footnoteBackLink"  title="Jump back to footnote 1 in the text.">&#x21A9;&#xFE0E;</a></p>
+</li>
+</ol>
+</div>
+
+</div> <!-- article -->
+
+<hr class="ookiaks" />
+
+
+<h2 class="dateline">Friday, 28 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://9to5mac.com/2026/08/28/apple-announces-price-increase-for-apple-tv-and-apple-one-subscriptions/">Apple Announces Price Increase for Apple TV and Apple One Subscriptions</a>&nbsp;<a class="permalink" title="Permanent link to ‘Apple Announces Price Increase for Apple TV and Apple One Subscriptions’" href="https://daringfireball.net/linked/2026/08/28/apple-tv-price-hike">&#9733;</a>
+</dt>
+<dd>
+<p>Chance Miller, 9to5Mac:</p>
+
+<blockquote>
+  <p>Here are the full details on the price increases:</p>
+
+<ul>
+<li>Apple TV (monthly): $14.99 (up from $12.99)</li>
+<li>Apple TV (annual): $119 (up from $99)</li>
+<li>Apple One Individual: $21.95 (up from $19.95)</li>
+</ul>
+
+<p>Prices for other Apple One plans are unchanged. When Apple
+<a href="https://9to5mac.com/2026/07/17/apple-raises-prices-for-apple-music-and-apple-one-subscriptions/">increased</a> the price of Apple Music last month, it also raised
+the Apple One Family and Apple One Premier plans, but not the
+Individual plan.</p>
+
+<p>The higher prices go into effect today for new subscribers. Apple
+says existing subscribers will be notified of the price increase
+about a month before they are charged the new price.</p>
+</blockquote>
+
+<p>Seems poetic that Tim Cook’s last action as CEO is a goose to services revenue.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://www.mcsweeneys.net/articles/im-the-guy-who-destroys-antique-books-after-we-scan-them-into-our-companys-insatiable-ai-platform">‘I’m the Guy Who Destroys Antique Books After We Scan Them Into Our Company’s Insatiable AI Platform’</a>&nbsp;<a class="permalink" title="Permanent link to ‘‘I’m the Guy Who Destroys Antique Books After We Scan Them Into Our Company’s Insatiable AI Platform’’" href="https://daringfireball.net/linked/2026/08/28/mcsweeneys-book-destroyer">&#9733;</a>
+</dt>
+<dd>
+<p>Jack Loftus, writing at McSweeney’s:</p>
+
+<blockquote>
+  <p>People assume scanning is the exciting part. And, sure, it is
+impressive. They shear off the spine, separate the pages, and run
+everything through these enormous machines so the computer can
+absorb every sentence ever written and use it to create some
+fairly compelling LinkedIn posts. But then, boy oh boy, the
+wheeled cart carrying those decimated remains comes to me. That is
+where the human touch enters the process, assuming you count
+industrial shredders and a giant burn pit out back as an extension
+of the hand, which I certainly do.</p>
+</blockquote>
+
+<p>(<a href="https://sippey.com/2026/08/28/some-fairly-compelling-linkedin-posts.html">Via Michael Sippey</a>.)</p>
+
+</dd>
+
+
+<dt>
+<a href="https://www.youtube.com/watch?v=gGlpBuW6ZFc">‘How Americans See E.U. Tech’</a>&nbsp;<a class="permalink" title="Permanent link to ‘‘How Americans See E.U. Tech’’" href="https://daringfireball.net/linked/2026/08/28/how-americans-see-eu-tech">&#9733;</a>
+</dt>
+<dd>
+<p>I think at least half a dozen people have sent me a link to this video and now that I’ve watched it, I understand why. Perfect.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://daringfireball.net/linked/2026/08/28/trump-lake-ontario">We Certainly Have Made a Hames Out of This</a>&nbsp;<a class="permalink" title="Permanent link to ‘We Certainly Have Made a Hames Out of This’" href="https://daringfireball.net/linked/2026/08/28/making-a-hames-out-of-it">&#9733;</a>
+</dt>
+<dd>
+<p>I mentioned earlier that for anyone going along with the ruse that Lake Ontario is now named Lake America, the HOMES mnemonic no longer holds, the only two valid words in English with the new five letters are <em>hames</em> and <em>shame</em>, and that <em>hames</em> is rather too obscure.</p>
+
+<p>But it’s not so obscure in Ireland, <a href="https://www.worldwidewords.org/qa-ham2.html">where they use it in an idiom</a>: <em>to make a hames of</em> something is to make a mess of it. With that in mind, it’s hard to say which is more apt for this embarrassment, <em>hames</em> or <em>shame</em>.</p>
+
+<p>(The other longstanding Great Lakes mnemonic is the phrase “Super Man Helps Every One”, which I don’t love because neither <em>Superman</em> nor <em>everyone</em> ought to be treated as two words, but it does have the advantage of sorting the lakes geographically from west to east.)</p>
+
+</dd>
+
+
+<dt>
+<a href="https://x.com/MattWalshBlog/status/2093060290371870948">‘Not Sure How You Own Canada by Deleting Your Own History’</a>&nbsp;<a class="permalink" title="Permanent link to ‘‘Not Sure How You Own Canada by Deleting Your Own History’’" href="https://daringfireball.net/linked/2026/08/28/matt-walsh-lake-ontario">&#9733;</a>
+</dt>
+<dd>
+<p>Matt Walsh, <a href="https://en.wikipedia.org/wiki/Matt_Walsh_(political_commentator)">described by Wikipedia</a> as “an American far-right political commentator and podcast host” (a description that sounds harsh, but I’d say <a href="https://www.splcenter.org/resources/extremist-files/matt-walsh/">is describing him euphemistically</a>), on Twitter/X (retweeting the official White House account’s <a href="https://x.com/WhiteHouse/status/2093027464545018109">announcement</a> of the name change):</p>
+
+<blockquote>
+  <p>This will be an unpopular opinion on the Right but I think this is
+kind of dumb, even as a troll. Lake Ontario was given that name on
+maps by European explorers long before the Canadian province of
+Ontario was named. There are several cities in America called
+Ontario — at least one of them predating the Canadian province by
+like 100 years — because the word originates with native tribes
+in North America. It’s not a Canadian invention. Canadians never
+uniquely owned the lake or the name. So in effect all you’re doing
+here is actually giving them credit for a thing that wasn’t theirs
+to begin with. Yeah it’s funny when Canadians are upset I guess or
+whatever, but Lake Ontario, the name itself, is <em>American</em> history
+dating back many centuries. Not sure how you own Canada by
+deleting your own history.</p>
+
+<p>Politically this is also stupid because the number one challenge
+Republicans will face in the midterms is the charge that they
+haven’t used their time in power to advance the interests of
+everyday Americans. This kind of thing will be used as evidence
+to make that case. That might not be fair. Sure technically you
+can advance the interests of everyday Americans and also do dumb
+shit like this. But the fact is that far from “making liberal
+heads explore [<em>sic</em>],” you’re actually handing them a political gift. It
+helps their case much more than it helps ours. And, like I said,
+the historical logic here is totally confused. Lake Ontario was
+not named after the Canadian province of Ontario. It’s the other
+way around.</p>
+</blockquote>
+
+<p>Good sign that the whole mad-king thing is running on fumes when even Daily Wire commentators agree that this is stupid and isn’t even an effective troll. Every deluded fool runs into reality eventually. (<a href="https://www.status.news/p/puck-redbird-investors-paramount-gerry-cardinale">Via Oliver Darcy’s Status</a>.)</p>
+
+<p><strong>Also:</strong> Applying a new name to the Gulf of Mexico is equally ahistorical — Mexico only achieved independence from Spain in 1821; the Gulf’s name is twice as old as Mexico as a nation and 150 years older than the United States.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://daringfireball.net/2025/02/golfo_del_gringo_loco">From the DF Archive: ‘Golfo Del Gringo Loco’</a>&nbsp;<a class="permalink" title="Permanent link to ‘From the DF Archive: ‘Golfo Del Gringo Loco’’" href="https://daringfireball.net/linked/2026/08/28/df-archive-golfo-del-gringo-loco">&#9733;</a>
+</dt>
+<dd>
+<p>Yours truly back in February 2025:</p>
+
+<blockquote>
+  <p>The motivation behind the name change is simple as well. Trump
+didn’t change the US’s officially recognized name of, say, the
+Atlantic Ocean or the continent of Africa. He just as easily
+could, but he won’t.</p>
+</blockquote>
+
+<p>I’m starting to worry how well <a href="https://daringfireball.net/linked/2026/08/28/trump-lake-ontario">that’s going to hold up</a>.</p>
+
+<blockquote>
+  <p>And it’s not like “Gulf of Mexico” was on a list of “debatable or
+controversial names” until he created this controversy out of thin
+air. It’s just the one name on the globe that a president of the
+United States can change to stick it to Mexico, a country Donald
+Trump <a href="https://www.cnn.com/2018/02/27/politics/judge-curiel-trump-border-wall/index.html">has objectively racist feelings toward</a>. Trump
+never campaigned on building a wall at our <em>northern</em> border with
+Canada, nor has he (yet?) attempted to rename Lake Ontario.</p>
+</blockquote>
+
+<p>That “(yet?)” held up very well, alas. The rest of my essay holds up very well too, I think, especially pertaining to how Google and Apple present the change in their respective maps apps:</p>
+
+<blockquote>
+  <p>So whether Google and Apple should show the new name at all
+shouldn’t be the question we’re asking. The right question is
+necessarily more nuanced: Who should see which names, where? And
+Google and Apple’s answers to <em>that</em> question are, alas,
+disappointing and worrisome. I’ll repeat the seemingly identical
+policy both companies are <em>actually</em> presenting today, by region:</p>
+
+<ul>
+<li>United States: “Gulf of America”.</li>
+<li>Mexico: “Gulf of Mexico”.</li>
+<li>Everywhere else in the world: “Gulf of Mexico (Gulf of
+America)”.</li>
+</ul>
+
+<p>The best politically realistic option they could have chosen would
+be (I’ll use italics to emphasize that these are my own
+suggestions):</p>
+
+<ul>
+<li><em>United States: “Gulf of America (Gulf of Mexico)”</em>.</li>
+<li><em>Everywhere else in the world: “Gulf of Mexico”</em>.</li>
+</ul>
+
+<p>There’s no good reason to even show “Gulf of America” in
+parentheses outside the US. We’re the ones with the stupid name
+change on the books, so we’re the ones who should get stuck seeing
+the stupid name. No one else should suffer the consequences of our
+political lunacy. But it <em>is</em> correct to show us, in America, the
+new dumb “Gulf of America” name. Again, if it were up to me,
+American users would see “Gulf of America (Gulf of Mexico)”, and
+everyone else would just see “Gulf of Mexico”. But that’s surely
+the best we in the reality-based community could hope for.</p>
+</blockquote>
+
+<p>Earlier in the essay, I wrote:</p>
+
+<blockquote>
+  <p>To ignore political reality is to court political controversy. It
+is not in the interests of large multinational corporations to
+court controversy. But it’s not possible to <em>avoid</em> controversy.
+What is reasonable is to minimize controversy.</p>
+</blockquote>
+
+<p>Trump has delivered fresh “Lake America” shit sandwiches for Google and Apple to eat. I suggest that the path I recommended 18 months ago remains the path of eating the least shit, maintaining the most integrity, and courting the least collective controversy. Label it “Lake America (Lake Ontario)” to those of us here in the U.S., and keep it as “Lake Ontario” with no mention of Trump’s petulant fiat name anywhere else in the world.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://www.notus.org/trump-white-house/lake-america-ontario-canada-trade-war-trump-executive-order-rename">Trump Declares That Lake Ontario Is Now ‘Lake America’</a>&nbsp;<a class="permalink" title="Permanent link to ‘Trump Declares That Lake Ontario Is Now ‘Lake America’’" href="https://daringfireball.net/linked/2026/08/28/trump-lake-ontario">&#9733;</a>
+</dt>
+<dd>
+<p>Jackie Llanos and Jenna Monnin, reporting for NOTUS:</p>
+
+<blockquote>
+  <p>President Donald Trump on Thursday signed an executive order meant
+to rename Lake Ontario “Lake America,” taking his <a href="https://truthsocial.com/@realDonaldTrump/posts/117155789874645152">apparent jab</a>
+at Canada one step further as a trade war between the two
+countries escalates.</p>
+
+<p>The president said the name change was “effective immediately”
+during a signing ceremony in the Oval Office. The executive order
+directs Interior Secretary Doug Burgum to update the Geographic
+Names Information Service to reflect the name change. When asked
+by reporters about the move, Trump said he was sending “no
+message” to Canada with the name change.</p>
+
+<p>“Lake of America was something I’ve been thinking about for a long
+time,” the president said. “Actually, as you know, we took
+something called the Gulf of Mexico, we changed it, and now it’s
+very routinely the Gulf of America.”</p>
+</blockquote>
+
+<p>Aaron Rupar has video clips of Trump declaring the change in an Oval Office press event, <a href="https://bsky.app/profile/atrupar.com/post/3mu3fnbvwde2p">here</a> and <a href="https://bsky.app/profile/atrupar.com/post/3mu3fiix3j72i">here</a>. In the second clip Trump ruminates, “So if you think about it, we have a gulf, and we have a lake, now all we need is an ocean, so maybe we’ll have to change the name of the Atlantic and/or the Pacific. Maybe we’ll change them both.” Those who deny that he’s a mad king slipping ever deeper into dementia might say, well, he’s obviously joking. But if I had told those same people just two years ago, in the run up to his reelection, that Trump was going to declare new names for the Gulf of Mexico and Lake Ontario, they’d have said <em>I</em> was crazy because that would be nutty.</p>
+
+<p>It is nutty. Renaming these large bodies of water is nuts. He’s nuts. This is not complicated. Crazy people do crazy things and this is obviously crazy. I often use the phrase jokingly but Donald Trump is not hooked up right, and the proof is right before our eyes on camera every day.</p>
+
+<p><strong>Factoid:</strong> HOMES is the <a href="https://www.scientificamerican.com/article/bring-science-home-mnemonics/#:~:text=HOMES">longstanding mnemonic</a> for recalling the five Great Lake names: Huron, Ontario, Michigan, Erie, Superior. “Hames”, <a href="https://scrabble.merriam.com/finder/hames">technically</a>, is a playable Scrabble/Wordle word (“a part of a horse collar”), but it’s far too obscure to serve as a mnemonic. That leaves one word in the English language consisting of the five necessary letters: SHAME.</p>
+
+</dd>
+
+
+</dl>
+
+<h2 class="dateline">Thursday, 27 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://www.reuters.com/legal/government/us-judge-blocks-pentagons-anthropic-blacklisting-2026-08-28/">U.S. Judge Blocks Trump Defense Department’s Anthropic Blacklisting</a>&nbsp;<a class="permalink" title="Permanent link to ‘U.S. Judge Blocks Trump Defense Department’s Anthropic Blacklisting’" href="https://daringfireball.net/linked/2026/08/27/anthropic-beats-defense-department">&#9733;</a>
+</dt>
+<dd>
+<p>Jack Queen, Reuters:</p>
+
+<blockquote>
+  <p>A U.S. judge on Thursday blocked the Pentagon’s blacklisting of
+Anthropic, ​the latest turn in the Claude maker’s high-stakes
+fight with the military over AI safety on the battlefield.</p>
+
+<p>Anthropic’s lawsuit in California federal court alleges that
+Defense Secretary Pete Hegseth overstepped his authority when
+he designated Anthropic a national security supply-chain risk,
+a label the government can apply to companies that expose
+military systems to potential infiltration or sabotage by
+adversaries. [...]</p>
+
+<p>U.S. District Judge Rita Lin, an appointee of former Democratic
+President Joe Biden, ​made the ruling in a 59-page order where she
+found that the Pentagon’s decision was “illegal and baseless.”</p>
+
+<p>“The empty invocation of national ​security is not a blank check
+to punish and retaliate against government critics,” she wrote.</p>
+</blockquote>
+
+<p>The imperial aspects of Trump 2.0 are increasingly coming apart at the seams.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://morphing.cloud/afterglow/">Afterglow — Classic After Dark Screen Savers on Today’s MacOS</a>&nbsp;<a class="permalink" title="Permanent link to ‘Afterglow — Classic After Dark Screen Savers on Today’s MacOS’" href="https://daringfireball.net/linked/2026/08/27/afterglow">&#9733;</a>
+</dt>
+<dd>
+<p>Jeff Halter has done it again: after <a href="https://daringfireball.net/linked/2026/07/12/lunacy">bringing back</a> the single greatest After Dark module (Ben Haller’s Lunatic Fringe game, via a modern runtime named <a href="https://morphing.cloud/lunacy/">Lunacy</a>), he’s now released Afterglow:</p>
+
+<blockquote>
+  <p>Running After Dark modules in the present day has involved fussy
+configuration of Mac OS emulators or vintage hardware. Even then,
+no single emulator or vintage computer can faithfully run every
+module: some animate too fast, some too slow.</p>
+
+<p>Afterglow is an emulator built specifically for running After Dark
+modules — the original 68k module code, not a remake or port — with no dependencies on ROMs or classic Mac OS. Created in the
+spirit of software preservation, it makes After Dark easy to enjoy
+today and for years to come.</p>
+</blockquote>
+
+<p>All this in the <a href="https://daringfireball.net/linked/2026/07/12/stacks">same summer</a> during which Halter released <a href="https://morphing.cloud/hypercard/">Stacks</a>, his beautiful native modern HyperCard player. And don’t even look at his reproduction of <a href="https://morphing.cloud/macwarehouse/1997/">volume 68 of MacWarehouse from 1997</a>.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://louisabraham.github.io/load-bearing/">The Load-Bearing Vocabulary of Claude</a>&nbsp;<a class="permalink" title="Permanent link to ‘The Load-Bearing Vocabulary of Claude’" href="https://daringfireball.net/linked/2026/08/27/the-load-bearing-vocabulary-of-claude">&#9733;</a>
+</dt>
+<dd>
+<p>Fun (but depressing?) data analysis project from Louis Abraham, showing how repetitive Claude is in the words it chooses when submitting GitHub pull requests. Abraham, in the project’s readme:</p>
+
+<blockquote>
+  <p>GitHub pull request descriptions, grouped by the words they are
+written with rather than by anything they were told to look for:
+eight ways of writing, and every description belongs to one of
+them. One of the eight was 1.0% of the corpus at the start of 2025
+and is 45% of it by the middle of 2026.</p>
+</blockquote>
+
+<p>If you want to get a little more depressed, I’ve been doing deeper reading into AI watermarking research, and one of the admissions in <a href="https://www.nature.com/articles/s41586-024-08025-4">Google’s white paper on SynthID-Text</a> — the watermarking scheme Anthropic says Claude is going to start using — is that the technique incurs “some reduction to inter-response diversity”. That means different answers to the same prompt become more similar to each other — there’s less variety to watermarked text responses. That’s a load-bearing problem given that Claude clearly already struggles in this regard <em>before</em> watermarking its output.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://www.warren.senate.gov/newsroom/press-releases/warren-pushes-giant-corporations-to-give-billions-in-tariff-refunds-back-to-consumers/">Elizabeth Warren’s Incoherent Outrage Regarding Apple’s Tariff Refund</a>&nbsp;<a class="permalink" title="Permanent link to ‘Elizabeth Warren’s Incoherent Outrage Regarding Apple’s Tariff Refund’" href="https://daringfireball.net/linked/2026/08/27/elizabeth-warren-apple-tariff-refunds">&#9733;</a>
+</dt>
+<dd>
+<p><a href="https://daringfireball.net/linked/2026/08/27/panic-playdate-tariff-refunds">Speaking of tariff refunds</a>, here’s an official statement from Senator Elizabeth Warren from a few weeks ago:</p>
+
+<blockquote>
+  <p>U.S. Senator Elizabeth Warren (D-Mass.) wrote to Target, Apple,
+Amazon, Nike, Motorola, Walmart, and Energizer pushing these
+companies — each of which have or are expected to receive massive
+rebates from the Trump Administration for tariffs paid last year — to provide refunds to customers.</p>
+
+<p>“I urge you to pass along any refund you may receive to the
+consumers who paid higher prices for your products while the
+tariffs were in place,” wrote Senator Warren.</p>
+</blockquote>
+
+<p><a href="https://x.com/SenWarren/status/2085880463982281196">On Twitter/X, she posted</a>:</p>
+
+<blockquote>
+  <p>NEW: Apple reportedly got $2.2 BILLION back in tariff refunds.
+Amazon got $600 MILLION.</p>
+
+<p>What’s their plan to give YOU your money back?</p>
+</blockquote>
+
+<p>Warren published the letters she sent to the CEOs, <a href="https://www.warren.senate.gov/wp-content/uploads/2026/08/Tariff-Refund-Letters.pdf">including Tim Cook</a>:</p>
+
+<blockquote>
+  <p>Reports indicate that Apple has applied for a refund of the
+roughly $3.3 billion in tariffs you paid in 2025, and as of July
+30th, that you have received nearly $2.2 billion in refunds.
+This amounts to a multi-billion dollar windfall, which could still
+grow if more of your refund petitions are granted. You have
+claimed that you “plan to reinvest any amount we receive back into
+U.S. innovation and advanced manufacturing,” but this vague
+statement offers no clarity as to where this money will go:
+indeed, it implies that you will not be returning it to the
+millions of consumers who purchased Apple products last year and
+paid higher prices. [...]</p>
+
+<p>You have received an astronomical cash infusion in the form of a
+tariff refund, and Apple customers who paid increased prices for
+your products, ostensibly due to tariffs, deserve to know how that
+money will be spent. Your vague statements about “reinvesting”
+the refund leave hardworking Americans who paid hundreds of
+dollars more to buy Apple products in the dark about why they paid
+those increased prices and where their money will go. To better
+understand the disposition of any tariff refund you might receive,
+I request that you respond to the following questions by August
+21, 2026.</p>
+</blockquote>
+
+<p>Amongst the 11 questions she asks, the only one that seems pertinent is #5:</p>
+
+<blockquote>
+  <p>(5) How much did Apple increase prices on products in 2025? <br />
+(a) For what products did Apple increase prices, and how many of
+   these products were directly impacted by tariffs?</p>
+</blockquote>
+
+<p>Unless I’m missing something, the answers are “$0” and “none”. Apple increased none of its prices on any of its products in response to tariffs in 2025. The iPhone 17 lineup, in fact, surprised many observers and <a href="https://www.investing.com/news/stock-market-news/apple-event-expected-to-feature-a-slimmer-iphone-as-pricing-ai-questions-linger-4230858">made news by holding prices steady</a>.</p>
+
+<p>In May 2025, <a href="https://www.warren.senate.gov/newsroom/press-releases/warren-gallego-whitehouse-booker-delauro-colleagues-demand-ftc-stop-corporations-from-using-trumps-tariffs-as-an-excuse-to-price-gouge-americans/">Warren co-signed a letter to the FTC</a> encouraging them to discourage large profitable companies from raising prices due to tariffs. Apple — a large profitable company — didn’t raise prices at all, which seemingly was what Warren thought they should do. But now she’s expressing outrage that Apple got a refund for the tariffs whose costs the company covered, and her followers are left to believe that Apple <em>did</em> raise prices and is keeping the money.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://www.gamedeveloper.com/business/playdate-maker-is-refunding-tariff-fees-to-customers">Panic Is Refunding Tariff Fees to Playdate Buyers</a>&nbsp;<a class="permalink" title="Permanent link to ‘Panic Is Refunding Tariff Fees to Playdate Buyers’" href="https://daringfireball.net/linked/2026/08/27/panic-playdate-tariff-refunds">&#9733;</a>
+</dt>
+<dd>
+<p>Nicole Carpenter and Diego Argüello, reporting for Game Developer:</p>
+
+<blockquote>
+  <p>“There was a specific window of time this year where we charged
+tariffs to customers,” Panic co-founder Cabel Sasser explained in
+an e-mail to Game Developer confirming the news. “We tried
+absorbing the cost for a while, but that was financially difficult
+for a small company like ours. We made the tariff a very obvious
+and clearly labeled line item on checkout for any customer
+affected.”</p>
+
+<p>Panic also <a href="https://help.play.date/orders/tariffs/">set up a website</a> to explain the 19% tariff surcharge.
+[...] The refund amount a customer will get back depends on how
+much they purchased.</p>
+
+<p>“It’s just not our money to keep, and it felt really good to give
+it back,” Sasser said. “That’s an easy way to know you made the
+right decision.”</p>
+
+<p>He continued: “Still, it took a lot of work for us to file all the
+paperwork to get the refund from the government, and it took work
+to build a little system to process the refund, and sometimes it
+felt like, wait, why are we seemingly doing more work than even
+gigantic companies are on this issue? That felt weird. But I guess
+it makes sense in a way, because our small size means we’re far
+more directly affected by something like a tariff.”</p>
+
+<p>Sasser said he hopes Panic never has to talk about tariffs again.</p>
+</blockquote>
+
+<p>Cool story from a cool company, and amen to the day we never hear about tariffs again.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://9to5mac.com/2026/08/25/apple-maps-launches-ads-on-iphone-heres-whats-new/">Ads in Apple Maps Have Now Launched</a>&nbsp;<a class="permalink" title="Permanent link to ‘Ads in Apple Maps Have Now Launched’" href="https://daringfireball.net/linked/2026/08/27/ads-in-apple-maps">&#9733;</a>
+</dt>
+<dd>
+<p>Ryan Christoffel, 9to5Mac:</p>
+
+<blockquote>
+  <p>Apple confirmed to 9to5Mac that the ads rollout in Maps began in
+the last few days. And it will continue ramping in the weeks ahead
+to all users.</p>
+
+<p>There are two places you’ll find ads in the Maps app:</p>
+
+<ol>
+<li>Before searching: Suggested Places in the search screen will
+feature an ad.</li>
+<li>After searching: Ads will appear in search results when
+relevant.</li>
+</ol>
+</blockquote>
+
+<p>Before searching, I saw an ad for an HVAC contractor 12 miles away in “Suggested Places”. Knock on wood but I currently have no HVAC problems, and even if I did, I’d just call someone and have them come here. Then I waited a few minutes and looked again. This time I <a href="https://daringfireball.net/misc/2026/08/tommys-express-carwash.jpeg">saw an ad</a> for Tommy’s Express Car Wash (“Get your first month free”), 23 miles away in the middle of a suburban shopping mall. Apple Maps estimates it would take me 1 hour 8 minutes to drive there right now. I’ll get right on that.</p>
+
+<p>The first organic (non-ad) suggested place is a coffee shop 300 feet away.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://lectronz.com/u/lectronz/articles/how-europe-is-killing-makers-and-micro-entrepreneurs">‘How Europe Is Killing Makers and Micro-Entrepreneurs’</a>&nbsp;<a class="permalink" title="Permanent link to ‘‘How Europe Is Killing Makers and Micro-Entrepreneurs’’" href="https://daringfireball.net/linked/2026/08/27/lectronz-europe-epr">&#9733;</a>
+</dt>
+<dd>
+<p>Alain Pannetrat, founder of Lectronz:</p>
+
+<blockquote>
+  <p><a href="https://lectronz.com/">Lectronz</a> is a marketplace for open-source hardware makers and
+DIY electronics. Most of our sellers are not factories or
+well-funded start-ups. They are engineers, independent designers,
+and hardware enthusiasts working from spare rooms, garages, and
+tiny workshops.</p>
+
+<p>Some earn a living from their products. Some sell only a handful
+of boards each year. Others build ten units simply because they
+created something useful and want to share it with the community.
+Occasionally, one of those experiments grows into a real business.
+Every <a href="https://www.arduino.cc/">Arduino</a> begins somewhere.</p>
+
+<p>But the European Union’s new packaging rules now threaten to kill
+the world of makers and micro-entrepreneurs, putting jobs,
+livelihoods and an entire ecosystem of innovation at risk.</p>
+</blockquote>
+
+<p>Pannetrat says these new regulations will require even one-person hobbyists to spend hundreds of euros per year (and file paperwork) for each country they ship to. The costs will far outstrip the money they make from selling a few dozen gadgets or circuit boards, and the hassles are probably worse than the costs. But these regulations are no big deal at all to big companies like Amazon — they only hurt smaller companies, and they’re effectively crushing to hobbyists.</p>
+
+<p>A couple of years ago <a href="https://www.phila.gov/programs/plastic-bag-ban/">Philadelphia banned retailers from using plastic bags</a>. It’s worked out great. More people bring reusable shopping bags with them, and if you need a bag from the store, you get paper bags that they charge you a nickel each for. A small price to encourage bag reuse, and the end result is no more plastic bags. Regulations can be very effective without adding any complexity or annoyance to daily life.</p>
+
+</dd>
+
+
+</dl>
+
+<h2 class="dateline">Wednesday, 26 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://en.wikipedia.org/wiki/The_purpose_of_a_system_is_what_it_does">POSIWID: The Purpose of a System Is What It Does</a>&nbsp;<a class="permalink" title="Permanent link to ‘POSIWID: The Purpose of a System Is What It Does’" href="https://daringfireball.net/linked/2026/08/26/posiwid">&#9733;</a>
+</dt>
+<dd>
+<p>Wikipedia:</p>
+
+<blockquote>
+  <p>The purpose of a system is what it does (POSIWID) is a heuristic
+in systems thinking coined by the British management consultant
+<a href="https://en.wikipedia.org/wiki/Stafford_Beer">Stafford Beer</a>, who stated that there is “no point in claiming
+that the purpose of a system is to do what it constantly fails to
+do”. It is used in systems theory, and is generally invoked to
+counter the notion that the purpose of a system can or should be
+read from the intentions of those who design, operate, or promote
+it. When a system’s side effects or unintended consequences reveal
+that its behaviour is poorly understood, then the POSIWID
+perspective can balance political understandings of system
+behaviour with a more straightforwardly descriptive view.</p>
+</blockquote>
+
+<p>I don’t recall seeing POSIWID before, but I love the concept. A friend sent this to me, with the quip that I forgot to include a link to it in my “<a href="https://daringfireball.net/2026/08/what_is_the_point_of_the_dma">What Is the Point of the DMA?</a>” piece this week. Indeed, it encapsulates my arguments about the DMA specifically and the European Commission generally. The purpose of the DMA is what it does, not what you imagine it is <em>intended</em> to do.</p>
+
+<p>In the same vein, I have been thinking too about the famous anecdote <a href="https://fortune.com/article/inside-apple/">reported by Adam Lashinsky for Fortune back in 2011</a>:</p>
+
+<blockquote>
+  <p>Steve Jobs doesn’t tolerate duds. Shortly after the launch event,
+he summoned the MobileMe team, gathering them in the Town Hall
+auditorium in Building 4 of Apple’s campus, the venue the company
+uses for intimate product unveilings for journalists. According to
+a participant in the meeting, Jobs walked in, clad in his
+trademark black mock turtleneck and blue jeans, clasped his hands
+together, and asked a simple question:</p>
+
+<p>“Can anyone tell me what MobileMe is supposed to do?” Having
+received a satisfactory answer, he continued, “So why the fuck
+doesn’t it do that?”</p>
+</blockquote>
+
+<p>You can argue all you want that the DMA is intended to give developers and users choice and freedom. My retort is “So why the fuck doesn’t it do that?” The DMA is what it does — and it isn’t that.</p>
+
+<p>(Also, if you follow the link quoted above to <a href="https://en.wikipedia.org/wiki/Stafford_Beer">Stafford Beer’s Wikipedia entry</a> — man, put a hat on that guy and damned if he doesn’t <a href="https://daringfireball.net/misc/2026/08/dalrymple-gruber.jpeg">look like Jim Dalrymple</a>. It would be even more uncanny if his name had been Stafford Heineken.)</p>
+
+</dd>
+
+
+<dt>
+<a href="https://9to5mac.com/2026/08/25/apple-releases-new-polishing-cloth-for-9/">Apple’s Polishing Cloth Is Now Just $9</a>&nbsp;<a class="permalink" title="Permanent link to ‘Apple’s Polishing Cloth Is Now Just $9’" href="https://daringfireball.net/linked/2026/08/26/apple-polishing-cloth-9-bucks">&#9733;</a>
+</dt>
+<dd>
+<p>Chance Miller:</p>
+
+<blockquote>
+  <p>Not to be overshadowed by the <a href="https://9to5mac.com/2026/08/25/apple-announces-new-mac-mini-heres-everything-new/">new Mac mini</a> and <a href="https://9to5mac.com/2026/08/25/apple-unveils-next-generation-mac-studio-with-m5-max-and-m5-ultra/">Mac
+Studio</a>, Apple today has also released an updated version of
+its Polishing Cloth. In an age of everything getting more
+expensive, the new Polishing Cloth is <a href="https://apple.sjv.io/X45RDb">cheaper than before at
+$9</a> (down from $19). [...]</p>
+
+<p>Apple <a href="https://9to5mac.com/2021/10/18/apple-introduces-new-polishing-cloth-for-all-devices-sold-separately-for-19/">released</a> the Polishing Cloth in October 2021 and
+<a href="https://9to5mac.com/2022/01/11/the-nightmare-is-over-the-apple-polishing-cloth-is-back-in-stock-and-ready-to-ship/">sold out</a> almost instantly. While it has become a meme, it
+is genuinely a good polishing cloth for your Apple gear.</p>
+</blockquote>
+
+<p>Moore’s Law comes for everything eventually.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://9to5mac.com/2026/08/26/apple-officially-announces-iphone-18-pro-foldable-event/">‘Surprise and Shine’ Apple Event: Wednesday 9 September</a>&nbsp;<a class="permalink" title="Permanent link to ‘‘Surprise and Shine’ Apple Event: Wednesday 9 September’" href="https://daringfireball.net/linked/2026/08/26/surprise-and-shine-apple-event">&#9733;</a>
+</dt>
+<dd>
+<p>Zac Hall, 9to5Mac:</p>
+
+<blockquote>
+  <p>Apple has officially announced its next product event, where it
+will unveil the iPhone 18 Pro lineup and its first foldable
+iPhone. The event will take place on September 9 at 10 am, PT. The
+tagline reads “Surprise and shine,” and the invitation features a
+glowing Apple logo with a sun shining through.</p>
+</blockquote>
+
+<p>Apple generally prefers Tuesdays, but on years when Labor Day falls in the second week of September, they move it to Wednesday.</p>
+
+</dd>
+
+
+</dl>
+
+<h2 class="dateline">Tuesday, 25 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://xcancel.com/">XCancel, the Twitter/X Mirror, Shuts Down After Cease and Desist From the Fine Folks at X Corp</a>&nbsp;<a class="permalink" title="Permanent link to ‘XCancel, the Twitter/X Mirror, Shuts Down After Cease and Desist From the Fine Folks at X Corp’" href="https://daringfireball.net/linked/2026/08/25/xcancel-cease-and-desist">&#9733;</a>
+</dt>
+<dd>
+<p>XCancel:</p>
+
+<blockquote>
+  <p>On Monday 24th August at 8PM EST, we received at letter from X
+Corp. asking to cease and desist the service XCancel.</p>
+
+<p>The service XCancel is stopped until further notice.</p>
+
+<p>We are seeking legal advice and won’t share more details for now.</p>
+
+<p>Thank you for the trust you have put in these two years of
+XCancel.</p>
+</blockquote>
+
+<p>I didn’t want to jinx them, but this obvious threat hanging over their head was the main reason <a href="https://daringfireball.net/linked/2026/08/16/xcancel">I never linked only to XCancel rather than directly to tweets</a> on x.com. This sucks not just because some people don’t want to visit x.com, but because XCancel was a faster-loading website with no bullshit.</p>
+
+<p><strong>Update:</strong> <a href="https://nitter.net/">Nitter</a>, the open source project that XCancel was an instance of, <a href="https://daringfireball.net/misc/2026/08/nitter-cease-and-desist.png">got the same cease and desist</a> and also shut down.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://www.nytimes.com/2026/08/25/arts/music/dolly-parton-dead.html">Dolly Parton Dies at&#160;80</a>&nbsp;<a class="permalink" title="Permanent link to ‘Dolly Parton Dies at 80’" href="https://daringfireball.net/linked/2026/08/25/dolly-parton-rip">&#9733;</a>
+</dt>
+<dd>
+<p>Bill Friskics-Warren for The New York Times:</p>
+
+<blockquote>
+  <p>Her death was announced in a video posted on social media by her
+nephew Bryan Seaver. No cause was provided. Concerns about Ms.
+Parton’s health were raised last year as she <a href="https://www.nytimes.com/2025/09/29/arts/music/dolly-parton-las-vegas.html">postponed</a>
+and later canceled a Las Vegas residency, and intensified to the
+point that she took to social media in October to announce, <a href="https://www.nytimes.com/2025/10/08/arts/music/dolly-parton-health.html">“I
+ain’t dead yet.”</a> This May, she said that she had responded
+well to treatment after her immune and digestive systems had, as
+she put it, “got all out of whack” in recent years.</p>
+
+<p>From her hardscrabble beginnings to glittering stardom, Ms.
+Parton’s life was the stuff of make-believe. With her voluptuous
+figure, sparkly stage costumes and blond bouffant wigs, she was
+likened by the writer Chet Flippo to the Big Rock Candy Mountain,
+the Depression-era symbol of abundance. Her songs spoke to
+millions, confronting privation and loss even as they radiated
+possibility and hope.</p>
+
+<p>She was, quintessentially, a uniter of people. In 2019, The New
+York Times <a href="https://www.nytimes.com/2019/11/21/arts/music/dolly-parton.html">ran a story</a> with the headline “Is There
+Anything We Can All Agree On? Yes: Dolly Parton.”</p>
+</blockquote>
+
+<p><a href="https://www.threads.com/share/BANzyTBX7-/">Hillary Clinton, on Threads</a>:</p>
+
+<blockquote>
+  <p>Dolly Parton did all the good she could, for all the people she
+could, for as long as ever she could.</p>
+
+<p>From her legendary songwriting to the Imagination Library — which
+sent 1 million books a month to children across the country — she
+was the best of America.</p>
+
+<p>Dolly, we’ll miss your great heart.</p>
+</blockquote>
+
+<p>Parton accomplished so many great things, but man, the Imagination Library is just hard to believe. They’ve distributed over 330 million books to children — <em>and counting</em>. In lieu of flowers or anything else, her family is requesting that any money you might want to contribute to show your appreciation <a href="https://imaginationlibrary.com/">be donated to the library</a>. Count me in.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://daringfireball.net/2026/08/configurations_and_pricing_for_new_mac_minis_and_mac_studios">Update Regarding the Base Prices of the M5 Max Mac Studio</a>&nbsp;<a class="permalink" title="Permanent link to ‘Update Regarding the Base Prices of the M5 Max Mac Studio’" href="https://daringfireball.net/linked/2026/08/25/update-regarding-the-base-prices-of-the-m5-max-mac-studio">&#9733;</a>
+</dt>
+<dd>
+<p>I made a mistake in <a href="https://daringfireball.net/2026/08/configurations_and_pricing_for_new_mac_minis_and_mac_studios">my table earlier today</a> regarding the base price of <a href="https://www.apple.com/shop/buy-mac/mac-studio/m5-max-chip-18-core-cpu-32-core-gpu-36gb-memory-512gb-storage">the M5 Max Mac Studio</a>, but my mistake was because of a rather sneaky design in Apple’s purchasing flow. Apple’s web interface looks like this:</p>
+
+<p><a href="https://daringfireball.net/misc/2026/08/m5-max-mac-studio-sneaky-pricing.png" class="noborder">
+<img
+    src = "https://daringfireball.net/misc/2026/08/m5-max-mac-studio-sneaky-pricing.png"
+    alt = "Screenshot from Apple.com, showing the 40-core GPU version of the M5 Max Mac Studio as “+ $300”."
+/></a></p>
+
+<p>Both of the available M5 Max SoCs have 18-core CPUs, but the entry model (that starts at $2,500) has a 32-core GPU, and the upgraded chip has a 40-core GPU. That upgrade is labeled “+ $300”, which makes it look as though the starting price for the 18/40-core model is $2,800. That’s the price I put in the original version of my chart.</p>
+
+<p>But if you select that option, you’ll notice that the actual starting price jumps from $2,500 to $3,100 — a $600 difference, not $300. The reason is that the $2500 18/32-core version only comes with one option for RAM: 36 GB. The 18/40-core chip has three tiers for RAM: 48, 64, and 128 GB. So when you switch from the 18/32-core chip to the 18/40-core chip, you don’t just get 8 extra GPU cores (which Apple is saying costs $300), but the base RAM jumps from 36 to 48 GB, and that costs you an <em>additional</em> $300.</p>
+
+<p>Apple does show a blue notification stripe when you change chips here, which states “Based on your new selection, other parts of your configuration have been updated. Please review the changes.” But because the RAM options are mutually exclusive between the two M5 Max variants, it’s easy to make the mistake I did, and think the base price for the 18/40-core M5 Max Studio is $2,500 + $300 = $2,800, when in fact it’s $2,500 + $300 + $300 = $3,100.</p>
+
+<p>I regret the error, and we all regret how expensive all of this has gotten.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://daringfireball.net/2026/08/what_is_the_point_of_the_dma#fn1-2026-08-24">Footnote Regarding the GDPR and Cookie Permission Prompts</a>&nbsp;<a class="permalink" title="Permanent link to ‘Footnote Regarding the GDPR and Cookie Permission Prompts’" href="https://daringfireball.net/linked/2026/08/25/footnote-regarding-the-gdpr-and-cookie-permission-prompts">&#9733;</a>
+</dt>
+<dd>
+<p>If you already read my “<a href="https://daringfireball.net/2026/08/what_is_the_point_of_the_dma">What Is the Point of the DMA?</a>” piece yesterday, this morning I added a lengthy footnote regarding the DMA’s predecessor, the GDPR. Click through to read the entire note, but here’s the kicker:</p>
+
+<blockquote>
+  <p>The GDPR went into effect 10 years ago. By their inaction, they
+obviously think it’s working just fine. I think they look at the
+situation and realize, with satisfaction, that every time any
+website presents a cookie-permission dickover, that dickover
+effectively has a “Brought to you by the European Commission”
+badge on it. They were here, they did something, and everyone
+around the world sees the fruits of the GDPR cookie regulations
+every time they open their web browser. Job well done.</p>
+</blockquote>
+
+</dd>
+
+
+</dl>
+
+<hr class="ookiaks" />
+
+
+<div class="article">
+<h1><a href="https://daringfireball.net/2026/08/configurations_and_pricing_for_new_mac_minis_and_mac_studios" title="Permanent link to ‘Memory and Storage Configurations and Pricing for the New Mac Minis (M6/M5 Pro) and Mac Studios (M5 Max/M5 Ultra)’">Memory and Storage Configurations and Pricing for the New Mac Minis (M6/M5 Pro) and Mac Studios (M5 Max/M5 Ultra)</a></h1>
+<h6 class="dateline">Tuesday, 25 August 2026</h6>
+
+<p>Apple today announced an all new lineup of Mac Mini (M6 and M5 Pro) and Mac Studio (M5 Max and M5 Ultra) desktops. The Apple Newsroom announcements for <a href="https://www.apple.com/newsroom/2026/08/apple-unveils-a-more-powerful-mac-mini-featuring-the-all-new-m6-and-m5-pro/">Mac Mini</a> and <a href="https://www.apple.com/newsroom/2026/08/apple-introduces-new-mac-studio-with-m5-max-and-m5-ultra/">Mac Studio</a> only note base model prices. Here’s my attempt to put all of the RAM/SSD configurations into condensed tables, so you can see which storage and memory options are available for each chip, and how much they cost.</p>
+
+<h2>Mac Mini M6</h2>
+
+<pre><code>12-core CPU, 12-core GPU: $900
+  RAM:
+       16 GB      $0
+       24 GB    $200
+       32 GB    $400
+  SSD:
+      256 GB      $0
+      512 GB    $200
+        1 TB    $500
+        2 TB   $1000
+</code></pre>
+
+<h2>Mac Mini M5 Pro</h2>
+
+<pre><code>15-core CPU, 16-core GPU: $1,700
+18-core CPU, 20-core GPU: $1,900
+  RAM:
+       24 GB       $0
+       48 GB     $600
+       64 GB    $1000
+  SSD:
+      512 GB       $0
+        1 TB     $300
+        2 TB     $800
+        4 TB    $1800
+        8 TB    $3800
+</code></pre>
+
+<h2>Mac Studio M5 Max</h2>
+
+<pre><code>18-core CPU, 32-core GPU: $2,500
+  RAM:
+       36 GB       $0
+18-core CPU, 40-core GPU: $3,100
+  RAM:
+       48 GB       $0
+       64 GB     $400
+      128 GB    $2000
+  SSD:
+      512 GB       $0
+        1 TB     $300
+        2 TB     $800
+        4 TB    $1800
+        8 TB    $3800
+</code></pre>
+
+<h2>Mac Studio M5 Ultra</h2>
+
+<pre><code>30-core CPU, 64-core GPU: $5,500
+36-core CPU, 80-core GPU: $6,800
+  RAM:
+       96 GB       $0
+      256 GB    $4000
+      512 GB   “Coming late October”
+  SSD:
+        1 TB       $0
+        2 TB     $500
+        4 TB    $1500
+        8 TB    $3500
+       16 TB    $7500
+</code></pre>
+
+<h2>Notes</h2>
+
+<ul>
+<li><p>Ethernet: Across all Mac Mini models, upgrading from 2.5 gigabit to 10 gigabit is $100. On Mac Studio, 10 gigabit is standard on all models.</p></li>
+<li><p>If you configure an M6 Mac Mini with 2 TB of storage, the SSD upgrade ($1,000) costs more than the entire base model computer ($900). So too with the 4 TB SSD upgrade for the M5 Pro Mini ($1,800 upgrade for a $1,700 computer).</p></li>
+<li><p>Both Mac Mini and Mac Studio are available in a wide array of cool color choices, including silver.</p></li>
+<li><p>It kind of stinks that there are no RAM options for the M5 Ultra Studio between the 96 GB base and the $4,000 256 GB upgrade. There “should be” a 128 GB tier, but if you squint <a href="https://mastodon.social/@ajfrompgh/117156994437443045">you can see why</a> they did it this way.</p></li>
+<li><p>The best currently-available-to-order Mac Studio (36/80 cores, 256 GB RAM, 16 TB SSD) costs $18,300. But if you’re OK with the base 30/64-core chip and just 8 TB storage, you can cut the price to a smooth $13,000.</p></li>
+<li><p>“Coming late October” = “Bend over”.&nbsp;<a class="permalink" title="Permanent link to ‘Memory and Storage Configurations and Pricing for the New Mac Minis (M6/M5 Pro) and Mac Studios (M5 Max/M5 Ultra)’" href="https://daringfireball.net/2026/08/configurations_and_pricing_for_new_mac_minis_and_mac_studios">&#9733;</a></p></li>
+</ul>
+
+</div> <!-- article -->
+
+<hr class="ookiaks" />
+
+
+<h2 class="dateline">Tuesday, 25 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://www.apple.com/newsroom/2026/08/apple-introduces-m6-and-m5-ultra-for-a-big-leap-in-performance-and-ai-compute/">Apple Introduces M6 and M5 Ultra Chips, in New Mac Mini and Mac Studio</a>&nbsp;<a class="permalink" title="Permanent link to ‘Apple Introduces M6 and M5 Ultra Chips, in New Mac Mini and Mac Studio’" href="https://daringfireball.net/linked/2026/08/25/m6-and-m5-ultra-chips">&#9733;</a>
+</dt>
+<dd>
+<p>Apple Newsroom:</p>
+
+<blockquote>
+  <p>Apple today debuted M6 in the new Mac mini and M5 Ultra in the
+new Mac Studio, providing an extraordinary leap in performance
+and AI capabilities. M6, Apple’s first state-of-the-art
+2-nanometer chip, advances every compute block, delivering gains
+across every dimension of performance. The chip features a larger
+12-core CPU complex with the world’s fastest CPU core, a larger
+12-core GPU with Neural Accelerators, a Dual 16-core Neural
+Engine, and up to 170GB/s of unified memory bandwidth. M5 Ultra,
+the ultimate powerhouse for pro and AI workloads, uses
+next-generation UltraFusion technology to form a quad-die
+architecture for the first time in an M-series system on a chip
+(SoC). The chip includes an up-to-36-core CPU and up-to-80-core
+GPU with a massive 1.2TB/s of unified memory bandwidth, 50
+percent more than M3 Ultra.</p>
+</blockquote>
+
+<p>The <a href="https://www.apple.com/newsroom/2026/08/apple-unveils-a-more-powerful-mac-mini-featuring-the-all-new-m6-and-m5-pro/">new Mac Mini</a> (M6 and M5 Pro) and <a href="https://www.apple.com/newsroom/2026/08/apple-introduces-new-mac-studio-with-m5-max-and-m5-ultra/">Mac Studio</a> (M5 Max and M5 Ultra) are available for preorder today, but none of them ship until September 22.</p>
+
+<p>All are slated to ship with MacOS 27 Golden Gate. On a background briefing for these new desktops yesterday, I asked if that implied that MacOS 27 would be released to the public on or before September 22, and the folks from Apple just sort of smiled and said they had no comment on anything other than the new hardware.</p>
+
+</dd>
+
+
+</dl>
+
+<h2 class="dateline">Monday, 24 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://developer.apple.com/news/?id=1ptvdtcm">Apple Rethinks Plan to Merge ‘Hide My Email’ Domain Name With ‘Sign In With Apple’</a>&nbsp;<a class="permalink" title="Permanent link to ‘Apple Rethinks Plan to Merge ‘Hide My Email’ Domain Name With ‘Sign In With Apple’’" href="https://daringfireball.net/linked/2026/08/24/apple-rethinks-hide-my-email-domain">&#9733;</a>
+</dt>
+<dd>
+<p>Apple Developer News:</p>
+
+<blockquote>
+  <p>Starting later this year, new Sign in with Apple addresses,
+previously issued on <code>privaterelay.appleid.com</code>, will be issued on
+<code>private.icloud.com</code>. Existing addresses on
+<code>privaterelay.appleid.com</code> will continue to work and forward mail
+to users without interruption.</p>
+
+<p>After further consideration and reviewing community feedback,
+iCloud+ Hide My Email addresses will remain on <code>icloud.com</code>.</p>
+</blockquote>
+
+<p><a href="https://daringfireball.net/linked/2026/06/18/new-domain-for-signinwithapple-and-icloudhidemyemail">Back in June, Apple announced</a> plans to merge both systems onto the new <code>private.icloud.com</code> domain. The objection to this plan was rather obvious: it’s fine for Sign In With Apple to use an easily distinguishable domain name, because the only sites that see such email addresses are those that support Sign In With Apple (SIWA). The problem with moving Hide My Email (HME) addresses to a distinguishable domain name is that we often want to use such hidden email addresses on sites that would prefer to block those addresses and try to force us to use our “real” addresses. A little birdie suggested to me after I wrote about it in June that there were strong objections to the merger internally all along, from the HME side. Seems like those objections have won out.</p>
+
+</dd>
+
+
+</dl>
+
+<hr class="ookiaks" />
+
+
+<div class="article">
+<h1><a href="https://daringfireball.net/2026/08/what_is_the_point_of_the_dma" title="Permanent link to ‘What Is the Point of the DMA?’">What Is the Point of the&#160;DMA?</a></h1>
+<h6 class="dateline">Monday, 24 August 2026</h6>
+
+<p>Wesley Hilliard, <a href="https://appleinsider.com/articles/26/08/20/european-commission-approves-of-apples-new-app-store-terms-even-if-epic-doesnt">reporting for AppleInsider last week</a>:</p>
+
+<blockquote>
+  <p><a href="https://www.independent.ie/business/apple-will-change-its-app-store-rules-to-end-its-dispute-with-the-eu/a/160196535.html">A report</a> from Irish Independent detailed the European Commission’s
+response to Apple’s new business terms for the EU. They share that
+they welcome the changes and will monitor Apple’s implementation
+of the terms.</p>
+
+<p>Here is the EC’s full statement:</p>
+
+<blockquote>
+  <p>“The Commission welcomes Apple’s changes to their business terms,
+which follow a close dialogue between the Commission and Apple
+after the Commission issued a non-compliance decision related to
+Apple’s steering terms as well as preliminary findings related to
+alternative app distribution, both in April 2025,” the
+spokesperson said.</p>
+
+<p>“Following today’s announcement, the Commission will monitor
+Apple’s effective implementation of the new terms. Under the DMA,
+users in the EU have a right to full and effective choice of
+alternative app distribution channels.”</p>
+</blockquote>
+
+<p>The point <a href="https://appleinsider.com/articles/25/10/21/apple-goes-on-the-legal-offensive-against-eu-digital-markets-act">of the DMA</a> was to open up competition and choice for
+developers, which the EC seems to believe Apple’s terms have
+accomplished.</p>
+</blockquote>
+
+<p>I don’t think that was ever the point of the DMA. It’s what a lot of developers who themselves wanted more competition and choice — and freedom — on iOS <em>presumed</em> to be the point of the DMA. The European Commission paid lip service to these ideals, which encouraged people to think these ideals were the point of the DMA. But what I’ve consistently argued is that the only actual point of the DMA is for the European Commission to impose unnecessary bureaucracy and inconvenience on major markets where it previously had no footprint. They had no noble goal. They just wanted to erect a bureaucratic structure that clearly shows “<em>The European Commission was here and did something.</em>” Impose copious fines on Apple, Google, Microsoft, and Meta; inconvenience those companies <em>and their users in the EU</em>; all to show that something has been done. (And to cash the checks from <a href="https://daringfireball.net/linked/2026/07/25/eu-fines-google-1b">the fines</a> they <a href="https://daringfireball.net/linked/2026/07/17/google-eu-fine">eventually</a> collect.)</p>
+
+<p>That’s why the <a href="https://eur-lex.europa.eu/eli/reg/2022/1925/oj/eng">text of the DMA itself</a> is so hard to read and understand. There is no clear intent of “opening up competition and choice” hidden in the murky, impenetrable prose of the DMA. The murky impenetrableness of the law is a reflection of its actual intent: murky impenetrable bureaucracy.<sup id="fnr1-2026-08-24"><a href="#fn1-2026-08-24">1</a></sup></p>
+
+<p><a href="https://news.ycombinator.com/item?id=49348358">Here’s a commenter on Hacker News</a> (via <a href="https://mjtsai.com/blog/2026/08/18/new-eu-app-store-terms-to-comply-with-dma/">Michael Tsai’s roundup</a>) who can’t believe it:</p>
+
+<blockquote>
+  <p>This is bonkers, I can’t believe the EU Commission agreed to it.
+The main issue that the DMA was about still remains: Apple retains
+ultimate control over app developers’ dealings with users.</p>
+
+<p>The status quo that the EU should have pushed for, and which
+Article 6(7) of the DMA requires, is one where a developer can
+distribute iOS apps to users without ever entering into any
+contractual relationship with Apple. The OS APIs that most apps
+use are already paid-for by the user when they buy the device.
+Apple wants to double-dip and charge developers for the value that
+the users already have by virtue of owning their iDevices with all
+the necessary iOS paraphernalia in them.</p>
+</blockquote>
+
+<p>If you believed that the point of the DMA was to open up competition, choice, and freedom for developers, yeah, I bet it does seem bonkers that the European Commission has signed off on compliance where Apple charges 15 percent commissions on links to the web from apps distributed on the App Store, and that Apple will collect a 5 percent Core Technology Commission even for apps distributed on third-party app marketplaces, using third-party payment processing. But if you believe, as I do, that the point of the DMA is to impose obvious regulatory burdens and bureaucracy upon Apple (and Google, and Microsoft) — and upon the EU citizens who use those companies’ “gatekeeping” platforms — then it is completely unsurprising that the European Commission “welcomed” these changes. The Commission has gotten everything it wanted from Apple:</p>
+
+<ul>
+<li>Third-party app marketplaces (no matter if almost no one uses them).</li>
+<li>A growing list of features withheld from the EU, like iPhone Mirroring and Siri AI (this shows that the DMA “works” and they’ve done something).</li>
+<li>A bunch of fines.</li>
+</ul>
+
+<p>I’m sure some of you think I’m all wet in my argument that the point of the DMA was merely to impose ongoing bureaucratic complexity. But my view jibes with the reality of how it’s worked out. Compare and contrast <a href="https://daringfireball.net/2025/12/apple_japan_msca_compliance">with the Mobile Software Competition Act in Japan</a>. Apple complied with the clearly stated requirements of the MSCA with no drama, Japanese users aren’t missing out on features like iPhone Mirroring, and the only delay for Siri AI in Japan <a href="https://www.apple.com/apple-intelligence/#footnote-1">is language support</a>. Japanese iOS users get all the “good parts” of Apple’s regulatory compliance that EU users do, with <em>none</em> of the rather severe hindrances.&nbsp;<a class="permalink" title="Permanent link to ‘What Is the Point of the DMA?’" href="https://daringfireball.net/2026/08/what_is_the_point_of_the_dma">&#9733;</a></p>
+
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1-2026-08-24">
+<p>This also explains the European Commission’s obvious satisfaction with <a href="https://gdpr.eu/cookies/">the GDPR’s “cookie” regulations</a> for the web. Defenders of this aspect of the GDPR always retort with the same argument, correctly pointing out that the GDPR does not <em>require</em> annoying cookie-permission <a href="https://daringfireball.net/2026/05/what_is_a_dickover">dickovers</a> and dickbars. The GDPR presents websites with a choice: don’t track users with cookies, or, get their permission before you do. And it just turned out that the overwhelming majority of the commercial web has chosen the latter option. Like, the intention might have been for most websites to face this choice and decide, “<em>Oh, jeez, we don’t want to badger our visitors with endless annoying dickovers, so we better scrap all our tracking cookies.</em>” But of course that’s not what these websites did. The result we now face — especially within the EU, where the web experience is positively lousy with cookie-permission prompts — was entirely predictable given the options presented by the GDPR. Defenders of the GDPR defend it on the grounds that it presents a good intention — reducing the practice of unnecessary tracking on the web. And those defenders pin the blame for the infestation of cookie-permission banners on the websites that choose to present them. Critics of the GDPR (and you know which side I’m on) simply point to the actual practical effects of the law. Before the GDPR, there were no cookie-permission dickovers; after, they’re everywhere, especially in the EU, but they’re also quite prevalent outside the EU. And, the practice of unnecessary tracking on the web is completely unchanged. If anything it’s probably more widespread now than before the GDPR. The best way to handle unnecessary tracking is to encourage users to use better web browsers with effective content-blocking extensions installed.</p>
+
+<p>The GDPR is a wide-ranging set of regulations and some of them are truly excellent, giving EU citizens rights to control their own data. But the “cookie permission” nonsense has, in practice, done nothing for the web except make it worse. It hasn’t done a thing to improve personal privacy, and has resulted in a veritable deluge of annoying cookie-permission prompts. The main result of those ubiquitous prompts has been to encourage more people to spend their time using native mobile apps in lieu of the web. But the European Commission looks at this situation and pats itself on the back. If they saw the deluge of cookie-permission prompts as a problem, an unintended consequence worth fixing, they would fix it. The GDPR went into effect 10 years ago. By their inaction, they obviously think it’s working just fine. I think they look at the situation and realize, with satisfaction, that every time any website presents a cookie-permission dickover, that dickover effectively has a “Brought to you by the European Commission” badge on it. They were here, they did something, and everyone around the world sees the fruits of the GDPR cookie regulations every time they open their web browser. Job well done.&nbsp;<a href="#fnr1-2026-08-24"  class="footnoteBackLink"  title="Jump back to footnote 1 in the text.">&#x21A9;&#xFE0E;</a></p>
+</li>
+</ol>
+</div>
+
+</div> <!-- article -->
+
+<hr class="ookiaks" />
+
+
+<h2 class="dateline">Monday, 24 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://bitcam-app.com/">BitCam: The 1-Bit Camera App Turns 2.0</a>&nbsp;<a class="permalink" title="Permanent link to ‘BitCam: The 1-Bit Camera App Turns 2.0’" href="https://daringfireball.net/linked/2026/08/24/bitcam-1-bit-version-2">&#9733;</a>
+</dt>
+<dd>
+<p>10 years ago <a href="https://daringfireball.net/linked/2016/06/10/bitcam">I wrote about BitCam 1.0</a>:</p>
+
+<blockquote>
+  <p>Gorgeous, unbelievably faithful one-bit camera app for iPhone done
+in the style of the original Mac. A lovely tribute to <a href="https://www.google.com/search?q=bill+atkinson+dithering+algorithm">Bill
+Atkinson’s remarkable dithering algorithm</a>. “Catnip for
+old-school Mac users,” <a href="https://twitter.com/siracusa/status/740989106268831744">says John Siracusa</a>. Check out <a href="https://twitter.com/cdespinosa/with_replies">the
+fun recent-hire-at-Apple Chris Espinosa is having with it</a>.</p>
+</blockquote>
+
+<p>Originally a creation of The Iconfactory, BitCam is now in the good hands of <a href="https://heliographe.studio/">Héliographe</a> (coiners of <a href="https://www.threads.com/@heliographe.studio/post/DTeOwAykwQ1">the best icon-design zinger</a> ever). Version 2.0 has everything great about BitCam 1, and so much more. Just a wonderful ode to the original Mac, with <a href="https://mastodon.social/@heliographe_studio/117139385118413865">so much</a> <a href="https://mastodon.social/@heliographe_studio/117150743301554818">extraordinary</a> <a href="https://mastodon.social/@heliographe_studio/117149403714856951">attention</a> to detail. Great fun on the iPhone (especially as a camera), and great fun on the Mac (especially to explore the details of its OG-style UI). Free to download on the App Store, and a one-time purchase of just $10 to unlock the full feature set.</p>
+
+<p>If BitCam doesn’t speak to you, you’re not hooked up right.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://daringfireball.net/2026/08/apple_testflight_list_sort_order">More on TestFlight’s Screwy Sort Order</a>&nbsp;<a class="permalink" title="Permanent link to ‘More on TestFlight’s Screwy Sort Order’" href="https://daringfireball.net/linked/2026/08/24/more-on-testflights-screwy-sort-order">&#9733;</a>
+</dt>
+<dd>
+<p><a href="https://daringfireball.net/2026/08/apple_testflight_list_sort_order">I complained last week</a> that starting with an update last month, the list of apps I’m testing in Apple’s TestFlight app has been sorted alphabetically, rather than by recency. Whatever is going on with this sort order, it isn’t affecting everyone. John Siracusa, amongst many others, <a href="https://mastodon.social/@siracusa/117135117635246786">has the same problem I do</a> — his list is now alphabetical, and it’s driving him nuts too. Ryan Booker, amongst many others, <a href="https://mastodon.social/@ryanbooker/117141821370254238">still has his list sorted by recency</a>.</p>
+
+<p>The weird thing is, back on August 13, the iPhone version of TestFlight started showing my lists in recency-of-last-update order once again. There was no update to the TestFlight app itself. I just started seeing the list in the correct order once again. It was only on my iPhone though — on my Macs and iPad, TestFlight continued to sort apps alphabetically. Then, two days later, my iPhone went back to alphabetical order, and it’s been stuck there ever since.</p>
+
+<p>When the list is sorted by recency, there’s also a “Currently Testing” header at the top of the list, and there are other (disclosable) categories like “Incompatible” and “Previously Tested” at the bottom of the list. When the list is sorted alphabetically, none of these category headers are visible.</p>
+
+</dd>
+
+
+</dl>
+
+<h2 class="dateline">Sunday, 23 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://sixcolors.com/member/2026/08/this-week-in-apple-lets-fight/">Cooper Sharp Proves That American Cheese Can Be Great Cheese</a>&nbsp;<a class="permalink" title="Permanent link to ‘Cooper Sharp Proves That American Cheese Can Be Great Cheese’" href="https://daringfireball.net/linked/2026/08/23/moltz-cooper-sharp">&#9733;</a>
+</dt>
+<dd>
+<p>John Moltz, in his weekly members-only column for Six Colors (no gift links, but Moltz’s column is <a href="https://sixcolors.com/subscribe/">worth the subscription</a> in and of itself):</p>
+
+<blockquote>
+  <p>This week <a href="https://support.claude.com/en/articles/16266773-how-claude-marks-ai-generated-content">Anthropic announced</a> that in order to identify AI from
+human-generated content it would be watermarking all text it
+generates by subtly altering the randomness at which its models
+picked the next word. While this might seem a perfectly cromulent
+means of accomplishing a worthy goal, it really rubbed John Gruber
+the wrong way, as if someone suggested putting autocomplete Swiss
+on his Philly cheesesteak AI.</p>
+</blockquote>
+
+<p><a href="https://coopercheese.com/products/cooper-sharp-white">Cooper Sharp</a> cheese is the way to go. The best new cheesesteak joint in town — <a href="https://readingterminalmarket.org/merchant/uncle-gus/">Uncle Gus’s</a> — <em>only</em> offers Cooper Sharp, in fact.</p>
+
+<blockquote>
+  <p>Surely a fair number of the hundreds and hundreds of bees that
+have nested in Gruber’s extremely fancy bonnet are a result of the
+fact that this is all ostensibly in response to a mandate from the
+EU. But, as James Thomson has suggested, Anthropic might actually
+<em>want</em> to watermark so that it doesn’t scoop up its own output to
+train its models, thereby degrading the results. In fact, the
+company would probably love to be able to figure out other
+companies’ watermarks and have them not be able to figure out its
+watermark.</p>
+</blockquote>
+
+<p>For the record, my opposition to Claude’s plan to begin watermark-adulterating all generated text, worldwide, has nothing to do with it ostensibly being to comply with a regulation from the EU. I do think the EU regulation is deeply ill-considered (and, having been drafted in 2024, already technically out of date), but I’d have written everything I wrote (and will continue to write) about the matter even if the EU had no AI-related regulations in place. In fact, while writing <a href="https://daringfireball.net/2026/08/anthropics_watermark_text_adulteration_in_claude_is_a_perversion_of_writing">my initial piece</a>, I really wished this had nothing to do with the EU, because pointing out the folly of the regulation (and the ridiculousness of a company supposedly worth $2 trillion being technically unable to comply with an EU regulation without applying the changes globally) seemed a distraction from my point, regarding the ramifications of watermarking text by way of detectable word choices. Moltz’s aside here confirms that.</p>
+
+<p>Also, more and more, I do think this has little to do with the EU regulation and everything to do with Anthropic and Google wanting to watermark the text that Claude and Gemini generate for their own purposes, to identify text to avoid training future models on to avoid <a href="https://en.wikipedia.org/wiki/Model_collapse">model collapse/AI inbreeding</a>. I suspect blaming the decision on the EU “Code of Practice” regulation is just scapegoating on Anthropic’s part.</p>
+
+<p>(As a bonus, Moltz has a deliciously sharp (no cheese pun intended) take on the schadenfreude-rich saga of MacStories returning to Twitter/X.)</p>
+
+</dd>
+
+
+</dl>
+
+<h2 class="dateline">Saturday, 22 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://www.nytimes.com/2026/08/22/world/canada/carney-tariffs-trade-trump.html?unlocked_article_code=1.7VA.r3Ue.GTc_tOhX0qSn">Mark Carney on the U.S. Under Trump: ‘Sometimes, Its Signature Is Written in Pencil’</a>&nbsp;<a class="permalink" title="Permanent link to ‘Mark Carney on the U.S. Under Trump: ‘Sometimes, Its Signature Is Written in Pencil’’" href="https://daringfireball.net/linked/2026/08/22/canada-pm-on-us-trustworthiness">&#9733;</a>
+</dt>
+<dd>
+<p>Ian Austen, reporting for The New York Times (gift link):</p>
+
+<blockquote>
+  <p>The morning after he pulled negotiators from trade talks in Washington and set off a new round of American tariffs, Prime Minister Mark Carney on Saturday explained to Canadians why he walked away, calling the U.S. proposal “a bad deal.”</p>
+
+<p>“We’ve recognized from the start that America has changed,” Mr. Carney said. “We recognize that sometimes, its signature is written in pencil.”</p>
+
+<p>“We cannot accept what they offered and we will not give what they asked,” he added. “We were not prepared to compromise Canada’s sovereignty or undermine our key industries.”</p>
+</blockquote>
+
+<p>If only Sharpie made pencils.</p>
+
+<p>Carney is rising to the moment and showing the rest of the world how to deal with the Trump administration. Trump is erratic, emotionally unstable, ignorant, and dishonest. Carney is consistent, steadfast, knowledgeable, and honest. The only correct way to deal with a con man is to <a href="https://talkingpointsmemo.com/edblog/what-did-trump-do-that-made-carney-walk-away">cut him off and call him out</a> for what he is.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://workos.com/auth-md?utm_source=daringfireball&amp;utm_medium=newsletter&amp;utm_campaign=q32026">WorkOS: Agents Can Now Sign Up for Your&#160;App</a>&nbsp;<a class="permalink" title="Permanent link to ‘WorkOS: Agents Can Now Sign Up for Your App’" href="https://daringfireball.net/linked/2026/08/22/workos-agents-sign-up">&#9733;</a>
+</dt>
+<dd>
+<p>My thanks to WorkOS for sponsoring <a href="https://daringfireball.net/2026/08/df_posts_drop_in_a_forest">the Daring Fireball weekly newsletter</a> this week to promote their Agent Registration. Agents are hitting your signup flow and they’re bouncing off a browser login that was designed for humans. Every one that gives up is a signup you never see.</p>
+
+<p><a href="https://workos.com/docs/authkit/agent-auth?utm_source=daringfireball&amp;utm_medium=newsletter&amp;utm_campaign=q32026">WorkOS Agent Registration</a> turns that traffic into signups. Enroll via the dashboard and AuthKit publishes an auth.md file that agents read to register for scoped, short-lived credentials you control.</p>
+
+<p><a href="https://workos.com/auth-md?utm_source=daringfireball&amp;utm_medium=newsletter&amp;utm_campaign=q32026">Make your app agent-ready today</a>.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://www.reuters.com/world/dutch-regulator-fines-uber-966-million-automating-driver-suspensions-document-2026-08-21/">Dutch Regulator Fines Uber $1 Billion for Suspending Dishonest Drivers</a>&nbsp;<a class="permalink" title="Permanent link to ‘Dutch Regulator Fines Uber $1 Billion for Suspending Dishonest Drivers’" href="https://daringfireball.net/linked/2026/08/22/dutch-regular-uber-fine">&#9733;</a>
+</dt>
+<dd>
+<p>Toby Sterling, reporting for Reuters:</p>
+
+<blockquote>
+  <p>The Dutch Data Protection Authority has fined Uber €825 million
+($966 million) for deactivating driver accounts through automated
+systems without adequately informing them, according to an August
+17 decision reviewed by Reuters.</p>
+
+<p>The penalty would be the second-largest issued yet under Europe’s
+General Data Protection Regulation. It is behind only a €1.2
+billion fine imposed on Meta by Ireland in 2023 for unlawfully
+transferring European ​Facebook users’ data to the United States.
+Meta is appealing.</p>
+
+<p>Uber said it would also appeal. [...]</p>
+
+<p>The Dutch authority confirmed the decision later on Friday. “Uber
+has committed ​serious infringements,” in deactivating driver
+accounts without warning or human involvement, the organisation’s
+deputy chair Monique Verdier said in a statement. “From one moment
+​to the next they no longer had any income ... A computer should
+not make decisions on its own that have (such) major
+consequences.”</p>
+</blockquote>
+
+<p>Saying that “a computer” made these decisions is like saying that when a company suspends or fires a habitually late employee, that “the time clock” made the decision. Managers at the company set the policies, and the devices measure employee compliance. Verdier’s statement is talking about this like it’s HAL 9000 deciding to kill the astronauts on the Discovery.</p>
+
+<blockquote>
+  <p>GDPR rules ban decisions made solely by computer algorithms when
+they have a significant impact on people’s lives, saying such
+decisions require meaningful human review and a way to challenge a
+decision.</p>
+
+<p>Uber temporarily suspended accounts of some drivers who ​were
+suspected of fraud, including ​when its systems concluded drivers
+had taken unnecessary detours to inflate fares or accepted trips
+without intending to complete them. Uber said such suspensions
+were usually brief, and it did not permanently deactivate such
+accounts without human review. Drivers with low ​customer ratings
+were sometimes permanently deactivated by computer, the Dutch
+agency said. Uber disputed that, saying ​it had never automated
+permanent deactivation decisions.</p>
+
+<p>The company said one reason it considers the fine disproportionate
+is that only a small number of drivers were affected, with 126
+having been deactivated in Europe as a result of low customer
+ratings in 2021.</p>
+</blockquote>
+
+<p>It’s possible that Reuters’s reporting is incomplete, but there’s no allegation here that the grounds for these suspensions were incorrect. Uber suspended drivers who were pulling long-haul scams <em>against customers</em> to run up fare prices, and doing the annoying thing where they accept a ride and then never show up, hoping the customer will eventually get frustrated and cancel the trip themselves. (My understanding is that drivers do this when they’re driving for, say, both Uber and Lyft. They’ll accept a ride from Uber and then if a more appealing offer comes from Lyft, they’ll accept that one too and just never pick up the customer they accepted from Uber.)</p>
+
+<p>Per this fine, it’s unlawful in the EU for Uber to monitor its drivers for pulling scams against customers, or just never picking riders up, leaving them stranded. I mean, I’m not a member of the “Uber Labor Practices” fan club, but one of the best things about Uber compared to taxis is that they monitor for and take action against scam drivers.</p>
+
+<p>This isn’t a two-sided conflict between employees (drivers) and a big corporation (Uber). It’s three-sided. Where does customer experience factor into this? The drivers were scamming customers, and Uber took action to stop it. This sounds to me like a system that works. The EU regulation doesn’t seem to factor in customers at all.</p>
+
+</dd>
+
+
+</dl>
+
+<h2 class="dateline">Friday, 21 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://techcommunity.microsoft.com/blog/onedriveblog/introducing-markdown-support-in-sharepoint-and-onedrive/4512174">The Fourth Horseman of the File-Format-Hegemony Apocalypse</a>&nbsp;<a class="permalink" title="Permanent link to ‘The Fourth Horseman of the File-Format-Hegemony Apocalypse’" href="https://daringfireball.net/linked/2026/08/21/fourth-horseman-of-the-apocalypse-markdow">&#9733;</a>
+</dt>
+<dd>
+<p>Microsoft’s iPhone app for OneDrive has long supported creating three new document types via a big “+” button right in its file viewer: Excel, Word, PowerPoint. It <a href="https://bsky.app/profile/jontatum.com/post/3mtknwk6vhc26">recently</a> came to my attention that they’ve added a fourth document type, and they even gave it real Microsoft-style “<a href="https://www.youtube.com/watch?v=UiOzGI4MqSU">they just have no taste</a>” file icon. <a href="https://daringfireball.net/misc/2026/08/onedrive-fourth-horseman.png">Just look at it</a>. The whole world’s coming to an end, Mallory.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://corporate.walmart.com/news/2026/08/21/more-ways-to-pay-tap-to-pay-is-coming-to-walmart-and-sams-club">Walmart Finally Caves, Will Soon Support Apple&#160;Pay</a>&nbsp;<a class="permalink" title="Permanent link to ‘Walmart Finally Caves, Will Soon Support Apple Pay’" href="https://daringfireball.net/linked/2026/08/21/walmart-apple-pay-finally">&#9733;</a>
+</dt>
+<dd>
+<p>Walmart:</p>
+
+<blockquote>
+  <p>When we think about convenience, we think about a lot of things,
+but making shopping feel simpler and more seamless from start to
+finish is a big part. And one of the moments where that matters
+most is at checkout.</p>
+
+<p>We want customers and members to have choice in how they pay, so
+they can check out in the way that works best for them. Now,
+beginning Aug. 24, we will be adding Tap to Pay to our payment
+options at select Walmart stores and Sam’s Club locations, with
+plans to roll it out to all U.S. stores and clubs by the end of
+2026 and to fuel stations by mid-2027.</p>
+</blockquote>
+
+<p>When I think about convenience, I think about <a href="https://daringfireball.net/linked/2019/01/22/currentc">CurrentC</a>, scanning stupid-ass QR codes, and <a href="https://www.apple.com/newsroom/2014/09/09Apple-Announces-Apple-Pay/">waiting 12 years</a> to adopt Apple Pay.</p>
+
+</dd>
+
+
+</dl>
+
+<hr class="ookiaks" />
+
+
+<div class="article">
+<h1><a href="https://daringfireball.net/2026/08/df_posts_drop_in_a_forest" title="Permanent link to ‘When New DF Posts Drop in a Forest and No One Is There to Read Them’">When New DF Posts Drop in a Forest and No One Is There to Read Them</a></h1>
+<h6 class="dateline">Friday, 21 August 2026</h6>
+
+<p>It occurred to me last night that I’d gotten less feedback regarding recent posts than usual. There were a <a href="https://daringfireball.net/2026/08/apple_testflight_list_sort_order">few</a> <a href="https://daringfireball.net/linked/2026/08/20/bluesky-threads-sneak-logo-into-screenshots">items</a> I’d posted in recent days that I felt sure to hear from readers about, both yea and nay. But: nothing. Crickets chirping. I almost always hear from squeaky wheels in the EU when I write about Apple and the DMA, for example, but I heard nothing about <a href="https://daringfireball.net/2026/08/apple_eu_business_terms_conceding_little">my take yesterday that Apple has effectively pantsed the European Commission</a> regarding App Store commissions.</p>
+
+<p>I noticed this morning that the bot that auto-posts new articles to the <a href="https://mastodon.social/@daringfireball">DF Mastodon account</a> hadn’t posted since Tuesday night. But it wasn’t the Mastodon posting bot that was broken. It was a different automated task that updates the RSS and JSON feeds. That’s what broke sometime between Tuesday night and Wednesday morning. The Mastodon posting bot reads the RSS feed, and if there’s nothing new in the RSS feed, there’s nothing for the bot to post. Still though, I thought it was weird that no one who <a href="https://daringfireball.net/feeds/">follows DF from the feeds</a> had emailed, texted, or @replied to me to complain that new articles on the website had stopped appearing in the feeds. No one.</p>
+
+<p>Then, I remembered that the DF website home page is generated from ... the RSS feed.<sup id="fnr1-2026-08-21"><a href="#fn1-2026-08-21">1</a></sup></p>
+
+<p>So, yeah, pretty much no one but me realized that I’d written seven new posts after the last update Tuesday night. Oops. Needless to say, it no longer seems surprising at all that I haven’t heard anything from readers in a few days. My apologies for delivering most of this week’s output all at once. We can pretend today that DF is a weekly newsletter.&nbsp;<a class="permalink" title="Permanent link to ‘When New DF Posts Drop in a Forest and No One Is There to Read Them’" href="https://daringfireball.net/2026/08/df_posts_drop_in_a_forest">&#9733;</a></p>
+
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1-2026-08-21">
+<p>The system that conked out that in turn prevented the feed generation script from seeing new content has conked out once before in recent memory — last October. But when it conked out in October I noticed within a few hours, because readers kept complaining about the same typo that I had fixed, in my CMS, but which was still visible on the home page, because the home page only gets updated from the feed content. I never previously considered adding some sort of alert to check on this, because I always presumed I’d notice if new items I published weren’t appearing on the home page or in the feeds.&nbsp;<a href="#fnr1-2026-08-21"  class="footnoteBackLink"  title="Jump back to footnote 1 in the text.">&#x21A9;&#xFE0E;</a></p>
+</li>
+</ol>
+</div>
+
+</div> <!-- article -->
+
+<hr class="ookiaks" />
+
+
+<h2 class="dateline">Friday, 21 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://techcrunch.com/2026/08/11/blueskys-active-user-base-is-shrinking-as-its-focus-expands-beyond-the-app/">Bluesky’s Active User Base Is Shrinking, and Remains Tiny Compared to Threads and Twitter/X</a>&nbsp;<a class="permalink" title="Permanent link to ‘Bluesky’s Active User Base Is Shrinking, and Remains Tiny Compared to Threads and Twitter/X’" href="https://daringfireball.net/linked/2026/08/21/bluesky-user-base-is-tiny">&#9733;</a>
+</dt>
+<dd>
+<p>Sarah Perez, writing at TechCrunch last week:</p>
+
+<blockquote>
+  <p>Decentralized social network Bluesky was one of the bigger
+beneficiaries of the <a href="https://techcrunch.com/2024/11/12/bluesky-is-seeing-an-exodus-of-unhappy-x-users-following-the-election/">exodus from Elon Musk’s X in November
+2024,</a> following the U.S. elections. But now, nearly two years
+later, the social network and would-be X competitor is struggling
+to hold on to its momentum.</p>
+
+<p>According to data from digital intelligence provider
+<a href="http://similarweb.com/">Similarweb</a>, Bluesky’s mobile app had 10.4 million monthly
+active users worldwide in June 2026, down 27.2% year-over-year. In
+addition, mobile daily active users continued to decline, falling
+25.6% year-over-year in July to around 3 million.</p>
+</blockquote>
+
+<p>As always, take all third-party analytics and usage data about app usage <a href="https://daringfireball.net/2023/08/whats_the_deal_with_sensor_tower">with an enormous grain of salt</a>. Third-party data companies can only estimate this data, they can’t know it. It’s like <a href="https://talkingpointsmemo.com/edblog/is-there-a-polling-crisis-and-why-should-we-care-if-there-is">comparing polling data to election results</a>.</p>
+
+<p>But I think it’s obviously true that Threads and Twitter/X both have hundreds of millions of active users, and Bluesky has like maybe 10 million. Even if Bluesky has three times more actual users than Similarweb’s data suggests, that would still suggest that Bluesky’s user base is an entire order of magnitude smaller than Threads or Twitter/X. And Mastodon is so small that no one even mentions it anymore in these comparisons. Mastodon and the whole ActivityPub world make Bluesky look large and culturally relevant.</p>
+
+<p>Small is not necessarily bad. My favorite of these networks, personally, is Mastodon. I like my community there <em>because</em> it’s small and generally free of both drama and nonsense. But small precludes mainstream cultural relevance.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://bsky.app/profile/masnick.com/post/3mtk7cuvbok2x">Bluesky Is Full of Anti-AI Zealots</a>&nbsp;<a class="permalink" title="Permanent link to ‘Bluesky Is Full of Anti-AI Zealots’" href="https://daringfireball.net/linked/2026/08/21/bluesky-is-full-of-anti-ai-zealots">&#9733;</a>
+</dt>
+<dd>
+<p>Mike Masnick, in a thread on Bluesky:</p>
+
+<blockquote>
+  <p>Multiple people I know have told me that they love the idea of
+Bluesky, and want it to succeed, but have abandoned it for X
+because they use agentic tools in their work and find them
+incredibly useful, and feel that any mention of their usage here
+leads to hate and ridicule.</p>
+
+<p>I wouldn’t bring this up if it was just one person, but it was
+multiple people since the beginning of August who mentioned in
+passing something to the effect of either “I’d spend more time on
+Bluesky if people weren’t so anti-AI” <em>or</em> “As much as I hate to
+be there all the useful AI talk is on X.” [...]</p>
+
+<p>I’m not telling anyone what to do or what tech to use or what to
+like or not like. I’m just relaying that the reputation this place
+now has is one that a large segment of the population who are NOT
+fascists, saying they don’t feel comfortable here because a main
+area of their interest is considered worthy of being mocked and
+attacked. And even as I’ve explained that I’ve been able to have
+positive conversations about productive AI usage here with many of
+you, the reputation of the community here as insisting their own
+lived experience can’t possibly be real has driven them away.</p>
+</blockquote>
+
+<p>It’s not just “the reputation”. That really is the culture of Bluesky. I’ve obviously written more about AI this month than usual — in particular, my two long pieces regarding <a href="https://daringfireball.net/2026/08/anthropics_watermark_text_adulteration_in_claude_is_a_perversion_of_writing">watermarking LLM-generated text</a> through <a href="https://daringfireball.net/2026/08/follow-up_thoughts_on_watermarking">word-choice diddling</a>. I don’t really write much about AI generally.</p>
+
+<p>Broadly, I’m making two arguments against text watermarking. First, that the embedding of a detectable signal (even if subtle) must necessarily degrade the quality of the generated prose (even if only slightly), and that this is an unacceptable trade-off for a feature that has no benefit to the user and in fact can only be used <em>against</em> the user. Second, that even if I’m wrong about the first part, and a clever enough watermarking scheme <em>can</em> embed a detectable signature without any degradation of prose quality, this is a bad idea and should be rejected.</p>
+
+<p>Reaction to my takes on text watermarking have largely been about these two arguments. Some people agree with me that what watermarking proponents are claiming is not possible — the text quality must degrade. Others agree that while it must have an effect on text quality, it in fact is so subtle that it truly does not matter and even a careful reader will not notice an overall degradation. Others disagree, tell me I don’t understand the cleverness of the systems, and are convinced that somehow  this watermarking truly embeds a detectable signal in prose without any degradation of text quality whatsoever. There’s a range of disagreement, but it’s all reasonable. Likewise on the broader question of whether it’s a good idea or not to even try to do this.</p>
+
+<p>The reaction on Bluesky to my recent work is like nothing else. It’s largely in the vein that watermarking can’t possibly make AI-generated text worse because it’s already random gibberish, and that the only explanation for my being opposed to this is that I must be using AI to produce my own writing and I’m upset that my scheme will soon be detectable. <a href="https://bsky.app/profile/gruber.foo/post/3mt7wgebucvqv">Read the replies to this one</a>; they speak for themselves.</p>
+
+<p><a href="https://daringfireball.net/linked/2026/05/30/jalkut-on-ai">I continue to think</a> my friend <a href="https://bsky.app/profile/danielpunkass.punkitup.com/post/3mmqcikjkjn2t">Daniel Jalkut has espoused the one true take</a>: “My take on AI is, essentially, everybody who’s against it is too against it and everybody who’s for it is too for it.” It is way less inflammatory to espouse an AI-skeptical stance on Twitter/X than it is to simply state that AI can be truly useful on Bluesky.</p>
+
+<p>Anyway, Masnick, <a href="https://bsky.app/profile/masnick.com/post/3mtke5x362g2x">at the end of the day yesterday</a>:</p>
+
+<blockquote>
+  <p>The people bitching about me turning off replies on my thread earlier today are doing an excellent job reinforcing why I was right to turn off replies.</p>
+</blockquote>
+
+</dd>
+
+
+</dl>
+
+<h2 class="dateline">Thursday, 20 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://timmarinin.net/2026/bluesky-screenshots/">How Bluesky and Threads Sneak Their Logos Into iOS Screenshots</a>&nbsp;<a class="permalink" title="Permanent link to ‘How Bluesky and Threads Sneak Their Logos Into iOS Screenshots’" href="https://daringfireball.net/linked/2026/08/20/bluesky-threads-sneak-logo-into-screenshots">&#9733;</a>
+</dt>
+<dd>
+<p>Bluesky and Threads both pull the same trick: When you take a screenshot on iOS of an individual tweet, they replace the “Follow” button in their user interface with their logo. Tim Marinin noticed this in the Bluesky app, got curious, and because they publish the app’s source code, he dug in to figure out how they do this:</p>
+
+<blockquote>
+  <p>The answer was in the file literally called <a href="https://github.com/bluesky-social/social-app/blob/main/src/screens/PostThread/components/GrowthHack.tsx">GrowthHack.tsx</a>,
+introduced in January 2026 by <a href="https://github.com/mozzius">mozzius</a>. But it merely
+used a dependency, so to understand I looked into package
+<a href="https://github.com/mozzius/expo-privacy-sensitive">expo-privacy-sensitive</a>, also by them.</p>
+
+<p>The package creates <code>UITextField</code> with <code>isSecureTextEntry</code>
+property set to true and renders the actual content (the button)
+into that field’s <code>.layer</code>. When I take the screenshot, iOS hides
+this UITextField by blanking the layer, allowing the Bluesky logo
+to flutter its wings through (it was here the whooole time). For
+other platforms it simply renders content as-is, without masking.</p>
+</blockquote>
+
+<p>Marinin says, “I think it’s cute.”</p>
+
+<p>I think it’s bullshit. If I take a screenshot I want to see exactly what is on my screen. If I take a photograph with a Sony camera, they don’t put a fucking Sony logo in the image. Screenshots should be purely WYSIWYG, and it’s obvious that the <code>isSecureTextEntry</code> property is meant to obscure the contents of secure text entry fields. It’s clever, but it’s bullshit.</p>
+
+<p>It’s a bit like the bullshit some apps pull where they append extra text on the clipboard when you copy and paste — like Apple Books, which adds quotation marks around the text you copied (a little annoying) <a href="https://daringfireball.net/misc/2026/08/apple-books-paste-bullshit.png">and appends five lines of attribution cruft</a> (a lot annoying). But at least with Books’s attribution cruft, you can just delete the extra lines (and the additional quotation marks). With this stunt Bluesky and Threads are pulling, there’s no way to capture a screenshot of what you actually see in the app.</p>
+
+<p>I’m not surprised Threads does something sneaky like this; I am surprised that Bluesky does.</p>
+
+</dd>
+
+
+</dl>
+
+<hr class="ookiaks" />
+
+
+<div class="article">
+<h1><a href="https://daringfireball.net/2026/08/apple_eu_business_terms_conceding_little" title="Permanent link to ‘Apple and European Commission Reach Agreement on App Payment Terms Under DMA, With Apple Conceding Very Little’">Apple and European Commission Reach Agreement on App Payment Terms Under DMA, With Apple Conceding Very Little</a></h1>
+<h6 class="dateline">Thursday, 20 August 2026</h6>
+
+<p><a href="https://www.apple.com/newsroom/2026/08/apple-announces-changes-for-apps-in-the-european-union/">Apple Newsroom, on Tuesday</a>:</p>
+
+<blockquote>
+  <p>Apple today announced changes to its business terms for apps in
+the European Union, following close collaboration with the
+European Commission. These changes resolve Apple’s disagreements
+with the Commission over business terms and alternative
+distribution. They also reduce complexity by moving every
+developer that distributes apps in the EU to a single set of
+business terms. Developers can sign the new terms today, and
+changes will go into effect on October 1. [...]
+Under the new terms:</p>
+
+<ul>
+<li><p><b>For App Store apps using Apple In-App Purchase</b>, the
+commission will be 26 percent. For the vast majority of
+developers, including those in the App Store Small Business
+Program, Mini Apps Partner Program, or Video Partner Program,
+and for auto-renewing subscriptions after their first year, it
+will be 15 percent.</p></li>
+<li><p><b>For App Store apps using alternative payment processing</b>, the
+commission will be 20 percent. Developers in the programs
+mentioned above will pay a reduced rate of 10 percent.</p></li>
+<li><p><b>For App Store apps that link out of the app to complete
+purchases</b>, the commission will be 15 percent. Developers in
+the programs mentioned above will pay a reduced rate of 10
+percent.</p></li>
+<li><p><b>For apps distributed via alternative app marketplaces or the
+web</b>, Apple will charge a 5 percent Core Technology Commission.</p></li>
+</ul>
+</blockquote>
+
+<p>This is a near-total victory for Apple. The only real concession is that for apps in the App Store using Apple’s own payment system (the default), the main commission drops from 30 percent to 26 percent in the EU. That’s the deal the EU squeezed out of Apple for EU developers: going from 30 to 26 percent for purchases and the first year of subscriptions.</p>
+
+<p>All apps have to pay at least the 5 percent Core Technology Commission, even if they’re distributed outside the App Store. I could collect a lot of claim chowder from people who told me that Apple’s CTC was never going to pass muster. Maybe it wouldn’t have under the old EC regime of the <a href="https://daringfireball.net/2024/03/more_on_the_eus_market_might#:~:text=Margrethe%20Vestager%20herself">crusading hypocrite Margrethe Vestager</a> and the <a href="https://daringfireball.net/linked/2024/09/16/breton-resigns">buffoonish Thierry Breton</a>, but the European Commission is under <a href="https://daringfireball.net/linked/2026/05/12/teresa-ribera-visited-the-us-and-no-one-noticed">new</a>, <a href="https://daringfireball.net/linked/2026/05/12/new-dma-compliance-features-for-eu-users-in-ios-265">more temperate leadership</a>.</p>
+
+<p>Ben Thompson, <a href="https://stratechery.com/2026/apple-settles-with-e-u-u-s-app-store-fees-att-rules-in-germany/">in a subscriber-only Stratechery update</a>, works out the implied values from these fees:</p>
+
+<blockquote>
+  <ul>
+<li>The implied value of Apple’s APIs is 5% of an app’s revenue</li>
+<li>The implied value of App Store distribution is 10% of an app’s
+revenue</li>
+<li>The implied value of in-app payment APIs is 5% of an app’s
+revenue</li>
+<li>The implied value of in-app purchase using Apple’s payment
+processing is 6% of an app’s revenue</li>
+</ul>
+
+<p>Now take these numbers with a grain of salt — given the fact the
+European Commission appears to have blessed these figures, they
+were almost certainly a matter of negotiation — but they do seem
+directionally correct: being in the App Store is the most valuable
+(thus 10%), and then 5% was ascribed to Apple’s APIs in their
+various forms; of these, the “Core Technology Commission” is
+obviously more valuable than the APIs used for in-app payment
+processing by third parties, but you can see how they landed at
+the same spot.</p>
+
+<p>The interesting number is the implied 6% for Apple’s payment
+processing. The fully loaded cost for credit card fees — which
+have both a swipe fee and a percentage fee — refunds, disputes,
+etc. is pretty close to 6%; in other words, it appears that the
+European Commission has decided that Apple shouldn’t make anything
+for actually charging money. And again, I can see how they got
+there: anyone can charge money, but Apple did actually make the
+various APIs developers use, along with the App Store.</p>
+</blockquote>
+
+<p>The 6 percent no-profit fee for payment processing is where the difference between the global 30% and the new EU 26% falls. Given its druthers, it seems clear Apple would charge 10%, not 6%, for payment processing, to give itself some margin on payment processing.</p>
+
+<p>Don’t take my word that this agreement is a sweeping victory for Apple — with the company conceding only the reduction from 30 to 26 percent for App Store payments — and a capitulation by the EC. <a href="https://x.com/EpicNewsroom/status/2089787577062559951">Here’s Epic Games, posting on Twitter/X</a>:</p>
+
+<blockquote>
+  <p>Apple announced new junk fees in the EU that do nothing to open up
+the mobile app ecosystem to competition, as required by Digital
+Market Act. [<em>sic</em>] [...]</p>
+
+<p>The law makes it clear that Apple must allow developers to offer
+link outs to the web for purchases “free of charge” and has to
+allow “effective use” of competing stores. Apple’s terms
+deliberately violate the Digital Markets Act. If the Commission
+accepts the terms and drops their ongoing enforcement actions, the
+law will become meaningless and consumers and developers will not
+experience the benefits it was designed to provide.</p>
+</blockquote>
+
+<p>I don’t think Epic understands that <a href="https://www.independent.ie/business/apple-will-change-its-app-store-rules-to-end-its-dispute-with-the-eu/a/160196535.html">the Commission <em>has</em> accepted these terms</a>, and they’re a result of negotiations. It’s over.</p>
+
+<p>Another way to see how clearly this is a win for Apple is to go back and imagine an entirely different DMA. Consider if the DMA had simply stated that 30 percent is too high a commission for app stores on “gatekeeping” platforms, and the one and only purpose of the DMA was to set a new, more reasonable maximum commission rate. If that had been the case, there’s no way the rate would have been 26 percent. It almost certainly would have been 20 percent at the most, perhaps something more like 15 percent. Thanks to the DMA’s sprawling scope, complexity, and overreach, Apple came out of this conceding only 4 percent of the App Store’s 30 percent commission, and no reduction at all to the 15 percent for subscriptions after the first year.</p>
+
+<p>The very funniest thing Apple could do now would be to drop the baseline commission everywhere else in the world from 30 to 25 percent.&nbsp;<a class="permalink" title="Permanent link to ‘Apple and European Commission Reach Agreement on App Payment Terms Under DMA, With Apple Conceding Very Little’" href="https://daringfireball.net/2026/08/apple_eu_business_terms_conceding_little">&#9733;</a></p>
+
+</div> <!-- article -->
+
+<hr class="ookiaks" />
+
+
+<h2 class="dateline">Wednesday, 19 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://www.bloomberg.com/news/articles/2026-08-19/apple-s-camera-equipped-ai-airpods-remain-on-track-for-2027-despite-video-leak">Gurman Says No Camera-Equipped AirPods Until 2027</a>&nbsp;<a class="permalink" title="Permanent link to ‘Gurman Says No Camera-Equipped AirPods Until 2027’" href="https://daringfireball.net/linked/2026/08/19/gurman-airpods-camera-next-year">&#9733;</a>
+</dt>
+<dd>
+<p>Mark Gurman, Bloomberg:</p>
+
+<blockquote>
+  <p>Earlier this week, a developer version of a Mac computer software
+update accidentally included references to several upcoming Apple
+products, including a video of the AirPods with cameras in
+action. [...]</p>
+
+<p>But the product challenges are still being resolved, and the
+camera AirPods remain off the company’s 2026 release schedule.
+Apple continues to believe the earbuds will launch in 2027, said
+the people, who asked not to be identified when discussing
+unannounced products.</p>
+</blockquote>
+
+<p>If true, it makes that video even stranger. If not, we can file this along <a href="https://daringfireball.net/linked/2021/09/14/prosser-flat-edge-watch">the flat-sided Series 7 Apple Watch</a>.</p>
+
+</dd>
+
+
+</dl>
+
+<hr class="ookiaks" />
+
+
+<div class="article">
+<h1><a href="https://daringfireball.net/2026/08/apple_testflight_list_sort_order" title="Permanent link to ‘Apple Screwed Up the TestFlight App’s Sort Order a Month Ago, and It’s Still Screwed Up, but the More I Think About It, the More Clear It Is They Started Screwing This Up 15 Years Ago’">Apple Screwed Up the TestFlight App’s Sort Order a Month Ago, and It’s Still Screwed Up, but the More I Think About It, the More Clear It Is They Started Screwing This Up 15 Years&#160;Ago</a></h1>
+<h6 class="dateline">Wednesday, 19 August 2026</h6>
+
+<p><a href="https://9to5mac.com/2026/07/21/apple-just-improved-testflight-for-users-with-a-lot-of-beta-apps/">Zac Hall at 9to5Mac, a month ago</a>:</p>
+
+<blockquote>
+  <p>Sometimes a small change can make a big impact. That’s especially
+true for Apple’s latest TestFlight update for users with a lot of
+pre-release software.</p>
+
+<p>Apple just updated TestFlight for iPhone, iPad, Mac, and more.
+The new version, 4.3, introduces “a search field to quickly
+find apps.”</p>
+
+<p>A quick comparison to version 4.2.2. shows just that: TestFlight
+now includes a search field along the bottom on iPhone and at the
+top of the sidebar on Mac.</p>
+</blockquote>
+
+<p>This was a one-step-forward/two-steps-back regression. Of course it’s better to be able to search a list than not to have a search feature.</p>
+
+<p>But when Apple implemented this change, they also changed the sort order of the list of apps you’re registered to test. Starting with this update, the list is sorted in alphabetical order. For as long as I can remember — perhaps dating back to <a href="https://techcrunch.com/2014/02/21/rumor-testflight-owner-burstly-is-being-acquired-by-apple/">when TestFlight was a third-party utility</a> — the list was ordered by <em>recency</em>. The most recently updated app was at the top; the oldest at the bottom. Sorting by recency is really the only sort order that makes sense when you’re registered for dozens (or more) of apps. For me, trying to see if there is an update to a new app <a href="https://marco.org/2026/08/14/unforgetful">whose name starts with U</a> now requires scrolling through over 100 items.</p>
+
+<p>Sorting this list alphabetically by app name is like sorting my email by sender name. The main reason I ever open the app is to see what’s new. There’s no way now to see which apps have been updated recently other than painstakingly scrolling through what, for me, is a very long list.</p>
+
+<p>I didn’t complain about this when the sort order changed last month because I figured it was an oopsie — that alphabetical order was supposed to kick in only when displaying search results, not by default. But here we are a month later and the presentation of apps in TestFlight makes me a little irritated every day. Do people inside Apple not use TestFlight themselves?</p>
+
+<p>Also, if I consider the broader view, this really speaks to how much we’ve lost in terms of UI vocabulary. For <em>decades</em>, any list of items with names and dates could be sorted by name or date, ascending or descending, through the standard use of clickable headers at the top of every list. This was true for almost any such list in any app, on any platform — Mac, Windows, Unix, Amiga, whatever. This was just basic GUI stuff. Like: Can you select, copy, and paste text? Can you present a menu of command options? Can you assign keyboard shortcuts to frequently used commands? Can you sort a list of items by useful criteria like name or date?</p>
+
+<p>iOS in 2007 introduced a simplified UI vocabulary that omitted many of these baseline GUI features. That seemed like a reasonable trade-off for a device with a 3.5-inch display and fat fingers as the only input device. But then iOS became popular and Apple stopped bringing the richer UI vocabulary of the Mac to iOS — copy-and-paste, for example, <a href="https://daringfireball.net/2009/06/copy_and_paste">didn’t appear until iOS 3.0</a> (then named “iPhone OS”) — and started bringing iOS’s simplified, child-like UI grammar to MacOS. I’m only writing this article because Apple changed the sort order of apps in TestFlight from date to name. But the real problem is that there is only one sort order in TestFlight. I just can’t emphasize how ridiculous it would have been for any app, on any platform, to offer a list like this without “Name” and “Date” headers at the top that you could click to change the sort order (including clicking them again to switch between ascending and descending).</p>
+
+<p>It’s 2026 and an important, much-used app from Apple doesn’t offer basic list sorting controls that would have been a glaring omission 40 years ago. We don’t complain because TestFlight isn’t an anomaly in this regard. Many (most?) apps from Apple today have lists that omit headers to control sort order, even though changing sort order is often very useful, and intuitively sortable list views used to be so bog-standard that we all just took them for granted.</p>
+
+<p>It certainly shouldn’t have taken until July 2026 to be able to search in TestFlight, either. And being able to search, and see the results sorted alphabetically, shouldn’t mean you can no longer view the full list sorted by recency. These limitations are all so crude. It’s the GUI equivalent of borderline illiteracy.<sup id="fnr1-2026-08-19"><a href="#fn1-2026-08-19">1</a></sup></p>
+
+<p>I mean really, what are we doing here? This was a completely solved problem decades ago, when computer RAM was measured in <em>kilo</em>bytes. It’s like if most new books just no longer contained page numbers, because a cadre of dilettante designers decided that they prefer the way pocket-sized pamphlets look without them, and what works for an 8-page pamphlet must surely work for a 300-page novel.&nbsp;<a class="permalink" title="Permanent link to ‘Apple Screwed Up the TestFlight App’s Sort Order a Month Ago, and It’s Still Screwed Up, but the More I Think About It, the More Clear It Is They Started Screwing This Up 15 Years Ago’" href="https://daringfireball.net/2026/08/apple_testflight_list_sort_order">&#9733;</a></p>
+
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1-2026-08-19">
+<p>Here’s another one: selecting multiple items in a list and then taking action on those items at once. This was a completely solved GUI problem. The Mac had standards for selecting a range of items (Shift-clicking) and selecting/de-selecting items non-contiguously (Command-clicking). You can still do this in Mac-assed Mac apps. But in apps like TestFlight you can’t. While suffering through this new alphabetical sort order for the last month, I’ve spent a minute or two every day deleting old apps from my list to winnow it down. This is a painstaking multi-step process for each app, and can only be done one app at a time. Why in the world can’t we select multiple apps at once and take an action like “Stop Testing” on the entire selection in one fell swoop? (Part of the answer might be that TestFlight appears to be largely written in <a href="https://daringfireball.net/2026/06/swiftui_only_makes_it_easy_to_develop_bad_apps">SwiftUI, not AppKit</a>.)&nbsp;<a href="#fnr1-2026-08-19"  class="footnoteBackLink"  title="Jump back to footnote 1 in the text.">&#x21A9;&#xFE0E;</a></p>
+</li>
+</ol>
+</div>
+
+</div> <!-- article -->
+
+<hr class="ookiaks" />
+
+
+<h2 class="dateline">Wednesday, 19 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://www.axios.com/2026/08/18/nbc-news-taboola-programmatic-display-ads">NBC News Strikes Ad Sales Deal With Taboola for Programmatic Display&#160;Ads</a>&nbsp;<a class="permalink" title="Permanent link to ‘NBC News Strikes Ad Sales Deal With Taboola for Programmatic Display Ads’" href="https://daringfireball.net/linked/2026/08/19/nbc-news-taboola">&#9733;</a>
+</dt>
+<dd>
+<p>Sara Fischer, Axios:</p>
+
+<blockquote>
+  <p>Ad tech giant Taboola has struck a deal with NBC News to
+exclusively power all of its programmatic, or automated, display
+advertising sales, CEO Adam Singolda tells Axios.</p>
+</blockquote>
+
+<p>Worked out great for Apple with Apple News. <a href="https://daringfireball.net/2024/07/apple_taboola_sitting_in_a_tree">They struck a deal with Taboola two years ago</a> and the ads in Apple News today <a href="https://daringfireball.net/2026/07/ads_on_apple_news_suck">are super premium</a> and <a href="https://mastodon.social/@gruber/116901983997962549">something</a> the company <a href="https://daringfireball.net/2026/07/ternus_apple_slippery_slope">can be really proud of</a>.</p>
+
+</dd>
+
+
+</dl>
+
+<h2 class="dateline">Tuesday, 18 August 2026</h2>
+<dl class="linkedlist">
+<dt>
+<a href="https://www.wsj.com/business/media/disneys-abc-sues-fcc-over-challenge-to-its-broadcast-licenses-64e8f794?st=XTL4tA">Disney’s ABC Sues Trump’s FCC Over Challenge to Its Broadcast License</a>&nbsp;<a class="permalink" title="Permanent link to ‘Disney’s ABC Sues Trump’s FCC Over Challenge to Its Broadcast License’" href="https://daringfireball.net/linked/2026/08/18/disney-abc-sues-trump-fcc">&#9733;</a>
+</dt>
+<dd>
+<p>Joe Flint, reporting for The Wall Street Journal (gift link):</p>
+
+<blockquote>
+  <p>Walt Disney’s ABC has sued the Federal Communications Commission
+alleging the agency’s efforts to challenge its broadcast licenses
+and regulate its talk show “The View” are illegal and an effort to
+quash speech the Trump administration finds objectionable.</p>
+
+<p>In a suit filed in federal court in Washington, D.C., on Tuesday,
+ABC said, “Again and again, the Administration has attacked ABC’s
+speech — the stories its journalists report and the viewpoints
+its network programs air. Over time, those attacks have escalated
+into express demands that ABC be stripped of its broadcast
+licenses because of its speech.”</p>
+</blockquote>
+
+<p>This is how you handle a bully: “<a href="https://daringfireball.net/linked/2025/10/03/fuck-you-make-me">Fuck you, make me</a>.”</p>
+
+<p>Our local 6ABC affiliate here in Philadelphia is the highest-profile station that <a href="https://share.inquirer.com/RxJXVN">the FCC has targeted</a> for a bogus “license review”. It’s impossible for someone who doesn’t live here to understand <a href="https://daringfireball.net/linked/2022/01/11/gardner-11p-finale">just how dominant a media presence</a> 6ABC Action News is. <a href="https://6abc.com/music50/">The Action News theme song</a> is, effectively, the city of Philadelphia’s theme song. <a href="https://x.com/vmudream/status/1034247673883385856">Watch this</a> and you’ll get it, trust me.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://9to5mac.com/2026/08/17/apple-dojs-latest-challenge-in-antitrust-case-fails-at-every-level/">Apple Gives Legal Middle Finger to DOJ Challenge on Apple’s July Discovery&#160;Win</a>&nbsp;<a class="permalink" title="Permanent link to ‘Apple Gives Legal Middle Finger to DOJ Challenge on Apple’s July Discovery Win’" href="https://daringfireball.net/linked/2026/08/18/apple-middle-finger-doj">&#9733;</a>
+</dt>
+<dd>
+<p>Marcus Mendes at 9to5Mac has <a href="https://9to5mac.com/2026/08/17/apple-dojs-latest-challenge-in-antitrust-case-fails-at-every-level/">a fun update</a> on <em>U.S. v. Apple</em>, the ill-considered antitrust case started by the Biden administration. A bunch of what the DOJ argues are anticompetitive features in Apple’s platforms, Apple argues are in fact privacy and security related.</p>
+
+<p>Back in July <a href="https://9to5mac.com/2026/07/15/apple-wins-discovery-fight-over-federal-agency-documents-in-doj-antitrust-case/">Apple won a big discovery ruling</a> — Apple asked for documents from 14 federal agencies — including the CIA, FBI, Department of Defense, NSA, and State Department — to see the reasons why those agencies purchase iPhones, iPads, and Macintosh computers. And in July, Apple won. They get to see what these federal agencies say about those features.</p>
+
+<p>The DOJ filed a longshot “<em>Hey, no fair</em>” complaint trying to overrule that discovery ruling. Now Apple has <a href="https://9to5mac.com/wp-content/uploads/sites/6/2026/08/gov.uscourts.njd_.544402.493.0.pdf">filed a retort</a> saying the July order should stand, and the DOJ should get ready to argue in court that it’s unlawful for Apple to implement the sort of features that are the very reason why security-minded federal agencies purchase Apple devices.</p>
+
+</dd>
+
+
+<dt>
+<a href="https://www.wired.com/story/the-worst-ive-ever-seen-cargo-thieves-are-turning-violent-in-pursuit-of-ai-hardware/">Organized Thieves Are Targeting AI Server Chips With Violent Highway Hijackings</a>&nbsp;<a class="permalink" title="Permanent link to ‘Organized Thieves Are Targeting AI Server Chips With Violent Highway Hijackings’" href="https://daringfireball.net/linked/2026/08/18/thieves-targeting-server-chips-highway-hijackings">&#9733;</a>
+</dt>
+<dd>
+<p>Paresh Dave and Aarian Marshall, reporting for Wired (<a href="https://apple.news/AXazcsSUuTOq8F32MB2X88w">News+ link</a> in case Wired hits you with their paywall):</p>
+
+<blockquote>
+  <p>The incidents involved two different shipments of high-value
+technology traveling from Silicon Valley to Southern California,
+according to Pachuca, who says he learned about the thefts from
+law enforcement authorities. Each truck was tailed by private
+security professionals driving unmarked escort vehicles, which
+were supposed to ensure the goods made it to their destinations
+safely. But hours into one journey, another driver rear-ended the
+escort in a hit-and-run, forcing it to stop. In the other case,
+the escort stopped after another car nudged it into a tailspin, a
+ploy commonly known as a PIT maneuver, and then fled.</p>
+
+<p>Everyone familiar with the “accidents” believes the escorts were
+deliberately immobilized, according to Pachuca. Once the
+semitrucks lost their escorts, the drivers proceeded without
+halting — but not to their planned destinations. They were never
+heard from again, Pachua says, and millions of dollars in data
+center gear remains unaccounted for.</p>
+</blockquote>
+
+<p>I called it back in March: <a href="https://daringfireball.net/linked/2026/03/31/ram-is-the-new-bearer-bond">RAM is the new bearer bond</a>.</p>
+
+</dd>
+
+
+<div id="Footer">
+<form id="SiteSearch" action="https://daringfireball.net/search" method="get" style="margin-bottom: 2.5em;">
+<div>
+<input name="q" type="text" value="" style="margin-right: 8px; width: 66%;" />
+<input type="submit" value="Search" />
+</div>
+</form>
+
+<p class="smallprint">
+<a href="/preferences/" title="Customize the font size and presentation options for this web site.">Display Preferences</a>
+<br /><br />
+Copyright &copy; 2002–2026 The Daring Fireball Company LLC.
+</p>
+</div>
+
+
+<!-- Google Analytics -->
+
+<!-- 
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-593949-1']);
+  _gaq.push (['_gat._anonymizeIp']);
+  _gaq.push(['_trackPageview']);
+  (function() {
+	var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+	ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+	var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+ -->
+
+<!-- Asynchronously load Mint -->
+<!-- No, screw mint
+<script type="text/javascript">
+(function () {
+	var ma = document.createElement('script');
+	ma.type = 'text/javascript';
+	ma.src = '/mint/?js';
+	ma.async = true;
+	var s = document.getElementsByTagName('script')[0];
+	s.parentNode.insertBefore(ma, s);
+})();
+</script>
+-->
+</div> <!-- Main -->
+
+</div> <!-- Box -->
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v3d52b47920f24c319d37e2661827c42b1787588026925" integrity="sha512-d9sL6GJLXn6fInD1+TVXhTcQOsmxeHfmHAvwGDIxp5TO+uo1fiWW7mHomMj4MLRlCsJDTqXzWLHJFFlPCEIj/A==" data-cf-beacon='{"version":"2024.11.0","token":"d5bbc0b4e8ae452eba45dc9b72931665"}' crossorigin="anonymous"></script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a33bb0766ff2ef51',t:'MTc4ODE3NTY4MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
+<!-- 0.0089 seconds -->
+

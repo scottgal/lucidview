@@ -128,8 +128,23 @@ with a real title, usually with a date beside it. That is the shape a template
 produces when it lays out a list of posts, and it is what tells a blog index
 apart from a nav bar, a tag cloud or a row of *Read more* links.
 
-If it finds one, it says so, tells you how many articles it found and shows you
-some of the titles.
+Three kinds of page it now declines on purpose, because each of them used to be
+offered wrongly. A run of links inside a page's own navigation, header, footer
+or sidebar is treated as furniture, whatever the link text says. An article with
+a list of further reading at the bottom of it is read as the article it is, not
+as the short list in its footer. And a run with no dates anywhere in it has to
+be a long one before it counts, because a documentation page's card of six
+undated links reads exactly like six blog posts and is not one.
+
+It also no longer takes a page's word for it when a site's front page is
+mislabelled. Some publishers tag their homepage as a single article; a page
+served at the root of a site is never one, so the label is ignored there. On any
+other address, a page that calls itself an article has to look overwhelmingly
+like an index before mylo will disagree with it, which is why an article with a
+*More stories* rail is still not offered.
+
+If it finds a list, it says so, tells you how many articles it found and shows
+you some of the titles.
 
 ![A page offered as a scraped feed](screenshots/25-scraped-offer.png)
 

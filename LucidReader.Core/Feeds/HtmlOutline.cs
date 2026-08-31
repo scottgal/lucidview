@@ -311,7 +311,7 @@ internal static class HtmlOutline
                 continue;
             }
 
-            var selfClosing = tagEnd > lessThan && html[tagEnd - 1] == '/';
+            var selfClosing = IsSelfClosing(html, lessThan, tagEnd);
 
             if (RawTextElements.Contains(tagName))
             {
@@ -409,6 +409,55 @@ internal static class HtmlOutline
         var text = slice.ToString();
         target.OwnText.Append(text.Contains('&') ? WebUtility.HtmlDecode(text) : text);
         target.OwnText.Append(' ');
+    }
+
+    /// <summary>
+    /// Whether a start tag closed itself, deciding it the way the HTML tokeniser
+    /// does rather than by looking at the last character.
+    ///
+    /// A trailing slash only closes a tag when the tokeniser is between
+    /// attributes when it reaches it. Inside an unquoted attribute value a slash
+    /// is an ordinary character, so "&lt;a href=https://danluu.com/bug-blind/&gt;"
+    /// is an ordinary open tag and not a void one. Reading the last character
+    /// instead made every such anchor childless, which moved its title text onto
+    /// the enclosing list item and left the detector with a run of links that
+    /// had no text at all. Sites that write unquoted hrefs are exactly the plain
+    /// hand-rolled index pages this detector exists for.
+    /// </summary>
+    private static bool IsSelfClosing(string html, int tagStart, int tagEnd)
+    {
+        if (tagEnd <= tagStart || html[tagEnd - 1] != '/') return false;
+
+        var i = tagStart + 1;
+        while (i < tagEnd && !char.IsWhiteSpace(html[i]) && html[i] != '/') i++;
+
+        while (i < tagEnd)
+        {
+            while (i < tagEnd && (char.IsWhiteSpace(html[i]) || html[i] == '/')) i++;
+            if (i >= tagEnd) return true;
+
+            while (i < tagEnd && !char.IsWhiteSpace(html[i]) && html[i] != '=' && html[i] != '/') i++;
+            while (i < tagEnd && char.IsWhiteSpace(html[i])) i++;
+            if (i >= tagEnd || html[i] != '=') continue;
+
+            i++;
+            while (i < tagEnd && char.IsWhiteSpace(html[i])) i++;
+            if (i < tagEnd && (html[i] == '"' || html[i] == '\''))
+            {
+                var quote = html[i++];
+                while (i < tagEnd && html[i] != quote) i++;
+                if (i < tagEnd) i++;
+                continue;
+            }
+
+            while (i < tagEnd && !char.IsWhiteSpace(html[i]) && html[i] != '>') i++;
+
+            // The unquoted value ran to the end of the tag, so the trailing
+            // slash is the last character of the value, not a tag terminator.
+            if (i >= tagEnd) return false;
+        }
+
+        return true;
     }
 
     private static string ReadTagName(string html, int from, int limit)

@@ -151,13 +151,42 @@ public class ArticleListDetectorTests
     [InlineData("verge.html", "https://www.theverge.com/news/1/steam-leak")]
     [InlineData("hn-item.html", "https://news.ycombinator.com/item?id=1")]
     [InlineData("no-feed.html", "https://example.com/")]
-    public void A_page_that_is_not_a_list_returns_nothing(string fixture, string url)
+    public void A_page_that_is_not_a_list_is_not_offered(string fixture, string url) =>
+        Assert.False(Detect(fixture, url).IsArticleList);
+
+    /// <summary>
+    /// The two pages that carry a rail of other articles are still scanned, and
+    /// what the scan found is still reported, because the declaration no longer
+    /// ends the scan - it raises the bar. Nothing acts on Articles without
+    /// checking IsArticleList, which the test above pins down; this one pins
+    /// down that the rail scores well short of the bar a declaration sets, so
+    /// the margin is real rather than a coin toss.
+    /// </summary>
+    [Theory]
+    [InlineData("nasa.html", "https://science.nasa.gov/blogs/ribbon-cutting/")]
+    [InlineData("verge.html", "https://www.theverge.com/news/1/steam-leak")]
+    public void A_declared_article_pages_rail_stays_well_under_the_declared_bar(
+        string fixture, string url)
     {
         var detection = Detect(fixture, url);
 
         Assert.False(detection.IsArticleList);
-        Assert.Empty(detection.Articles);
+        Assert.True(
+            detection.Confidence < ArticleListDetector.DeclaredConfidenceThreshold - 0.10,
+            $"{fixture} scored {detection.Confidence:0.00}, too close to the declared bar of " +
+            $"{ArticleListDetector.DeclaredConfidenceThreshold:0.00}.");
     }
+
+    /// <summary>
+    /// Three of those pages have no run worth reporting at all, which is a
+    /// stronger statement than "it was not offered" and worth keeping separate.
+    /// </summary>
+    [Theory]
+    [InlineData("mostlylucid-post.html", "https://www.mostlylucid.net/blog/signal-shingle-architecture")]
+    [InlineData("hn-item.html", "https://news.ycombinator.com/item?id=1")]
+    [InlineData("no-feed.html", "https://example.com/")]
+    public void A_page_with_no_run_at_all_returns_nothing(string fixture, string url) =>
+        Assert.Empty(Detect(fixture, url).Articles);
 
     /// <summary>
     /// The negative that is not flattering, and the reason this test exists.
@@ -463,23 +492,38 @@ public class ArticleListDetectorRejectionTests
     /// A plain index with no dates anywhere. Dates are worth 0.15 and nothing
     /// more, so a list has to clear the bar without them - which is the Hacker
     /// News case reduced to its essentials.
+    ///
+    /// The run is twelve long because an undated one has to be. The corpus is
+    /// what set that: learn.microsoft.com's C# hub lists its sections in cards
+    /// of six undated links whose text reads exactly like article titles, and
+    /// no other signal separates those six from six posts on a small blog. The
+    /// undated indexes that are real - Hacker News, Slashdot, danluu.com - all
+    /// run to fifteen entries or more, so the length is what an undated list
+    /// now argues with.
     /// </summary>
     [Fact]
     public void A_dateless_on_host_index_still_clears_the_bar()
     {
-        var detection = Detect("""
-            <html><body><ul class="posts">
-              <li class="post"><a href="/posts/one">The first article on this weblog</a></li>
-              <li class="post"><a href="/posts/two">The second article on this weblog</a></li>
-              <li class="post"><a href="/posts/three">The third article on this weblog</a></li>
-              <li class="post"><a href="/posts/four">The fourth article on this weblog</a></li>
-              <li class="post"><a href="/posts/five">The fifth article on this weblog</a></li>
-              <li class="post"><a href="/posts/six">The sixth article on this weblog</a></li>
-            </ul></body></html>
-            """);
+        var items = string.Join("\n", Enumerable.Range(1, 12).Select(i =>
+            $"""<li class="post"><a href="/posts/{i}">Article number {i} on this weblog</a></li>"""));
+
+        var detection = Detect($"<html><body><ul class=\"posts\">{items}</ul></body></html>");
 
         Assert.True(detection.IsArticleList);
-        Assert.Equal(6, detection.Articles.Count);
+        Assert.Equal(12, detection.Articles.Count);
         Assert.All(detection.Articles, a => Assert.Null(a.PublishedUtc));
+    }
+
+    /// <summary>
+    /// The same shape, too short to argue with. This is the documentation hub's
+    /// card of links, and it is the false positive the length rule exists for.
+    /// </summary>
+    [Fact]
+    public void A_short_dateless_card_of_links_does_not()
+    {
+        var items = string.Join("\n", Enumerable.Range(1, 6).Select(i =>
+            $"""<li class="post"><a href="/docs/section-{i}">Section number {i} of the guide</a></li>"""));
+
+        Assert.False(Detect($"<html><body><ul class=\"posts\">{items}</ul></body></html>").IsArticleList);
     }
 }
