@@ -32,6 +32,7 @@ dotnet build LucidReader/LucidReader.csproj
 | `ux-scripts/run-add-feed-writes.sh [out]` | `verify-add-feed-writes.yaml` | Adding discovered feeds for real: the writes land, the sidebar reloads, the status bar says what happened | yes |
 | `ux-scripts/run-feed-update-chunk.sh [out] [theme]` | `verify-feed-update-chunk.yaml` | The per-feed update line at the top of the item list: hidden on a folder and a smart row, "Updated N min ago" and "Next in N min" on a healthy feed, "Not updated yet" on one never fetched, the paused wording with no Refresh on an auto-paused one, and "Refreshing now..." after the Refresh is pressed. `theme` is Auto, Light or Dark and only changes what the screenshots look like | no |
 | `ux-scripts/run-live-dedupe.sh [out]` | `verify-live-dedupe-existing.yaml`, `verify-live-dedupe-subscribe.yaml` | One article, once, against a site that really does publish its posts twice. Two throwaway profiles: one seeded with both of mostlylucid.net's feeds already subscribed (what an existing user has), one subscribed through the dialog taking its defaults. Reads the real article count out of the live feed and asserts it against both, so "not double" is measured rather than assumed | yes |
+| `ux-scripts/run-scraped-feed.sh [out]` | `verify-scraped-feed.yaml` | The article-list detector end to end: paste an address with no feed, see the page offered as a scrape with its article count and sample titles, watch Add refuse until the approval box is ticked, approve it, find the feed and its 20 articles in the sidebar, and refresh it. Serves its own fixture on loopback, so it hits nothing external | no |
 | `ux-scripts/run-hn-discovery.sh [out]` | `verify-hn-discovery.yaml` | The IPv6 connect hang, checked against the host that exposed it: news.ycombinator.com has to resolve to a feed inside ten seconds, where it used to consume the whole 30 second discovery budget and then time out. Cancels, so it writes nothing | yes |
 | direct | `verify-add-feed-dialog.yaml` | The add-feed dialog: empty-address message, bare-domain normalising, autodiscovery finding two feeds, Add going live. Cancels, so it writes nothing | yes |
 | direct | `verify-feed-settings-dialog.yaml` | Opening per-feed settings from the toolbar against the two-feed development database. Cancels, so it writes nothing | no |
@@ -63,6 +64,18 @@ shapes are in use.
   application data directory. Scoped to rows with addresses nothing real would
   collide with. Set `PRAGMA foreign_keys=ON` in any cleanup that relies on
   `ON DELETE CASCADE`: SQLite defaults it off, and the CLI is not the app.
+- **A throwaway profile plus a local server** (`run-scraped-feed.sh`, and the
+  scraped-page capture inside `capture-reader-manual.sh`). The same throwaway
+  profile as below, with one addition: the page being subscribed to has to be a
+  page with no feed on it, and no third-party site can be relied on to stay
+  that way. So the script serves the saved `mostlylucid-blog-index.html`
+  fixture, with its feed declarations stripped, from `python3 -m http.server`
+  on loopback, and kills the server from the same trap that removes the
+  profile. `FeedUrlPolicy` refuses loopback addresses, and must;
+  `MYLO_ALLOW_LOOPBACK_FEEDS=1` opens loopback and only loopback, only in a
+  Debug build (the code is inside `#if DEBUG`, and is absent from the Release
+  assembly). Link-local and the RFC1918 ranges stay refused with it set, which
+  `FeedUrlPolicyLoopbackEscapeTests` pins down.
 - **A throwaway profile** (`run-reader-smoke.sh`, `run-reader-settings.sh`,
   `run-reading-column.sh`, `run-reading-typography.sh`, `run-pane-layout.sh`, via
   `reader-harness.sh`). `MYLO_DATA_DIR` points a Debug build at a

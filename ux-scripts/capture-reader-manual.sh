@@ -14,7 +14,7 @@
 # What it does: seeds a throwaway MYLO_DATA_DIR profile from the shared
 # fixture, layers on the two things the fixture has no reason to carry (tags,
 # and fetch timestamps for the per-feed update line), pins the theme so the
-# whole set matches, then runs two scripts against it. The profile is removed
+# whole set matches, then runs three scripts against it. The profile is removed
 # by an EXIT/INT/TERM trap, so this can be run twice in a row from any starting
 # state and touches no real profile. See ux-scripts/reader-harness.sh for why
 # that shape is the rule here.
@@ -25,6 +25,13 @@
 # Network: one pair of screenshots, the add-feed discovery, resolves xkcd.com.
 # Everything else is offline. Without network the run fails at that step and
 # the screenshots taken before it are still written.
+#
+# The scraped-page screenshot needs the one thing no real site can be relied on
+# to be: a page with no feed at all. It is taken against the saved
+# mostlylucid.net blog index with its feed declarations removed, served from
+# this machine, exactly as ux-scripts/run-scraped-feed.sh does it. See that
+# script's header for why MYLO_ALLOW_LOOPBACK_FEEDS is safe and what it does
+# not open.
 set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/reader-harness.sh"
@@ -40,7 +47,14 @@ fi
 mkdir -p "$OUT"
 
 PROFILE="$(mktemp -d)"
-trap 'rm -rf "$PROFILE"' EXIT INT TERM
+SITE="$(mktemp -d)"
+SERVER_PID=""
+
+cleanup() {
+    [[ -n "$SERVER_PID" ]] && kill "$SERVER_PID" 2>/dev/null || true
+    rm -rf "$PROFILE" "$SITE"
+}
+trap cleanup EXIT INT TERM
 
 reader_seed_profile "$PROFILE"
 
@@ -118,6 +132,40 @@ sleep 2
 # not have. See capture-reader-menus.yaml.
 MYLO_DATA_DIR="$PROFILE" MYLO_FORCE_WINDOW_MENU=1 "$READER_APP" ${MYLO_UX_MODE:---ux-headless} \
     --ux-test --script "$READER_REPO/ux-scripts/capture-reader-menus.yaml" --output "$OUT"
+
+sleep 2
+
+# The scraped-page offer, in a third process because it is the only capture
+# needing a site with no feed. The fixture is built from the page the
+# detector's unit tests measure against, so the manual cannot end up showing
+# markup that no test covers.
+python3 - "$READER_REPO/LucidReader.Core.Tests/Fixtures/Html/mostlylucid-blog-index.html" \
+          "$SITE/index.html" <<'PYFIX'
+import re, sys
+
+source, target = sys.argv[1], sys.argv[2]
+html = open(source, encoding="utf-8").read()
+html = re.sub(r"""<link[^>]*rel=["']?alternate[^>]*>""", "", html, flags=re.I)
+html = re.sub(r"""<a[^>]*href=["']/(rss|atom|feed)(\.xml)?["'][^>]*>""", "<a>", html, flags=re.I)
+if re.search("alternate", html, re.I):
+    raise SystemExit("A feed declaration survived; the fixture's markup has changed.")
+open(target, "w", encoding="utf-8").write(html)
+PYFIX
+
+PORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')"
+python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$SITE" >/dev/null 2>&1 &
+SERVER_PID=$!
+
+for _ in $(seq 1 50); do
+    if curl -sf "http://127.0.0.1:$PORT/" -o /dev/null; then break; fi
+    sleep 0.1
+done
+
+sed "s|__SCRAPE_URL__|http://127.0.0.1:$PORT/|g" \
+    "$READER_REPO/ux-scripts/capture-scraped-offer.yaml" >"$PROFILE/capture-scraped-offer.yaml"
+
+MYLO_DATA_DIR="$PROFILE" MYLO_ALLOW_LOOPBACK_FEEDS=1 "$READER_APP" ${MYLO_UX_MODE:---ux-headless} \
+    --ux-test --script "$PROFILE/capture-scraped-offer.yaml" --output "$OUT"
 
 # result.json is the harness's own report, not a screenshot, and a copy of it
 # in the manual's asset folder would be shipped inside the app for no reason.

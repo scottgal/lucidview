@@ -655,7 +655,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IconUrl = feed.IconPath,
         LastFetchedUtc = feed.LastFetchedUtc,
         LastSuccessUtc = feed.LastSuccessUtc,
-        NextDueUtc = feed.NextDueUtc
+        NextDueUtc = feed.NextDueUtc,
+        IsScraped = feed.IsScraped
     };
 
     public new event PropertyChangedEventHandler? PropertyChanged;

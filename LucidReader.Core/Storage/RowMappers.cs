@@ -75,7 +75,8 @@ internal static class RowMappers
         AutoDownload = reader.GetNullableBool("auto_download"),
         FetchFullText = reader.GetNullableBool("fetch_full_text"),
         RetentionDays = reader.GetNullableInt("retention_days"),
-        AutoPausedUtc = reader.GetNullableDate("auto_paused_utc")
+        AutoPausedUtc = reader.GetNullableDate("auto_paused_utc"),
+        SourceKind = (FeedSourceKind)reader.GetInt32(reader.GetOrdinal("source_kind"))
     };
 
     /// <summary>

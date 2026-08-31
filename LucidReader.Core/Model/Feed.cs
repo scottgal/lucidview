@@ -27,6 +27,16 @@ public sealed record Feed
     /// </summary>
     public DateTimeOffset? AutoPausedUtc { get; init; }
 
+    /// <summary>
+    /// Whether this subscription is a published feed or a page mylo scrapes.
+    /// Defaults to PublishedFeed, which is what every row written before the
+    /// V8 migration is and what every row not created through the scrape
+    /// approval flow stays.
+    /// </summary>
+    public FeedSourceKind SourceKind { get; init; } = FeedSourceKind.PublishedFeed;
+
+    public bool IsScraped => SourceKind == FeedSourceKind.ScrapedPage;
+
     public int? RefreshIntervalMinutes { get; init; }
     public bool? AutoDownload { get; init; }
     public bool? FetchFullText { get; init; }

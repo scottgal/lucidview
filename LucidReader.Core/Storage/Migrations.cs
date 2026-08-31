@@ -6,7 +6,7 @@ namespace LucidReader.Core.Storage;
 /// </summary>
 public static class Migrations
 {
-    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7 };
+    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7, V8 };
 
     private const string V1 = """
         CREATE TABLE folders (
@@ -285,5 +285,31 @@ public static class Migrations
     // has been running V7 since it was created behave identically.
     private const string V7 = """
         CREATE INDEX ix_item_tags_tag ON item_tags(tag_id);
+        """;
+
+    // source_kind: which of LucidReader.Core.Model.FeedSourceKind this
+    // subscription is. 0 is PublishedFeed - an address that answers with RSS
+    // or Atom, which is what every subscription was before this column
+    // existed - and 1 is ScrapedPage, an ordinary HTML page that
+    // ArticleListDetector read as an index of articles and the user approved.
+    //
+    // Stored rather than re-derived on every refresh. FeedRefreshService has to
+    // know before it fetches whether to hand the response to the XML parser or
+    // to the detector, and deciding that from the response's content type would
+    // make a feed's behaviour depend on what the server sent that minute: a
+    // site serving its feed as text/html for a day would silently start being
+    // scraped, and a scraped page behind a misconfigured content type would
+    // silently start failing to parse.
+    //
+    // NOT NULL DEFAULT 0 is what makes this safe on a populated database. Every
+    // existing row is a published feed, which is exactly what 0 means, so the
+    // default is the correct value for all of them rather than a placeholder
+    // standing in for an unknown one. SQLite performs an ADD COLUMN with a
+    // constant default by rewriting the table header alone - no row is read or
+    // rewritten - so the cost does not scale with how many feeds or items the
+    // database holds, and a database that skips straight from V7 to V8 behaves
+    // identically to one created at V8.
+    private const string V8 = """
+        ALTER TABLE feeds ADD COLUMN source_kind INTEGER NOT NULL DEFAULT 0;
         """;
 }

@@ -1,0 +1,268 @@
+name: verify-scraped-feed
+description: >
+  The article-list detection flow, end to end: paste an address that publishes
+  no feed, see mylo work out that the page is a list of articles and offer it,
+  check the count and the sample titles it shows, approve it, add it, find the
+  feed and its twenty articles in the sidebar and the item list, and refresh it.
+
+  Run it through ux-scripts/run-scraped-feed.sh, not directly. That script
+  serves the page this asserts against, picks the port, substitutes it into
+  __SCRAPE_URL__ below, seeds the throwaway profile every count here is
+  measured against, and cleans all three up afterwards. Run directly, the
+  address is a literal placeholder and every assertion fails.
+
+  The page is the saved www.mostlylucid.net/blog fixture with its two feed
+  declarations removed - the same markup, published by somebody who never set
+  up a feed - served from this machine. Nothing here touches a third party.
+
+  The approval box is the point of the whole script. It is unticked when the
+  offer appears, and Add refuses to do anything until it is ticked. A
+  discovered feed arrives pre-ticked because the site declared it; this is
+  mylo guessing at somebody else's markup, and it must not be addable by a
+  user who never read what was found.
+
+  Hover-elsewhere, Hover-target, MouseDown, MouseUp is how the approval box is
+  ticked, never Click: the harness's Click on a CheckBox raises ClickEvent
+  without going through OnClick, so IsChecked never changes and the box
+  silently stays empty. Same reason reader-smoke.yaml and reader-settings.yaml
+  drive their toggles that way.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup, the first tree load and the first health check
+
+  - type: Screenshot
+    value: 00-shell
+
+  # =====================================================================
+  # Detection, and the offer
+  # =====================================================================
+  - type: Click
+    target: AddFeedButton
+
+  - type: Wait
+    value: "600"
+
+  - type: Expect
+    target: ScrapePanel
+    window_id: "Add Feed"
+    matcher: IsHidden
+    description: Nothing has been looked up yet, so there is nothing to approve
+
+  - type: Expect
+    target: AddButton
+    window_id: "Add Feed"
+    matcher: IsDisabled
+
+  - type: TypeText
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    value: "__SCRAPE_URL__"
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+
+  - type: Expect
+    target: ScrapePanel
+    window_id: "Add Feed"
+    matcher: IsVisible
+    timeout: 15000
+    description: >
+      Three stages of feed discovery found nothing, so the fourth ran the
+      detector over the page body already downloaded.
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: HasText
+    value: "No feeds found at that address."
+    description: >
+      Still true, and still what the status line says. The offer below it is
+      not a feed; it is mylo's own reading of the page.
+
+  - type: Expect
+    target: ScrapeSummaryText
+    window_id: "Add Feed"
+    matcher: ContainsText
+    value: "list of 20 articles"
+    description: Twenty is what the page itself says it lists
+
+  - type: Expect
+    target: ScrapeSummaryText
+    window_id: "Add Feed"
+    matcher: ContainsText
+    value: "guess"
+    description: The offer says out loud that it is a guess, not a discovery
+
+  - type: Expect
+    target: DiscoveredListPanel
+    window_id: "Add Feed"
+    matcher: IsHidden
+    description: >
+      The chooser is empty - a scrape is only offered when no feed was found -
+      so it is hidden rather than left as a card taking half the dialog above
+      the thing the user is being asked about.
+
+  - type: Expect
+    target: ScrapeSampleText
+    window_id: "Add Feed"
+    matcher: ContainsText
+    value: "Signal Shingle"
+    description: >
+      The sample titles, which are what make the offer judgeable: a count alone
+      cannot tell "it found the articles" from "it found the tag cloud".
+
+  - type: Expect
+    target: DiscoveredList
+    window_id: "Add Feed"
+    matcher: HasCount
+    value: "0"
+    description: >
+      The scraped page is deliberately NOT a row in the chooser. Every row
+      there is a feed the site declared and every one starts ticked.
+
+  - type: Expect
+    target: ScrapeApproveCheck
+    window_id: "Add Feed"
+    matcher: IsUnchecked
+    description: The approval is never pre-given
+
+  - type: Screenshot
+    value: 01-scrape-offered
+    window_id: "Add Feed"
+
+  # =====================================================================
+  # Add without approving: nothing happens, and the dialog says why
+  # =====================================================================
+  - type: Click
+    target: AddButton
+    window_id: "Add Feed"
+
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: DiscoveryStatusText
+    window_id: "Add Feed"
+    matcher: HasText
+    value: "Tick the approval box to subscribe to this scraped page."
+
+  - type: Expect
+    target: ScrapePanel
+    window_id: "Add Feed"
+    matcher: IsVisible
+    description: The dialog stayed open rather than closing as if it had worked
+
+  - type: Screenshot
+    value: 02-not-approved
+    window_id: "Add Feed"
+
+  # =====================================================================
+  # Approve, and add
+  # =====================================================================
+  - type: Hover
+    target: CancelButton
+    window_id: "Add Feed"
+    description: Park the pointer away from the box first (see the header)
+  - type: Hover
+    target: ScrapeApproveCheck
+    window_id: "Add Feed"
+  - type: MouseDown
+    target: ScrapeApproveCheck
+    window_id: "Add Feed"
+    button: left
+  - type: MouseUp
+    target: ScrapeApproveCheck
+    window_id: "Add Feed"
+    button: left
+  - type: Wait
+    value: "400"
+
+  - type: Expect
+    target: ScrapeApproveCheck
+    window_id: "Add Feed"
+    matcher: IsChecked
+
+  - type: Screenshot
+    value: 03-approved
+    window_id: "Add Feed"
+
+  - type: Click
+    target: AddButton
+    window_id: "Add Feed"
+
+  - type: Wait
+    value: "3000"
+    description: The write, the sidebar reload, and the first scrape of the page
+
+  - type: Expect
+    target: StatusText
+    matcher: ContainsText
+    value: "Added 1 feed"
+
+  - type: Screenshot
+    value: 04-after-add
+
+  # =====================================================================
+  # The feed, and its articles
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Blog Posts'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Blog Posts'"
+    button: left
+  - type: Wait
+    value: "1200"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "20"
+    description: >
+      The twenty articles the detector found, stored through exactly the code
+      a real feed's items go through.
+
+  - type: Expect
+    target: FeedUpdateLineText
+    matcher: ContainsText
+    value: "scraped"
+    description: >
+      The app is honest about which subscriptions are guesses. A scrape reads
+      somebody else's HTML and breaks when they change it, which is a
+      materially different promise from a published feed.
+
+  - type: Screenshot
+    value: 05-scraped-articles
+
+  - type: Screenshot
+    value: 06-sidebar
+    target: SidebarSections
+
+  # =====================================================================
+  # Refresh: the same scrape runs again, and finds the same twenty
+  # =====================================================================
+  - type: Click
+    target: FeedUpdateRefreshButton
+
+  - type: Wait
+    value: "3000"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "20"
+    description: >
+      Not forty. A scraped article's guid is its canonical id, which is stable
+      across refreshes, so the second pass upserts onto the same rows.
+
+  - type: Expect
+    target: FeedUpdateLineText
+    matcher: ContainsText
+    value: "scraped"
+
+  - type: Screenshot
+    value: 07-after-refresh

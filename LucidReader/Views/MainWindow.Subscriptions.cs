@@ -54,7 +54,16 @@ public partial class MainWindow
                     FeedUrl = discovered.FeedUrl,
                     Title = discovered.Title,
                     IconPath = discovered.IconUrl,
-                    FolderId = dialog.SelectedFolderId
+                    FolderId = dialog.SelectedFolderId,
+
+                    // The one place a scraped subscription is created. The
+                    // dialog only ever hands one back when the user ticked the
+                    // approval box, and the kind is recorded here so every
+                    // later refresh runs the detector rather than the XML
+                    // parser - see FeedRefreshService.Scrape.
+                    SourceKind = discovered.IsScrapedPage
+                        ? FeedSourceKind.ScrapedPage
+                        : FeedSourceKind.PublishedFeed
                 });
                 added++;
 

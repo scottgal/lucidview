@@ -18,11 +18,11 @@ public class FeedRepository(ReaderDatabase db)
             INSERT INTO feeds (
                 folder_id, feed_url, site_url, title, title_override, icon_path,
                 is_enabled, next_due_utc, refresh_interval_minutes, auto_download,
-                fetch_full_text, retention_days)
+                fetch_full_text, retention_days, source_kind)
             VALUES (
                 $folder, $url, $site, $title, $titleOverride, $icon,
                 $enabled, $nextDue, $interval, $autoDownload,
-                $fullText, $retention);
+                $fullText, $retention, $sourceKind);
             """,
             new Dictionary<string, object?>
             {
@@ -37,7 +37,8 @@ public class FeedRepository(ReaderDatabase db)
                 ["$interval"] = feed.RefreshIntervalMinutes,
                 ["$autoDownload"] = feed.AutoDownload switch { true => 1, false => 0, null => (object?)null },
                 ["$fullText"] = feed.FetchFullText switch { true => 1, false => 0, null => (object?)null },
-                ["$retention"] = feed.RetentionDays
+                ["$retention"] = feed.RetentionDays,
+                ["$sourceKind"] = (int)feed.SourceKind
             },
             ct);
 

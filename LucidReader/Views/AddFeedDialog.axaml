@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="LucidReader.Views.AddFeedDialog"
         Title="Add Feed"
-        Width="560" Height="480"
-        MinWidth="480" MinHeight="420"
+        Width="560" Height="560"
+        MinWidth="480" MinHeight="480"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         ShowInTaskbar="False"
@@ -66,7 +66,7 @@
             nothing else, so unticking a feed meant hitting the small box
             exactly.
         -->
-        <Border Grid.Row="3" Classes="settings-card">
+        <Border Grid.Row="3" x:Name="DiscoveredListPanel" Classes="settings-card">
             <ListBox x:Name="DiscoveredList" Background="Transparent" BorderThickness="0" Margin="4">
                 <ListBox.Styles>
                     <Style Selector="ListBoxItem">
@@ -82,6 +82,38 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
+        </Border>
+
+        <!--
+            The approval panel, and the whole point of the feature: a page with
+            no feed that the detector believes is an index of articles. It is
+            NOT a row in the chooser above, and that is deliberate. Every row in
+            that list is something the site declared, and every one starts
+            ticked; this is mylo guessing at somebody else's markup, and putting
+            it in the same list with the same pre-ticked default would let it be
+            added by a user who never read it.
+
+            So it is a separate, hidden-by-default panel with its own unticked
+            CheckBox, showing the count and a sample of the titles, and Add does
+            nothing with it until that box is ticked. It also gives the UI test
+            harness a real named route (ScrapeApproveCheck) to the approval,
+            which a checkbox inside a ListBox item template does not.
+
+            It shares row 3 with the chooser rather than taking a row of its
+            own, and exactly one of the two is ever visible: a scrape is only
+            offered when no feed was found, so an empty chooser above it would
+            be a card of dead space, and a row of its own would leave the same
+            gap behind when the chooser was hidden instead.
+        -->
+        <Border Grid.Row="3" x:Name="ScrapePanel" Classes="settings-card"
+                IsVisible="False" Padding="12,10" VerticalAlignment="Top">
+            <StackPanel Spacing="6">
+                <TextBlock x:Name="ScrapeSummaryText" Classes="row-secondary" TextWrapping="Wrap" />
+                <TextBlock x:Name="ScrapeSampleText" Classes="row-secondary"
+                           TextWrapping="Wrap" MaxLines="4" />
+                <CheckBox x:Name="ScrapeApproveCheck" IsChecked="False"
+                          Content="Treat this page as a feed (scraped, not published)" />
+            </StackPanel>
         </Border>
 
         <Grid Grid.Row="4" ColumnDefinitions="Auto,*" Margin="0,14,0,0">

@@ -55,7 +55,8 @@ public static class FeedUpdateSummary
         DateTimeOffset? lastSuccessUtc,
         string? lastError,
         DateTimeOffset? nextDueUtc,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        bool isScraped = false)
     {
         if (!isFeedSelected) return FeedUpdateLine.Hidden;
 
@@ -64,13 +65,18 @@ public static class FeedUpdateSummary
         // fetch is running "Paused after repeated failures" would be stale in
         // the one moment the user is watching.
         if (isRefreshing)
-            return new FeedUpdateLine(true, "Refreshing now...", false, "Refreshing...");
+            return Scraped(
+                new FeedUpdateLine(true, "Refreshing now...", false, "Refreshing..."), isScraped);
 
         if (isAutoPaused)
-            return new FeedUpdateLine(true, "Paused after repeated failures.", false, "Paused");
+            return Scraped(
+                new FeedUpdateLine(true, "Paused after repeated failures.", false, "Paused"),
+                isScraped);
 
         if (!isEnabled)
-            return new FeedUpdateLine(true, "Updates are turned off for this feed.", false, "Updates off");
+            return Scraped(
+                new FeedUpdateLine(true, "Updates are turned off for this feed.", false, "Updates off"),
+                isScraped);
 
         var head =
             lastFetchedUtc is null ? "Not updated yet"
@@ -90,12 +96,47 @@ public static class FeedUpdateSummary
             : HasFailed(lastFetchedUtc, lastSuccessUtc, lastError) ? "Failed"
             : DescribeElapsed(lastSuccessUtc ?? lastFetchedUtc, now);
 
-        return new FeedUpdateLine(
-            true,
-            tail.Length == 0 ? head : head + Separator + tail,
-            true,
-            shortHead);
+        return Scraped(
+            new FeedUpdateLine(
+                true,
+                tail.Length == 0 ? head : head + Separator + tail,
+                true,
+                shortHead),
+            isScraped);
     }
+
+    /// <summary>
+    /// What the visible line says for a scraped feed. Short enough to sit in
+    /// the item column's narrow header next to whatever else the line is
+    /// saying.
+    /// </summary>
+    public const string ScrapedShortNote = "scraped";
+
+    /// <summary>
+    /// The tooltip's version, which has room to say what the consequence is.
+    /// A published feed is a promise from the site; a scrape is mylo reading
+    /// the site's HTML, and it stops working when the site changes its layout.
+    /// Saying so is the difference between a user who understands a broken
+    /// scrape and one who thinks mylo is losing their articles.
+    /// </summary>
+    public const string ScrapedNote =
+        "Scraped page, not a published feed. mylo reads the article list out of " +
+        "the page's HTML, so it can break when the site changes its layout.";
+
+    /// <summary>
+    /// Marks a line as belonging to a scraped subscription, leaving a
+    /// published feed's line exactly as it was. Applied to every branch above
+    /// rather than only the healthy one: a paused or disabled scrape is still
+    /// a scrape, and that is the state where knowing so matters most.
+    /// </summary>
+    private static FeedUpdateLine Scraped(FeedUpdateLine line, bool isScraped) =>
+        isScraped
+            ? line with
+            {
+                Text = line.Text + Separator + ScrapedNote,
+                ShortText = line.ShortText + Separator + ScrapedShortNote
+            }
+            : line;
 
     /// <summary>
     /// Whether the most recent attempt failed. An error message on its own is

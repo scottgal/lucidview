@@ -112,6 +112,49 @@ public static class AddFeedInput
     }
 
     /// <summary>
+    /// What the status line says when a site publishes no feed at all but its
+    /// page looks like a list of articles.
+    ///
+    /// Worded as a guess, because it is one. The three things a user needs in
+    /// order to judge it are all here: that there is no real feed, how many
+    /// articles were found, and that reading them means reading the site's
+    /// HTML rather than something the site publishes for the purpose. The
+    /// titles go alongside, in DescribeScrapeSample.
+    /// </summary>
+    public static string DescribeScrapeOffer(int articleCount) =>
+        $"No feed here, but this page looks like a list of {articleCount} " +
+        $"{(articleCount == 1 ? "article" : "articles")}. " +
+        "mylo can read them straight off the page. That is a guess about the " +
+        "site's layout, so check the titles below before you approve it.";
+
+    /// <summary>
+    /// The sample of what was found, which is the part that makes the offer
+    /// judgeable. A count alone cannot tell "it found the articles" from "it
+    /// found the tag cloud".
+    /// </summary>
+    public static string DescribeScrapeSample(IReadOnlyList<string>? titles)
+    {
+        if (titles is null || titles.Count == 0) return string.Empty;
+
+        return "Found: " + string.Join("  ·  ", titles.Select(Shorten));
+
+        static string Shorten(string title) =>
+            title.Length <= 70 ? title : title[..70].TrimEnd() + "...";
+    }
+
+    public const string ScrapeApprovalPrompt =
+        "Treat this page as a feed (scraped, not published)";
+
+    /// <summary>
+    /// Shown when Add is pressed with a scrape offered and nothing else to
+    /// add. Closing the dialog silently would look like the add failed; this
+    /// says the approval is the missing step, which is deliberately not
+    /// pre-given the way a genuinely discovered feed's tick is.
+    /// </summary>
+    public const string ScrapeNotApprovedMessage =
+        "Tick the approval box to subscribe to this scraped page.";
+
+    /// <summary>
     /// The result of an add. Skipped means the URL was already subscribed,
     /// which is a normal outcome and deliberately not an error; failed means
     /// the write itself did not go through, which is not, so the two are

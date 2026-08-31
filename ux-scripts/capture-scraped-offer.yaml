@@ -1,0 +1,61 @@
+name: capture-scraped-offer
+description: >
+  One screenshot for the user manual: the add-feed dialog offering a page that
+  publishes no feed as a scraped subscription, with the article count, the
+  sample titles and the unticked approval box all visible.
+
+  Its own file, and its own process, because it is the only capture that needs
+  a page with no feed on it. capture-reader-manual.sh serves the fixture on
+  loopback and substitutes the port into __SCRAPE_URL__ below; run directly,
+  the address is a literal placeholder and the Find finds nothing.
+
+  Cancels rather than adding. This run writes nothing, so it does not change
+  what any other capture in the set sees.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  - type: Click
+    target: AddFeedButton
+  - type: Wait
+    value: "900"
+
+  - type: TypeText
+    target: FeedUrlBox
+    window_id: "Add Feed"
+    value: "__SCRAPE_URL__"
+
+  - type: Click
+    target: FindButton
+    window_id: "Add Feed"
+
+  - type: Expect
+    target: ScrapePanel
+    window_id: "Add Feed"
+    matcher: IsVisible
+    timeout: 15000
+
+  - type: Expect
+    target: ScrapeApproveCheck
+    window_id: "Add Feed"
+    matcher: IsUnchecked
+    description: >
+      The picture has to show the box empty. A manual page that says approval
+      is required, illustrated by a screenshot of a ticked box, teaches the
+      opposite of what it says.
+
+  - type: Wait
+    value: "500"
+
+  - type: Screenshot
+    value: 25-scraped-offer
+    window_id: "Add Feed"
+
+  - type: Click
+    target: CancelButton
+    window_id: "Add Feed"
+  - type: Wait
+    value: "600"

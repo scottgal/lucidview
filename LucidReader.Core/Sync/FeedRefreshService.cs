@@ -333,7 +333,25 @@ public sealed class FeedRefreshService : IAsyncDisposable
         ParsedFeed parsed;
         try
         {
-            parsed = _parser.Parse(fetched.Content, new Uri(feed.FeedUrl));
+            parsed = feed.IsScraped
+                ? Scrape(feed, fetched.Content)
+                : _parser.Parse(fetched.Content, new Uri(feed.FeedUrl));
+        }
+        catch (FeedScrapeException ex)
+        {
+            // A scrape that stops finding articles is the failure this feature
+            // most has to get right. The site changed its markup, or started
+            // rendering its list in JavaScript, or moved the page - and every
+            // one of those looks exactly like "nothing new today" if it is
+            // recorded as a success with zero items. It is recorded as a
+            // failure instead, which puts the reason on the feed row, marks the
+            // sidebar row with a problem, backs the schedule off, and after
+            // BackoffPolicy.AutoPauseThreshold consecutive failures auto-pauses
+            // the feed and reports it in the status bar's health line. So a
+            // broken scrape surfaces on the same path a dead feed does rather
+            // than going quiet forever.
+            await RecordFailureAsync(feed, ex.Message, now, settings, ct);
+            return new FeedRefreshOutcome(feed.Id, false, 0, false, ex.Message);
         }
         catch (Exception ex)
         {
@@ -415,6 +433,37 @@ public sealed class FeedRefreshService : IAsyncDisposable
         // deliberate user action - see FeedRepository.SetEnabledAsync's remarks.
         if (BackoffPolicy.ShouldAutoPause(state.ConsecutiveFailures) && state.IsEnabled)
             await _feeds.AutoPauseAsync(feed.Id, now, ct);
+    }
+
+    /// <summary>
+    /// Re-runs the article-list detector over a scraped page, in place of the
+    /// XML parse a published feed gets.
+    ///
+    /// Everything downstream of this is unchanged, which is the whole design:
+    /// the detection is turned into a ParsedFeed and stored by exactly the code
+    /// that stores a real feed's items, so canonical_id dedupe, tombstones,
+    /// tags, read and starred state, retention and the offline queue all keep
+    /// working without knowing a scrape happened. The guid is the canonical id,
+    /// so an article scraped today and the same article arriving tomorrow from
+    /// a feed the site later publishes are one item, not two.
+    ///
+    /// A refresh that finds nothing throws rather than storing an empty batch.
+    /// See the catch in StoreAsync for why that matters.
+    /// </summary>
+    private static ParsedFeed Scrape(Feed feed, string html)
+    {
+        var pageUri = new Uri(feed.FeedUrl);
+        var detection = ArticleListDetector.Detect(html, pageUri);
+
+        if (!detection.IsArticleList || detection.Articles.Count == 0)
+            throw new FeedScrapeException(
+                "This is a scraped page, and it no longer looks like a list of articles. " +
+                "The site has probably changed its layout. " + detection.Reason);
+
+        // The page's title is not re-read here. A scraped feed is named once,
+        // when the user approves it, and a site that changes its title element
+        // must not silently rename a subscription the user has filed and sorted.
+        return detection.ToParsedFeed(feed.Title, pageUri);
     }
 
     /// <summary>

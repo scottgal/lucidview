@@ -64,7 +64,8 @@ public partial class MainWindow
             lastSuccessUtc: node?.LastSuccessUtc,
             lastError: node?.LastError,
             nextDueUtc: node?.NextDueUtc,
-            now: DateTimeOffset.UtcNow);
+            now: DateTimeOffset.UtcNow,
+            isScraped: node?.IsScraped == true);
 
         if (next == _feedUpdate) return;
 

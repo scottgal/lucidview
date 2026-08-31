@@ -94,6 +94,15 @@ public partial class AddFeedDialog : Window
     /// </summary>
     private bool _searching;
 
+    /// <summary>
+    /// The scraped page on offer, if the last lookup found no feed but did
+    /// find something the detector read as an article list. Held here rather
+    /// than pushed into Discovered on purpose: everything in that list is a
+    /// feed the site declared and starts ticked, and this is a guess. See the
+    /// comment on ScrapePanel in the XAML.
+    /// </summary>
+    private DiscoveredFeed? _scrapeOffer;
+
     public AddFeedDialog(FeedAutodiscovery discovery, IReadOnlyList<Folder> folders)
     {
         InitializeComponent();
@@ -147,6 +156,7 @@ public partial class AddFeedDialog : Window
 
         _searching = true;
         Discovered.Clear();
+        ResetScrapeOffer();
         AddButton.IsEnabled = false;
         FindButton.IsEnabled = false;
         DiscoveryStatusText.Text = "Looking for feeds...";
@@ -159,15 +169,39 @@ public partial class AddFeedDialog : Window
         {
             var found = await _discovery.DiscoverAsync(input, _discoveryCts.Token);
 
-            foreach (var feed in found)
+            // Discovery returns at most one scraped page, and only when it
+            // found no real feed at all, so the two cases never mix. Split
+            // rather than assumed anyway: a scraped page reaching the chooser
+            // would be pre-ticked, which is the one thing this must not do.
+            _scrapeOffer = found.FirstOrDefault(f => f.IsScrapedPage) is { IsScrapedPage: true } offer
+                ? offer
+                : null;
+
+            foreach (var feed in found.Where(f => !f.IsScrapedPage))
                 Discovered.Add(new DiscoveredFeedChoice
                 {
                     Feed = feed,
                     IsSelected = !feed.IsAlternate
                 });
 
+            if (_scrapeOffer is { Scrape: { } scrape })
+            {
+                ScrapeSummaryText.Text = AddFeedInput.DescribeScrapeOffer(scrape.ArticleCount);
+                ScrapeSampleText.Text = AddFeedInput.DescribeScrapeSample(scrape.SampleTitles);
+                ScrapePanel.IsVisible = true;
+
+                // The chooser has nothing in it - a scrape is only ever
+                // offered when no feed was found - so it is hidden rather
+                // than left as an empty card taking half the dialog above
+                // the thing the user is actually being asked about.
+                DiscoveredListPanel.IsVisible = false;
+            }
+
+            // Said once, in the status line, whichever branch ran. The panel
+            // carries the detail; repeating the whole offer in both places
+            // read as a bug rather than as emphasis.
             DiscoveryStatusText.Text = AddFeedInput.DescribeDiscovery(
-                found.Count, found.Count(f => f.IsAlternate));
+                Discovered.Count, Discovered.Count(f => f.Feed.IsAlternate));
         }
         catch (OperationCanceledException)
         {
@@ -184,8 +218,23 @@ public partial class AddFeedDialog : Window
         {
             _searching = false;
             FindButton.IsEnabled = true;
-            AddButton.IsEnabled = Discovered.Count > 0;
+            AddButton.IsEnabled = Discovered.Count > 0 || _scrapeOffer is not null;
         }
+    }
+
+    /// <summary>
+    /// Puts the approval panel back to hidden and unticked. Called at the top
+    /// of every lookup: a tick left over from a previous address would carry an
+    /// approval the user gave for a different page.
+    /// </summary>
+    private void ResetScrapeOffer()
+    {
+        _scrapeOffer = null;
+        ScrapePanel.IsVisible = false;
+        DiscoveredListPanel.IsVisible = true;
+        ScrapeApproveCheck.IsChecked = false;
+        ScrapeSummaryText.Text = string.Empty;
+        ScrapeSampleText.Text = string.Empty;
     }
 
     /// <summary>
@@ -219,6 +268,18 @@ public partial class AddFeedDialog : Window
     private void OnAdd(object? sender, RoutedEventArgs e)
     {
         var chosen = Discovered.Where(d => d.IsSelected).Select(d => d.Feed).ToList();
+
+        // The approval, and the only route by which a scraped page is ever
+        // stored. Nothing pre-ticks this box and nothing else reads it.
+        if (_scrapeOffer is { } offer && ScrapeApproveCheck.IsChecked == true)
+            chosen.Add(offer);
+
+        if (chosen.Count == 0 && _scrapeOffer is not null)
+        {
+            DiscoveryStatusText.Text = AddFeedInput.ScrapeNotApprovedMessage;
+            return;
+        }
+
         if (chosen.Count == 0)
         {
             // Closing with nothing ticked would look like the add silently

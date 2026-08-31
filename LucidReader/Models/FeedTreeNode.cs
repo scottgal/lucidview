@@ -38,6 +38,15 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
     public bool IsEnabled { get; init; } = true;
 
     /// <summary>
+    /// True when this feed is a page mylo scrapes rather than a feed the site
+    /// publishes. Carried on the node so the per-feed update line can say so
+    /// without a second database read: a scrape is a guess about somebody
+    /// else's markup, and the app is honest about which of its subscriptions
+    /// are guesses.
+    /// </summary>
+    public bool IsScraped { get; init; }
+
+    /// <summary>
     /// The three fetch timestamps the per-feed update line is built from (see
     /// LucidReader.Models.FeedUpdateSummary). Carried on the node rather than
     /// re-read from the database on every tick: the sidebar already reloads

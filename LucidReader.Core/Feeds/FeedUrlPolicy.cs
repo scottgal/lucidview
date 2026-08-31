@@ -77,7 +77,7 @@ public static class FeedUrlPolicy
             return false;
         }
 
-        if (IsLocalOrPrivateHost(parsed))
+        if (IsLocalOrPrivateHost(parsed) && !IsPermittedTestLoopback(parsed))
         {
             reason = "the address points at a loopback, link-local or private network host";
             return false;
@@ -86,6 +86,47 @@ public static class FeedUrlPolicy
         uri = parsed;
         reason = null;
         return true;
+    }
+
+    /// <summary>
+    /// The one hole in the rule above, and it does not exist in a shipped
+    /// build.
+    ///
+    /// ux-scripts drives the whole scrape flow - paste an address, see the
+    /// detection offered, approve it, watch the feed refresh - and that needs a
+    /// page with no feed on it that the script controls. Every alternative was
+    /// worse: pointing the script at a third party means a check that fails
+    /// when somebody else redesigns their site and that hits their server on
+    /// every run of every loop, and skipping the check means the approval flow
+    /// is never exercised end to end at all. So the script serves its own
+    /// fixture over HTTP on loopback and sets MYLO_ALLOW_LOOPBACK_FEEDS.
+    ///
+    /// Three things keep this from being a hole worth having:
+    ///
+    ///   - It is inside #if DEBUG. A Release build does not contain this
+    ///     method's body at all, so no environment variable can reach it.
+    ///   - It permits LOOPBACK ONLY. Link-local stays refused, which is where
+    ///     the cloud metadata endpoint (169.254.169.254) lives, and so do the
+    ///     RFC1918 private ranges. The address that motivated this policy is
+    ///     still refused with the flag set.
+    ///   - It is read on every call rather than cached, so it cannot be turned
+    ///     on by something that ran earlier in the process.
+    /// </summary>
+    private static bool IsPermittedTestLoopback(Uri uri)
+    {
+#if DEBUG
+        if (Environment.GetEnvironmentVariable("MYLO_ALLOW_LOOPBACK_FEEDS") != "1") return false;
+
+        var host = NormaliseHost(uri.DnsSafeHost);
+        if (host.Length == 0) return false;
+
+        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)) return true;
+
+        return IPAddress.TryParse(host, out var ip) && IPAddress.IsLoopback(ip);
+#else
+        _ = uri;
+        return false;
+#endif
     }
 
     private static bool IsLocalOrPrivateHost(Uri uri)

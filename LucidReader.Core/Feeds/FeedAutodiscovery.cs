@@ -19,7 +19,29 @@ public readonly record struct DiscoveredFeed(
     string? Title,
     string? IconUrl,
     bool IsAlternate = false,
-    string? AlternateOfUrl = null);
+    string? AlternateOfUrl = null,
+    ScrapedPageDetails? Scrape = null)
+{
+    /// <summary>
+    /// True when this is not a published feed at all: it is an ordinary page
+    /// that ArticleListDetector read as an index of articles. Everything the
+    /// user needs in order to judge that guess is in <see cref="Scrape"/>.
+    /// </summary>
+    public bool IsScrapedPage => Scrape is not null;
+}
+
+/// <summary>
+/// What the detector found on a page that publishes no feed, carried through
+/// discovery so the dialog can show it before anything is stored.
+///
+/// The sample titles are the point. A count alone does not let anybody tell
+/// "it found the articles" from "it found the tag cloud", and this is a guess
+/// the user is being asked to approve rather than a feed the site declared.
+/// </summary>
+public sealed record ScrapedPageDetails(
+    int ArticleCount,
+    double Confidence,
+    IReadOnlyList<string> SampleTitles);
 
 /// <summary>
 /// Turns whatever the user pasted into feed URLs worth subscribing to.
@@ -230,7 +252,79 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         // request to a host that has not said it has a feed, which is why
         // this runs last and against a short fixed list.
         var wellKnown = WellKnownCandidates(effectiveUri, seen);
-        return await ConfirmCandidatesAsync(wellKnown, siteIcon, seen, ct);
+        var guessed = await ConfirmCandidatesAsync(wellKnown, siteIcon, seen, ct);
+        if (guessed.Count > 0) return guessed;
+
+        // Fourth and last: the site publishes no feed anywhere this method can
+        // find one, so ask whether the page itself is a list of articles.
+        //
+        // This runs only when all three feed stages came back empty, and it
+        // makes no request of its own: the page was downloaded at the top of
+        // this method and the detector reads that same string. A site that has
+        // a feed therefore never reaches this code and never pays for it, which
+        // is the point - the common case must not get slower because of a
+        // fallback for the uncommon one.
+        return DetectArticleList(body, effectiveUri, siteIcon);
+    }
+
+    /// <summary>
+    /// Offers the page itself as a scraped subscription, if it looks like an
+    /// index of articles.
+    ///
+    /// What comes back is deliberately not shaped like a discovered feed: it
+    /// carries a ScrapedPageDetails, which is what makes the dialog present it
+    /// as a guess needing approval rather than as something to tick by default.
+    /// A page that does not clear the detector's bar produces nothing at all,
+    /// so "no feeds found at that address" stays the answer for a page that is
+    /// simply not a list.
+    /// </summary>
+    private static List<DiscoveredFeed> DetectArticleList(
+        string body, Uri effectiveUri, string? siteIcon)
+    {
+        // The address is about to be offered as a subscription and, once
+        // approved, fetched unattended on every scheduler tick from then on.
+        // Same gate every other address in this class passes, applied to the
+        // URL the response actually came from rather than the one requested.
+        if (!FeedUrlPolicy.IsAllowed(effectiveUri.ToString())) return [];
+
+        var detection = ArticleListDetector.Detect(body, effectiveUri);
+        if (!detection.IsArticleList) return [];
+
+        return
+        [
+            new DiscoveredFeed(
+                effectiveUri.ToString(),
+                PageTitle(body) ?? effectiveUri.Host,
+                siteIcon,
+                Scrape: new ScrapedPageDetails(
+                    detection.Articles.Count,
+                    detection.Confidence,
+                    detection.SampleTitles(ScrapeSampleTitleCount)))
+        ];
+    }
+
+    /// <summary>
+    /// How many of the detected titles travel with the offer. Enough to tell a
+    /// list of articles from a list of tags at a glance, few enough to fit in a
+    /// dialog next to the count.
+    /// </summary>
+    public const int ScrapeSampleTitleCount = 5;
+
+    /// <summary>
+    /// The page's own title element, which is the only name a scraped
+    /// subscription has: there is no feed document to take one from. Null when
+    /// the page has none, in which case the caller falls back to the host.
+    /// </summary>
+    private static string? PageTitle(string body)
+    {
+        var match = TitleTagPattern().Match(body);
+        if (!match.Success) return null;
+
+        var text = System.Net.WebUtility.HtmlDecode(match.Groups["t"].Value).Trim();
+        text = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (text.Length == 0) return null;
+
+        return text.Length <= 200 ? text : text[..200].TrimEnd();
     }
 
     /// <summary>
@@ -516,4 +610,8 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
 
     [GeneratedRegex(@"<a\b[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex AnchorTagPattern();
+
+    [GeneratedRegex(@"<title\b[^>]*>(?<t>.*?)</title>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex TitleTagPattern();
 }

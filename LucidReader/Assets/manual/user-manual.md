@@ -106,6 +106,8 @@ You do not need the feed's address. Paste the address of the site and press
    supposed to declare its feeds.
 2. Feed-shaped links in the page body, for sites that do not declare them.
 3. The conventional addresses (`/feed`, `/rss.xml`, `/atom.xml` and friends).
+4. Failing all three, whether the page itself is a list of articles. See
+   [Sites with no feed](#sites-with-no-feed) below.
 
 A bare domain is normalised to `https://` before anything is fetched, so
 `xkcd.com` is enough.
@@ -116,6 +118,45 @@ When a site publishes the same articles as both RSS and Atom, mylo says so and
 pre-ticks only one of them, so you do not end up subscribed twice to one blog.
 Pick a folder if you want one, then **Add**. Anything you add is fetched
 immediately rather than waiting for the next scheduled refresh.
+
+### Sites with no feed
+
+Plenty of sites worth reading publish no feed at all. When the three stages
+above come back empty, mylo looks at the page you gave it and works out whether
+it is an index of articles: a run of repeated blocks, each holding one link
+with a real title, usually with a date beside it. That is the shape a template
+produces when it lays out a list of posts, and it is what tells a blog index
+apart from a nav bar, a tag cloud or a row of *Read more* links.
+
+If it finds one, it says so, tells you how many articles it found and shows you
+some of the titles.
+
+![A page offered as a scraped feed](screenshots/25-scraped-offer.png)
+
+**Nothing is added until you tick the approval box.** This is deliberate. A
+discovered feed arrives ticked because the site declared it; this is mylo
+guessing at somebody else's page layout, so it is offered unticked, with the
+titles in front of you, and **Add** does nothing until you have agreed with the
+guess. Read the titles: if they are the articles you expected, approve it. If
+they are the site's tags or its navigation, do not.
+
+A page that already publishes a feed is never offered this way. A real feed is
+always the better answer, and the detector only runs when there isn't one.
+
+Once approved it is an ordinary subscription. It refreshes on the same
+schedule, dedupes against your other feeds, supports tags, starring, offline
+download and retention exactly as a real feed does; if the site later starts
+publishing a feed carrying the same articles, subscribing to that will not give
+you everything twice.
+
+The one difference is honesty about what it is. A scraped feed's update line
+says **scraped**, and hovering it says why that matters:
+
+> Scraped page, not a published feed. mylo reads the article list out of the
+> page's HTML, so it can break when the site changes its layout.
+
+What happens when it does break is covered under
+[When a scrape stops working](#when-a-scrape-stops-working).
 
 Addresses that point at loopback, at a link-local address or into a private
 network are refused. mylo fetches feeds unattended in the background, so an
@@ -329,6 +370,26 @@ button always does something. `R` refreshes just the selected feed.
 
 If mylo has been closed or the machine asleep, the backlog is worked through a
 batch at a time on waking rather than all at once.
+
+### When a scrape stops working
+
+A subscription to a page mylo scrapes depends on that page's markup, and sites
+get redesigned. When a refresh of a scraped page finds no articles, mylo treats
+it as a **failure**, not as a quiet day.
+
+That distinction is the whole point. Recorded as a success with nothing new,
+a scrape that had stopped working would look exactly like a site that had not
+posted, and could stay that way for months without ever saying so. Recorded as
+a failure it goes down the same path a dead feed goes down: the feed's line
+says **Last update failed**, the sidebar shows the **!** marker, hovering it
+gives the reason ("This is a scraped page, and it no longer looks like a list
+of articles. The site has probably changed its layout."), the schedule backs
+off, and after 20 consecutive failures the feed is paused and counted in the
+status line.
+
+Nothing already collected is deleted. The articles mylo has are still there to
+read while you decide what to do, which is usually one of: check whether the
+site now publishes a real feed, or unsubscribe.
 
 ### Offline
 
