@@ -21,6 +21,15 @@
     <PackageReference Include="Mostlylucid.Ephemeral.Sqlite.SingleWriter" Version="3.0.0" />
     <PackageReference Include="Mostlylucid.Ephemeral.Atoms.Retry" Version="3.0.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.0" />
+    <!-- Learned index-page templates. Templates brings Abstractions and
+         Fingerprint with it, and all three come from local-packages rather
+         than nuget.org: see the comment in NuGet.Config for why 2.0.1 cannot
+         load here. Heuristics is what turns the detector's findings into a
+         template and a stored template back into records; it has no Ephemeral
+         reference of its own, so the published 2.0.1 would bind, but it is
+         pinned to the same build to keep one Abstractions in the graph.
+         None of these pull Playwright or LlamaSharp. -->
+    <PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="2.1.0-preview.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mostlylucid.LucidView.Content\Mostlylucid.LucidView.Content.csproj" />

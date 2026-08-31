@@ -922,3 +922,8 @@ Naiad/lib/
 # from the repo root drops PNGs there.
 ux-results/
 ux-screenshots/
+
+# local-packages holds the StyloExtract build LucidReader.Core needs and
+# nuget.org does not yet have, so these .nupkg files are committed on purpose
+# and the *.nupkg rule above must not swallow them. See NuGet.Config.
+!local-packages/*.nupkg

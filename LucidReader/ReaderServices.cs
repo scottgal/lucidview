@@ -24,6 +24,12 @@ public sealed class ReaderServices : IAsyncDisposable
     private readonly string _settingsPath;
     private readonly HttpClient _http;
     private readonly ImageCacheService _imageCache;
+
+    /// <summary>
+    /// Templates learned for scraped feeds. Held here only so it is closed on
+    /// shutdown; FeedRefreshService is what uses it.
+    /// </summary>
+    private readonly ScrapeTemplateStore _scrapeTemplates;
     private readonly PeriodicTimer? _retentionTimer;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly Task _retentionLoop;
@@ -84,8 +90,10 @@ public sealed class ReaderServices : IAsyncDisposable
         ImageResolver images,
         IFeedSearch feedSearch,
         int fetchConcurrency,
-        int downloadConcurrency)
+        int downloadConcurrency,
+        ScrapeTemplateStore scrapeTemplates)
     {
+        _scrapeTemplates = scrapeTemplates;
         _settingsPath = settingsPath;
         _settings = settings;
         _http = http;
@@ -299,6 +307,14 @@ public sealed class ReaderServices : IAsyncDisposable
         var fetchConcurrency = Math.Max(1, settings.MaxConcurrentFetches);
         var downloadConcurrency = Math.Max(1, settings.MaxConcurrentDownloads);
 
+        // Templates learned for scraped feeds, beside the database rather than
+        // in it. See ScrapeTemplateStore for why it is a separate file and
+        // ScrapedPageReader for what a stale one does.
+        var scrapeTemplates = new ScrapeTemplateStore(
+            Path.Combine(
+                Path.GetDirectoryName(dbPath) ?? ReaderPaths.AppDataDirectory,
+                ScrapeTemplateStore.FileName));
+
         var refresh = new FeedRefreshService(
             feeds, items,
             new FeedFetcher(http),
@@ -306,7 +322,8 @@ public sealed class ReaderServices : IAsyncDisposable
             new BackoffPolicy(),
             Current,
             time,
-            fetchConcurrency);
+            fetchConcurrency,
+            scrapeTemplates: scrapeTemplates);
 
         var scheduler = new RefreshScheduler(feeds, refresh, time);
 
@@ -336,7 +353,7 @@ public sealed class ReaderServices : IAsyncDisposable
         built = new ReaderServices(
             setPath, settings, http, imageCache, database, folders, feeds, items, search,
             tags, refresh, scheduler, downloader, retention,
-            images, feedSearch, fetchConcurrency, downloadConcurrency)
+            images, feedSearch, fetchConcurrency, downloadConcurrency, scrapeTemplates)
         {
             StartupWarning = SchemaMigrator.LastIncrementalVacuumConversionError
         };
@@ -580,6 +597,10 @@ public sealed class ReaderServices : IAsyncDisposable
 
         await Refresh.DisposeAsync();
         await Downloader.DisposeAsync();
+        // After Refresh, which is the only thing that reads it, and before the
+        // database, which shares nothing with it but should be the last file
+        // closed.
+        await _scrapeTemplates.DisposeAsync();
         await Database.DisposeAsync();
 
         _http.Dispose();

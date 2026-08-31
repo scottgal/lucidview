@@ -857,10 +857,19 @@ public static partial class ArticleListDetector
     /// </summary>
     public static ParsedFeed ToParsedFeed(
         this ArticleListDetection detection, string? title, Uri pageUri) =>
+        detection.Articles.ToParsedFeed(title, pageUri);
+
+    /// <summary>
+    /// The same mapping for articles that did not come from a detection, which
+    /// is what a page read through a learned template produces. One mapping so
+    /// the two paths cannot drift on what a scraped item's guid is.
+    /// </summary>
+    public static ParsedFeed ToParsedFeed(
+        this IReadOnlyList<DetectedArticle> articles, string? title, Uri pageUri) =>
         new(
             title,
             pageUri.ToString(),
-            detection.Articles
+            articles
                 .Select(a => new ParsedItem
                 {
                     Guid = a.CanonicalId,

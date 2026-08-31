@@ -48,6 +48,14 @@ public sealed class FeedRefreshService : IAsyncDisposable
     private readonly EphemeralWorkCoordinator<FeedRefreshRequest> _coordinator;
     private readonly ConcurrentDictionary<long, byte> _inFlight = new();
 
+    /// <summary>
+    /// Where a scraped feed's learned template is kept, or null when this
+    /// service is running without a profile directory, which is what most
+    /// tests are. Null means every scrape asks the detector, which is what
+    /// every scrape did before templates existed.
+    /// </summary>
+    private readonly ScrapeTemplateStore? _scrapeTemplates;
+
     public FeedRefreshService(
         FeedRepository feeds,
         ItemRepository items,
@@ -58,8 +66,10 @@ public sealed class FeedRefreshService : IAsyncDisposable
         TimeProvider timeProvider,
         int maxConcurrency = 4,
         TimeSpan? maxFetchDuration = null,
-        TimeSpan? drainTimeout = null)
+        TimeSpan? drainTimeout = null,
+        ScrapeTemplateStore? scrapeTemplates = null)
     {
+        _scrapeTemplates = scrapeTemplates;
         _feeds = feeds;
         _items = items;
         _fetcher = fetcher;
@@ -334,7 +344,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
         try
         {
             parsed = feed.IsScraped
-                ? Scrape(feed, fetched.Content)
+                ? await ScrapeAsync(feed, fetched.Content, ct)
                 : _parser.Parse(fetched.Content, new Uri(feed.FeedUrl));
         }
         catch (FeedScrapeException ex)
@@ -436,8 +446,9 @@ public sealed class FeedRefreshService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Re-runs the article-list detector over a scraped page, in place of the
-    /// XML parse a published feed gets.
+    /// Reads a scraped page's articles, in place of the XML parse a published
+    /// feed gets. Either from a template learned on an earlier refresh or, when
+    /// there is none that still holds, from the article-list detector.
     ///
     /// Everything downstream of this is unchanged, which is the whole design:
     /// the detection is turned into a ParsedFeed and stored by exactly the code
@@ -448,22 +459,19 @@ public sealed class FeedRefreshService : IAsyncDisposable
     /// a feed the site later publishes are one item, not two.
     ///
     /// A refresh that finds nothing throws rather than storing an empty batch.
-    /// See the catch in StoreAsync for why that matters.
+    /// See the catch in StoreAsync for why that matters, and
+    /// <see cref="ScrapedPageReader"/> for how a stored template is checked
+    /// before its answer is used.
     /// </summary>
-    private static ParsedFeed Scrape(Feed feed, string html)
+    private async Task<ParsedFeed> ScrapeAsync(Feed feed, string html, CancellationToken ct)
     {
         var pageUri = new Uri(feed.FeedUrl);
-        var detection = ArticleListDetector.Detect(html, pageUri);
-
-        if (!detection.IsArticleList || detection.Articles.Count == 0)
-            throw new FeedScrapeException(
-                "This is a scraped page, and it no longer looks like a list of articles. " +
-                "The site has probably changed its layout. " + detection.Reason);
+        var reading = await ScrapedPageReader.ReadAsync(html, pageUri, _scrapeTemplates, ct);
 
         // The page's title is not re-read here. A scraped feed is named once,
         // when the user approves it, and a site that changes its title element
         // must not silently rename a subscription the user has filed and sorted.
-        return detection.ToParsedFeed(feed.Title, pageUri);
+        return reading.Articles.ToParsedFeed(feed.Title, pageUri);
     }
 
     /// <summary>

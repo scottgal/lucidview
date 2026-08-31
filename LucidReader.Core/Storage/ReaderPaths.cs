@@ -31,4 +31,15 @@ public static class ReaderPaths
 
     public static string DefaultSettingsPath =>
         Path.Combine(AppDataDirectory, "settings.json");
+
+    /// <summary>
+    /// The templates learned for scraped feeds. A separate file from reader.db
+    /// because it holds nothing of the user's: it is a cache of selectors read
+    /// off other people's markup, safe to delete at any point, and the only
+    /// cost of losing it is that the next refresh of each scraped feed works
+    /// out the page's structure again. See
+    /// <see cref="Feeds.ScrapeTemplateStore"/>.
+    /// </summary>
+    public static string DefaultScrapeTemplatePath =>
+        Path.Combine(AppDataDirectory, Feeds.ScrapeTemplateStore.FileName);
 }

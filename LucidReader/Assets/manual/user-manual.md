@@ -570,8 +570,18 @@ Inside it:
 ├── reader.db          feeds, folders, articles, tags, read and starred state
 ├── reader.db-wal      SQLite write-ahead log, present while mylo is running
 ├── reader.db-shm      SQLite shared memory, likewise
-└── settings.json      your preferences, in plain readable JSON
+├── settings.json      your preferences, in plain readable JSON
+└── scrape-templates.db  where the articles sit on each scraped page
 ```
+
+`scrape-templates.db` holds nothing of yours. When you subscribe to a page that
+has no feed, mylo works out where that page keeps its list of articles and
+writes down the answer, so later refreshes go straight to the list instead of
+working it out again. If a site redesigns, the note stops matching and mylo
+works the page out afresh; a refresh that comes back short is thrown away
+rather than shown, because a shortened list looks exactly like a site that has
+stopped publishing. Deleting the file is safe and costs nothing but a little
+work on the next refresh of each scraped feed.
 
 Cached article images live in a temporary directory instead and are evicted on
 a size and age budget. Nothing there is precious; deleting it costs you a
