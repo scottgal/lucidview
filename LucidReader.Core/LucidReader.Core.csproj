@@ -29,7 +29,7 @@
          reference of its own, so the published 2.0.1 would bind, but it is
          pinned to the same build to keep one Abstractions in the graph.
          None of these pull Playwright or LlamaSharp. -->
-    <PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="2.1.0-preview.1" />
+    <PackageReference Include="Mostlylucid.StyloExtract.Templates" Version="2.1.0-preview.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mostlylucid.LucidView.Content\Mostlylucid.LucidView.Content.csproj" />
