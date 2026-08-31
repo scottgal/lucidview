@@ -51,8 +51,17 @@ public sealed class SidebarSection : INotifyPropertyChanged
     /// sum of its children's (see MainWindow.LoadFeedTreeAsync), so summing
     /// every node in the section including the folder itself would double
     /// count every feed that sits inside one.
+    ///
+    /// Excludes Tag nodes for a related reason, and this is why the Tags
+    /// section header carries no number. Tags overlap by design - one article
+    /// can be tagged twice, and the same article is already counted under its
+    /// feed - so a sum across tags is not a count of anything. Each tag row
+    /// still shows its own unread count, which is a number its own list can
+    /// actually reach.
     /// </summary>
-    public int UnreadCount => Nodes.Where(n => n.Kind != FeedTreeNodeKind.Folder).Sum(n => n.UnreadCount);
+    public int UnreadCount => Nodes
+        .Where(n => n.Kind is not (FeedTreeNodeKind.Folder or FeedTreeNodeKind.Tag))
+        .Sum(n => n.UnreadCount);
 
     public string UnreadLabel => UnreadCount > 0 ? UnreadCount.ToString() : string.Empty;
 

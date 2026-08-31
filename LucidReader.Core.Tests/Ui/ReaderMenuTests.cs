@@ -121,6 +121,22 @@ public class ReaderMenuTests
         Assert.Equal(ReaderMenuEnablement.RequiresArticle, Item("File", "Export Article...").Enablement);
     }
 
+    /// <summary>
+    /// Editing tags needs an article for the same reason exporting one does,
+    /// and carries no drawn gesture: the keystroke that does this is a bare T,
+    /// and a menu accelerator for a bare letter claims the key before a
+    /// focused text box can - the exact bug ReaderShortcuts exists to prevent.
+    /// </summary>
+    [Fact]
+    public void Edit_tags_needs_an_article_and_draws_no_gesture()
+    {
+        var item = Item("Edit", "Edit Tags...");
+
+        Assert.Equal(ReaderMenuAction.EditTags, item.Action);
+        Assert.Equal(ReaderMenuEnablement.RequiresArticle, item.Enablement);
+        Assert.Null(item.GestureKey);
+    }
+
     [Theory]
     [InlineData(ReaderMenuEnablement.Always, false, false, false, true)]
     [InlineData(ReaderMenuEnablement.RequiresFeed, false, false, false, false)]

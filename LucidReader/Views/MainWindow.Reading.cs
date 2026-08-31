@@ -101,8 +101,13 @@ public partial class MainWindow
             ArticleMarkdown = string.Empty;
             ShowOfflineBadge = false;
             CanFetchFullArticle = false;
+            await RefreshArticleTagsAsync(null);
             return;
         }
+
+        // The tag strip belongs to the article, so it is reloaded on every
+        // article switch alongside the title and body. See MainWindow.Tags.cs.
+        await RefreshArticleTagsAsync(row.Id);
 
         // Re-read rather than trusting the row: the download may have completed
         // since the list was populated.

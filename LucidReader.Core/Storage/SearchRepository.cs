@@ -63,6 +63,22 @@ public sealed class SearchRepository(ReaderDatabase db)
                 command.Parameters.AddWithValue("$folderId", folderId);
             }
 
+            // The same predicate ItemRepository.QueryAsync uses, so a search
+            // scoped to a tag and a tag view of the same tag agree on which
+            // articles are in scope.
+            if (query.TagName is { Length: > 0 } tagName)
+            {
+                where.Add(
+                    """
+                    i.id IN (
+                        SELECT it.item_id FROM item_tags it
+                        JOIN tags t ON t.id = it.tag_id
+                        WHERE t.name = $tagName COLLATE NOCASE
+                    )
+                    """);
+                command.Parameters.AddWithValue("$tagName", tagName);
+            }
+
             switch (query.Filter)
             {
                 case ItemFilter.Unread:

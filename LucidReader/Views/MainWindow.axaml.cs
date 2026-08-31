@@ -260,6 +260,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             Raise();
             Raise(nameof(IsFeedSelected));
+            Raise(nameof(IsTagSelected));
             Raise(nameof(IsPausedFeedSelected));
 
             // The update line describes the selected feed, so it changes with
@@ -305,6 +306,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     /// so the feed-scoped toolbar actions stay disabled on them.
     /// </summary>
     public bool IsFeedSelected => SelectedFeedNode?.FeedId is not null;
+
+    /// <summary>
+    /// True only when the sidebar selection is a tag row. The two tag-only
+    /// toolbar buttons bind their visibility to this, the way the Resume
+    /// button binds to IsPausedFeedSelected: collapsed rather than disabled,
+    /// because renaming and deleting a tag are meaningless anywhere else in
+    /// the tree.
+    /// </summary>
+    public bool IsTagSelected => SelectedFeedNode?.Kind == FeedTreeNodeKind.Tag;
 
     /// <summary>
     /// Wired from a PointerPressed on each sidebar row's Border (see
@@ -528,9 +538,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         foreach (var feed in feeds.Where(f => f.FolderId is null))
             feedsSection.Nodes.Add(ToNode(feed, unreadByFeed));
 
+        var tagsSection = await BuildTagsSectionAsync();
+
         Sidebar.Clear();
         Sidebar.Add(favourites);
         Sidebar.Add(feedsSection);
+
+        // Only when there is something in it. SidebarSection.IsVisible would
+        // already hide an empty section's header and rows, so this is not
+        // about what is drawn; it is so that "does this profile use tags at
+        // all?" is answerable from the sidebar's own shape rather than only
+        // from what happens to be painted. A profile that has never tagged
+        // anything has the two sections it always had.
+        if (tagsSection.Nodes.Count > 0) Sidebar.Add(tagsSection);
 
         RepointSelectionAfterTreeReload();
 
@@ -566,6 +586,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             FeedTreeNodeKind.Feed => a.FeedId is not null && a.FeedId == b.FeedId,
             FeedTreeNodeKind.Folder => a.FolderId is not null && a.FolderId == b.FolderId,
+            // A tag's identity is its name, matched the way the database
+            // matches it (TagName.AreSame), so a reload that picked up a
+            // different spelling of the same tag still repoints onto it. A
+            // rename deliberately does NOT match: the old name is gone, so the
+            // selection falls back to nothing rather than to a row that no
+            // longer stands for what was selected - and RenameTagAsync
+            // reselects the new name itself.
+            FeedTreeNodeKind.Tag => a.TagName is not null && TagName.AreSame(a.TagName, b.TagName),
             _ => a.SmartFilter == b.SmartFilter
         };
     }
@@ -591,7 +619,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (_selectedFeedNode is not { } previous) return;
 
-        var replacement = AllFeedTreeNodes.FirstOrDefault(n => IsSameRow(previous, n));
+        // RedirectAfterRename (MainWindow.Tags.cs) is the identity function
+        // except immediately after a tag rename, where the row to look for is
+        // the one carrying the new name.
+        var target = RedirectAfterRename(previous);
+        var replacement = AllFeedTreeNodes.FirstOrDefault(n => IsSameRow(target, n));
 
         previous.IsSelected = false;
         _selectedFeedNode = replacement;
@@ -599,7 +631,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         Raise(nameof(SelectedFeedNode));
         Raise(nameof(IsFeedSelected));
+        Raise(nameof(IsTagSelected));
         Raise(nameof(IsPausedFeedSelected));
+        Raise(nameof(CanScopeSearchToSelection));
+        Raise(nameof(SearchScopeLabel));
 
         // A reload can turn a healthy feed into a paused one and back, so the
         // Feed menu has to be re-gated here too, not only on a click.

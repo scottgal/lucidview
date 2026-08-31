@@ -16,7 +16,15 @@ public readonly record struct SearchQuery(
     long? FeedId,
     long? FolderId,
     ItemFilter Filter,
-    int Limit);
+    int Limit)
+{
+    /// <summary>
+    /// Narrows the search to articles carrying this tag. The sibling of
+    /// <see cref="ItemQuery.TagName"/>, and declared the same way and for the
+    /// same reason: as a body property, so no existing call site changes.
+    /// </summary>
+    public string? TagName { get; init; }
+}
 
 /// <summary>
 /// One search result: the item, plus the passage of it that matched.

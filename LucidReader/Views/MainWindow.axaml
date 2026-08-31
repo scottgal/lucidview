@@ -78,6 +78,7 @@
         -->
         <Border Grid.Row="1" Background="{DynamicResource SidebarBackgroundBrush}"
                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource HairlineBrush}"
+                PointerPressed="OnTitleBarPointerPressed"
                 DoubleTapped="OnTitleBarDoubleTapped">
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="80,10,12,10">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -133,6 +134,23 @@
                     <Button x:Name="ResumeFeedButton" Content="Resume feed" Classes="row-toolbar"
                             IsVisible="{Binding IsPausedFeedSelected}"
                             Click="OnToolbarResumeFeedClicked" />
+                    <!--
+                        The two tag actions, offered here as well as on the tag
+                        row's context menu, for the same two reasons the Feed
+                        settings and Resume buttons exist: a ContextMenu opens
+                        into its own PopupRoot the UI test harness can neither
+                        click nor capture, and a right-click-only route hides
+                        the only way to correct a mistyped tag across every
+                        article carrying it. Collapsed rather than disabled
+                        when the selection is not a tag, so the toolbar stays
+                        the length it was for everyone who does not use tags.
+                    -->
+                    <Button x:Name="RenameTagButton" Content="Rename tag" Classes="row-toolbar"
+                            IsVisible="{Binding IsTagSelected}"
+                            Click="OnRenameTagClicked" />
+                    <Button x:Name="DeleteTagButton" Content="Delete tag" Classes="row-toolbar"
+                            IsVisible="{Binding IsTagSelected}"
+                            Click="OnDeleteTagClicked" />
                     <!--
                         Import OPML and Export OPML used to sit here, and no
                         longer do. Both are operations a reader performs
@@ -255,6 +273,20 @@
                                                             <Separator IsVisible="{Binding IsFeed}" />
                                                             <MenuItem Header="Unsubscribe" Click="OnUnsubscribeFeedClicked"
                                                                       IsVisible="{Binding IsFeed}" />
+                                                            <!--
+                                                                The two tag-only actions, gated on IsTag the
+                                                                same way the feed ones are gated on IsFeed.
+                                                                Both are also on the toolbar (RenameTagButton
+                                                                and DeleteTagButton) whenever a tag is
+                                                                selected, because a ContextMenu opens into its
+                                                                own PopupRoot that the UI test harness can
+                                                                neither click nor capture, so a right-click
+                                                                would leave both flows unverifiable.
+                                                            -->
+                                                            <MenuItem Header="Rename tag..." Click="OnRenameTagClicked"
+                                                                      IsVisible="{Binding IsTag}" />
+                                                            <MenuItem Header="Delete tag" Click="OnDeleteTagClicked"
+                                                                      IsVisible="{Binding IsTag}" />
                                                         </ContextMenu>
                                                     </Border.ContextMenu>
                                                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="{Binding Indent}">
@@ -272,6 +304,19 @@
                                                         <Image Grid.Column="0" Width="16" Height="16" Margin="0,0,6,0"
                                                                Source="{Binding IconPath, Converter={StaticResource PathToBitmapConverter}}"
                                                                IsVisible="{Binding HasIcon}" />
+                                                        <!--
+                                                            A tag row fills the same 16px slot a feed's
+                                                            favicon occupies, with a hash rather than an
+                                                            icon, so tag names line up with feed names
+                                                            down the sidebar instead of sitting 22px to
+                                                            their left. Secondary weight: the glyph says
+                                                            what kind of row this is, the name is what is
+                                                            being read.
+                                                        -->
+                                                        <TextBlock Grid.Column="0" Text="#" Classes="row-secondary"
+                                                                   Width="16" Margin="0,0,6,0"
+                                                                   TextAlignment="Center"
+                                                                   IsVisible="{Binding IsTag}" />
                                                         <TextBlock Grid.Column="1" Text="{Binding Title}" Classes="row-title" />
                                                         <!--
                                                             row-problem, not row-secondary: this marker is the
@@ -544,6 +589,64 @@
                     <TextBlock x:Name="ArticleTitleText" Text="{Binding ArticleTitle}" Classes="article-title" />
                     <TextBlock x:Name="ArticleMetaText" Text="{Binding ArticleMeta}" Classes="article-meta"
                                Margin="0,6,0,0" />
+
+                    <!--
+                        The article's tags, where they can be added and
+                        removed. This is the primary route to tagging: the T
+                        shortcut still opens the comma-separated dialog, but a
+                        modal is something the UI test harness cannot dismiss,
+                        so it cannot be the only way in, and a right-click
+                        menu would be worse still (PopupRoot again). Every
+                        control here is named for that reason.
+
+                        A WrapPanel so a heavily tagged article wraps down the
+                        column rather than pushing the Add button off the
+                        right-hand edge. The whole strip is hidden when there
+                        is no article, since a tag box over an empty reading
+                        pane is an invitation to tag nothing.
+                    -->
+                    <WrapPanel x:Name="ArticleTagStrip" Orientation="Horizontal"
+                               Margin="0,10,0,0" IsVisible="{Binding CanEditArticleTags}">
+                        <ItemsControl x:Name="ArticleTagList" ItemsSource="{Binding ArticleTags}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Classes="tag-chip">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="{Binding Name}" Classes="tag-chip-text"
+                                                       VerticalAlignment="Center" />
+                                            <!--
+                                                A real Button, so the harness's Click
+                                                drives it; the handler recovers which
+                                                tag to remove from this button's own
+                                                DataContext (the ArticleTagChip), the
+                                                way the list's hover actions recover
+                                                their ItemRow.
+                                            -->
+                                            <Button x:Name="RemoveTagButton" Classes="tag-chip-remove"
+                                                    Content="&#x00D7;"
+                                                    ToolTip.Tip="Remove this tag"
+                                                    Click="OnRemoveArticleTagClicked" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBox x:Name="TagEntryBox" Width="150" Height="24"
+                                 Margin="0,2,6,2" Padding="6,0" FontSize="11.5"
+                                 VerticalContentAlignment="Center"
+                                 Watermark="Add a tag"
+                                 Text="{Binding TagEntryText, Mode=TwoWay}"
+                                 KeyDown="OnTagEntryKeyDown" />
+                        <Button x:Name="AddTagButton" Content="Add" Classes="row-toolbar"
+                                Margin="0,2,0,2"
+                                Click="OnAddArticleTagClicked" />
+                    </WrapPanel>
 
                     <Border x:Name="OfflineBadge" IsVisible="{Binding ShowOfflineBadge}"
                             Padding="8,4" Margin="0,10,0,0" CornerRadius="4"

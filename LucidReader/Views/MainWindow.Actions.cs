@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using LucidReader.Core.Model;
 using LucidReader.Models;
 using LucidReader.Services;
 
@@ -381,17 +382,26 @@ public partial class MainWindow
         await dialog.ShowDialog(this);
         if (dialog.Result is not { } entered) return;
 
-        var wanted = entered
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        // Parsed by the same rules the reading pane's tag box uses
+        // (LucidReader.Core.Model.TagName), rather than a second, looser
+        // split that trimmed but did not collapse whitespace, did not bound
+        // the length, and compared case with .NET's Unicode-aware
+        // OrdinalIgnoreCase where the database compares with SQLite's
+        // ASCII-only NOCASE.
+        var parsed = TagName.ParseList(entered);
+        var wanted = parsed.Names;
 
-        foreach (var tag in current.Where(t => !wanted.Contains(t, StringComparer.OrdinalIgnoreCase)))
+        foreach (var tag in current.Where(t => !wanted.Any(w => TagName.AreSame(w, t))))
             await _services.Tags.RemoveFromItemAsync(row.Id, tag);
 
-        foreach (var tag in wanted.Where(t => !current.Contains(t, StringComparer.OrdinalIgnoreCase)))
+        foreach (var tag in wanted.Where(t => !current.Any(c => TagName.AreSame(c, t))))
             await _services.Tags.AddToItemAsync(row.Id, tag);
 
-        StatusMessage = wanted.Count == 0 ? "Tags cleared." : "Tags: " + string.Join(", ", wanted);
+        await AfterTagWriteAsync(row.Id);
+
+        var summary = wanted.Count == 0 ? "Tags cleared." : "Tags: " + string.Join(", ", wanted);
+        StatusMessage = parsed.Errors.Count > 0
+            ? summary + " " + string.Join(" ", parsed.Errors)
+            : summary;
     }
 }

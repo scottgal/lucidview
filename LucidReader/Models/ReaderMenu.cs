@@ -29,6 +29,7 @@ public enum ReaderMenuAction
     Paste,
     SelectAll,
     FindInArticle,
+    EditTags,
 
     // View
     LayoutThreePane,
@@ -188,6 +189,19 @@ public static class ReaderMenu
                 Header = "Find in Article",
                 Action = ReaderMenuAction.FindInArticle,
                 GestureKey = Key.F
+            },
+            ReaderMenuItem.Separator(),
+            // No gesture drawn here even though T does this, because T is a
+            // bare letter: a menu accelerator for it would claim the key
+            // before a focused text box could, which is exactly the bug
+            // ReaderShortcuts was written to fix. The reading pane's tag
+            // strip is the primary route anyway; this is the discoverable
+            // one, and the shortcut card under Help still names T.
+            new ReaderMenuItem
+            {
+                Header = "Edit Tags...",
+                Action = ReaderMenuAction.EditTags,
+                Enablement = ReaderMenuEnablement.RequiresArticle
             }
         ]);
 

@@ -402,6 +402,56 @@
         <Setter Property="Padding" Value="2" />
     </Style>
 
+    <!-- ================= Article tag chips ================= -->
+    <!--
+        The chips sit directly under the article's byline, so they are built
+        from the same two neutrals the rest of the reading pane uses rather
+        than from the accent: RowHoverBrush for the fill and RowSecondaryBrush
+        for the text, which is exactly the pair the offline badge above them
+        already uses. A row of accent-blue pills there would read as the
+        loudest thing on the page and would fight the selected row in the
+        list beside it.
+
+        Both brushes are theme-scoped, so the chips are a light grey with dark
+        text in the light theme and a dark grey with light text in the dark
+        one, with no second set of colours to keep in step.
+
+        The corner radius is the pill's own, not RowCornerRadius: these are
+        small and rounded like a token, not inset like a list row.
+    -->
+    <Style Selector="Border.tag-chip">
+        <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="8,2,3,2" />
+        <Setter Property="Margin" Value="0,2,6,2" />
+    </Style>
+
+    <Style Selector="TextBlock.tag-chip-text">
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="Foreground" Value="{DynamicResource RowTitleBrush}" />
+    </Style>
+
+    <!--
+        The chip's remove button. Deliberately not a row-toolbar button: it
+        lives inside a 20px-tall pill, and the default button chrome there
+        would be taller than the chip containing it. Transparent until
+        hovered, so a tagged article reads as a row of names rather than a row
+        of controls.
+    -->
+    <Style Selector="Button.tag-chip-remove">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource RowSecondaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <!--
         Reading pane body wrapping: LucidMarkdownView's own inner
         ScrollViewer (its default HorizontalScrollBarVisibility of Auto lets

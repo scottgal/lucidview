@@ -214,6 +214,28 @@ public sealed class ItemRepository(ReaderDatabase db)
                 command.Parameters.AddWithValue("$folderId", folderId);
             }
 
+            // Applied before the dedupe window below, as one more predicate
+            // rather than a different query: the All/Unread/Starred filter,
+            // and a feed or folder scope if one is set, all still mean what
+            // they mean inside a tag view.
+            //
+            // Every copy of a tagged article carries the tag (see
+            // TagRepository), so whichever copy the ROW_NUMBER picks is a
+            // tagged one and the tag view shows the article exactly once,
+            // the same single row every other list shows.
+            if (query.TagName is { Length: > 0 } tagName)
+            {
+                where.Add(
+                    """
+                    i.id IN (
+                        SELECT it.item_id FROM item_tags it
+                        JOIN tags t ON t.id = it.tag_id
+                        WHERE t.name = $tagName COLLATE NOCASE
+                    )
+                    """);
+                command.Parameters.AddWithValue("$tagName", tagName);
+            }
+
             switch (query.Filter)
             {
                 case ItemFilter.Unread:

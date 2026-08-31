@@ -1,0 +1,511 @@
+name: verify-article-tags
+description: >
+  Tagging, end to end, against a seeded scratch database: tag an article from
+  the reading pane, watch the Tags section appear in the sidebar, select the
+  tag and see the article listed, apply the Unread filter inside the tag view,
+  rename the tag, delete a tag without deleting its articles, remove the last
+  tag from the article, and watch the Tags section go again.
+
+  Run it through ux-scripts/run-article-tags.sh, not directly. That script
+  builds the profile every count below is measured against and deletes it
+  afterwards, which is what lets this file assert exact numbers and be run
+  twice in a row from any starting state.
+
+  The fixture seeds no tags at all, so every tag this script sees is one it
+  made itself, and the Tags section's presence is the assertion: the sidebar
+  holds two sections when nothing is tagged and three when something is (see
+  MainWindow.LoadFeedTreeAsync). That is a positive assertion in both
+  directions, which matters because the harness can wait for a control to
+  appear but cannot assert that one is absent - a locator that resolves
+  nothing times out and fails rather than passing.
+
+  Why the tag strip is driven rather than the T shortcut: T opens a modal
+  InputDialog, and while this harness can route actions into a dialog by
+  window_id (verify-dialog-drive.yaml proves it), a modal is a poor only-way-in
+  for the most ordinary action in the feature. The strip in the reading pane
+  is a TextBox and two Buttons, which is the FeedSettingsButton /
+  ResumeFeedButton precedent: a named control beside the context-menu route,
+  so the flow is verifiable rather than merely present.
+
+  Sidebar rows are driven as MouseDown then MouseUp, never Click: the
+  harness's Click on a non-Button only calls Focus(), and sidebar selection is
+  a PointerPressed on each row's Border. The filter segments need the same
+  treatment plus a parking Hover first, for the reasons reader-smoke.yaml sets
+  out at length.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup, the first tree load and the first health check
+
+  # =====================================================================
+  # Before anything is tagged.
+  # =====================================================================
+  - type: Expect
+    target: SidebarSections
+    matcher: HasCount
+    value: "2"
+    description: Favourites and Feeds; nothing is tagged, so there is no Tags section
+
+  - type: Expect
+    target: RenameTagButton
+    matcher: IsHidden
+    description: No selection, so the tag-only toolbar actions are collapsed
+
+  - type: Expect
+    target: DeleteTagButton
+    matcher: IsHidden
+
+  - type: Expect
+    target: ArticleTagStrip
+    matcher: IsHidden
+    description: No article, so there is nothing to tag and no box offering to
+
+  - type: Screenshot
+    value: 00-no-tags
+
+  # =====================================================================
+  # Select a feed, then an article.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "800"
+
+  - type: MouseDown
+    target: "text='Weeknotes from the harness'"
+    button: left
+  - type: MouseUp
+    target: "text='Weeknotes from the harness'"
+    button: left
+  - type: Wait
+    value: "800"
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: HasText
+    value: "Weeknotes from the harness"
+  - type: Expect
+    target: ArticleTagStrip
+    matcher: IsVisible
+    description: There is an article, so the strip is offered
+  - type: Expect
+    target: ArticleTagList
+    matcher: HasCount
+    value: "0"
+    description: This article carries no tags yet
+
+  # =====================================================================
+  # Tag it. The name is typed padded and mixed-case on purpose: the rules
+  # in LucidReader.Core.Model.TagName trim it and collapse the internal run
+  # of spaces, so what lands is "Read Later".
+  # =====================================================================
+  - type: TypeText
+    target: TagEntryBox
+    value: "  Read   Later "
+  - type: Click
+    target: AddTagButton
+  - type: Wait
+    value: "1500"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Tagged with Read Later."
+    description: Trimmed and whitespace-collapsed by the name rules
+  - type: Expect
+    target: ArticleTagList
+    matcher: HasCount
+    value: "1"
+  - type: Expect
+    target: TagEntryBox
+    matcher: HasValue
+    value: ""
+    description: The box empties on a successful add, ready for the next one
+  - type: Expect
+    target: SidebarSections
+    matcher: HasCount
+    value: "3"
+    description: The Tags section appeared with the first tag
+  - type: Expect
+    target: "inside(name=SidebarSections) text='Read Later'"
+    matcher: IsVisible
+    description: And it holds a row for the tag that was just applied
+
+  - type: Screenshot
+    value: 01-article-tagged
+
+  # A name the rules refuse. 33 characters is one past TagName.MaxLength,
+  # and an over-long name is refused with the limit named rather than
+  # silently truncated into something indistinguishable from its
+  # neighbours in a 260px sidebar row.
+  #
+  # The comma rule is not exercised here, and cannot be: this box takes a
+  # comma-separated list, so a comma is a separator before it is ever a
+  # character in a name. It is exercised through the rename dialog further
+  # down, which takes one name rather than a list.
+  - type: TypeText
+    target: TagEntryBox
+    value: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  - type: Click
+    target: AddTagButton
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "A tag name can be at most 32 characters."
+  - type: Expect
+    target: ArticleTagList
+    matcher: HasCount
+    value: "1"
+    description: Nothing was added
+  - type: Expect
+    target: SidebarSections
+    matcher: HasCount
+    value: "3"
+    description: And no tag row was created for it either
+
+  # =====================================================================
+  # Selecting the tag lists the article, from a sidebar row that did not
+  # exist a minute ago.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Read Later'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Read Later'"
+    button: left
+  - type: Wait
+    value: "1000"
+
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+  - type: Expect
+    target: RenameTagButton
+    matcher: IsVisible
+    description: A tag is selected, so the two tag actions appear on the toolbar
+  - type: Expect
+    target: DeleteTagButton
+    matcher: IsVisible
+  - type: Expect
+    target: FeedSettingsButton
+    matcher: IsDisabled
+    description: A tag has no FeedId, so per-feed settings stay unavailable
+  - type: Expect
+    target: SearchScopeButton
+    matcher: HasText
+    value: "This tag"
+    description: The scope toggle describes the selection rather than saying "This feed"
+  - type: Expect
+    target: SearchScopeButton
+    matcher: IsEnabled
+    description: A tag is something a search can be narrowed to
+
+  - type: Screenshot
+    value: 02-tag-selected
+
+  # =====================================================================
+  # The All/Unread/Starred segment still applies inside a tag view: a tag
+  # is one more scope, not a smart row that overrides the segment.
+  #
+  # The tagged article was selected in the reading pane long enough for the
+  # mark-read dwell (300ms in the seeded settings) to fire, so it is read
+  # by now and Unread empties the tag view.
+  # =====================================================================
+  - type: Hover
+    target: SearchBox
+    description: Park the pointer away from the segment first
+  - type: Hover
+    target: FilterUnread
+  - type: MouseDown
+    target: FilterUnread
+    button: left
+  - type: MouseUp
+    target: FilterUnread
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: FilterUnread
+    matcher: IsChecked
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+    description: >
+      The tagged article was read by the dwell while it sat in the reading
+      pane, so the Unread segment empties the tag view rather than being
+      ignored and showing the article anyway.
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "No articles here yet."
+
+  - type: Screenshot
+    value: 03-unread-inside-tag
+
+  - type: Hover
+    target: SearchBox
+  - type: Hover
+    target: FilterAll
+  - type: MouseDown
+    target: FilterAll
+    button: left
+  - type: MouseUp
+    target: FilterAll
+    button: left
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+    description: Back to All, and the article is in the tag view again
+
+  # =====================================================================
+  # Rename, from the toolbar button, through the InputDialog it opens.
+  # Routed into the dialog by window_id, which matches on the window's
+  # Title; Enter submits because the OK button is IsDefault.
+  # =====================================================================
+  - type: Click
+    target: RenameTagButton
+  - type: Wait
+    value: "900"
+
+  - type: Screenshot
+    value: 04-rename-dialog
+    window_id: "Rename Tag"
+
+  # The comma rule, which the tag box above cannot reach because a comma is
+  # a separator there. This dialog takes one name, so a comma in it is a
+  # character the rules refuse, and the rename is declined with the reason
+  # rather than producing a tag nobody can type again.
+  - type: TypeText
+    target: InputBox
+    value: "read,later"
+    window_id: "Rename Tag"
+  - type: PressKey
+    value: Enter
+    window_id: "Rename Tag"
+  - type: Wait
+    value: "1200"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "A tag name cannot contain a comma."
+  - type: Expect
+    target: "inside(name=SidebarSections) text='Read Later'"
+    matcher: IsVisible
+    description: The tag is untouched by a refused rename
+
+  - type: Click
+    target: RenameTagButton
+  - type: Wait
+    value: "900"
+
+  - type: TypeText
+    target: InputBox
+    value: "Reading"
+    window_id: "Rename Tag"
+  - type: PressKey
+    value: Enter
+    window_id: "Rename Tag"
+  - type: Wait
+    value: "1500"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Renamed Read Later to Reading."
+  - type: Expect
+    target: "inside(name=SidebarSections) text='Reading'"
+    matcher: IsVisible
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+    description: >
+      The selection followed the rename rather than being dropped: the row it
+      pointed at no longer exists under the old name.
+
+  - type: Screenshot
+    value: 05-tag-renamed
+
+  # =====================================================================
+  # A second tag, then deleting it. Deleting a tag must not delete its
+  # articles, so the check afterwards is that the feed still holds all
+  # three of them.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "800"
+
+  - type: MouseDown
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: MouseUp
+    target: "text='Compositor internals explained'"
+    button: left
+  - type: Wait
+    value: "800"
+
+  - type: TypeText
+    target: TagEntryBox
+    value: "archive"
+  - type: Click
+    target: AddTagButton
+  - type: Wait
+    value: "1500"
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Tagged with archive."
+  - type: Expect
+    target: "inside(name=SidebarSections) text='archive'"
+    matcher: IsVisible
+
+  - type: Screenshot
+    value: 06-two-tags
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='archive'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='archive'"
+    button: left
+  - type: Wait
+    value: "1000"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+
+  - type: Click
+    target: DeleteTagButton
+  - type: Wait
+    value: "900"
+
+  - type: Screenshot
+    value: 07-delete-dialog
+    window_id: "Delete Tag"
+
+  - type: Expect
+    target: MessageText
+    matcher: ContainsText
+    value: "The articles themselves are kept."
+    window_id: "Delete Tag"
+  - type: Click
+    target: ConfirmButton
+    window_id: "Delete Tag"
+  - type: Wait
+    value: "1500"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Deleted the tag archive."
+  - type: Expect
+    target: SidebarSections
+    matcher: HasCount
+    value: "3"
+    description: One tag deleted, the renamed one still there, so still three sections
+
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Harness Alpha'"
+    button: left
+  - type: Wait
+    value: "900"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "3"
+    description: >
+      Deleting a tag deleted no articles: Harness Alpha still holds all three
+      it started with.
+
+  - type: Screenshot
+    value: 08-articles-survived
+
+  # =====================================================================
+  # Remove the last tag from the article carrying it, from the chip's own
+  # remove button, and watch the whole Tags section go with it: the removal
+  # was that tag's last use, so DeleteUnusedAsync took the tag row too.
+  # =====================================================================
+  - type: MouseDown
+    target: "inside(name=SidebarSections) text='Reading'"
+    button: left
+  - type: MouseUp
+    target: "inside(name=SidebarSections) text='Reading'"
+    button: left
+  - type: Wait
+    value: "1000"
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "1"
+
+  - type: MouseDown
+    target: "text='Weeknotes from the harness'"
+    button: left
+  - type: MouseUp
+    target: "text='Weeknotes from the harness'"
+    button: left
+  - type: Wait
+    value: "900"
+
+  - type: Expect
+    target: ArticleTagList
+    matcher: HasCount
+    value: "1"
+
+  - type: Screenshot
+    value: 09-chip-before-removal
+
+  - type: Click
+    target: "first(name=RemoveTagButton)"
+  - type: Wait
+    value: "1800"
+
+  - type: Expect
+    target: StatusText
+    matcher: HasText
+    value: "Removed the tag Reading."
+  - type: Expect
+    target: ArticleTagList
+    matcher: HasCount
+    value: "0"
+  - type: Expect
+    target: SidebarSections
+    matcher: HasCount
+    value: "2"
+    description: >
+      The tag node disappeared with the last article carrying it, taking the
+      whole section with it, and the sidebar is back to the two sections it
+      started this run with.
+  - type: Expect
+    target: ItemList
+    matcher: HasCount
+    value: "0"
+    description: >
+      The same fact from the middle pane: the tag view was what was selected
+      when the tag stopped existing.
+
+  - type: Screenshot
+    value: 10-tag-node-gone

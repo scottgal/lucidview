@@ -58,12 +58,16 @@ public partial class MainWindow
     public bool CanScopeSearchToSelection => SearchQueryBuilder.CanScope(SelectedFeedNode);
 
     /// <summary>
-    /// Label on the scope toggle. A folder is not a feed, and a toggle that
-    /// says "This feed" while a folder is selected would be describing the
-    /// wrong scope.
+    /// Label on the scope toggle. A folder is not a feed, and a tag is
+    /// neither; a toggle that says "This feed" over any of the other two
+    /// would be describing the wrong scope.
     /// </summary>
-    public string SearchScopeLabel =>
-        SelectedFeedNode?.Kind == FeedTreeNodeKind.Folder ? "This folder" : "This feed";
+    public string SearchScopeLabel => SelectedFeedNode?.Kind switch
+    {
+        FeedTreeNodeKind.Folder => "This folder",
+        FeedTreeNodeKind.Tag => "This tag",
+        _ => "This feed"
+    };
 
     /// <summary>
     /// Re-runs the query currently on screen, if there is one. Called when

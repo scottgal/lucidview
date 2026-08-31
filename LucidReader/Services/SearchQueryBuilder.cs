@@ -49,18 +49,28 @@ public static class SearchQueryBuilder
             node!.Kind == FeedTreeNodeKind.Feed ? node.FeedId : null,
             node.Kind == FeedTreeNodeKind.Folder ? node.FolderId : null,
             filter,
-            limit);
+            limit)
+        {
+            TagName = node.Kind == FeedTreeNodeKind.Tag ? node.TagName : null
+        };
     }
 
     /// <summary>
     /// True when the selection is something a search can be narrowed to. Also
     /// what the toolbar's scope toggle binds its enabled state to, so the
     /// control cannot claim a scope the query builder would ignore.
+    ///
+    /// A tag is one of those things, for the reason a folder is: it is a
+    /// named set of articles the user assembled and can point at. It follows
+    /// decision 2 above rather than getting an exception to it - selecting a
+    /// tag does not silently narrow the search, the toggle does, and the
+    /// toggle then says "This tag".
     /// </summary>
     public static bool CanScope(FeedTreeNode? node) => node?.Kind switch
     {
         FeedTreeNodeKind.Feed => node.FeedId is not null,
         FeedTreeNodeKind.Folder => node.FolderId is not null,
+        FeedTreeNodeKind.Tag => !string.IsNullOrEmpty(node.TagName),
         _ => false
     };
 }

@@ -6,7 +6,7 @@ namespace LucidReader.Core.Storage;
 /// </summary>
 public static class Migrations
 {
-    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6 };
+    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7 };
 
     private const string V1 = """
         CREATE TABLE folders (
@@ -269,5 +269,21 @@ public static class Migrations
         ALTER TABLE items ADD COLUMN canonical_id TEXT NULL;
 
         CREATE INDEX ix_items_canonical ON items(canonical_id) WHERE canonical_id IS NOT NULL;
+        """;
+
+    // item_tags has a composite primary key of (item_id, tag_id), which SQLite
+    // indexes in that order. That serves "which tags does this item carry?"
+    // and nothing else: "which items carry this tag?" - the query behind the
+    // whole Tags section, the by-tag item list and every per-tag unread count
+    // - has no leading column to seek on and falls back to a full scan of the
+    // join table, once per tag on every sidebar rebuild.
+    //
+    // Safe on a populated database: one index build over a table that holds a
+    // row per (item, tag) pair, which is by far the smallest table in the
+    // schema. No existing row is read or rewritten and no query changes
+    // meaning, so a database that skips straight from V6 to V7 and one that
+    // has been running V7 since it was created behave identically.
+    private const string V7 = """
+        CREATE INDEX ix_item_tags_tag ON item_tags(tag_id);
         """;
 }

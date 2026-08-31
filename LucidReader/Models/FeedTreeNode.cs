@@ -7,8 +7,8 @@ namespace LucidReader.Models;
 
 /// <summary>
 /// One row in the feed tree. Covers four shapes: the three smart rows at the
-/// top, a folder, and a feed. Kept as one type rather than a hierarchy because
-/// the tree binds to a single flat ObservableCollection.
+/// top, a folder, a feed, and a tag. Kept as one type rather than a hierarchy
+/// because the tree binds to a single flat ObservableCollection.
 /// </summary>
 public sealed class FeedTreeNode : INotifyPropertyChanged
 {
@@ -22,6 +22,14 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
     public long? FeedId { get; init; }
     public long? FolderId { get; init; }
     public ItemFilter SmartFilter { get; init; }
+
+    /// <summary>
+    /// The tag this row stands for, on a Tag node only. Null everywhere else.
+    /// A tag has no numeric id in the sidebar's world: the name is the
+    /// identity the user sees, types and renames, and it is what
+    /// ItemQueryBuilder passes down to the query.
+    /// </summary>
+    public string? TagName { get; init; }
 
     /// <summary>Populated for feed rows only, so the tree can show a warning.</summary>
     public int ConsecutiveFailures { get; init; }
@@ -107,6 +115,13 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
     /// </summary>
     public bool IsFeed => Kind == FeedTreeNodeKind.Feed;
 
+    /// <summary>
+    /// True only for a tag row. Gates the two tag-only context-menu items the
+    /// same way <see cref="IsFeed"/> gates the feed-only ones, and gates the
+    /// tag glyph in the row template so a feed does not sprout one.
+    /// </summary>
+    public bool IsTag => Kind == FeedTreeNodeKind.Tag;
+
     public bool HasUnread => _unreadCount > 0;
     public string UnreadLabel => _unreadCount > 0 ? _unreadCount.ToString() : string.Empty;
     public bool HasProblem => ConsecutiveFailures > 0 || IsAutoPaused;
@@ -141,4 +156,4 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
-public enum FeedTreeNodeKind { Smart, Folder, Feed }
+public enum FeedTreeNodeKind { Smart, Folder, Feed, Tag }

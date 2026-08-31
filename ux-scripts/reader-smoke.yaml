@@ -16,8 +16,11 @@ description: >
       verify-reader-keyboard.yaml, since moving them off Window.KeyBindings
       onto a routed KeyDown handler is what finally made them reachable from
       PressKey at all.
-    - Article tagging. Its only route is the T shortcut, and T opens a modal
-      dialog the harness cannot dismiss.
+    - Article tagging. It has its own script now, verify-article-tags.yaml.
+      The T shortcut still opens a modal this harness cannot dismiss, but the
+      reading pane's tag strip (TagEntryBox, AddTagButton, RemoveTagButton)
+      is a set of ordinary named controls, which is what made the flow
+      drivable at all.
     - Unsubscribe, Rename and Mark-all-read. Sidebar context menu only, and
       a ContextMenu opens in its own PopupRoot that the harness can neither
       click nor screenshot.
@@ -50,7 +53,10 @@ actions:
     target: SidebarSections
     matcher: HasCount
     value: "2"
-    description: Favourites and Feeds
+    description: >
+      Favourites and Feeds. Still two after tagging shipped: the Tags section
+      is added only when a tag is in use, and the fixture seeds none.
+      verify-article-tags.yaml is what watches it appear and go again.
 
   - type: Expect
     target: FeedSettingsButton

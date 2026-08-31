@@ -266,6 +266,9 @@ public partial class MainWindow
             case ReaderMenuAction.SelectAll:
                 FocusedTextBox()?.SelectAll();
                 break;
+            case ReaderMenuAction.EditTags:
+                EditTagsCommand.Execute(null);
+                break;
             case ReaderMenuAction.FindInArticle:
                 FindInArticleCommand.Execute(null);
                 break;
