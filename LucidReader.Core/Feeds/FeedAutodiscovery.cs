@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using AngleSharp;
 
 namespace LucidReader.Core.Feeds;
 
@@ -24,8 +25,9 @@ public readonly record struct DiscoveredFeed(
 {
     /// <summary>
     /// True when this is not a published feed at all: it is an ordinary page
-    /// that ArticleListDetector read as an index of articles. Everything the
-    /// user needs in order to judge that guess is in <see cref="Scrape"/>.
+    /// that ArticleListDetector, or failing that IndexFallbackReader, read as an
+    /// index of articles. Everything the user needs in order to judge that
+    /// guess, including which of the two read it, is in <see cref="Scrape"/>.
     /// </summary>
     public bool IsScrapedPage => Scrape is not null;
 }
@@ -38,18 +40,26 @@ public readonly record struct DiscoveredFeed(
 /// "it found the articles" from "it found the tag cloud", and this is a guess
 /// the user is being asked to approve rather than a feed the site declared.
 /// </summary>
+/// <param name="FromFallback">True when mylo's own reading of the page found no
+/// list and <see cref="IndexFallbackReader"/> read it instead. Carried through
+/// rather than smoothed over: the offer is already presented as a guess, and
+/// this one is a guess the primary path disagreed with, which is exactly the
+/// sort of thing a user approving a subscription should be told.</param>
 public sealed record ScrapedPageDetails(
     int ArticleCount,
     double Confidence,
-    IReadOnlyList<string> SampleTitles);
+    IReadOnlyList<string> SampleTitles,
+    bool FromFallback = false);
 
 /// <summary>
 /// Turns whatever the user pasted into feed URLs worth subscribing to.
 ///
 /// Uses a regex over the head rather than a full HTML parser on purpose: the
-/// only thing being read is link elements, and pulling AngleSharp into this
-/// path to do it would be a heavier dependency than the job deserves. A missed
-/// link costs the user one manual paste of the feed URL.
+/// only thing being read is link elements, and parsing a whole DOM to do it
+/// would be more work than the job deserves. A missed link costs the user one
+/// manual paste of the feed URL. The one place a real DOM is built is the very
+/// last step of DetectArticleListAsync, on a page that published no feed
+/// anywhere and that mylo's own detector could not read either.
 /// </summary>
 public sealed partial class FeedAutodiscovery(HttpClient http)
 {
@@ -264,7 +274,7 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         // a feed therefore never reaches this code and never pays for it, which
         // is the point - the common case must not get slower because of a
         // fallback for the uncommon one.
-        return DetectArticleList(body, effectiveUri, siteIcon);
+        return await DetectArticleListAsync(body, effectiveUri, siteIcon, ct);
     }
 
     /// <summary>
@@ -274,12 +284,19 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
     /// What comes back is deliberately not shaped like a discovered feed: it
     /// carries a ScrapedPageDetails, which is what makes the dialog present it
     /// as a guess needing approval rather than as something to tick by default.
-    /// A page that does not clear the detector's bar produces nothing at all,
-    /// so "no feeds found at that address" stays the answer for a page that is
-    /// simply not a list.
+    /// A page that clears neither the detector's bar nor the fallback's
+    /// produces nothing at all, so "no feeds found at that address" stays the
+    /// answer for a page that is simply not a list.
+    ///
+    /// <para>The detector reads the raw HTML with this class's own regex-free
+    /// outline and costs nothing extra. The fallback needs a real DOM, so the
+    /// page is only parsed once the detector has declined - the last step of
+    /// the last stage of discovery, reached by a site that publishes no feed
+    /// anywhere and whose page mylo could not read either. What is offered is
+    /// marked as having come from the fallback, so the dialog can say so.</para>
     /// </summary>
-    private static List<DiscoveredFeed> DetectArticleList(
-        string body, Uri effectiveUri, string? siteIcon)
+    private static async Task<List<DiscoveredFeed>> DetectArticleListAsync(
+        string body, Uri effectiveUri, string? siteIcon, CancellationToken ct)
     {
         // The address is about to be offered as a subscription and, once
         // approved, fetched unattended on every scheduler tick from then on.
@@ -288,7 +305,19 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
         if (!FeedUrlPolicy.IsAllowed(effectiveUri.ToString())) return [];
 
         var detection = ArticleListDetector.Detect(body, effectiveUri);
-        if (!detection.IsArticleList) return [];
+        var fromFallback = false;
+
+        if (!detection.IsArticleList)
+        {
+            var document = await BrowsingContext.New(Configuration.Default)
+                .OpenAsync(request => request.Content(body).Address(effectiveUri.ToString()), ct);
+
+            var fallback = IndexFallbackReader.TryRead(document, effectiveUri, detection);
+            if (fallback is null) return [];
+
+            detection = fallback;
+            fromFallback = true;
+        }
 
         return
         [
@@ -299,7 +328,8 @@ public sealed partial class FeedAutodiscovery(HttpClient http)
                 Scrape: new ScrapedPageDetails(
                     detection.Articles.Count,
                     detection.Confidence,
-                    detection.SampleTitles(ScrapeSampleTitleCount)))
+                    detection.SampleTitles(ScrapeSampleTitleCount),
+                    fromFallback))
         ];
     }
 

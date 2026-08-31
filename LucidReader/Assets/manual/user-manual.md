@@ -158,6 +158,18 @@ they are the site's tags or its navigation, do not.
 A page that already publishes a feed is never offered this way. A real feed is
 always the better answer, and the detector only runs when there isn't one.
 
+Some sites are laid out in a way mylo's own reading cannot follow. LWN is the
+example: every headline on its front page is a heading with no link in it at
+all, and the article's address only turns up further down, in the paragraph
+underneath, next to whatever else that paragraph happens to link to. When the
+first reading finds nothing, a second one is tried, and it will only offer a
+page whose entries point at that site's own pages. That rules out the case
+worth ruling out, which is a page whose repeated links are citations or further
+reading rather than an index: those point away from the site, so they are never
+offered. An offer that came from the second reading says so, in as many words,
+because it is a guess mylo's first reading disagreed with and the tick is still
+yours to give.
+
 Once approved it is an ordinary subscription. It refreshes on the same
 schedule, dedupes against your other feeds, supports tags, starring, offline
 download and retention exactly as a real feed does; if the site later starts

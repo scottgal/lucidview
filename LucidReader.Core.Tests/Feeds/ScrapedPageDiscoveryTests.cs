@@ -107,6 +107,54 @@ public class ScrapedPageDiscoveryTests
         Assert.Equal("Blog Posts", found[0].Title);
     }
 
+    /// <summary>
+    /// A page mylo's own detector cannot read is still offered, by the
+    /// fallback, and the offer says so.
+    ///
+    /// lwn.net is the page in question and it does publish a feed, so the same
+    /// stripping the tests above use is what gets discovery as far as the
+    /// fourth stage. What is being asserted is the last step of that stage:
+    /// the detector declines, the fallback reads it, and the offer that comes
+    /// back is marked as having come from the fallback so the dialog can be
+    /// honest about which of the two found it.
+    /// </summary>
+    [Fact]
+    public async Task A_page_only_the_fallback_can_read_is_offered_and_says_so()
+    {
+        var lwn = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "Fixtures", "Html", "corpus", "lwn.html"));
+        var stripped = Regex.Replace(
+            lwn, """<link[^>]*rel=["']?alternate[^>]*>""", "", RegexOptions.IgnoreCase);
+
+        var handler = Serving(stripped);
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://lwn.net/");
+
+        var offer = Assert.Single(found);
+        Assert.True(offer.IsScrapedPage);
+        Assert.True(offer.Scrape!.FromFallback,
+            "The detector cannot read this page, so the offer must be marked as the " +
+            "fallback's rather than passed off as mylo's own reading.");
+        Assert.True(offer.Scrape.ArticleCount >= ArticleListDetector.MinimumArticles);
+        Assert.NotEmpty(offer.Scrape.SampleTitles);
+    }
+
+    /// <summary>
+    /// And a page the detector reads is not marked as the fallback's, so the
+    /// mark means something.
+    /// </summary>
+    [Fact]
+    public async Task An_offer_the_detector_found_is_not_marked_as_the_fallbacks()
+    {
+        var handler = Serving(WithNoFeed("mostlylucid-blog-index.html"));
+        var discovery = new FeedAutodiscovery(handler.CreateClient());
+
+        var found = await discovery.DiscoverAsync("https://www.mostlylucid.net/blog");
+
+        Assert.False(Assert.Single(found).Scrape!.FromFallback);
+    }
+
     [Fact]
     public async Task An_article_page_with_no_feed_is_not_offered_as_a_scrape()
     {

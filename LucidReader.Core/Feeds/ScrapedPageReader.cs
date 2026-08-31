@@ -16,6 +16,12 @@ public enum ScrapeSource
 
     /// <summary>A template stored on an earlier refresh was applied.</summary>
     Template,
+
+    /// <summary>The detector declined the page and
+    /// <see cref="IndexFallbackReader"/> read it instead. Recorded separately
+    /// so a feed that only exists because of the fallback is visible as such
+    /// rather than indistinguishable from one the detector handles.</summary>
+    Fallback,
 }
 
 /// <summary>
@@ -30,11 +36,18 @@ public sealed record ScrapeReading(
 /// Reads the articles off a scraped index page, reusing a template learned on
 /// an earlier refresh when there is one that still works.
 ///
-/// <para><b>The detector stays the source of truth.</b> Nothing here decides
-/// whether a page is a list of articles; <see cref="ArticleListDetector"/>
-/// does, it is measured against twenty-five saved pages, and it is what every
-/// template is learned from. A template is a cache of one of its answers, not
-/// a second opinion.</para>
+/// <para><b>The detector answers first.</b> Nothing here decides whether a page
+/// is a list of articles. <see cref="ArticleListDetector"/> does, it is measured
+/// against twenty-five saved pages, and it is asked before anything else on
+/// every read. A template is a cache of one of its answers, not a second
+/// opinion.</para>
+///
+/// <para><b>And only what it declines goes further.</b>
+/// <see cref="IndexFallbackReader"/> is asked about a page the detector turned
+/// down, which is how lwn.net is readable at all. It cannot change the answer
+/// for a page the detector accepts, because it is never consulted about one.
+/// A reading that came from it is marked <see cref="ScrapeSource.Fallback"/>
+/// rather than passed off as the detector's.</para>
 ///
 /// <para><b>Why cache it at all.</b> A scraped feed is polled on a schedule
 /// forever, and the detector re-derives the page's structure from nothing on
@@ -87,7 +100,15 @@ public static class ScrapedPageReader
         ScrapeTemplateStore? store,
         CancellationToken ct = default)
     {
-        if (store is null) return FromDetector(html, pageUri);
+        if (store is null)
+        {
+            // No profile directory to write a template to, so the page is read
+            // from scratch every time. The detector still answers first and the
+            // fallback still only sees what it declined; the document is parsed
+            // lazily inside ReadPageAsync, so the ordinary case where the detector
+            // succeeds pays nothing for the fallback existing.
+            return await ReadPageAsync(html, pageUri, null, ct);
+        }
 
         var document = await ParseAsync(html, pageUri, ct);
 
@@ -109,7 +130,7 @@ public static class ScrapedPageReader
 
         // No template, or one that no longer holds. Ask the detector and, if it
         // is confident, leave a template behind for next time.
-        var reading = FromDetector(html, pageUri);
+        var reading = await ReadPageAsync(html, pageUri, document, ct);
 
         var examples = reading.Articles
             .Select(a => new RecordExample(a.Title, a.Link, a.PublishedUtc?.ToString("O"), a.Summary))
@@ -179,24 +200,46 @@ public static class ScrapedPageReader
             .OpenAsync(request => request.Content(html).Address(pageUri.ToString()), ct);
 
     /// <summary>
-    /// Run the detector, and throw when it says this is no longer a list. The
-    /// message is the one the user sees on the feed row.
+    /// Run the detector, ask <see cref="IndexFallbackReader"/> about what it
+    /// declined, and throw when neither can read the page. The message is the
+    /// one the user sees on the feed row.
+    ///
+    /// <para>The order is the guarantee, not an optimisation. A page the
+    /// detector accepts is returned before the fallback is constructed, so no
+    /// subscription that works today can start answering differently because of
+    /// what the library thinks.</para>
+    ///
+    /// <para><paramref name="parsed"/> is the document the template path already
+    /// built, or null when there was no store and nothing has parsed the page.
+    /// In the second case parsing is deferred until the detector has actually
+    /// declined, so a refresh of a feed the detector handles never parses a DOM
+    /// it does not need.</para>
     /// </summary>
-    private static ScrapeReading FromDetector(string html, Uri pageUri)
+    private static async Task<ScrapeReading> ReadPageAsync(
+        string html, Uri pageUri, IDocument? parsed, CancellationToken ct)
     {
         var detection = ArticleListDetector.Detect(html, pageUri);
 
-        if (!detection.IsArticleList || detection.Articles.Count == 0)
+        if (detection.IsArticleList && detection.Articles.Count > 0)
         {
-            throw new FeedScrapeException(
-                "This is a scraped page, and it no longer looks like a list of articles. " +
-                "The site has probably changed its layout. " + detection.Reason);
+            return new ScrapeReading(
+                detection.Articles, ScrapeSource.Detector,
+                $"Found {detection.Articles.Count} repeated article links " +
+                $"(confidence {detection.Confidence:0.00}).");
         }
 
-        return new ScrapeReading(
-            detection.Articles, ScrapeSource.Detector,
-            $"Found {detection.Articles.Count} repeated article links " +
-            $"(confidence {detection.Confidence:0.00}).");
+        var document = parsed ?? await ParseAsync(html, pageUri, ct);
+        var fallback = IndexFallbackReader.TryRead(document, pageUri, detection);
+
+        if (fallback is not null && fallback.Articles.Count > 0)
+        {
+            return new ScrapeReading(
+                fallback.Articles, ScrapeSource.Fallback, fallback.Reason);
+        }
+
+        throw new FeedScrapeException(
+            "This is a scraped page, and it no longer looks like a list of articles. " +
+            "The site has probably changed its layout. " + detection.Reason);
     }
 
     /// <summary>
@@ -219,34 +262,9 @@ public static class ScrapedPageReader
     /// answer, not a licence to skip the gate.
     /// </summary>
     private static IReadOnlyList<DetectedArticle> ToArticles(
-        IReadOnlyList<ExtractedRecord> records, Uri pageUri)
-    {
-        var articles = new List<DetectedArticle>(records.Count);
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var pageIdentity = CanonicalArticleId.FromLink(pageUri.ToString());
-
-        foreach (var record in records)
-        {
-            if (string.IsNullOrWhiteSpace(record.Permalink)) continue;
-            if (string.IsNullOrWhiteSpace(record.Title)) continue;
-            if (!Uri.TryCreate(pageUri, record.Permalink, out var absolute)) continue;
-            if (absolute.Scheme != Uri.UriSchemeHttp && absolute.Scheme != Uri.UriSchemeHttps) continue;
-            if (!FeedUrlPolicy.IsAllowed(absolute.ToString())) continue;
-
-            var canonical = CanonicalArticleId.FromLink(absolute.ToString());
-            if (canonical is null) continue;
-            if (pageIdentity is not null && canonical == pageIdentity) continue;
-            if (!seen.Add(canonical)) continue;
-
-            articles.Add(new DetectedArticle(
-                record.Title!.Trim(),
-                absolute.ToString(),
-                canonical,
-                FeedDateParser.TryParse(record.Published ?? ""),
-                string.IsNullOrWhiteSpace(record.Summary) ? null : record.Summary));
-
-            if (articles.Count >= ArticleListDetector.MaxArticles) break;
-        }
-        return articles;
-    }
+        IReadOnlyList<ExtractedRecord> records, Uri pageUri) =>
+        ScrapedArticles.From(
+            records.Select(r => new ScrapedArticles.Raw(
+                r.Title, r.Permalink, r.Published, r.Summary)),
+            pageUri);
 }

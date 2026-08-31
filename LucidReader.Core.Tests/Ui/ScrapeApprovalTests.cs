@@ -23,6 +23,25 @@ public class ScrapeApprovalTests
         Assert.Contains("guess", message);
     }
 
+    /// <summary>
+    /// An offer that came from the fallback reads differently from one the
+    /// detector found. Both are guesses and both say so; this one is the guess
+    /// mylo's own reading of the page disagreed with, and a user deciding
+    /// whether to subscribe should be told that rather than shown the same
+    /// sentence.
+    /// </summary>
+    [Fact]
+    public void An_offer_from_the_fallback_says_the_guess_is_a_weaker_one()
+    {
+        var confident = AddFeedInput.DescribeScrapeOffer(10);
+        var fallback = AddFeedInput.DescribeScrapeOffer(10, fromFallback: true);
+
+        Assert.NotEqual(confident, fallback);
+        Assert.Contains("second pass", fallback);
+        Assert.Contains("less certain", fallback);
+        Assert.DoesNotContain("second pass", confident);
+    }
+
     [Fact]
     public void The_offer_counts_one_article_in_the_singular()
     {

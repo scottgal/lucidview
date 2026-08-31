@@ -49,6 +49,18 @@ public sealed record ArticleListDetection
     public required string Reason { get; init; }
 
     /// <summary>
+    /// Why the page says it is one article rather than a list of them, or null
+    /// when it says no such thing.
+    ///
+    /// Reported separately from <see cref="Reason"/> because it is a fact about
+    /// the page rather than about the run that scored best, and because
+    /// <see cref="IndexFallbackReader"/> needs it: the fallback runs on pages
+    /// this detector declined and would otherwise have no way of knowing the
+    /// publisher already said what the page is.
+    /// </summary>
+    public string? SingleArticleDeclaration { get; init; }
+
+    /// <summary>
     /// The first few titles, for the approval prompt. A count on its own does
     /// not let anyone tell "it found the articles" from "it found the tag
     /// cloud"; the titles do.
@@ -272,7 +284,11 @@ public static partial class ArticleListDetector
         if (best is null)
             return declaration is null
                 ? ArticleListDetection.None
-                : new ArticleListDetection { Reason = declaration };
+                : new ArticleListDetection
+                {
+                    Reason = declaration,
+                    SingleArticleDeclaration = declaration
+                };
 
         var required = declaration is null ? ConfidenceThreshold : DeclaredConfidenceThreshold;
 
@@ -281,6 +297,7 @@ public static partial class ArticleListDetector
             Articles = best.Articles,
             Confidence = best.Confidence,
             IsArticleList = best.Confidence >= required,
+            SingleArticleDeclaration = declaration,
             Reason = best.Confidence >= required
                 ? $"Found {best.Articles.Count} repeated article links " +
                   $"(confidence {best.Confidence:0.00})."

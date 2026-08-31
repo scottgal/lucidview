@@ -186,7 +186,8 @@ public partial class AddFeedDialog : Window
 
             if (_scrapeOffer is { Scrape: { } scrape })
             {
-                ScrapeSummaryText.Text = AddFeedInput.DescribeScrapeOffer(scrape.ArticleCount);
+                ScrapeSummaryText.Text = AddFeedInput.DescribeScrapeOffer(
+                    scrape.ArticleCount, scrape.FromFallback);
                 ScrapeSampleText.Text = AddFeedInput.DescribeScrapeSample(scrape.SampleTitles);
                 ScrapePanel.IsVisible = true;
 

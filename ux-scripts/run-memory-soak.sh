@@ -181,10 +181,16 @@ CHURN_PID=$!
 
 echo "Soaking for $ITERATIONS cycles. Log: $OUTPUT/memory.csv"
 
+# Headless by default, the same default reader_run uses and for the same
+# reason: this script drives the app for twenty-two minutes, and on the native
+# platform that is twenty-two minutes of a window holding keyboard focus. This
+# line launched the app directly and so missed that default, which made this
+# the one script in ux-scripts/ that put a window on screen. Set MYLO_UX_MODE
+# to watch a run happen.
 MYLO_DATA_DIR="$READER_PROFILE" \
 MYLO_MEMORY_LOG="$OUTPUT/memory.csv" \
 MYLO_MEMORY_LOG_SECONDS=5 \
-    "$READER_APP" --ux-test \
+    "$READER_APP" "${MYLO_UX_MODE:---ux-headless}" --ux-test \
     --script "$READER_PROFILE/soak.yaml" \
     --output "$OUTPUT" || true
 

@@ -121,11 +121,23 @@ public static class AddFeedInput
     /// HTML rather than something the site publishes for the purpose. The
     /// titles go alongside, in DescribeScrapeSample.
     /// </summary>
-    public static string DescribeScrapeOffer(int articleCount) =>
-        $"No feed here, but this page looks like a list of {articleCount} " +
-        $"{(articleCount == 1 ? "article" : "articles")}. " +
-        "mylo can read them straight off the page. That is a guess about the " +
-        "site's layout, so check the titles below before you approve it.";
+    /// <param name="fromFallback">True when mylo's own reading of the page found
+    /// no list and a second pass found one. The user is being asked to approve
+    /// a guess either way, and this is the weaker of the two guesses, so it says
+    /// so instead of reading identically to the confident case.</param>
+    public static string DescribeScrapeOffer(int articleCount, bool fromFallback = false)
+    {
+        var message =
+            $"No feed here, but this page looks like a list of {articleCount} " +
+            $"{(articleCount == 1 ? "article" : "articles")}. " +
+            "mylo can read them straight off the page. That is a guess about the " +
+            "site's layout, so check the titles below before you approve it.";
+
+        return fromFallback
+            ? message + " This page is laid out unusually and the articles were " +
+              "found on a second pass, so the guess is a less certain one than usual."
+            : message;
+    }
 
     /// <summary>
     /// The sample of what was found, which is the part that makes the offer
