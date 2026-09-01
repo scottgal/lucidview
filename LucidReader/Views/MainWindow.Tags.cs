@@ -28,7 +28,16 @@ public partial class MainWindow
 {
     private string _tagEntryText = string.Empty;
     private bool _canEditArticleTags;
+    private bool _isTagEntryExpanded;
     private string? _renamedTagToReselect;
+
+    /// <summary>
+    /// How wide the tag entry's reveal is when it is open: the 150px TextBox
+    /// plus the 6px that separates it from the button. Named here rather than
+    /// written into the XAML twice, since the collapsed state is the same
+    /// number's absence.
+    /// </summary>
+    private const double TagEntryOpenWidth = 156;
 
     /// <summary>
     /// Where the selection should look for itself after a tree reload.
@@ -84,6 +93,77 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// Whether the tag entry is open. Everything the strip shows about the
+    /// add control - how wide the reveal is, and what the button says - is
+    /// derived from this one flag, so the three can never disagree.
+    /// </summary>
+    public bool IsTagEntryExpanded
+    {
+        get => _isTagEntryExpanded;
+        private set
+        {
+            if (_isTagEntryExpanded == value) return;
+            _isTagEntryExpanded = value;
+            Raise();
+            Raise(nameof(TagEntryWidth));
+            Raise(nameof(AddTagButtonLabel));
+            Raise(nameof(AddTagButtonTip));
+        }
+    }
+
+    /// <summary>
+    /// The width the reveal animates to. Zero collapses it; the Border it is
+    /// bound to clips its contents, so a zero here hides the field rather than
+    /// leaving a squashed one behind.
+    /// </summary>
+    public double TagEntryWidth => IsTagEntryExpanded ? TagEntryOpenWidth : 0;
+
+    /// <summary>
+    /// "+" when there is nothing to add yet, "Add" once the field is open, so
+    /// the one button reads as what it will do next.
+    /// </summary>
+    public string AddTagButtonLabel => IsTagEntryExpanded ? "Add" : "+";
+
+    public string AddTagButtonTip =>
+        IsTagEntryExpanded ? "Add what is typed as tags" : "Add a tag";
+
+    /// <summary>
+    /// Opens the entry and puts the caret in it, so a user who reached the
+    /// button with Tab and pressed Space is typing immediately rather than
+    /// having to Tab once more into a field that has only just appeared.
+    /// </summary>
+    private void ExpandTagEntry()
+    {
+        IsTagEntryExpanded = true;
+        TagEntryBox.Focus();
+    }
+
+    /// <summary>
+    /// Closes the entry, discarding whatever was typed.
+    ///
+    /// <paramref name="returnFocus"/> is what tells the two ways of closing it
+    /// apart. Escape closes a field the caret is still in, and leaving the
+    /// caret inside something about to be clipped to nothing is how a keyboard
+    /// user gets stranded, so focus goes back to the button that opened it.
+    /// Every other close - losing focus, switching article - is closing a
+    /// field the focus has already left or is leaving of its own accord, and
+    /// pulling it onto the button there would take it off whatever the user
+    /// just clicked.
+    ///
+    /// Safe to call when already collapsed, which it routinely is: the Escape
+    /// path moves the focus, which raises LostFocus on a box that is now
+    /// empty, which asks to collapse a second time.
+    /// </summary>
+    private void CollapseTagEntry(bool returnFocus = false)
+    {
+        if (!IsTagEntryExpanded) return;
+
+        TagEntryText = string.Empty;
+        IsTagEntryExpanded = false;
+        if (returnFocus) AddTagButton.Focus();
+    }
+
+    /// <summary>
     /// Reloads the chip strip for whichever article is being shown. Called
     /// from ShowArticleAsync, so switching articles switches the strip, and
     /// again after every write from the two handlers below.
@@ -99,10 +179,20 @@ public partial class MainWindow
             ArticleTags.Add(new ArticleTagChip { Name = name });
     }
 
+    /// <summary>
+    /// The one add control, doing whichever of its two jobs applies: open the
+    /// entry when it is closed, commit what is in it when it is open.
+    /// </summary>
     private async void OnAddArticleTagClicked(object? sender, RoutedEventArgs e)
     {
         try
         {
+            if (!IsTagEntryExpanded)
+            {
+                ExpandTagEntry();
+                return;
+            }
+
             await AddArticleTagsAsync(TagEntryText);
         }
         catch (Exception ex)
@@ -115,26 +205,56 @@ public partial class MainWindow
     /// Enter in the tag box does what the Add button does. A one-word tag
     /// followed by a reach for the mouse is the wrong shape for something
     /// meant to be quick.
+    ///
+    /// Escape closes the entry without adding anything, which is the other
+    /// half of an expanding control: something that opens has to have a way
+    /// out that does not commit.
     /// </summary>
     private async void OnTagEntryKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
-        if (e.Key != Avalonia.Input.Key.Enter) return;
-
-        // Marked handled before the await, not after: the window's own
-        // bubbling KeyDown handler (MainWindow.Actions.cs) runs on the same
-        // event, and although the text-entry guard already suppresses the
-        // bare-letter shortcuts, leaving Enter unclaimed lets it reach the
-        // dialog default-button machinery as well.
-        e.Handled = true;
-
         try
         {
+            if (e.Key == Avalonia.Input.Key.Escape)
+            {
+                e.Handled = true;
+                CollapseTagEntry(returnFocus: true);
+                return;
+            }
+
+            if (e.Key != Avalonia.Input.Key.Enter) return;
+
+            // Marked handled before the await, not after: the window's own
+            // bubbling KeyDown handler (MainWindow.Actions.cs) runs on the same
+            // event, and although the text-entry guard already suppresses the
+            // bare-letter shortcuts, leaving Enter unclaimed lets it reach the
+            // dialog default-button machinery as well.
+            e.Handled = true;
+
+            // The entry deliberately stays open after a successful add, with
+            // the box emptied and the caret still in it. Tagging an article
+            // with two or three names is the ordinary case, not the unusual
+            // one, and closing after each would make the second tag cost a
+            // click to reopen what the user had not finished with. What closes
+            // it is the user saying so: Escape, or clicking away from an empty
+            // box, both below.
             await AddArticleTagsAsync(TagEntryText);
         }
         catch (Exception ex)
         {
             StatusMessage = "Could not add that tag: " + ex.Message;
         }
+    }
+
+    /// <summary>
+    /// Clicking or tabbing away from an empty entry closes it: an open field
+    /// nobody is typing in is the permanent furniture this control exists to
+    /// get rid of. A field with something half-typed in it is left alone,
+    /// because losing focus is not the same as changing your mind and throwing
+    /// away what someone was in the middle of writing would be.
+    /// </summary>
+    private void OnTagEntryLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(TagEntryText)) CollapseTagEntry();
     }
 
     /// <summary>

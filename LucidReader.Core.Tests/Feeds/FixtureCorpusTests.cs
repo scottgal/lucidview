@@ -22,11 +22,14 @@ public class FixtureCorpusTests
     // just as loudly as a fixture that goes missing.
     private static readonly string[] ExpectedFeedFiles =
     [
+        "atom-categories-twin.xml",
+        "atom-categories.xml",
         "atom-simple.xml",
         "not-a-feed.html",
         "rdf-rss1.xml",
         "rss2-bad-dates.xml",
         "rss2-bare-ampersand.xml",
+        "rss2-categories.xml",
         "rss2-cdata-entities.xml",
         "rss2-content-encoded.xml",
         "rss2-empty-channel.xml",

@@ -316,7 +316,7 @@ public sealed class ReaderServices : IAsyncDisposable
                 ScrapeTemplateStore.FileName));
 
         var refresh = new FeedRefreshService(
-            feeds, items,
+            feeds, items, tags,
             new FeedFetcher(http),
             new FeedParser(),
             new BackoffPolicy(),

@@ -52,8 +52,9 @@ Three groups, each collapsible by clicking its heading.
 - **Feeds** holds your subscriptions. A feed inside a folder is indented under
   it, and folders that have unread articles carry a count of their own. Feeds
   that belong to no folder are listed after the folders.
-- **Tags** appears only once you have tagged something. Selecting a tag lists
-  every article carrying it, across every feed.
+- **Tags** appears once there is something tagged, whether you tagged it or a
+  publisher did (see section 7). Selecting a tag lists every article carrying
+  it, across every feed.
 
 A feed with a problem grows a small **!** after its name. Hover it and it says
 what the problem is: the last error, or that the feed has been paused.
@@ -286,14 +287,28 @@ retry.
 
 ## 7. Tags
 
-The tag strip sits under the article's byline. Type a name, press Enter or
-click **Add**; click the small × on a chip to take one off.
+The tag strip sits under the article's byline, showing the tags the article
+carries and a **+** beside them.
 
 ![Tags on an article](screenshots/06-article-tags.png)
 
-`T` opens a dialog that edits the whole list as comma-separated text, which is
+Click the **+**, or reach it with Tab and press Space, and it slides open into
+a box with the caret already in it. Type a name and press Enter, or click
+**Add**, which is what the **+** becomes while the box is open. It stays open
+afterwards so you can add another; Escape closes it without adding anything,
+and so does clicking away from an empty box. Click the small × on a chip to
+take a tag off.
+
+A comma-separated list works in the box, so `csharp, avalonia` adds two tags in
+one go. `T` opens a dialog that edits the whole list the same way, which is
 faster when you are changing several at once. **Edit, Edit Tags...** does the
 same.
+
+Feeds that file their own posts give you a head start: the categories a
+publisher puts on an article arrive as tags the first time that article is
+stored. They are ordinary tags from then on. What a refresh will never do is
+put one back after you have removed it, or re-apply it because the same
+article turned up again through another feed from the same site.
 
 Tags are shared across articles, so the first time you use one it appears in
 the sidebar's Tags section and every article you put it on afterwards joins

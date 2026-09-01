@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Categories as real publishers emit them, including the awkward parts.
+
+  Item one carries six of them, which is what mostlylucid.net puts on every
+  post, plus a domain attribute that is ignored, plus a spelling that differs
+  only by case from one already present and a padded one that collapses onto
+  another. Item two carries an empty element, a whitespace-only one, one over
+  TagName.MaxLength and one with a comma: all four are refused, so it ends up
+  with the single usable name.
+-->
+<rss version="2.0">
+  <channel>
+    <title>Category Blog</title>
+    <link>https://categories.example/</link>
+    <description>A blog that files its posts.</description>
+    <item>
+      <title>A well-filed post</title>
+      <link>https://categories.example/filed</link>
+      <guid isPermaLink="false">tag:categories.example,2026:1</guid>
+      <pubDate>Wed, 26 Aug 2026 09:00:00 GMT</pubDate>
+      <description>Filed under rather a lot.</description>
+      <category>AI</category>
+      <category domain="https://categories.example/tags">Architecture</category>
+      <category>ASP.NET</category>
+      <category>Patterns</category>
+      <category>  Performance  </category>
+      <category>StyloBot</category>
+      <category>ai</category>
+      <category>Performance</category>
+    </item>
+    <item>
+      <title>A badly-filed post</title>
+      <link>https://categories.example/badly-filed</link>
+      <guid isPermaLink="false">tag:categories.example,2026:2</guid>
+      <pubDate>Thu, 27 Aug 2026 09:00:00 GMT</pubDate>
+      <description>Filed under junk.</description>
+      <category></category>
+      <category>   </category>
+      <category>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</category>
+      <category>one,two</category>
+      <category>Usable</category>
+    </item>
+  </channel>
+</rss>

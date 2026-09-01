@@ -38,6 +38,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
 
     private readonly FeedRepository _feeds;
     private readonly ItemRepository _items;
+    private readonly TagRepository _tags;
     private readonly FeedFetcher _fetcher;
     private readonly IFeedParser _parser;
     private readonly BackoffPolicy _backoff;
@@ -59,6 +60,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
     public FeedRefreshService(
         FeedRepository feeds,
         ItemRepository items,
+        TagRepository tags,
         FeedFetcher fetcher,
         IFeedParser parser,
         BackoffPolicy backoff,
@@ -72,6 +74,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
         _scrapeTemplates = scrapeTemplates;
         _feeds = feeds;
         _items = items;
+        _tags = tags;
         _fetcher = fetcher;
         _parser = parser;
         _backoff = backoff;
@@ -389,7 +392,10 @@ public sealed class FeedRefreshService : IAsyncDisposable
             })
             .ToList();
 
-        var newCount = await _items.UpsertManyAsync(items, ct);
+        var outcomes = await _items.UpsertBatchAsync(items, ct);
+        var newCount = outcomes.Count(outcome => outcome.IsNewRow);
+
+        await ImportPublisherCategoriesAsync(parsed.Items, outcomes, ct);
 
         // Adopt the feed's own title and site link, but never overwrite a title
         // the user set for themselves. Written through a narrow update that
@@ -409,6 +415,77 @@ public sealed class FeedRefreshService : IAsyncDisposable
             _backoff.NextDueAfterSuccess(now, settings), ct);
 
         return new FeedRefreshOutcome(feed.Id, true, newCount, false, null);
+    }
+
+    /// <summary>
+    /// Applies the categories a publisher put on an item as tags, ONCE, when
+    /// the article first enters this database. Never again.
+    ///
+    /// The rule is the whole design, so it is worth stating why it is that and
+    /// not "keep the tags in step with the feed".
+    ///
+    /// A feed's XML window relists every item on every fetch, categories and
+    /// all. Re-applying them on each poll would mean a user who takes a tag
+    /// off an article is arguing with the poller: the tag comes back within
+    /// the refresh interval, with nothing on screen to say why, and no way to
+    /// win short of unsubscribing. A tag in this app is the user's own filing
+    /// - they can rename it across every article, merge it into another, and
+    /// delete it outright - so a write the user can undo but cannot make stick
+    /// is the one behaviour that would make the whole Tags section untrustworthy.
+    /// Importing once gives the publisher's suggestion and then gets out of the
+    /// way, which is what every other reader-owned column already does (see the
+    /// SET list ItemRepository's upsert deliberately leaves alone).
+    ///
+    /// The cost, stated plainly: a category a publisher adds to an article
+    /// after we first stored it never arrives. That is the right way round.
+    /// Missing a late category costs the user a tag they can type in three
+    /// seconds; re-adding a removed one costs them the ability to curate at all.
+    ///
+    /// IsNewArticle, not merely IsNewRow, is what gates the import, and that is
+    /// the dedupe interaction. The same article routinely arrives twice, under
+    /// an RSS feed and an Atom one, as two rows sharing a canonical_id; read
+    /// and starred already propagate across those twins, and so does tagging
+    /// (see TagRepository's doc comment - AddToItemAsync writes to every copy).
+    /// So a second copy arriving is a new ROW but not a new ARTICLE, and
+    /// importing its categories would re-apply, to the article the user has
+    /// already curated, exactly the tags they removed from it - the very thing
+    /// the once-only rule exists to prevent, arriving by the back door the
+    /// moment they subscribe to the same site's other feed. The article
+    /// already carries whatever tags it should; the new copy inherits them
+    /// through the twin write, and nothing is imported for it.
+    ///
+    /// No schema change was made for this, and the tags stored here are not
+    /// marked as the publisher's. Telling them apart would need a per-link
+    /// origin column on item_tags (V9), and it would buy nothing that can be
+    /// acted on. An imported tag is an ordinary tag in every respect that
+    /// matters: the user can rename it, merge it, remove it from one article
+    /// or delete it everywhere, and once they have done any of those the
+    /// origin marker is either wrong or meaningless. The sidebar's Tags
+    /// section, which is the place tags are actually used, aggregates by NAME
+    /// across every article, and a name will routinely have both origins at
+    /// once - "Architecture" imported from one post and typed onto another -
+    /// so there is no honest badge to put on that row at all. A marker on the
+    /// chip would be a distinction the user cannot use and cannot correct.
+    ///
+    /// A tag write failing here is not swallowed. It is a write to the same
+    /// database the items just went into, so if it fails the refresh really
+    /// did go wrong, and letting it out means the feed's failure is recorded
+    /// and reported the same way any other one is.
+    /// </summary>
+    private async Task ImportPublisherCategoriesAsync(
+        IReadOnlyList<ParsedItem> parsed,
+        IReadOnlyList<ItemUpsertOutcome> outcomes,
+        CancellationToken ct)
+    {
+        // Positional: UpsertBatchAsync reports one outcome per item passed, in
+        // order, and the items were built from parsed.Items in order.
+        for (var i = 0; i < outcomes.Count && i < parsed.Count; i++)
+        {
+            if (outcomes[i] is not { IsNewRow: true, IsNewArticle: true, Id: { } itemId }) continue;
+
+            foreach (var category in parsed[i].Categories)
+                await _tags.AddToItemAsync(itemId, category, ct);
+        }
     }
 
     private async Task RecordFailureAsync(

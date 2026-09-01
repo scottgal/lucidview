@@ -19,12 +19,14 @@ public class FeedRefreshServiceTests : IAsyncLifetime
     private ReaderDatabase _db = null!;
     private FeedRepository _feeds = null!;
     private ItemRepository _items = null!;
+    private TagRepository _tags = null!;
 
     public async Task InitializeAsync()
     {
         _db = await ReaderDatabase.OpenAsync(_temp.Path);
         _feeds = new FeedRepository(_db);
         _items = new ItemRepository(_db);
+        _tags = new TagRepository(_db);
     }
 
     public async Task DisposeAsync()
@@ -34,7 +36,7 @@ public class FeedRefreshServiceTests : IAsyncLifetime
     }
 
     private FeedRefreshService CreateService(StubHttpHandler handler, TimeSpan? maxFetchDuration = null) =>
-        new(_feeds, _items,
+        new(_feeds, _items, _tags,
             new FeedFetcher(handler.CreateClient()),
             new FeedParser(),
             new BackoffPolicy(new Random(999)),

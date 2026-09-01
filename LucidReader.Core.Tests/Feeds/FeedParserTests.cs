@@ -186,8 +186,91 @@ public class FeedParserTests
     [InlineData("rss2-cdata-entities.xml")]
     [InlineData("rss2-bare-ampersand.xml")]
     [InlineData("rss2-no-identity.xml")]
+    [InlineData("rss2-categories.xml")]
+    [InlineData("atom-categories.xml")]
     public void CanParse_accepts_every_real_feed_in_the_corpus(string fixture)
     {
         Assert.True(_parser.CanParse(Fixtures.Feed(fixture)));
+    }
+
+    // =====================================================================
+    // Publisher categories.
+    // =====================================================================
+
+    [Fact]
+    public void Rss_category_elements_become_the_items_categories()
+    {
+        var feed = Parse("rss2-categories.xml");
+
+        Assert.Equal(
+            ["AI", "Architecture", "ASP.NET", "Patterns", "Performance", "StyloBot"],
+            feed.Items[0].Categories);
+    }
+
+    /// <summary>
+    /// Order is the publisher's, and the first spelling wins: "ai" arrives
+    /// after "AI" and is the same tag by TagName's rules, so it must not
+    /// produce a second entry or change the one already there.
+    /// </summary>
+    [Fact]
+    public void A_repeated_category_is_collapsed_onto_its_first_spelling()
+    {
+        var categories = Parse("rss2-categories.xml").Items[0].Categories;
+
+        Assert.Equal(6, categories.Count);
+        Assert.Contains("AI", categories);
+        Assert.DoesNotContain("ai", categories);
+    }
+
+    /// <summary>
+    /// The padded "  Performance  " and the plain "Performance" are one tag
+    /// after TagName's trimming, which is the point of running publisher
+    /// categories through the same rules a typed name goes through.
+    /// </summary>
+    [Fact]
+    public void A_padded_category_is_trimmed_and_not_stored_twice()
+    {
+        var categories = Parse("rss2-categories.xml").Items[0].Categories;
+
+        Assert.Single(categories, name => name == "Performance");
+    }
+
+    [Fact]
+    public void Categories_the_name_rules_refuse_are_dropped_rather_than_stored()
+    {
+        var categories = Parse("rss2-categories.xml").Items[1].Categories;
+
+        // An empty element, a whitespace-only one, one of 33 characters and
+        // one carrying a comma: only the usable name survives, and the item
+        // is still parsed rather than skipped over any of them.
+        Assert.Equal(["Usable"], categories);
+    }
+
+    [Fact]
+    public void An_item_with_no_category_elements_has_an_empty_list_rather_than_null()
+    {
+        var feed = Parse("rss2-simple.xml");
+
+        Assert.NotNull(feed.Items[0].Categories);
+        Assert.Empty(feed.Items[0].Categories);
+    }
+
+    [Fact]
+    public void Atom_categories_come_from_term_and_fall_back_to_label()
+    {
+        var feed = Parse("atom-categories.xml");
+
+        // "dotnet" (term) rather than "DotNet" (label) for the one that
+        // carries both, and one entry for it, not two. "Weeknotes" has no
+        // term at all and is the fallback case.
+        Assert.Equal(["Avalonia", "dotnet", "Weeknotes"], feed.Items[0].Categories);
+    }
+
+    [Fact]
+    public void An_atom_category_with_neither_term_nor_label_yields_nothing()
+    {
+        var feed = Parse("atom-categories.xml");
+
+        Assert.Empty(feed.Items[1].Categories);
     }
 }

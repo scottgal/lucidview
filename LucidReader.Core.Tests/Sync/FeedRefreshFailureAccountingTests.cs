@@ -40,7 +40,7 @@ public class FeedRefreshFailureAccountingTests : IAsyncLifetime
     }
 
     private FeedRefreshService CreateService(StubHttpHandler handler) =>
-        new(_feeds, _items,
+        new(_feeds, _items, new TagRepository(_db),
             new FeedFetcher(handler.CreateClient()),
             new FeedParser(),
             new BackoffPolicy(new Random(999)),

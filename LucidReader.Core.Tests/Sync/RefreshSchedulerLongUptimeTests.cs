@@ -54,7 +54,7 @@ public class RefreshSchedulerLongUptimeTests : IAsyncLifetime
             HttpStatusCode.OK, Fixtures.Feed("rss2-simple.xml"));
 
         _refresh = new FeedRefreshService(
-            _feeds, new ItemRepository(_db),
+            _feeds, new ItemRepository(_db), new TagRepository(_db),
             new FeedFetcher(handler.CreateClient()), new FeedParser(),
             new BackoffPolicy(new Random(7)), () => ReaderSettings.Defaults, _time);
 

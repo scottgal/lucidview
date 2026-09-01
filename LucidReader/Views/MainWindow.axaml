@@ -655,15 +655,74 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBox x:Name="TagEntryBox" Width="150" Height="24"
-                                 Margin="0,2,6,2" Padding="6,0" FontSize="11.5"
-                                 VerticalContentAlignment="Center"
-                                 Watermark="Add a tag"
-                                 Text="{Binding TagEntryText, Mode=TwoWay}"
-                                 KeyDown="OnTagEntryKeyDown" />
-                        <Button x:Name="AddTagButton" Content="Add" Classes="row-toolbar"
+                        <!--
+                            The add-a-tag control: a "+" that expands into the
+                            entry field, rather than a permanent 150px box and
+                            an Add button sitting above every article for
+                            something used occasionally.
+
+                            One button, two jobs, and deliberately so. Collapsed
+                            it says "+" and opens the field; expanded it says
+                            "Add" and commits what was typed, which is what
+                            keeps the flow reachable with a pointer alone now
+                            that there is no second button. Enter commits too
+                            (OnTagEntryKeyDown), Escape collapses without
+                            adding, and so does clicking away from an empty
+                            field. It keeps the name AddTagButton because it is
+                            still the add-a-tag control, and the UI harness
+                            drives it by that name.
+
+                            The button comes FIRST in the panel and the field
+                            grows to its right, so the thing being clicked
+                            never moves under the pointer. The chips are one
+                            child of this WrapPanel (the ItemsControl, with a
+                            WrapPanel of its own inside), so expanding cannot
+                            re-flow them either: the only thing that can wrap is
+                            the reveal itself, at the end of the row.
+                        -->
+                        <Button x:Name="AddTagButton" Classes="row-toolbar"
+                                Content="{Binding AddTagButtonLabel}"
+                                ToolTip.Tip="{Binding AddTagButtonTip}"
                                 Margin="0,2,0,2"
                                 Click="OnAddArticleTagClicked" />
+
+                        <!--
+                            The reveal. Width is animated rather than IsVisible
+                            toggled, because IsVisible is a layout on/off switch
+                            with nothing in between and would snap the row open.
+                            The TextBox inside keeps its full 150px at all
+                            times and is clipped by this border, so the field
+                            slides out at a fixed size instead of the text
+                            re-laying out on every animation frame.
+
+                            28 tall for a 24-tall field, and the field centred
+                            in it. A container exactly as tall as its contents
+                            clips the TextBox's own top and bottom border lines
+                            away along with everything else, leaving a field
+                            drawn as two vertical strokes; the 2px either side
+                            keeps the whole outline inside the clip. The row is
+                            no taller for it, since the box carried the same 2px
+                            as margin before.
+                        -->
+                        <Border x:Name="TagEntryReveal" ClipToBounds="True"
+                                Height="28"
+                                Width="{Binding TagEntryWidth}">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Width" Duration="0:0:0.16"
+                                                      Easing="CubicEaseOut" />
+                                </Transitions>
+                            </Border.Transitions>
+                            <TextBox x:Name="TagEntryBox" Width="150" Height="24"
+                                     Margin="6,0,0,0" Padding="6,0" FontSize="11.5"
+                                     VerticalAlignment="Center"
+                                     VerticalContentAlignment="Center"
+                                     Watermark="Add a tag"
+                                     IsTabStop="{Binding IsTagEntryExpanded}"
+                                     Text="{Binding TagEntryText, Mode=TwoWay}"
+                                     KeyDown="OnTagEntryKeyDown"
+                                     LostFocus="OnTagEntryLostFocus" />
+                        </Border>
                     </WrapPanel>
 
                     <Border x:Name="OfflineBadge" IsVisible="{Binding ShowOfflineBadge}"

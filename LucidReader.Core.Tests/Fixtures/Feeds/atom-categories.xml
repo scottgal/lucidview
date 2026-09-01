@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Atom categories. The first entry has a term-only category, one carrying both
+  term and label (term wins, and the pair must not become two tags), and one
+  with a label but no term, which is malformed by RFC 4287 but does happen and
+  is the case the label fallback exists for. The second entry has a category
+  element with neither attribute, which yields nothing at all.
+-->
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Atom Categories</title>
+  <link href="https://atom-categories.example/"/>
+  <updated>2026-08-27T10:00:00Z</updated>
+  <entry>
+    <title>A filed entry</title>
+    <link href="https://atom-categories.example/entry-1"/>
+    <id>urn:uuid:2225c695-cfb8-4ebb-aaaa-80da344efa6a</id>
+    <published>2026-08-26T09:00:00Z</published>
+    <updated>2026-08-26T09:00:00Z</updated>
+    <summary>A summary.</summary>
+    <category term="Avalonia"/>
+    <category term="dotnet" label="DotNet"/>
+    <category label="Weeknotes"/>
+  </entry>
+  <entry>
+    <title>An unfiled entry</title>
+    <link href="https://atom-categories.example/entry-2"/>
+    <id>urn:uuid:3335c695-cfb8-4ebb-aaaa-80da344efa6a</id>
+    <published>2026-08-27T09:00:00Z</published>
+    <updated>2026-08-27T09:00:00Z</updated>
+    <summary>Another summary.</summary>
+    <category/>
+  </entry>
+</feed>

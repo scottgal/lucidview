@@ -134,16 +134,58 @@ public sealed class ItemRepository(ReaderDatabase db)
     /// rows were newly inserted, which is what the caller needs in order to
     /// queue only genuinely new items for offline download.
     ///
-    /// All items in the batch must belong to the same feed. The inserted count
-    /// is computed by counting that feed's rows before and after the batch,
-    /// which is only correct when every item shares one feed_id; a batch that
-    /// spans multiple feeds is rejected rather than silently mis-counted.
+    /// A thin count over <see cref="UpsertBatchAsync"/>, which is where the
+    /// work and the reasoning live.
     /// </summary>
     public async Task<int> UpsertManyAsync(
         IReadOnlyList<FeedItem> items,
+        CancellationToken ct = default) =>
+        (await UpsertBatchAsync(items, ct)).Count(outcome => outcome.IsNewRow);
+
+    /// <summary>
+    /// Upserts a batch of items in a single transaction and says, per item and
+    /// in the order they were passed, what happened to it: the row id it now
+    /// occupies, whether that row is one this call inserted, and whether the
+    /// article behind it was new to the database rather than merely new to
+    /// this subscription.
+    ///
+    /// All items in the batch must belong to the same feed. A batch spanning
+    /// several feeds is rejected rather than half-handled.
+    ///
+    /// SqliteSingleWriter.WriteBatchAsync (Mostlylucid.Ephemeral.Sqlite.SingleWriter 3.0.0)
+    /// is not usable here: its per-command Parameters is bound via reflection over the
+    /// object's public properties, always prefixed with "@", so passing our $-prefixed
+    /// SQL with a Dictionary&lt;string, object?&gt; would silently reflect over the
+    /// dictionary's own properties (Count, Keys, ...) instead of its entries. Binding the
+    /// parameters ourselves inside one ExecuteInTransactionAsync call keeps the batch
+    /// atomic and keeps the $-prefixed SQL convention used throughout this codebase.
+    ///
+    /// Every lookup below runs on the transaction's own connection, inside the
+    /// same ExecuteInTransactionAsync call as the upsert loop, so the
+    /// look-write-look sequence is atomic against any concurrent writer -
+    /// retention pruning in particular runs on a timer and can delete rows for
+    /// this feed between two reads taken outside a transaction.
+    ///
+    /// The per-item lookup replaced a count of the feed's rows before and
+    /// after the whole batch. That count could say how many rows appeared but
+    /// never which ones, and "which ones" is what a caller wanting to act on
+    /// genuinely new items - the publisher-category import in
+    /// FeedRefreshService - has to know. For an item this database already
+    /// holds, which is the overwhelmingly common case on a poll, it costs one
+    /// indexed lookup on ix_items_feed_guid and nothing else.
+    ///
+    /// IsNewArticle is false when another row already carries the same
+    /// canonical_id: the article is stored, under some other subscription,
+    /// and this is a second copy of it arriving. A null canonical_id means "no
+    /// usable link, this row stands alone", so such a row is always its own
+    /// article - the same rule the dedupe in QueryAsync and the twin updates
+    /// in SetFlagAcrossCopiesAsync follow.
+    /// </summary>
+    public async Task<IReadOnlyList<ItemUpsertOutcome>> UpsertBatchAsync(
+        IReadOnlyList<FeedItem> items,
         CancellationToken ct = default)
     {
-        if (items.Count == 0) return 0;
+        if (items.Count == 0) return [];
 
         var feedId = items[0].FeedId;
         if (items.Any(item => item.FeedId != feedId))
@@ -152,36 +194,45 @@ public sealed class ItemRepository(ReaderDatabase db)
                 "All items in a batch must belong to the same feed.", nameof(items));
         }
 
-        // SqliteSingleWriter.WriteBatchAsync (Mostlylucid.Ephemeral.Sqlite.SingleWriter 3.0.0)
-        // is not usable here: its per-command Parameters is bound via reflection over the
-        // object's public properties, always prefixed with "@", so passing our $-prefixed
-        // SQL with a Dictionary<string, object?> would silently reflect over the
-        // dictionary's own properties (Count, Keys, ...) instead of its entries. Binding the
-        // parameters ourselves inside one ExecuteInTransactionAsync call keeps the batch
-        // atomic and keeps the $-prefixed SQL convention used throughout this codebase.
-        //
-        // Both counts are taken on the transaction's own connection, inside the same
-        // ExecuteInTransactionAsync call as the upsert loop, so the count-insert-count
-        // sequence is atomic against any concurrent writer (retention pruning in
-        // particular runs on a timer and can delete rows for this feed between two
-        // counts taken outside the transaction).
-        return await db.Writer.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
-        {
-            var before = await CountAsync(connection, transaction, feedId, innerCt);
-
-            foreach (var item in items)
+        return await db.Writer.ExecuteInTransactionAsync<IReadOnlyList<ItemUpsertOutcome>>(
+            async (connection, transaction, innerCt) =>
             {
-                await using var command = connection.CreateCommand();
-                command.Transaction = transaction;
-                command.CommandText = UpsertSql;
-                foreach (var (key, value) in BuildParameters(item))
-                    command.Parameters.AddWithValue(key, value ?? DBNull.Value);
-                await command.ExecuteNonQueryAsync(innerCt);
-            }
+                var outcomes = new List<ItemUpsertOutcome>(items.Count);
 
-            var after = await CountAsync(connection, transaction, feedId, innerCt);
-            return after - before;
-        }, ct);
+                foreach (var item in items)
+                {
+                    var before = await FindIdAsync(connection, transaction, item, innerCt);
+
+                    await using (var command = connection.CreateCommand())
+                    {
+                        command.Transaction = transaction;
+                        command.CommandText = UpsertSql;
+                        foreach (var (key, value) in BuildParameters(item))
+                            command.Parameters.AddWithValue(key, value ?? DBNull.Value);
+                        await command.ExecuteNonQueryAsync(innerCt);
+                    }
+
+                    if (before is { } existingId)
+                    {
+                        outcomes.Add(new ItemUpsertOutcome(existingId, false, false));
+                        continue;
+                    }
+
+                    // Null here means the insert was blocked by a tombstone
+                    // (see UpsertSql), so there is no row to report.
+                    if (await FindIdAsync(connection, transaction, item, innerCt) is not { } insertedId)
+                    {
+                        outcomes.Add(new ItemUpsertOutcome(null, false, false));
+                        continue;
+                    }
+
+                    var isNewArticle =
+                        !await HasTwinAsync(connection, transaction, insertedId, innerCt);
+                    outcomes.Add(new ItemUpsertOutcome(insertedId, true, isNewArticle));
+                }
+
+                return outcomes;
+            }, ct);
     }
 
     public Task<FeedItem?> GetAsync(long id, CancellationToken ct = default) =>
@@ -523,18 +574,45 @@ public sealed class ItemRepository(ReaderDatabase db)
         }, ct);
 
     /// <summary>
-    /// Counts a feed's rows on the given connection and transaction, rather than
-    /// through db.QueryAsync's own short-lived connection, so a caller can take
-    /// this count as part of a larger atomic sequence (see UpsertManyAsync).
+    /// The row id for a (feed_id, guid), or null, on the caller's own
+    /// connection and transaction so the lookup is part of the same atomic
+    /// sequence as the write beside it (see UpsertBatchAsync).
     /// </summary>
-    private static async Task<int> CountAsync(
-        SqliteConnection connection, SqliteTransaction transaction, long feedId, CancellationToken ct)
+    private static async Task<long?> FindIdAsync(
+        SqliteConnection connection, SqliteTransaction transaction, FeedItem item, CancellationToken ct)
     {
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = "SELECT count(*) FROM items WHERE feed_id = $feedId;";
-        command.Parameters.AddWithValue("$feedId", feedId);
-        return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
+        command.CommandText = "SELECT id FROM items WHERE feed_id = $feedId AND guid = $guid;";
+        command.Parameters.AddWithValue("$feedId", item.FeedId);
+        command.Parameters.AddWithValue("$guid", item.Guid);
+        var found = await command.ExecuteScalarAsync(ct);
+        return found is null or DBNull ? null : Convert.ToInt64(found);
+    }
+
+    /// <summary>
+    /// Whether some other row is the same article as this one: another row
+    /// sharing its canonical_id. A null canonical_id matches nothing, so a row
+    /// with no usable link never has a twin.
+    /// </summary>
+    private static async Task<bool> HasTwinAsync(
+        SqliteConnection connection, SqliteTransaction transaction, long id, CancellationToken ct)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM items
+                WHERE id <> $id
+                  AND canonical_id = (
+                      SELECT canonical_id FROM items
+                      WHERE id = $id AND canonical_id IS NOT NULL
+                  )
+            );
+            """;
+        command.Parameters.AddWithValue("$id", id);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(ct)) != 0;
     }
 
     private static Dictionary<string, object?> BuildParameters(FeedItem item) => new()
@@ -562,3 +640,14 @@ public sealed class ItemRepository(ReaderDatabase db)
         ["$canonicalId"] = CanonicalArticleId.FromLink(item.Link)
     };
 }
+
+/// <summary>
+/// What one item's upsert did, in the order the batch was passed.
+///
+/// Id is null only when a tombstone blocked the write, so there is no row.
+/// IsNewRow says this call created the row. IsNewArticle additionally says the
+/// article itself was new to the database, rather than a copy of one already
+/// stored under another subscription; it is only ever true alongside
+/// IsNewRow. See <see cref="ItemRepository.UpsertBatchAsync"/>.
+/// </summary>
+public readonly record struct ItemUpsertOutcome(long? Id, bool IsNewRow, bool IsNewArticle);

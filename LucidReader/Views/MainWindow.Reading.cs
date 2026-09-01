@@ -108,6 +108,14 @@ public partial class MainWindow
         _heroCoordinator.CancelPending();
         HeroImagePath = null;
 
+        // A half-typed tag belongs to the article it was being typed on, so an
+        // article switch closes the entry rather than carrying the text across
+        // to whatever is shown next, where a stray Enter would tag the wrong
+        // thing. Deliberately here and not in RefreshArticleTagsAsync, which
+        // also runs after every add and must leave the entry open for the next
+        // one. See MainWindow.Tags.cs.
+        CollapseTagEntry();
+
         var generation = Interlocked.Increment(ref _articleGeneration);
 
         if (row is null)

@@ -47,4 +47,7 @@ trap cleanup EXIT INT TERM
 
 cleanup
 
-"$APP" --ux-test --script "$REPO/ux-scripts/verify-mostlylucid.yaml" --output "$OUT"
+# Headless, like every other script here: a run that puts a window on screen
+# takes keyboard focus off whoever is using the machine. See
+# ux-scripts/reader-harness.sh. Set MYLO_UX_MODE to override.
+"$APP" ${MYLO_UX_MODE:---ux-headless} --ux-test --script "$REPO/ux-scripts/verify-mostlylucid.yaml" --output "$OUT"

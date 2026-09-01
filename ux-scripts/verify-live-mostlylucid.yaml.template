@@ -206,6 +206,50 @@ actions:
     description: The reading pane, rendering a real mostlylucid.net article
 
   # =====================================================================
+  # The publisher's own categories arrived as tags.
+  #
+  # Every post on mostlylucid.net carries several <category> elements, and
+  # nothing in this run typed a tag: the profile is new, the fixture is not
+  # loaded, and no action above touched the tag strip. So a chip on this
+  # article and a Tags section in the sidebar can only have come from the
+  # feed.
+  #
+  # Lower bounds again, and for the same reason the article count is one:
+  # which categories the site files a post under today is the site's
+  # business. What is asserted is that some arrived, not which. The names
+  # that actually landed are printed by run-live-mostlylucid.sh.
+  # =====================================================================
+  - type: Expect
+    target: "first(name=RemoveTagButton)"
+    matcher: IsVisible
+    timeout: 20000
+    description: >
+      At least one tag chip on an article nobody tagged, which is the
+      publisher's category having been imported when the item was stored.
+
+  - type: Expect
+    target: SidebarSections
+    matcher: HasCount
+    value: "3"
+    description: >
+      Favourites, Feeds and Tags. The section only exists when something is
+      tagged, and nothing in this run tagged anything by hand.
+
+  - type: Expect
+    target: AddTagButton
+    matcher: HasText
+    value: "+"
+    description: >
+      And the add control is still the collapsed "+" beside them: the chips
+      here were not typed into it.
+
+  - type: Screenshot
+    value: 03b-publisher-tags
+    description: >
+      The imported tags: chips under the byline, and the Tags section in the
+      sidebar built from them.
+
+  # =====================================================================
   # Full-text search finds a word from a real article. The word is
   # substituted by run-live-mostlylucid.sh from the live feed.
   # =====================================================================

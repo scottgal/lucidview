@@ -39,4 +39,8 @@ cleanup
 sqlite3 "$DB" "INSERT INTO feeds (feed_url, title, is_enabled, consecutive_failures, last_error, auto_paused_utc)
                VALUES ('$SEED_URL', 'Paused Feed', 0, 20, 'Name or service not known', '2026-08-29T12:00:00.0000000+00:00');"
 
-"$APP" --ux-test --script "$REPO/ux-scripts/verify-refresh-health.yaml" --output "$OUT"
+# Headless, like every other script here: a run that puts a window on screen
+# takes keyboard focus off whoever is using the machine. See
+# ux-scripts/reader-harness.sh. Set MYLO_UX_MODE to override.
+"$APP" ${MYLO_UX_MODE:---ux-headless} \
+    --ux-test --script "$REPO/ux-scripts/verify-refresh-health.yaml" --output "$OUT"

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The same two articles as rss2-categories.xml, at the same links, published
+  as Atom instead: what a site offering both an RSS and an Atom feed of one
+  blog actually serves. Same links means the same canonical_id, which is what
+  makes these rows twins rather than separate articles, and the categories are
+  repeated here for exactly the reason a real feed repeats them.
+-->
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Category Blog</title>
+  <link href="https://categories.example/"/>
+  <updated>2026-08-27T10:00:00Z</updated>
+  <entry>
+    <title>A well-filed post</title>
+    <link href="https://categories.example/filed"/>
+    <id>urn:uuid:4445c695-cfb8-4ebb-aaaa-80da344efa6a</id>
+    <published>2026-08-26T09:00:00Z</published>
+    <updated>2026-08-26T09:00:00Z</updated>
+    <summary>Filed under rather a lot.</summary>
+    <category term="AI"/>
+    <category term="Architecture"/>
+    <category term="ASP.NET"/>
+    <category term="Patterns"/>
+    <category term="Performance"/>
+    <category term="StyloBot"/>
+  </entry>
+  <entry>
+    <title>A badly-filed post</title>
+    <link href="https://categories.example/badly-filed"/>
+    <id>urn:uuid:5555c695-cfb8-4ebb-aaaa-80da344efa6a</id>
+    <published>2026-08-27T09:00:00Z</published>
+    <updated>2026-08-27T09:00:00Z</updated>
+    <summary>Filed under junk.</summary>
+    <category term="Usable"/>
+  </entry>
+</feed>

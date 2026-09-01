@@ -23,9 +23,15 @@ description: >
   InputDialog, and while this harness can route actions into a dialog by
   window_id (verify-dialog-drive.yaml proves it), a modal is a poor only-way-in
   for the most ordinary action in the feature. The strip in the reading pane
-  is a TextBox and two Buttons, which is the FeedSettingsButton /
+  is a named Button and a named TextBox, which is the FeedSettingsButton /
   ResumeFeedButton precedent: a named control beside the context-menu route,
   so the flow is verifiable rather than merely present.
+
+  AddTagButton is one control doing two jobs, which is why it is clicked twice
+  for one tag below. Collapsed it reads "+" and opens the entry; open it reads
+  "Add" and commits what was typed. Its own label is therefore the assertion
+  for which state the control is in, and it is checked in both directions:
+  after an add (still open, ready for a second tag) and after Escape (closed).
 
   Sidebar rows are driven as MouseDown then MouseUp, never Click: the
   harness's Click on a non-Button only calls Focus(), and sidebar selection is
@@ -100,11 +106,40 @@ actions:
     value: "0"
     description: This article carries no tags yet
 
+  - type: Expect
+    target: AddTagButton
+    matcher: HasText
+    value: "+"
+    description: >
+      The add control is collapsed to a "+" over an untagged article, rather
+      than a permanent entry field and a second button.
+
+  - type: Screenshot
+    value: 01a-add-collapsed
+
   # =====================================================================
-  # Tag it. The name is typed padded and mixed-case on purpose: the rules
-  # in LucidReader.Core.Model.TagName trim it and collapse the internal run
-  # of spaces, so what lands is "Read Later".
+  # Open the entry, then tag it. The name is typed padded and mixed-case on
+  # purpose: the rules in LucidReader.Core.Model.TagName trim it and
+  # collapse the internal run of spaces, so what lands is "Read Later".
   # =====================================================================
+  - type: Click
+    target: AddTagButton
+  - type: Wait
+    value: "600"
+    description: The 160ms width transition, with room to spare
+
+  - type: Expect
+    target: AddTagButton
+    matcher: HasText
+    value: "Add"
+    description: Open, and the same button now commits rather than opens
+  - type: Expect
+    target: TagEntryBox
+    matcher: IsVisible
+
+  - type: Screenshot
+    value: 01b-add-expanded
+
   - type: TypeText
     target: TagEntryBox
     value: "  Read   Later "
@@ -127,6 +162,15 @@ actions:
     matcher: HasValue
     value: ""
     description: The box empties on a successful add, ready for the next one
+  - type: Expect
+    target: AddTagButton
+    matcher: HasText
+    value: "Add"
+    description: >
+      And it stays open. Tagging an article with two or three names in one go
+      is the ordinary case, so a successful add does not close the thing the
+      user has not finished with; Escape and clicking away are what close it,
+      and both are exercised below.
   - type: Expect
     target: SidebarSections
     matcher: HasCount
@@ -170,6 +214,37 @@ actions:
     matcher: HasCount
     value: "3"
     description: And no tag row was created for it either
+
+  # =====================================================================
+  # Escape closes the entry without adding, and throws away what was in it.
+  # The refused 33-character name is still sitting in the box, which makes
+  # this the useful case to cancel: a real "changed my mind" rather than a
+  # cancel of nothing.
+  # =====================================================================
+  - type: PressKey
+    target: TagEntryBox
+    value: Escape
+  - type: Wait
+    value: "600"
+
+  - type: Expect
+    target: AddTagButton
+    matcher: HasText
+    value: "+"
+    description: Back to the collapsed "+" without anything having been added
+  - type: Expect
+    target: ArticleTagList
+    matcher: HasCount
+    value: "1"
+    description: Still the one tag from before
+  - type: Expect
+    target: TagEntryBox
+    matcher: HasValue
+    value: ""
+    description: And the refused name went with the cancel
+
+  - type: Screenshot
+    value: 01c-add-collapsed-again
 
   # =====================================================================
   # Selecting the tag lists the article, from a sidebar row that did not
@@ -363,6 +438,20 @@ actions:
   - type: Wait
     value: "800"
 
+  - type: Expect
+    target: AddTagButton
+    matcher: HasText
+    value: "+"
+    description: >
+      Collapsed again for a second article, so the entry has to be opened
+      before it can be typed into. (That an article SWITCH closes an open
+      entry is asserted from the other direction below, where one is left
+      open on purpose before the selection moves.)
+
+  - type: Click
+    target: AddTagButton
+  - type: Wait
+    value: "600"
   - type: TypeText
     target: TagEntryBox
     value: "archive"
@@ -380,6 +469,46 @@ actions:
 
   - type: Screenshot
     value: 06-two-tags
+
+  # =====================================================================
+  # An open entry with something half-typed in it does not follow the user
+  # to the next article. The entry is still open here (the add above left
+  # it open), so putting a name in it and then selecting a different
+  # article is the case: the strip belongs to the article, and a stray
+  # Enter afterwards must not tag the wrong one.
+  # =====================================================================
+  - type: TypeText
+    target: TagEntryBox
+    value: "half typed"
+
+  - type: MouseDown
+    target: "text='An article already read'"
+    button: left
+  - type: MouseUp
+    target: "text='An article already read'"
+    button: left
+  - type: Wait
+    value: "1000"
+
+  - type: Expect
+    target: ArticleTitleText
+    matcher: HasText
+    value: "An article already read"
+  - type: Expect
+    target: AddTagButton
+    matcher: HasText
+    value: "+"
+    description: The switch closed the entry
+  - type: Expect
+    target: TagEntryBox
+    matcher: HasValue
+    value: ""
+    description: And took the half-typed name with it
+  - type: Expect
+    target: ArticleTagList
+    matcher: HasCount
+    value: "0"
+    description: Nothing was tagged onto either article by the switch
 
   - type: MouseDown
     target: "inside(name=SidebarSections) text='archive'"

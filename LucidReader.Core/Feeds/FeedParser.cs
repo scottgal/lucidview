@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
+using LucidReader.Core.Model;
 
 namespace LucidReader.Core.Feeds;
 
@@ -242,7 +243,11 @@ public sealed partial class FeedParser : IFeedParser
             UpdatedUtc = FeedDateParser.TryParse(element.Element(Dc + "date")?.Value),
             Summary = description,
             // content:encoded is the full article when a publisher offers one.
-            ContentHtml = encoded ?? description
+            ContentHtml = encoded ?? description,
+            Categories = NormaliseCategories(
+                element.Elements("category")
+                    .Concat(element.Elements(Rss1 + "category"))
+                    .Select(category => category.Value))
         });
     }
 
@@ -261,8 +266,51 @@ public sealed partial class FeedParser : IFeedParser
                            ?? FeedDateParser.TryParse(element.Element(Atom + "updated")?.Value),
             UpdatedUtc = FeedDateParser.TryParse(element.Element(Atom + "updated")?.Value),
             Summary = summary,
-            ContentHtml = content ?? summary
+            ContentHtml = content ?? summary,
+            // "term" is the machine-readable name and is required by RFC 4287;
+            // "label" is the optional human-readable spelling of the same
+            // thing. term first, label only as a fallback, so a feed that
+            // emits both does not produce two tags for one category.
+            Categories = NormaliseCategories(
+                element.Elements(Atom + "category")
+                    .Select(category =>
+                        (string?)category.Attribute("term")
+                        ?? (string?)category.Attribute("label")))
         });
+    }
+
+    /// <summary>
+    /// Turns whatever the publisher wrote in its category elements into names
+    /// the tag store will take.
+    ///
+    /// Every candidate goes through <see cref="TagName.TryNormalise"/>, which
+    /// is the one place the trimming, the whitespace collapsing, the comma and
+    /// control-character rules and the length limit are decided and tested. A
+    /// category that normalises to nothing - an empty element, a run of
+    /// whitespace - is dropped rather than stored as a blank tag, and so is
+    /// one the rules refuse for a stated reason: a feed is not a person who
+    /// can be told why, and a publisher's over-long or comma-bearing category
+    /// is not worth failing the whole item's import over.
+    ///
+    /// De-duplicated case-insensitively, through TagName.AreSame, because
+    /// that is the identity the tag store uses: a feed emitting both "dotnet"
+    /// and "DotNet" on one item means one tag, and asking the store to add it
+    /// twice would be two writes for one row.
+    /// </summary>
+    private static IReadOnlyList<string> NormaliseCategories(IEnumerable<string?> raw)
+    {
+        List<string>? names = null;
+
+        foreach (var candidate in raw)
+        {
+            if (!TagName.TryNormalise(candidate, out var name, out _)) continue;
+
+            names ??= [];
+            if (names.Any(existing => TagName.AreSame(existing, name))) continue;
+            names.Add(name);
+        }
+
+        return names ?? (IReadOnlyList<string>)[];
     }
 
     /// <summary>

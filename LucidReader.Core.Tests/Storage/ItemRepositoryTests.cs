@@ -126,6 +126,77 @@ public class ItemRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task UpsertBatch_reports_one_outcome_per_item_in_the_order_passed()
+    {
+        await _items.UpsertAsync(NewItem("guid-1"));
+
+        var outcomes = await _items.UpsertBatchAsync(new[]
+        {
+            NewItem("guid-1"),
+            NewItem("guid-2")
+        });
+
+        Assert.Equal(2, outcomes.Count);
+        Assert.False(outcomes[0].IsNewRow);
+        Assert.True(outcomes[1].IsNewRow);
+
+        // The id is reported for both, whether the row was inserted now or
+        // was already there.
+        var stored = await _items.QueryAsync(new ItemQuery(_feedId, null, ItemFilter.All, 100, 0));
+        Assert.Equal(stored.Select(item => item.Id).OrderBy(id => id),
+            outcomes.Select(outcome => outcome.Id!.Value).OrderBy(id => id));
+    }
+
+    /// <summary>
+    /// A row is new; the article behind it is not. The same link under a
+    /// second subscription gives both rows the same canonical_id, which is
+    /// what makes them one article everywhere else in this codebase.
+    /// </summary>
+    [Fact]
+    public async Task A_second_copy_of_a_stored_article_is_a_new_row_but_not_a_new_article()
+    {
+        await _items.UpsertAsync(NewItem("guid-1"));
+
+        var otherFeed = await new FeedRepository(_db).AddAsync(
+            new Feed { FeedUrl = "https://example.com/atom.xml" });
+
+        var outcomes = await _items.UpsertBatchAsync(new[]
+        {
+            NewItem("guid-1") with { FeedId = otherFeed, Guid = "other-guid-1" }
+        });
+
+        var outcome = Assert.Single(outcomes);
+        Assert.True(outcome.IsNewRow);
+        Assert.False(outcome.IsNewArticle);
+    }
+
+    [Fact]
+    public async Task A_genuinely_new_article_is_reported_as_one()
+    {
+        var outcome = Assert.Single(await _items.UpsertBatchAsync(new[] { NewItem("guid-1") }));
+
+        Assert.True(outcome.IsNewRow);
+        Assert.True(outcome.IsNewArticle);
+    }
+
+    /// <summary>
+    /// A row with no usable link has a null canonical_id, which matches no
+    /// other row, so it is always its own article however many such rows are
+    /// stored beside it.
+    /// </summary>
+    [Fact]
+    public async Task A_row_with_no_link_is_always_its_own_article()
+    {
+        await _items.UpsertBatchAsync(new[] { NewItem("guid-1") with { Link = null } });
+
+        var outcome = Assert.Single(
+            await _items.UpsertBatchAsync(new[] { NewItem("guid-2") with { Link = null } }));
+
+        Assert.True(outcome.IsNewRow);
+        Assert.True(outcome.IsNewArticle);
+    }
+
+    [Fact]
     public async Task Upserting_a_batch_spanning_two_feeds_is_rejected()
     {
         var otherFeed = await new FeedRepository(_db).AddAsync(

@@ -46,7 +46,7 @@ public class ScrapedFeedRefreshTests : IAsyncLifetime
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Html", name));
 
     private FeedRefreshService CreateService(StubHttpHandler handler) =>
-        new(_feeds, _items,
+        new(_feeds, _items, new TagRepository(_db),
             new FeedFetcher(handler.CreateClient()),
             new FeedParser(),
             new BackoffPolicy(new Random(999)),

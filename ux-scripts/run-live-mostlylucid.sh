@@ -9,6 +9,12 @@
 # pick a search word) and the rest are made by the app itself while it
 # subscribes and refreshes. Do not add a second publisher here.
 #
+# Headless, like every other script here, and for the reason
+# ux-scripts/reader-harness.sh gives: driving the app on the native platform
+# puts a window on screen and takes keyboard focus on every launch. Both
+# launches below therefore pass --ux-headless unless MYLO_UX_MODE says
+# otherwise.
+#
 # Everything happens in a throwaway profile, seeded and deleted by this
 # script, for the reasons ux-scripts/reader-harness.sh sets out at length: a
 # script that asserts on a database it did not create is asserting on
@@ -87,7 +93,7 @@ actions:
 YAML
 
 for attempt in 1 2 3; do
-    MYLO_DATA_DIR="$PROFILE" "$READER_APP" \
+    MYLO_DATA_DIR="$PROFILE" "$READER_APP" ${MYLO_UX_MODE:---ux-headless} \
         --ux-test --script "$PROFILE/bootstrap.yaml" --output "$PROFILE/bootstrap" \
         >"$PROFILE/bootstrap.log" 2>&1 || true
     [[ -f "$PROFILE/reader.db" ]] && break
@@ -158,7 +164,7 @@ sleep 2
 # about the reading pane is a great deal easier to explain once you can see
 # what the conversion actually produced.
 STATUS=0
-MYLO_DATA_DIR="$PROFILE" "$READER_APP" --ux-test --script "$SCRIPT" --output "$OUT" || STATUS=$?
+MYLO_DATA_DIR="$PROFILE" "$READER_APP" ${MYLO_UX_MODE:---ux-headless} --ux-test --script "$SCRIPT" --output "$OUT" || STATUS=$?
 
 # ---------------------------------------------------------------------------
 # What actually arrived. The assertions above prove the app is showing
@@ -174,6 +180,22 @@ SELECT 'feeds: ' || COUNT(*) FROM feeds;
 SELECT 'items: ' || COUNT(*) FROM items;
 SELECT 'items with extracted markdown: ' || COUNT(*)
   FROM items WHERE content_source = 1 AND LENGTH(COALESCE(content_markdown,'')) > 200;
+SELECT 'tags, none of them typed by this run: ' || COUNT(*) FROM tags;
+SQL
+
+# The tags themselves. Nothing in this run types one, so every name here came
+# out of a <category> element on a real post, and printing them is how a
+# person can see that the import produced names worth having rather than
+# whatever the parser happened to accept.
+echo
+echo "===== publisher categories that became tags ====="
+sqlite3 "$PROFILE/reader.db" <<'SQL'
+.mode list
+SELECT t.name || '  (' || COUNT(it.item_id) || ' articles)'
+  FROM tags t JOIN item_tags it ON it.tag_id = t.id
+ GROUP BY t.id, t.name
+ ORDER BY COUNT(it.item_id) DESC, t.name COLLATE NOCASE
+ LIMIT 40;
 SQL
 
 echo

@@ -22,4 +22,16 @@ public sealed record ParsedItem
     /// Still HTML at this point; conversion to markdown happens later.
     /// </summary>
     public string? ContentHtml { get; init; }
+
+    /// <summary>
+    /// The categories the publisher put on the item: RSS &lt;category&gt;
+    /// elements, or Atom &lt;category term="..."/&gt;. Already normalised and
+    /// de-duplicated by <see cref="LucidReader.Core.Model.TagName"/>, so what
+    /// is here is a list of names the tag store will accept as they stand.
+    ///
+    /// Empty rather than null when the feed offers none, which is most feeds:
+    /// a caller iterating this should not have to ask whether the publisher
+    /// bothered.
+    /// </summary>
+    public IReadOnlyList<string> Categories { get; init; } = [];
 }
