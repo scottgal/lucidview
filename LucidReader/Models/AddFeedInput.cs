@@ -167,6 +167,20 @@ public static class AddFeedInput
         "Tick the approval box to subscribe to this scraped page.";
 
     /// <summary>
+    /// What the dialog says when the shipped catalogue is put on screen. It
+    /// states the count and that nothing is ticked, because that is the one
+    /// thing a reader coming from the discovery chooser - where everything
+    /// starts ticked - will otherwise assume wrongly.
+    /// </summary>
+    public static string DescribeCatalog(int count) =>
+        count <= 0
+            ? "No catalogue feeds are available."
+            : $"{count} popular feeds, in categories. Tick the ones you want.";
+
+    public const string CatalogNothingTickedMessage =
+        "Tick at least one feed in the catalogue to add it.";
+
+    /// <summary>
     /// The result of an add. Skipped means the URL was already subscribed,
     /// which is a normal outcome and deliberately not an error; failed means
     /// the write itself did not go through, which is not, so the two are

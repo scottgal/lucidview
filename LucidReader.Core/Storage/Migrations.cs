@@ -6,7 +6,7 @@ namespace LucidReader.Core.Storage;
 /// </summary>
 public static class Migrations
 {
-    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7, V8 };
+    public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7, V8, V9 };
 
     private const string V1 = """
         CREATE TABLE folders (
@@ -311,5 +311,42 @@ public static class Migrations
     // identically to one created at V8.
     private const string V8 = """
         ALTER TABLE feeds ADD COLUMN source_kind INTEGER NOT NULL DEFAULT 0;
+        """;
+
+    // content_html: the richest body the publisher put in the feed itself -
+    // <content:encoded> for RSS, <content> for Atom - as HTML, before any
+    // conversion. FeedParser has always read it into ParsedItem.ContentHtml and
+    // the refresh path has always thrown it away, storing only <description> in
+    // summary. That was a real loss and not a theoretical one:
+    // alvinashcraft.com's feed carries a 281-character description beside a
+    // 27,536-character content:encoded holding the whole post, so every item
+    // reached OfflineDownloader looking like a stub, StubDetector agreed, and
+    // the downloader went to the network to re-fetch a page whose text mylo had
+    // already been given and discarded. When that fetch failed, or FetchFullText
+    // was off, the reader was left with 281 characters of an article it had
+    // received in full.
+    //
+    // Publisher-owned, so ItemRepository's upsert writes it with the same
+    // COALESCE(excluded.x, x) rule every other publisher-owned column follows.
+    // That rule matters more here than anywhere else: a publisher moving bodies
+    // between <description> and <content:encoded>, or a feed that emits the full
+    // text only in its most recent window, must not blank a body already stored
+    // - for an item whose page fetch failed, this column is the only complete
+    // copy of the article there is.
+    //
+    // Deliberately NOT added to items_fts. The searchable rendering of an
+    // article is content_markdown, which the download path derives from this
+    // column and which is already indexed; indexing the HTML as well would put
+    // every tag name and attribute value in the term list and match "article"
+    // against the markup of any page using <article>. It also keeps this
+    // migration to a header rewrite rather than a full reindex.
+    //
+    // Safe on a populated database: one ALTER TABLE ADD COLUMN with no default,
+    // which SQLite performs by rewriting the table header alone. Every existing
+    // row keeps a null here, which reads as "the feed gave us nothing richer
+    // than the summary" - exactly the state those rows were stored in - and the
+    // download path falls back to summary for them unchanged.
+    private const string V9 = """
+        ALTER TABLE items ADD COLUMN content_html TEXT NULL;
         """;
 }

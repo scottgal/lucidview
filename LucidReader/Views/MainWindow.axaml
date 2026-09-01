@@ -729,7 +729,16 @@
                             Padding="8,4" Margin="0,10,0,0" CornerRadius="4"
                             Background="{DynamicResource RowHoverBrush}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="{Binding OfflineBadgeText}" Classes="row-secondary" />
+                            <!--
+                                Named so a script can read what the badge says.
+                                Whether an article is being fetched, is showing
+                                only a teaser, or is complete and unbadged is
+                                the thing the feed-content work changed, and
+                                the harness cannot assert on an anonymous
+                                TextBlock.
+                            -->
+                            <TextBlock x:Name="OfflineBadgeMessage"
+                                       Text="{Binding OfflineBadgeText}" Classes="row-secondary" />
                             <Button x:Name="FetchFullArticleButton" Content="Fetch full article"
                                     FontSize="11" Padding="6,0"
                                     IsVisible="{Binding CanFetchFullArticle}"

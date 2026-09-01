@@ -120,6 +120,35 @@ pre-ticks only one of them, so you do not end up subscribed twice to one blog.
 Pick a folder if you want one, then **Add**. Anything you add is fetched
 immediately rather than waiting for the next scheduled refresh.
 
+### Browsing popular feeds
+
+If you have no address to paste, **Browse popular** opens a catalogue of
+well-known feeds grouped into News, Technology, Science, Culture and
+Development.
+
+![The shipped catalogue](screenshots/26-feed-catalogue.png)
+
+The list ships inside mylo. Nothing is fetched to show it, and it is not
+scraped from anywhere at the time you open it. Every address in it was checked
+by hand, and it is seeded from
+[rss.com's list of popular RSS feeds](https://rss.com/blog/popular-rss-feeds/)
+and then curated.
+
+Nothing starts ticked, which is the opposite of the chooser above and is
+deliberate: you asked to look at a list, not to subscribe to all of it. Tick as
+many as you want and press **Add**. They go in exactly as any other
+subscription does, folder and immediate fetch included.
+
+### Feed icons
+
+You do not have to do anything to get the icon beside a feed in the sidebar.
+On a feed's first successful refresh, mylo takes the icon the feed names for
+itself, or failing that the one the site declares, or failing that the site's
+favicon. That applies to every subscription however it was created - the ones a
+new profile starts with, an OPML import, an address you pasted, or anything
+from the catalogue - and it is skipped entirely if you have image caching
+turned off under Settings, Offline.
+
 ### Sites with no feed
 
 Plenty of sites worth reading publish no feed at all. When the three stages
@@ -269,19 +298,35 @@ by hand, and hovering a list row offers the same thing without selecting it.
 
 ### Offline articles and full text
 
-mylo can download each article's full text and convert it to markdown, so the
-reading pane shows the piece rather than the two-line summary the feed
-carried, and shows it with no network. That is on by default and is both a
-global setting and a per-feed one.
+mylo always tries to end up with the whole article, converted to markdown and
+stored, so the reading pane shows the piece rather than the two-line teaser and
+shows it with no network. That is on by default and is both a global setting
+and a per-feed one.
 
-When what you are looking at is only the summary, the pane says so and offers
-to go and get the rest:
+It gets there from whichever source has it, cheapest first.
+
+Plenty of feeds already carry the whole post. A publisher who fills in
+`content:encoded`, or an Atom `content` element, is handing over the entire
+article beside the short description their feed also lists, and mylo keeps
+both: the description for the two-line preview in the list, and the full body
+for the reading pane. Nothing is fetched in that case, because there is nothing
+left to go and get. That works with the network off and it works for a site
+that would refuse the request.
+
+When the feed really did only send a teaser, and the article has a link, mylo
+fetches the page and reads the article out of it. Either way the result goes
+through the same conversion, so what you read is the same kind of markdown
+whichever source it came from.
+
+While that is happening the pane says so, on the badge and on the status line,
+rather than leaving you looking at a teaser with no explanation.
+
+The badge is not shown at all once mylo has the whole article, whether that
+came from the feed or from the page. It appears only when what is on screen
+really is just the summary, or when a download failed - in which case it says
+why, and the button becomes a retry:
 
 ![The offline badge](screenshots/08-offline-badge.png)
-
-The badge is not shown at all for an article whose full text mylo already has.
-A download that failed says so, with the reason, and the button becomes a
-retry.
 
 ---
 

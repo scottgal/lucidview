@@ -412,6 +412,19 @@ actions:
     window_id: "Add Feed"
     description: Two feeds found from the site address, one of them left unticked
 
+  # The shipped catalogue, for a reader who has no address to paste. Needs no
+  # network at all: the list is compiled into the binary rather than fetched.
+  - type: Click
+    target: BrowseCatalogButton
+    window_id: "Add Feed"
+  - type: Wait
+    value: "700"
+
+  - type: Screenshot
+    value: 26-feed-catalogue
+    window_id: "Add Feed"
+    description: The shipped catalogue, grouped by category and nothing ticked
+
   - type: Click
     target: CancelButton
     window_id: "Add Feed"

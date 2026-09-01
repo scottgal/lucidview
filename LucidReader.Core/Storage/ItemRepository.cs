@@ -75,16 +75,27 @@ public sealed class ItemRepository(ReaderDatabase db)
     ///
     /// canonical_id is publisher-owned in exactly the same sense as link,
     /// since it is derived from it, so it follows the same COALESCE rule.
+    ///
+    /// content_html (V9) is publisher-owned too, and is the column the COALESCE
+    /// rule was written for: it holds the full body a feed offered in
+    /// content:encoded or an Atom content element, and a publisher who emits it
+    /// only inside a short recent window - or who moves bodies back to
+    /// description - must not blank the one complete copy of an article this
+    /// database holds. It sits with title and summary rather than with the
+    /// reader-owned group because a publisher genuinely editing a post should
+    /// reach the reader; content_markdown, which the download path derives from
+    /// it, stays reader-owned and untouched, so an edited article is re-read
+    /// through the ordinary fetch path rather than being half-rewritten here.
     /// </summary>
     private const string UpsertSql =
         """
         INSERT INTO items (
             feed_id, guid, link, title, author, published_utc, updated_utc,
-            summary, content_markdown, content_source, is_read, is_starred,
+            summary, content_html, content_markdown, content_source, is_read, is_starred,
             first_seen_utc, offline_state, offline_error, image_url, canonical_id)
         SELECT
             $feedId, $guid, $link, $title, $author, $published, $updated,
-            $summary, $content, $contentSource, $isRead, $isStarred,
+            $summary, $contentHtml, $content, $contentSource, $isRead, $isStarred,
             $firstSeen, $offlineState, $offlineError, $imageUrl, $canonicalId
         WHERE NOT EXISTS (
             SELECT 1 FROM item_tombstones t
@@ -97,6 +108,7 @@ public sealed class ItemRepository(ReaderDatabase db)
             published_utc = COALESCE(excluded.published_utc, published_utc),
             updated_utc = COALESCE(excluded.updated_utc, updated_utc),
             summary = COALESCE(excluded.summary, summary),
+            content_html = COALESCE(excluded.content_html, content_html),
             canonical_id = COALESCE(excluded.canonical_id, canonical_id)
         WHERE COALESCE(excluded.link, items.link) IS NOT items.link
            OR COALESCE(excluded.title, items.title) IS NOT items.title
@@ -104,6 +116,7 @@ public sealed class ItemRepository(ReaderDatabase db)
            OR COALESCE(excluded.published_utc, items.published_utc) IS NOT items.published_utc
            OR COALESCE(excluded.updated_utc, items.updated_utc) IS NOT items.updated_utc
            OR COALESCE(excluded.summary, items.summary) IS NOT items.summary
+           OR COALESCE(excluded.content_html, items.content_html) IS NOT items.content_html
            OR COALESCE(excluded.canonical_id, items.canonical_id) IS NOT items.canonical_id;
         """;
 
@@ -625,6 +638,7 @@ public sealed class ItemRepository(ReaderDatabase db)
         ["$published"] = item.PublishedUtc.ToDbString(),
         ["$updated"] = item.UpdatedUtc.ToDbString(),
         ["$summary"] = item.Summary,
+        ["$contentHtml"] = item.ContentHtml,
         ["$content"] = item.ContentMarkdown,
         ["$contentSource"] = (int)item.ContentSource,
         ["$isRead"] = item.IsRead ? 1 : 0,

@@ -48,6 +48,33 @@ public sealed class DiscoveredFeedChoice
 }
 
 /// <summary>
+/// One row in the shipped catalogue. Public with public members for the same
+/// reason <see cref="DiscoveredFeedChoice"/> is: the item template binds to
+/// these names by reflection, and with compiled bindings off a rename here that
+/// is not mirrored in AddFeedDialog.axaml fails silently at runtime rather than
+/// at build time.
+/// </summary>
+public sealed class CatalogFeedChoice
+{
+    public required CatalogFeed Feed { get; init; }
+
+    /// <summary>
+    /// Starts false, unlike a discovered feed. See the comment on CatalogPanel
+    /// in the XAML: this is a list the user is browsing, not one they asked for.
+    /// </summary>
+    public bool IsSelected { get; set; }
+
+    public string Label => Feed.Title;
+
+    /// <summary>
+    /// The category and the address on a second line, so a row says what kind
+    /// of thing it is and where it actually points without the two running
+    /// together into one unreadable string.
+    /// </summary>
+    public string Detail => $"{Feed.Category}  ·  {Feed.FeedUrl}";
+}
+
+/// <summary>
 /// Turns whatever the user pasted into a set of feeds to subscribe to. The
 /// window is a thin shell over named controls and
 /// <see cref="AddFeedInput"/>, following SettingsDialog and
@@ -107,6 +134,19 @@ public partial class AddFeedDialog : Window
     {
         InitializeComponent();
         DiscoveredList.ItemsSource = Discovered;
+        CatalogList.ItemsSource = Catalog;
+        CatalogCreditText.Text = FeedCatalog.SourceCredit;
+
+        // Built once, here, rather than on each press of Browse: the list is a
+        // compile-time constant, and rebuilding it would throw away whatever
+        // the user had already ticked the moment they went back to the address
+        // box and returned.
+        //
+        // FeedCatalog.Allowed(), not FeedCatalog.All: a hard-coded address gets
+        // no exemption from FeedUrlPolicy, which is the same rule the starter
+        // feeds and everything discovery returns already follow.
+        foreach (var feed in FeedCatalog.Allowed())
+            Catalog.Add(new CatalogFeedChoice { Feed = feed });
 
         _discovery = discovery;
 
@@ -118,6 +158,13 @@ public partial class AddFeedDialog : Window
     }
 
     public ObservableCollection<DiscoveredFeedChoice> Discovered { get; } = [];
+
+    /// <summary>
+    /// The shipped catalogue, in the order <see cref="FeedCatalog.Allowed"/>
+    /// puts it. Populated once in the constructor and never cleared, so ticks
+    /// survive a trip back to the address box.
+    /// </summary>
+    public ObservableCollection<CatalogFeedChoice> Catalog { get; } = [];
 
     /// <summary>Empty when the dialog was cancelled or nothing was ticked.</summary>
     public IReadOnlyList<DiscoveredFeed> Selected { get; private set; } = [];
@@ -232,6 +279,12 @@ public partial class AddFeedDialog : Window
     {
         _scrapeOffer = null;
         ScrapePanel.IsVisible = false;
+
+        // Looking up an address is a different question from browsing the
+        // starter list, so the catalogue steps aside for the answer. Its ticks
+        // are kept but stop counting: OnAdd only reads them while the panel is
+        // the one on screen, so what Add does is always what the user can see.
+        CatalogPanel.IsVisible = false;
         DiscoveredListPanel.IsVisible = true;
         ScrapeApproveCheck.IsChecked = false;
         ScrapeSummaryText.Text = string.Empty;
@@ -266,14 +319,60 @@ public partial class AddFeedDialog : Window
         await FindAsync();
     }
 
+    /// <summary>
+    /// Shows the shipped catalogue in place of whatever was in row 3.
+    ///
+    /// Nothing is fetched and nothing is looked up: the list is compiled in,
+    /// which is the whole point of it being a catalogue rather than a scrape of
+    /// somebody else's page. So this is a plain handler with no work to fail
+    /// and no async of its own.
+    /// </summary>
+    private void OnBrowseCatalog(object? sender, RoutedEventArgs e)
+    {
+        Discovered.Clear();
+        _scrapeOffer = null;
+        ScrapePanel.IsVisible = false;
+        DiscoveredListPanel.IsVisible = false;
+        CatalogPanel.IsVisible = true;
+
+        DiscoveryStatusText.Text = AddFeedInput.DescribeCatalog(Catalog.Count);
+        AddButton.IsEnabled = Catalog.Count > 0;
+    }
+
     private void OnAdd(object? sender, RoutedEventArgs e)
     {
         var chosen = Discovered.Where(d => d.IsSelected).Select(d => d.Feed).ToList();
+
+        // Catalogue rows only count while the catalogue is the panel on screen,
+        // so Add always does what the user can see. They become ordinary
+        // DiscoveredFeeds and go out through the same Selected list as anything
+        // discovery produced, which is what makes subscribing from the
+        // catalogue take exactly the same path as any other subscription -
+        // duplicate check, FeedRepository.AddAsync, immediate refresh - rather
+        // than a second one of its own.
+        //
+        // No icon travels with them, deliberately. There is none to send: a
+        // catalogue entry is a title and two addresses, and guessing a favicon
+        // here would duplicate work FeedIconResolver now does properly on the
+        // feed's first refresh, from the feed's own image element or the site's
+        // declared icon.
+        if (CatalogPanel.IsVisible)
+        {
+            chosen.AddRange(Catalog
+                .Where(c => c.IsSelected)
+                .Select(c => new DiscoveredFeed(c.Feed.FeedUrl, c.Feed.Title, null)));
+        }
 
         // The approval, and the only route by which a scraped page is ever
         // stored. Nothing pre-ticks this box and nothing else reads it.
         if (_scrapeOffer is { } offer && ScrapeApproveCheck.IsChecked == true)
             chosen.Add(offer);
+
+        if (chosen.Count == 0 && CatalogPanel.IsVisible)
+        {
+            DiscoveryStatusText.Text = AddFeedInput.CatalogNothingTickedMessage;
+            return;
+        }
 
         if (chosen.Count == 0 && _scrapeOffer is not null)
         {

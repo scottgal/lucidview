@@ -155,7 +155,8 @@ public sealed partial class FeedParser : IFeedParser
             Trimmed(channel.Element("title")?.Value),
             ResolveLink(channel.Element("link")?.Value, sourceUri),
             items,
-            skipped);
+            skipped,
+            RssChannelIcon(channel, sourceUri));
     }
 
     private static ParsedFeed ParseRdf(XElement root, Uri sourceUri)
@@ -173,7 +174,8 @@ public sealed partial class FeedParser : IFeedParser
                 channel?.Element(Rss1 + "link")?.Value ?? channel?.Element("link")?.Value,
                 sourceUri),
             items,
-            skipped);
+            skipped,
+            channel is null ? null : RssChannelIcon(channel, sourceUri));
     }
 
     private static ParsedFeed ParseAtom(XElement root, Uri sourceUri)
@@ -185,7 +187,35 @@ public sealed partial class FeedParser : IFeedParser
             Trimmed(root.Element(Atom + "title")?.Value),
             ResolveLink(AtomLink(root), sourceUri),
             items,
-            skipped);
+            skipped,
+            // icon before logo: RFC 4287 says icon is the small one meant to be
+            // shown beside the feed's name, which is exactly the sidebar's use,
+            // where logo is a wide banner that would be cropped to nothing.
+            ResolveLink(
+                Trimmed(root.Element(Atom + "icon")?.Value)
+                ?? Trimmed(root.Element(Atom + "logo")?.Value),
+                sourceUri));
+    }
+
+    /// <summary>
+    /// An RSS channel's own image, from &lt;image&gt;&lt;url&gt;. Handles the
+    /// RSS 1.0 spelling as well, where the elements live in the RSS 1.0
+    /// namespace and the image is a sibling of the channel referenced by
+    /// rdf:resource - the url element is read wherever it sits rather than
+    /// following the reference, which is enough for the one string wanted here.
+    /// </summary>
+    private static string? RssChannelIcon(XElement channel, Uri sourceUri)
+    {
+        var image = channel.Element("image") ?? channel.Element(Rss1 + "image");
+
+        // RSS 1.0 keeps <image> beside <channel> rather than inside it.
+        if (image is null && channel.Parent is { } root)
+            image = root.Element(Rss1 + "image") ?? root.Element("image");
+
+        if (image is null) return null;
+
+        var url = Trimmed(image.Element("url")?.Value ?? image.Element(Rss1 + "url")?.Value);
+        return ResolveLink(url, sourceUri);
     }
 
     /// <summary>

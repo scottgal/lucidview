@@ -42,12 +42,21 @@
                        Text="Paste a feed address, or the address of a site and mylo will look for its feeds." />
         </StackPanel>
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+        <!--
+            BrowseCatalogButton is the way in for somebody with no feed address
+            to paste, which on a first run is everybody. A real named button
+            rather than a menu entry: the UI harness cannot click a ContextMenu
+            or a NativeMenu, so anything that has to be verified end to end
+            needs a control with a name on it.
+        -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
             <TextBox Grid.Column="0" x:Name="FeedUrlBox"
                      Watermark="https://example.com"
                      KeyDown="OnUrlKeyDown" />
             <Button Grid.Column="1" x:Name="FindButton" Content="Find" Width="80"
                     Margin="8,0,0,0" Click="OnFind" />
+            <Button Grid.Column="2" x:Name="BrowseCatalogButton" Content="Browse popular"
+                    Margin="8,0,0,0" Click="OnBrowseCatalog" />
         </Grid>
 
         <TextBlock Grid.Row="2" x:Name="DiscoveryStatusText" Classes="row-secondary"
@@ -114,6 +123,46 @@
                 <CheckBox x:Name="ScrapeApproveCheck" IsChecked="False"
                           Content="Treat this page as a feed (scraped, not published)" />
             </StackPanel>
+        </Border>
+
+        <!--
+            The shipped catalogue. Third of the three panels sharing row 3, and
+            like the other two exactly one of them is ever visible: browsing a
+            starter list and reading a discovery result are different things to
+            be doing, and stacking them would leave a dead card behind whichever
+            one was not in use.
+
+            Every row starts UNTICKED, unlike the discovery chooser. There the
+            user asked for a specific site and getting what they asked for is
+            the common case; here they are being shown a list they did not name,
+            and a pre-ticked one would subscribe them to three dozen servers on
+            a single click of Add.
+        -->
+        <Border Grid.Row="3" x:Name="CatalogPanel" Classes="settings-card" IsVisible="False">
+            <Grid RowDefinitions="Auto,*" Margin="12,10">
+                <TextBlock Grid.Row="0" x:Name="CatalogCreditText" Classes="row-secondary"
+                           TextWrapping="Wrap" Margin="0,0,0,8" />
+                <ListBox Grid.Row="1" x:Name="CatalogList" Background="Transparent"
+                         BorderThickness="0" Margin="0">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"
+                                      HorizontalContentAlignment="Left">
+                                <StackPanel Spacing="1">
+                                    <TextBlock Text="{Binding Label}" />
+                                    <TextBlock Text="{Binding Detail}" Classes="row-secondary" />
+                                </StackPanel>
+                            </CheckBox>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
         </Border>
 
         <Grid Grid.Row="4" ColumnDefinitions="Auto,*" Margin="0,14,0,0">

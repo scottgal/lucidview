@@ -83,7 +83,10 @@ public class OfflineDownloaderTests : IAsyncLifetime
         Assert.Empty(handler.Requests);
         var item = await _items.GetAsync(id);
         Assert.Equal(OfflineState.Downloaded, item!.OfflineState);
-        Assert.Equal(ContentSource.Feed, item.ContentSource);
+        // FeedArticle, not Feed: the feed handed over a whole article, and the
+        // reading pane must be able to tell that apart from a teaser so it does
+        // not badge a complete post as a summary or re-fetch it on every open.
+        Assert.Equal(ContentSource.FeedArticle, item.ContentSource);
         Assert.NotNull(item.ContentMarkdown);
     }
 
@@ -269,7 +272,7 @@ public class OfflineDownloaderTests : IAsyncLifetime
 
         Assert.Empty(handler.Requests);
         var item = await _items.GetAsync(id);
-        Assert.Equal(ContentSource.Feed, item!.ContentSource);
+        Assert.Equal(ContentSource.FeedArticle, item!.ContentSource);
         Assert.Null(item.ImageUrl);
     }
 

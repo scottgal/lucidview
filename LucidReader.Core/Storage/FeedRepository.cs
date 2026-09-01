@@ -311,6 +311,35 @@ public class FeedRepository(ReaderDatabase db)
             ct);
 
     /// <summary>
+    /// Records an icon for a feed that has none, and only for such a feed.
+    ///
+    /// Narrow for the same reason UpdateTitleAndSiteUrlAsync is narrow: this
+    /// runs off the back of a refresh, against a Feed snapshot taken before the
+    /// fetch, and the user may have edited the row while it was in flight.
+    ///
+    /// "WHERE icon_path IS NULL OR icon_path = ''" is not belt and braces. It
+    /// is what makes the backfill idempotent against a concurrent writer: the
+    /// caller checks the snapshot it holds, and between that check and this
+    /// write the add-feed dialog, an OPML import or another feed's refresh can
+    /// have set one. The condition means the first icon written wins and a
+    /// later resolution cannot overwrite it, so a user who has an icon keeps
+    /// the one they have. Nothing here ever nulls the column.
+    /// </summary>
+    public Task UpdateIconPathIfMissingAsync(
+        long feedId, string iconPath, CancellationToken ct = default) =>
+        db.WriteAsync(
+            """
+            UPDATE feeds SET icon_path = $icon
+            WHERE id = $id AND (icon_path IS NULL OR icon_path = '');
+            """,
+            new Dictionary<string, object?>
+            {
+                ["$id"] = feedId,
+                ["$icon"] = iconPath
+            },
+            ct);
+
+    /// <summary>
     /// Writes only the user-owned title override, the column Feed.DisplayTitle
     /// prefers over the publisher's own title. A rename must come through here
     /// rather than through UpdateTitleAndSiteUrlAsync: that one writes

@@ -11,6 +11,19 @@ public sealed record FeedItem
     public DateTimeOffset? PublishedUtc { get; init; }
     public DateTimeOffset? UpdatedUtc { get; init; }
     public string? Summary { get; init; }
+
+    /// <summary>
+    /// The richest body the feed itself carried, as HTML: content:encoded for
+    /// RSS, an Atom content element. Null when the feed offered nothing beyond
+    /// <see cref="Summary"/>, which is the common case and is also what every
+    /// row written before the V9 migration holds.
+    ///
+    /// This is what the publisher sent, not what we decided to show. The
+    /// reading pane never renders it directly; OfflineDownloader converts it to
+    /// markdown into <see cref="ContentMarkdown"/> like any other source.
+    /// </summary>
+    public string? ContentHtml { get; init; }
+
     public string? ContentMarkdown { get; init; }
     public ContentSource ContentSource { get; init; }
     public bool IsRead { get; init; }

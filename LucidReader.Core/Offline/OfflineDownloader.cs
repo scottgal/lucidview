@@ -228,19 +228,45 @@ public sealed class OfflineDownloader : IAsyncDisposable
         if (feed is null) return;
 
         var settings = EffectiveFeedSettings.Resolve(feed, _settings());
-        var feedContent = item.Summary;
+
+        // The richest thing the publisher sent, which is content_html when the
+        // feed put a body in content:encoded or an Atom content element and the
+        // summary otherwise. Reading only the summary here is what used to send
+        // this downloader to the network for articles mylo had already been
+        // given in full: alvinashcraft.com ships a 281-character description
+        // beside a 27,536-character content:encoded, so every item looked like
+        // a stub and every one cost a page fetch that could fail and leave the
+        // reader with the teaser.
+        var feedContent = item.ContentHtml ?? item.Summary;
+        var isStub = StubDetector.IsStub(feedContent);
+
+        var canFetchPage = settings.FetchFullText && !string.IsNullOrWhiteSpace(item.Link);
 
         // The feed already gave us the whole thing, or we are not allowed to
         // go looking for more. Either way, convert what we have.
-        if (!StubDetector.IsStub(feedContent)
-            || !settings.FetchFullText
-            || string.IsNullOrWhiteSpace(item.Link))
+        //
+        // Which of those two it was is recorded, not flattened into "came from
+        // the feed": a body that is not a stub IS the article, and marking it
+        // FeedArticle is what stops the reading pane badging a complete post as
+        // a summary and what stops NeedsFullArticle re-fetching it on every
+        // open. Only the genuinely-a-teaser case stays ContentSource.Feed.
+        if (!isStub || !canFetchPage)
         {
-            await StoreAsync(itemId, feedContent, item.Link, item.Title, ContentSource.Feed, ct);
-            return;
+            var source = isStub ? ContentSource.Feed : ContentSource.FeedArticle;
+
+            if (await StoreAsync(itemId, feedContent, item.Link, item.Title, source, ct))
+                return;
+
+            // The feed's body produced nothing usable - it was empty, or the
+            // converter kept none of it. When there is no page to go to,
+            // StoreAsync has already recorded that as a failure and the reading
+            // pane can offer a retry. When there IS one, falling through and
+            // fetching it is strictly better than leaving the reader with a
+            // blank article, so this is deliberately not an early return.
+            if (!canFetchPage) return;
         }
 
-        var fetched = await _articles.FetchArticleAsync(item.Link, ct);
+        var fetched = await _articles.FetchArticleAsync(item.Link!, ct);
         if (fetched is null)
         {
             await _items.SetOfflineFailedAsync(
@@ -293,15 +319,25 @@ public sealed class OfflineDownloader : IAsyncDisposable
     }
 
     /// <summary>
-    /// Stores content that came from the feed's own summary, not a fetched
-    /// article page - the stub-with-no-link case and the
-    /// already-complete-feed-content case in DownloadCoreAsync. There is no
+    /// Stores content that came out of the feed document, not a fetched article
+    /// page - the stub-with-no-link case and the already-complete-feed-content
+    /// case in DownloadCoreAsync. Both go through the same HTML-to-markdown
+    /// conversion, the same ArticleMarkdownTidy pass and the same image caching
+    /// as a fetched page; the caller's `source` is the only thing that differs,
+    /// and it says which of the two this was. There is no
     /// page here for SiteMetadataExtractor to read, so no image is ever
     /// captured on this path: SetContentAsync is called with no imageUrl,
     /// which leaves any existing image_url column untouched rather than
     /// blanking it.
+    ///
+    /// Returns whether an article was actually stored. False means the feed's
+    /// body came to nothing - it was empty, or the conversion kept none of it -
+    /// which is the caller's cue to go to the page instead if there is one. A
+    /// blank body is never stored: an article that renders as nothing is worse
+    /// than a recorded failure, because a failure carries a reason and a retry
+    /// button and a blank one carries neither.
     /// </summary>
-    private async Task StoreAsync(
+    private async Task<bool> StoreAsync(
         long itemId,
         string? html,
         string? link,
@@ -312,16 +348,35 @@ public sealed class OfflineDownloader : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(html))
         {
             await _items.SetOfflineFailedAsync(itemId, "The feed supplied no content.", ct);
-            return;
+            return false;
         }
 
         try
         {
             var uri = Uri.TryCreate(link, UriKind.Absolute, out var parsed) ? parsed : null;
-            var markdown = await _converter.ConvertAsync(html, uri, ct);
+
+            // Wrapped, not passed through. The converter classifies blocks as
+            // article or furniture, and a bare feed fragment has no document
+            // around it to say which it is. See FeedContentHtml for the
+            // measurement: unwrapped, alvinashcraft.com's content:encoded
+            // converted to a single character.
+            var markdown = await _converter.ConvertAsync(
+                FeedContentHtml.AsDocument(html), uri, ct);
             markdown = ArticleMarkdownTidy.Clean(markdown, itemTitle);
+
+            // Checked after the tidy, not before: Clean strips the article's
+            // own title heading, and a body that was nothing but that heading
+            // is nothing at all once it has gone.
+            if (string.IsNullOrWhiteSpace(markdown))
+            {
+                await _items.SetOfflineFailedAsync(
+                    itemId, "The feed's content could not be read as an article.", ct);
+                return false;
+            }
+
             markdown = await CacheImagesAsync(markdown, link, ct);
             await _items.SetContentAsync(itemId, markdown, source, ct: ct);
+            return true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -330,6 +385,7 @@ public sealed class OfflineDownloader : IAsyncDisposable
         catch (Exception ex)
         {
             await _items.SetOfflineFailedAsync(itemId, ex.Message, ct);
+            return false;
         }
     }
 

@@ -150,18 +150,25 @@ public partial class MainWindow
             ?? item.Summary
             ?? "This article has no content yet.";
 
+        // ContentSource.Extracted and ContentSource.FeedArticle are both the
+        // whole article, so neither is badged. Only ContentSource.Feed - a
+        // teaser, and all there is - gets the summary badge. Reading that badge
+        // off "did this come from the feed?" was the bug: alvinashcraft.com
+        // sends complete posts in content:encoded, and every one of them was
+        // labelled a summary while the whole article sat on screen underneath.
         (ShowOfflineBadge, OfflineBadgeText, CanFetchFullArticle) = item.OfflineState switch
         {
-            OfflineState.Downloaded when item.ContentSource == ContentSource.Extracted =>
+            OfflineState.Downloaded when item.ContentSource is ContentSource.Extracted
+                                                            or ContentSource.FeedArticle =>
                 (false, string.Empty, false),
             OfflineState.Downloaded =>
-                (true, "Showing the summary the feed provided.", item.Link is not null),
+                (true, SummaryOnlyMessage, item.Link is not null),
             OfflineState.Failed =>
                 (true, "The full article could not be downloaded. " + (item.OfflineError ?? string.Empty), true),
             OfflineState.Pending =>
-                (true, "Downloading the full article...", false),
+                (true, FetchingMessage, false),
             _ =>
-                (true, "Showing the summary the feed provided.", item.Link is not null)
+                (true, SummaryOnlyMessage, item.Link is not null)
         };
 
         // Fired without awaiting: the title and body are already rendered,
@@ -189,9 +196,37 @@ public partial class MainWindow
         if (NeedsFullArticle(item) && _autoFetchedItemId != row.Id)
         {
             _autoFetchedItemId = row.Id;
+
+            // Said before the work starts, not after it finishes. This can take
+            // seconds against a slow site, and a pane sitting on a teaser with
+            // no explanation is the thing the badge exists to prevent. Both
+            // surfaces say it: the badge because that is where the reader is
+            // already looking, the status line because the badge disappears the
+            // moment the article lands.
+            ShowOfflineBadge = true;
+            OfflineBadgeText = FetchingMessage;
+            CanFetchFullArticle = false;
+            StatusMessage = FetchingMessage;
+
             _ = FetchOnSelectAsync(row, generation);
         }
     }
+
+    /// <summary>
+    /// What the pane says while it is getting the article and turning it into
+    /// markdown. One string, used by the Pending badge, by the on-select fetch
+    /// and by the manual Fetch command, so the three cannot drift apart.
+    /// </summary>
+    private const string FetchingMessage =
+        "Getting the full article and converting it to markdown...";
+
+    /// <summary>
+    /// What the pane says when the stored copy really is only a teaser. Reached
+    /// solely through ContentSource.Feed - never through FeedArticle, which is
+    /// a complete post that arrived in the feed document.
+    /// </summary>
+    private const string SummaryOnlyMessage =
+        "Showing the summary the feed provided; the full article is not stored.";
 
     /// <summary>
     /// Whether the stored copy is still the feed's summary rather than the
@@ -206,11 +241,15 @@ public partial class MainWindow
             // Not fetched yet, or the background sweep has not reached it.
             OfflineState.None or OfflineState.Pending => true,
 
-            // Fetched, but what got stored is the feed's own text rather than
-            // the page. That is the case the badge already describes as
-            // "showing the summary the feed provided", so it is not the
-            // article either.
-            OfflineState.Downloaded => item.ContentSource != ContentSource.Extracted,
+            // Fetched, and what got stored is only the feed's teaser. The
+            // article itself is still somewhere else, so it is worth going for.
+            //
+            // ContentSource.FeedArticle is deliberately NOT in this set. That
+            // is a complete post the feed handed over, already converted and
+            // tidied; re-fetching its page would replace an article we have
+            // with one request per open, for nothing, against publishers like
+            // alvinashcraft.com who are already giving us everything.
+            OfflineState.Downloaded => item.ContentSource == ContentSource.Feed,
 
             // Already tried and failed. Retrying on every open would hammer a
             // site that is never going to yield; the Retry button is the way
@@ -232,8 +271,13 @@ public partial class MainWindow
         }
 
         // The user moved on while this was running, so the pane is showing a
-        // different article and must be left alone.
+        // different article and must be left alone - including the status line,
+        // which by now belongs to whatever they moved to.
         if (generation != Volatile.Read(ref _articleGeneration)) return;
+
+        // Clear before the redraw, so a failure ShowArticleAsync reports
+        // survives rather than being wiped by this line.
+        if (StatusMessage == FetchingMessage) StatusMessage = string.Empty;
 
         await ShowArticleAsync(row);
     }
@@ -304,7 +348,10 @@ public partial class MainWindow
         if (SelectedItemRow is not { } row) return;
         if (Interlocked.Exchange(ref _fetchFullArticleRunning, 1) != 0) return;
 
-        StatusMessage = "Fetching the full article...";
+        StatusMessage = FetchingMessage;
+        ShowOfflineBadge = true;
+        OfflineBadgeText = FetchingMessage;
+
         try
         {
             await _services.Downloader.DownloadNowAsync(row.Id);

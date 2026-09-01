@@ -97,6 +97,7 @@ internal static class RowMappers
         PublishedUtc = reader.GetNullableDate("published_utc"),
         UpdatedUtc = reader.GetNullableDate("updated_utc"),
         Summary = reader.GetNullableString("summary"),
+        ContentHtml = reader.GetNullableString("content_html"),
         ContentMarkdown = reader.GetNullableString("content_markdown"),
         ContentSource = (Model.ContentSource)reader.GetInt32(reader.GetOrdinal("content_source")),
         IsRead = reader.GetBool("is_read"),

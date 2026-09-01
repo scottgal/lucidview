@@ -273,4 +273,69 @@ public class FeedParserTests
 
         Assert.Empty(feed.Items[1].Categories);
     }
+
+    // --- The feed's own icon ---
+    //
+    // The cheapest of the three sources FeedIconResolver tries, because it
+    // arrives inside a document the refresh has already fetched and parsed.
+    // Parsed here rather than by the resolver so a scraped subscription, which
+    // never goes near a feed document, simply has none.
+
+    [Fact]
+    public void An_rss_channel_image_becomes_the_feeds_icon()
+    {
+        var feed = _parser.Parse(
+            """
+            <rss version="2.0"><channel>
+              <title>Example</title><link>https://example.com</link>
+              <image><url>/logo.png</url><title>Example</title></image>
+              <item><guid>1</guid><title>One</title></item>
+            </channel></rss>
+            """, Source);
+
+        // Resolved against the feed's own address, like every other link here.
+        Assert.Equal("https://example.com/logo.png", feed.IconUrl);
+    }
+
+    /// <summary>
+    /// icon before logo: RFC 4287's icon is the small square meant to sit
+    /// beside the feed's name, which is the sidebar's use exactly, where logo
+    /// is a banner that would be cropped to nothing.
+    /// </summary>
+    [Fact]
+    public void An_atom_icon_is_preferred_over_a_logo()
+    {
+        var feed = _parser.Parse(
+            """
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <title>Example</title>
+              <icon>https://example.com/icon.png</icon>
+              <logo>https://example.com/banner.png</logo>
+              <entry><id>1</id><title>One</title></entry>
+            </feed>
+            """, Source);
+
+        Assert.Equal("https://example.com/icon.png", feed.IconUrl);
+    }
+
+    [Fact]
+    public void An_atom_logo_is_used_when_there_is_no_icon()
+    {
+        var feed = _parser.Parse(
+            """
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <title>Example</title>
+              <logo>https://example.com/banner.png</logo>
+              <entry><id>1</id><title>One</title></entry>
+            </feed>
+            """, Source);
+
+        Assert.Equal("https://example.com/banner.png", feed.IconUrl);
+    }
+
+    [Fact]
+    public void A_feed_declaring_no_image_has_a_null_icon()
+    {
+        Assert.Null(Parse("rss2-simple.xml").IconUrl);
+    }
 }

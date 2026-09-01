@@ -57,6 +57,13 @@ public sealed class FeedRefreshService : IAsyncDisposable
     /// </summary>
     private readonly ScrapeTemplateStore? _scrapeTemplates;
 
+    /// <summary>
+    /// Fills in an icon for a feed that has none, or null when this service is
+    /// running without one - which most tests are, and which simply means no
+    /// icon is ever backfilled. See <see cref="BackfillIconAsync"/>.
+    /// </summary>
+    private readonly FeedIconResolver? _icons;
+
     public FeedRefreshService(
         FeedRepository feeds,
         ItemRepository items,
@@ -69,8 +76,10 @@ public sealed class FeedRefreshService : IAsyncDisposable
         int maxConcurrency = 4,
         TimeSpan? maxFetchDuration = null,
         TimeSpan? drainTimeout = null,
-        ScrapeTemplateStore? scrapeTemplates = null)
+        ScrapeTemplateStore? scrapeTemplates = null,
+        FeedIconResolver? icons = null)
     {
+        _icons = icons;
         _scrapeTemplates = scrapeTemplates;
         _feeds = feeds;
         _items = items;
@@ -385,6 +394,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
                 PublishedUtc = item.PublishedUtc,
                 UpdatedUtc = item.UpdatedUtc,
                 Summary = item.Summary,
+                ContentHtml = RicherThanSummary(item),
                 ContentMarkdown = null,
                 ContentSource = ContentSource.Feed,
                 FirstSeenUtc = now,
@@ -414,7 +424,59 @@ public sealed class FeedRefreshService : IAsyncDisposable
             feed.Id, fetched.ETag, fetched.LastModified, now,
             _backoff.NextDueAfterSuccess(now, settings), ct);
 
+        await BackfillIconAsync(feed, parsed, ct);
+
         return new FeedRefreshOutcome(feed.Id, true, newCount, false, null);
+    }
+
+    /// <summary>
+    /// Gives a feed with no icon a chance at one, on every successful refresh.
+    ///
+    /// This is here, rather than at the point a subscription is created,
+    /// because there are five ways to create one and only ever one of them
+    /// looked: the Add Feed dialog got an icon out of autodiscovery, and the
+    /// starter feeds a first run seeds, an OPML import, a pasted feed address
+    /// and the catalogue all wrote a null icon_path that nothing would ever
+    /// come back and fill. Refresh is the one path every subscription takes,
+    /// whatever created it, so it is the one place a fix reaches all of them -
+    /// including the rows already sitting in a profile with a grey placeholder
+    /// beside them.
+    ///
+    /// Deliberately AFTER RecordSuccessAsync and outside everything the outcome
+    /// depends on. An icon is a nicety; a fetch for one must never turn a
+    /// refresh that worked into a refresh that failed, must never touch the
+    /// backoff curve, and must never delay the items that have already been
+    /// stored. Hence the catch-all, and hence resolving nothing at all when
+    /// this service was built without a resolver.
+    ///
+    /// The snapshot's icon_path is what gates the work, so a feed that has an
+    /// icon costs one field test and no request, on every refresh, forever. The
+    /// write itself re-checks the same condition in SQL, because the snapshot
+    /// can be stale by the time it runs.
+    /// </summary>
+    private async Task BackfillIconAsync(Feed feed, ParsedFeed parsed, CancellationToken ct)
+    {
+        if (_icons is null) return;
+        if (!string.IsNullOrWhiteSpace(feed.IconPath)) return;
+
+        try
+        {
+            var icon = await _icons.ResolveAsync(
+                feed.FeedUrl, parsed.SiteUrl ?? feed.SiteUrl, parsed.IconUrl, ct);
+
+            if (icon is not null)
+                await _feeds.UpdateIconPathIfMissingAsync(feed.Id, icon, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // The app is stopping. Nothing to record and nothing to retry; the
+            // next refresh of this feed will look again.
+        }
+        catch (Exception)
+        {
+            // Best effort by design, see the summary above. The feed keeps its
+            // placeholder and the next refresh tries again.
+        }
     }
 
     /// <summary>
@@ -550,6 +612,28 @@ public sealed class FeedRefreshService : IAsyncDisposable
         // must not silently rename a subscription the user has filed and sorted.
         return reading.Articles.ToParsedFeed(feed.Title, pageUri);
     }
+
+    /// <summary>
+    /// The publisher's full body when the feed offered one, or null when all it
+    /// offered was the summary already being stored beside it.
+    ///
+    /// FeedParser sets ContentHtml to "content:encoded, or failing that the
+    /// description", so for the majority of feeds - the ones that publish a
+    /// teaser and nothing else - it is character-for-character the summary.
+    /// Writing it anyway would double the stored size of every such item to
+    /// hold a second copy of the same string, forever, on every feed the user
+    /// subscribes to. Null instead, which is exactly what the column means
+    /// ("the feed gave us nothing richer than the summary"), and what
+    /// OfflineDownloader already falls back to.
+    ///
+    /// Ordinal comparison, not a trimmed or normalised one: the two strings
+    /// come from the same parse of the same document and are either the same
+    /// object's value or genuinely different content.
+    /// </summary>
+    private static string? RicherThanSummary(ParsedItem item) =>
+        string.Equals(item.ContentHtml, item.Summary, StringComparison.Ordinal)
+            ? null
+            : item.ContentHtml;
 
     /// <summary>
     /// The feed's own guid when it has one, otherwise a hash of the link. The

@@ -323,7 +323,14 @@ public sealed class ReaderServices : IAsyncDisposable
             Current,
             time,
             fetchConcurrency,
-            scrapeTemplates: scrapeTemplates);
+            scrapeTemplates: scrapeTemplates,
+            // Over the same client as everything else here, so an icon lookup
+            // shares the app's connection pool and its policy handler rather
+            // than opening a second way out to the network. It gates itself on
+            // the live CacheImages setting through Current, for the same reason
+            // ImageResolver does: an icon that image caching will refuse to
+            // fetch is not worth a request to find.
+            icons: new FeedIconResolver(http, Current));
 
         var scheduler = new RefreshScheduler(feeds, refresh, time);
 
