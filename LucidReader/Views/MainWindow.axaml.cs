@@ -412,6 +412,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         await LoadFeedTreeAsync();
 
+        // Open on the unread list rather than on everything.
+        //
+        // The reader opened with no sidebar selection, which reads as "All
+        // items" and shows every article ever stored, most of them already
+        // read. That is the wrong first screen for a feed reader: what someone
+        // opens one to find out is what is new, and with retention keeping
+        // months of history the unread articles were a minority of the list
+        // they were handed.
+        //
+        // After LoadFeedTreeAsync, necessarily: the Unread row this selects
+        // does not exist until the tree has been built.
+        SelectUnreadList();
+
         // Said once, on the one launch it can be true, and only when nothing
         // more important is already on the status line: a first run that
         // arrives with five subscriptions nobody typed should say where they
@@ -500,9 +513,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var folders = await _services.Folders.GetAllAsync();
         var feeds = await _services.Feeds.GetAllAsync();
 
-        var unreadByFeed = new Dictionary<long, int>();
-        foreach (var feed in feeds)
-            unreadByFeed[feed.Id] = await _services.Items.GetUnreadCountAsync(feed.Id);
+        // One query for every feed's count, not one query per feed. This
+        // method runs on every refresh sweep, every notification sweep, every
+        // tag edit and every feed menu action, so the loop it replaces was a
+        // round trip per subscription each time. See
+        // ItemRepository.GetUnreadCountsByFeedAsync.
+        //
+        // A feed with nothing unread is absent from the dictionary rather than
+        // present as zero, which is why every read below goes through
+        // GetValueOrDefault.
+        var unreadByFeed = await _services.Items.GetUnreadCountsByFeedAsync();
 
         var favourites = new SidebarSection { Title = "Favourites" };
         favourites.Nodes.Add(new FeedTreeNode

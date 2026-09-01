@@ -397,6 +397,14 @@ public sealed class FeedRefreshService : IAsyncDisposable
                 ContentHtml = RicherThanSummary(item),
                 ContentMarkdown = null,
                 ContentSource = ContentSource.Feed,
+                // The picture the feed named for this item, where it named
+                // one. Null for a publisher that names none, which leaves the
+                // item exactly where it was before: waiting for
+                // OfflineDownloader to find an og:image on the article page.
+                // The upsert fills a null image_url and never overwrites a set
+                // one, so this cannot displace a picture already captured from
+                // the page (see ItemRepository's upsert).
+                ImageUrl = item.ImageUrl,
                 FirstSeenUtc = now,
                 OfflineState = settings.AutoDownload ? OfflineState.Pending : OfflineState.None
             })

@@ -18,15 +18,24 @@ public sealed class ItemRepository(ReaderDatabase db)
     /// <summary>
     /// Inserts, or updates the publisher-owned fields when we have seen this
     /// (feed_id, guid) before. Reader-owned state - read, starred, content we
-    /// downloaded, offline state, and image_url - is deliberately never
-    /// touched by an upsert: a publisher fixing a typo must not mark fifty
-    /// items unread. image_url belongs in this group, not with title and
-    /// summary, because nothing populates FeedItem.ImageUrl from a parsed
-    /// feed; it is set only by OfflineDownloader after reading the article
-    /// page (see ItemRepository.SetContentAsync's own imageUrl guard). A
-    /// refresh's upsert overwriting it with the always-null value a
-    /// freshly-parsed FeedItem carries would silently erase every captured
-    /// social-card image on the item's next poll.
+    /// downloaded, and offline state - is deliberately never touched by an
+    /// upsert: a publisher fixing a typo must not mark fifty items unread.
+    ///
+    /// image_url is the exception to both groups and has its own rule, stated
+    /// on the column in UpsertSql. It used to sit with the reader-owned set,
+    /// on the reasoning that nothing populated FeedItem.ImageUrl from a parsed
+    /// feed and it was set only by OfflineDownloader after reading the article
+    /// page, so letting an upsert write it would have erased a captured
+    /// social-card image with the always-null value a freshly-parsed FeedItem
+    /// carried.
+    ///
+    /// The parser now reads media:content, media:thumbnail, enclosure,
+    /// itunes:image and the first img in an item's own HTML (see
+    /// ParsedItem.ImageUrl), so that reasoning no longer holds: a fresh parse
+    /// often carries a real picture, and refusing it left BBC News and Ars
+    /// Technica items showing a placeholder while the feed had named an image
+    /// on every single one. The write is fill-only, so the erasure the old
+    /// rule guarded against still cannot happen.
     ///
     /// Every publisher-owned column is written with COALESCE(excluded.x, x),
     /// and any nullable column added to this list later must follow the same
@@ -68,7 +77,7 @@ public sealed class ItemRepository(ReaderDatabase db)
     /// field" reads as no change rather than as an edit back to null.
     ///
     /// What an edit does not touch is unchanged: is_read, is_starred,
-    /// content_markdown, offline_state and image_url are not in the SET list,
+    /// content_markdown and offline_state are not in the SET list,
     /// the row id is preserved so item_tags rows stay attached, and the
     /// tombstone guard above still stands between an edit and an item that was
     /// deliberately pruned.
@@ -109,8 +118,17 @@ public sealed class ItemRepository(ReaderDatabase db)
             updated_utc = COALESCE(excluded.updated_utc, updated_utc),
             summary = COALESCE(excluded.summary, summary),
             content_html = COALESCE(excluded.content_html, content_html),
-            canonical_id = COALESCE(excluded.canonical_id, canonical_id)
-        WHERE COALESCE(excluded.link, items.link) IS NOT items.link
+            canonical_id = COALESCE(excluded.canonical_id, canonical_id),
+            -- The one column whose COALESCE runs the other way round: the
+            -- STORED value wins and the incoming one only fills a null. Every
+            -- other column here is publisher-owned, so a fresh value replaces
+            -- what we hold. image_url is shared - a feed can name a picture
+            -- and OfflineDownloader can find a better one on the article page
+            -- - and the page's og:image is the one worth keeping, so an
+            -- already-set image_url is never overwritten by a later poll.
+            image_url = COALESCE(image_url, excluded.image_url)
+        WHERE COALESCE(items.image_url, excluded.image_url) IS NOT items.image_url
+           OR COALESCE(excluded.link, items.link) IS NOT items.link
            OR COALESCE(excluded.title, items.title) IS NOT items.title
            OR COALESCE(excluded.author, items.author) IS NOT items.author
            OR COALESCE(excluded.published_utc, items.published_utc) IS NOT items.published_utc
@@ -541,6 +559,47 @@ public sealed class ItemRepository(ReaderDatabase db)
                 "SELECT count(*) FROM items WHERE feed_id = $feedId AND is_read = 0;";
             command.Parameters.AddWithValue("$feedId", feedId);
             return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
+        }, ct);
+
+    /// <summary>
+    /// Every feed's unread count in one query, keyed by feed id.
+    ///
+    /// The sidebar needs a count for each subscription and used to get them by
+    /// calling <see cref="GetUnreadCountAsync"/> in a loop, one query and one
+    /// pooled connection per feed, every time the tree was rebuilt. The tree
+    /// is rebuilt more often than that loop suggests: after a refresh sweep,
+    /// after a notification sweep while the window is hidden, after any tag
+    /// edit, and after every feed menu action. At five starter feeds nobody
+    /// would notice. At the two hundred subscriptions this app is built to
+    /// carry (see the channel capacity note in FeedRefreshService) it is two
+    /// hundred round trips per rebuild, on the UI's await path.
+    ///
+    /// One GROUP BY replaces all of them and reads the same index.
+    ///
+    /// Feeds with no unread items are absent from the result rather than
+    /// present with a zero, which is what a GROUP BY over is_read = 0
+    /// naturally produces. Callers therefore have to treat a missing key as
+    /// zero; the sidebar already does, since it looks each feed up by id.
+    /// </summary>
+    public Task<IReadOnlyDictionary<long, int>> GetUnreadCountsByFeedAsync(
+        CancellationToken ct = default) =>
+        db.QueryAsync<IReadOnlyDictionary<long, int>>(async connection =>
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                SELECT feed_id, count(*)
+                FROM items
+                WHERE is_read = 0
+                GROUP BY feed_id;
+                """;
+
+            var counts = new Dictionary<long, int>();
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+                counts[reader.GetInt64(0)] = reader.GetInt32(1);
+
+            return counts;
         }, ct);
 
     /// <summary>

@@ -169,16 +169,41 @@ public partial class MainWindow
     /// the unread articles, which is the one thing somebody who just read
     /// "12 new articles" wants next.
     /// </summary>
+    /// <summary>
+    /// Selects the Unread smart row, and deliberately touches nothing else.
+    ///
+    /// Selecting the row is sufficient on its own to show every unread
+    /// article: ItemQueryBuilder gives a smart row its own SmartFilter and
+    /// ignores the All / Unread / Starred segment entirely, which is what
+    /// "a smart row overrides the filter chips" means there.
+    ///
+    /// So this must NOT also set IsFilterUnread, however tempting the symmetry
+    /// is. The segment is session state that survives the selection: setting
+    /// it here changes nothing about the unread list, and then silently
+    /// filters every feed, folder and tag the user clicks afterwards. That was
+    /// written that way once and verify-reader-smoke caught it, on the step
+    /// that selects a folder holding three articles and was handed two.
+    /// </summary>
+    private void SelectUnreadList()
+    {
+        var unreadRow = AllFeedTreeNodes.FirstOrDefault(n =>
+            n.Kind == FeedTreeNodeKind.Smart && n.SmartFilter == ItemFilter.Unread);
+
+        if (unreadRow is not null) SelectedFeedNode = unreadRow;
+    }
+
     private void ShowUnreadFromNotification()
     {
         try
         {
             ShowFromStatusItem();
+            SelectUnreadList();
 
-            var unreadRow = AllFeedTreeNodes.FirstOrDefault(n =>
-                n.Kind == FeedTreeNodeKind.Smart && n.SmartFilter == ItemFilter.Unread);
-
-            if (unreadRow is not null) SelectedFeedNode = unreadRow;
+            // The segment as well here, unlike at startup. Arriving from a
+            // "12 new articles" notification is the user asking to be shown
+            // those specific articles, so leaving the session on Unread
+            // afterwards is what they asked for. Startup is not that: nobody
+            // opening the app has asked for every later click to be filtered.
             IsFilterUnread = true;
         }
         catch (Exception ex)

@@ -92,15 +92,24 @@ internal static class SmokeTest
     private const int NetworkConcurrency = 5;
 
     /// <summary>
-    /// The host the network phase talks to. The maintainer's own site, which
-    /// is already one of the starter feeds, so this depends on infrastructure
-    /// this project controls rather than on a third party's goodwill.
-    /// Overridable so a fork, or a runner behind a proxy with one address
-    /// allowed, can point it somewhere else.
+    /// What the network phase talks to.
+    ///
+    /// Taken from the app's own starter subscriptions rather than written out
+    /// again here. A second copy of an address is a second thing to update,
+    /// and the copy nobody looks at is the one that rots: change the starter
+    /// feed and a literal here would keep pointing at the old host until the
+    /// day it stopped resolving and this check started warning that it could
+    /// not run.
+    ///
+    /// The first entry is the maintainer's own site, so this leans on
+    /// infrastructure the project controls rather than on a third party.
+    ///
+    /// Overridable, for a fork whose starter feeds are different or a runner
+    /// behind a proxy with one address allowed.
     /// </summary>
     private static string NetworkProbeUrl =>
         Environment.GetEnvironmentVariable("MYLO_SMOKE_URL")
-        ?? "https://www.mostlylucid.net/rss";
+        ?? DefaultFeeds.All[0].FeedUrl;
 
     /// <summary>
     /// The document the loopback server returns. Small, and shaped so the
