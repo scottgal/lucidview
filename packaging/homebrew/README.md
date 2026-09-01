@@ -15,34 +15,53 @@ window.
 
 ## The tap
 
-There is no tap yet. `scottgal/homebrew-stylobot` exists but it is StyloBot's
-own tap and mylo does not belong in it.
-
-The tap to create is:
-
-    scottgal/homebrew-tap
+The tap is `scottgal/homebrew-tap`, and it exists. The cask lives at
+`Casks/mylo.rb` in it.
 
 That name is not arbitrary. Homebrew maps `brew tap scottgal/tap` onto the
 repository `github.com/scottgal/homebrew-tap`, so the `homebrew-` prefix has
 to be there and the rest of the name is what a user types. `tap` is the
 conventional choice for a personal tap holding more than one thing, which
 leaves room for lucidVIEW later without a second repository.
+`scottgal/homebrew-stylobot` also exists, but it is StyloBot's own tap and
+mylo does not belong in it.
 
-**Creating it is a decision for the maintainer, not something automated here.**
-Once it exists:
+### Updating it for a release
+
+This is the step that is easy to forget, and forgetting it BREAKS
+`brew install` rather than merely leaving it stale. The cask names a version
+and builds its download URL from it, so the moment a release the cask points
+at stops existing, every install 404s. That happened: 0.2.4 was deleted for
+shipping a build that aborted on its first HTTPS request, and the tap went on
+pointing at it.
+
+The release workflow generates the cask with the new version and both
+checksums filled in and attaches it to the GitHub release. It does not push
+it; this repository has no business writing to the tap. So, per release:
 
 ```bash
-# one-off, in a checkout of the new empty tap repository
-mkdir -p Casks
-cp /path/to/lucidview/packaging/homebrew/mylo.rb Casks/mylo.rb
-git add Casks/mylo.rb
-git commit -m "Add the mylo cask"
-git push
+gh release download mylo-vX.Y.Z --repo scottgal/lucidview --pattern "mylo.rb"
+
+# in a checkout of scottgal/homebrew-tap
+cp mylo.rb Casks/mylo.rb
+brew audit --cask scottgal/tap/mylo   # must exit 0
+git commit -am "mylo X.Y.Z" && git push
 ```
 
-and after that, per release, the same copy and commit.
+Worth verifying the checksums against the assets rather than trusting the
+generated file, since a wrong one fails at install time with an error that
+does not say which side is wrong:
 
-A user then installs with:
+```bash
+gh release download mylo-vX.Y.Z --repo scottgal/lucidview --pattern "mylo-osx-*.zip"
+shasum -a 256 mylo-osx-arm64.zip mylo-osx-x64.zip
+```
+
+Homebrew caches its clone of the tap, so `brew info` keeps reporting the old
+version until `brew update` runs. A stale local answer is not evidence the
+push failed.
+
+A user installs with:
 
 ```bash
 brew tap scottgal/tap

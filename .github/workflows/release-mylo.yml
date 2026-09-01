@@ -283,7 +283,7 @@ jobs:
 
           ### macOS
 
-          With Homebrew, once the tap exists:
+          With Homebrew:
 
           ```bash
           brew install --cask scottgal/tap/mylo
