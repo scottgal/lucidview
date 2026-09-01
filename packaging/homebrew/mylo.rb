@@ -1,3 +1,6 @@
+# typed: strict
+# frozen_string_literal: true
+
 # Homebrew cask for mylo.
 #
 # This file is the source of truth. It is not installable from where it sits:
