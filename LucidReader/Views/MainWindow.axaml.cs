@@ -247,7 +247,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     /// </summary>
     private IEnumerable<FeedTreeNode> AllFeedTreeNodes => Sidebar.SelectMany(s => s.Nodes);
 
-    public ObservableCollection<ItemRow> ItemRows { get; } = [];
+    /// <summary>
+    /// The item list. A BatchObservableCollection rather than a plain
+    /// ObservableCollection so a whole page of rows arrives as one change:
+    /// see the summary on that class for what the row-at-a-time version cost.
+    /// </summary>
+    public BatchObservableCollection<ItemRow> ItemRows { get; } = [];
 
     public double ColumnWidth => _services.Settings.ColumnWidth;
 

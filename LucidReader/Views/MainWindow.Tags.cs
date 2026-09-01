@@ -349,7 +349,7 @@ public partial class MainWindow
         // feed, which looks like the removal did something much larger than it
         // did. The caller's own status message says what happened.
         _dwell.CancelPending();
-        ItemRows.Clear();
+        ItemRows.ReplaceAll([]);
     }
 
     /// <summary>

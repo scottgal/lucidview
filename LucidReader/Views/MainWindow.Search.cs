@@ -151,26 +151,25 @@ public partial class MainWindow
 
         _dwell.CancelPending();
 
-        ItemRows.Clear();
-        foreach (var hit in results)
+        // One notification for the whole result set rather than one per hit.
+        // See BatchObservableCollection, and MainWindow.Items.cs for the same
+        // change on the ordinary list load.
+        ItemRows.ReplaceAll(results.Select(hit => new ItemRow
         {
-            var item = hit.Item;
-            ItemRows.Add(new ItemRow
-            {
-                Item = item,
-                FeedName = feeds.GetValueOrDefault(item.FeedId, "Unknown feed"),
-                IsRead = item.IsRead,
-                IsStarred = item.IsStarred,
-                RelativeDate = ItemRow.FormatRelative(item.PublishedUtc ?? item.FirstSeenUtc, now),
-                // Both are set. Snippet is the ordinary preview and stays
-                // correct for the row; MatchedSnippet is the passage that
-                // explains the hit, and IsSearchResult is what makes the row
-                // show the second instead of the first.
-                Snippet = Snippet.FromMarkdown(item.ContentMarkdown, item.Summary),
-                MatchedSnippet = hit.Snippet,
-                IsSearchResult = true
-            });
-        }
+            Item = hit.Item,
+            FeedName = feeds.GetValueOrDefault(hit.Item.FeedId, "Unknown feed"),
+            IsRead = hit.Item.IsRead,
+            IsStarred = hit.Item.IsStarred,
+            RelativeDate = ItemRow.FormatRelative(
+                hit.Item.PublishedUtc ?? hit.Item.FirstSeenUtc, now),
+            // Both are set. Snippet is the ordinary preview and stays
+            // correct for the row; MatchedSnippet is the passage that
+            // explains the hit, and IsSearchResult is what makes the row
+            // show the second instead of the first.
+            Snippet = Snippet.FromMarkdown(hit.Item.ContentMarkdown, hit.Item.Summary),
+            MatchedSnippet = hit.Snippet,
+            IsSearchResult = true
+        }).ToList());
 
         _searchCoordinator.MarkShowingResults();
         Raise(nameof(IsShowingSearchResults));

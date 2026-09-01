@@ -163,7 +163,17 @@ public partial class MainWindow
             OfflineState.Downloaded =>
                 (true, SummaryOnlyMessage, item.Link is not null),
             OfflineState.Failed =>
-                (true, "The full article could not be downloaded. " + (item.OfflineError ?? string.Empty), true),
+                // Joined with a colon rather than a full stop, because what
+                // follows is now a reason rather than a bare URL and reasons
+                // are phrased to continue a sentence: "the site answered HTTP
+                // 500", "this publisher does not allow automated article
+                // downloads". See ArticleFetchAttempt.
+                (true,
+                 "Full article unavailable: "
+                 + (string.IsNullOrWhiteSpace(item.OfflineError)
+                     ? "the download did not succeed."
+                     : item.OfflineError),
+                 true),
             OfflineState.Pending =>
                 (true, FetchingMessage, false),
             _ =>

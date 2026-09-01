@@ -75,20 +75,20 @@ public partial class MainWindow
         // since navigated away from.
         _dwell.CancelPending();
 
-        ItemRows.Clear();
-        foreach (var item in items)
+        // Built as a plain list and handed over in one go. Adding to the
+        // bound collection row by row raised a change notification per row,
+        // so a full page (500, see ItemQueryBuilder) meant 500 separate
+        // container updates for one list. See BatchObservableCollection.
+        ItemRows.ReplaceAll(items.Select(item => new ItemRow
         {
-            ItemRows.Add(new ItemRow
-            {
-                Item = item,
-                FeedName = feeds.GetValueOrDefault(item.FeedId, "Unknown feed"),
-                IsRead = item.IsRead,
-                IsStarred = item.IsStarred,
-                RelativeDate = ItemRow.FormatRelative(
-                    item.PublishedUtc ?? item.FirstSeenUtc, now),
-                Snippet = Snippet.FromMarkdown(item.ContentMarkdown, item.Summary)
-            });
-        }
+            Item = item,
+            FeedName = feeds.GetValueOrDefault(item.FeedId, "Unknown feed"),
+            IsRead = item.IsRead,
+            IsStarred = item.IsStarred,
+            RelativeDate = ItemRow.FormatRelative(
+                item.PublishedUtc ?? item.FirstSeenUtc, now),
+            Snippet = Snippet.FromMarkdown(item.ContentMarkdown, item.Summary)
+        }).ToList());
 
         StatusMessage = ItemRows.Count == 0
             ? "No articles here yet."

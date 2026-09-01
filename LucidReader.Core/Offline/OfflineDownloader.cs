@@ -266,11 +266,19 @@ public sealed class OfflineDownloader : IAsyncDisposable
             if (!canFetchPage) return;
         }
 
-        var fetched = await _articles.FetchArticleAsync(item.Link!, ct);
-        if (fetched is null)
+        var attempt = await _articles.TryFetchArticleAsync(item.Link!, ct);
+        if (attempt.Article is not { } fetched)
         {
+            // The reason, not just the address. "Could not fetch <url>" was
+            // recorded for every failure alike, so a publisher refusing
+            // automated clients was indistinguishable from a bug in this app,
+            // and it is the far more common case: Ars Technica answers 403 to
+            // any non-browser User-Agent, which put that sentence on eighteen
+            // of its twenty articles. See ArticleFetchAttempt.
             await _items.SetOfflineFailedAsync(
-                itemId, $"Could not fetch {item.Link}", ct);
+                itemId,
+                attempt.Reason ?? $"Could not fetch {item.Link}",
+                ct);
             return;
         }
 

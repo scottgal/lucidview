@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using LucidReader.Core.Feeds;
@@ -20,6 +21,29 @@ public enum ArticleBodyKind
 /// HTML converter would only degrade it.
 /// </summary>
 public sealed record FetchedArticle(string Body, ArticleBodyKind Kind);
+
+/// <summary>
+/// What one attempt at an article page produced: the article, or the reason
+/// there is not one.
+///
+/// The reason exists because "it did not work" was the only thing the caller
+/// could ever learn. Every failure - a refusal, a redirect to a login wall, a
+/// PDF where an article was expected, a page too large to store, a DNS
+/// failure - came back as a null, and the download recorded the same sentence
+/// for all of them: "Could not fetch &lt;url&gt;". A user reading that has no
+/// way to tell a problem with mylo from a publisher who has decided not to
+/// serve automated clients, and the second is by far the more common. Ars
+/// Technica answers 403 to any non-browser User-Agent, so eighteen of its
+/// twenty articles carried a message that read as this app's failure.
+///
+/// Reason is null when Article is not, and never the other way round.
+/// </summary>
+public sealed record ArticleFetchAttempt(FetchedArticle? Article, string? Reason)
+{
+    public static ArticleFetchAttempt Ok(FetchedArticle article) => new(article, null);
+
+    public static ArticleFetchAttempt Failed(string reason) => new(null, reason);
+}
 
 /// <summary>
 /// Fetches an article page. Returns null rather than throwing on any failure:
@@ -51,7 +75,20 @@ public sealed partial class ArticleFetcher(HttpClient http)
         "text/x-markdown"
     ];
 
-    public async Task<FetchedArticle?> FetchArticleAsync(string url, CancellationToken ct = default)
+    /// <summary>
+    /// The article, or null. Kept as it was because "did this produce an
+    /// article" is the whole question at most call sites and in every test of
+    /// this class; callers that also need to say WHY not use
+    /// <see cref="TryFetchArticleAsync"/>.
+    /// </summary>
+    public async Task<FetchedArticle?> FetchArticleAsync(string url, CancellationToken ct = default) =>
+        (await TryFetchArticleAsync(url, ct)).Article;
+
+    /// <summary>
+    /// The article, or the reason there is not one. See
+    /// <see cref="ArticleFetchAttempt"/>.
+    /// </summary>
+    public async Task<ArticleFetchAttempt> TryFetchArticleAsync(string url, CancellationToken ct = default)
     {
         // The URL is item.Link, straight out of feed XML, and auto-download
         // fetches it with no user action at all, so it needs the same gate as
@@ -59,8 +96,8 @@ public sealed partial class ArticleFetcher(HttpClient http)
         // a feed publishing <link>http://127.0.0.1:9200/_cluster/settings</link>
         // would otherwise have that GET made for it and the response stored as
         // the article body.
-        if (!FeedUrlPolicy.TryValidate(url, out var uri, out _) || uri is null)
-            return null;
+        if (!FeedUrlPolicy.TryValidate(url, out var uri, out var refusal) || uri is null)
+            return ArticleFetchAttempt.Failed(refusal ?? "the address is not one this app will fetch");
 
         try
         {
@@ -71,7 +108,8 @@ public sealed partial class ArticleFetcher(HttpClient http)
             using var response = await http.SendAsync(
                 request, HttpCompletionOption.ResponseHeadersRead, ct);
 
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+                return ArticleFetchAttempt.Failed(DescribeStatus(response.StatusCode));
 
             // Whatever comes back here is stored as the article and marks the
             // item Downloaded. There is no second "does this look like an
@@ -85,39 +123,78 @@ public sealed partial class ArticleFetcher(HttpClient http)
                 && mediaType is not null
                 && !mediaType.Contains("html", StringComparison.OrdinalIgnoreCase)
                 && !mediaType.Contains("xml", StringComparison.OrdinalIgnoreCase))
-                return null;
+                return ArticleFetchAttempt.Failed(
+                    $"the page is {mediaType}, not an article");
 
             // Cheap early rejection when the server declares its length up
             // front. Most dynamically generated HTML is served chunked,
             // which never sets Content-Length, so this alone is not the real
             // cap - see ReadBoundedAsync for the one that actually is.
-            if (response.Content.Headers.ContentLength > MaxArticleBytes) return null;
+            if (response.Content.Headers.ContentLength > MaxArticleBytes)
+                return ArticleFetchAttempt.Failed("the page is too large to store");
 
             var body = await ReadBoundedAsync(response.Content, ct);
-            if (body is null) return null;
+            if (body is null) return ArticleFetchAttempt.Failed("the page is too large to store");
 
             // The site answered our Accept header with its own source text.
             // Nothing left to convert.
-            if (isMarkdown) return new FetchedArticle(body, ArticleBodyKind.Markdown);
+            if (isMarkdown)
+                return ArticleFetchAttempt.Ok(new FetchedArticle(body, ArticleBodyKind.Markdown));
 
             // Redirects mean a relative markdown href has to resolve against
             // wherever the response actually came from, not the address we
             // asked for.
             var effectiveUri = response.RequestMessage?.RequestUri ?? uri;
             var markdown = await FollowMarkdownAlternateAsync(body, effectiveUri, ct);
-            if (markdown is not null) return new FetchedArticle(markdown, ArticleBodyKind.Markdown);
+            if (markdown is not null)
+                return ArticleFetchAttempt.Ok(new FetchedArticle(markdown, ArticleBodyKind.Markdown));
 
-            return new FetchedArticle(body, ArticleBodyKind.Html);
+            return ArticleFetchAttempt.Ok(new FetchedArticle(body, ArticleBodyKind.Html));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw;
         }
-        catch (Exception)
+        catch (HttpRequestException ex)
         {
-            return null;
+            // The network layer's own words, which name the host and say
+            // whether it was DNS, a refused connection or a broken TLS
+            // handshake. Far better than a sentence this class invents.
+            return ArticleFetchAttempt.Failed(ex.Message);
+        }
+        catch (TaskCanceledException)
+        {
+            return ArticleFetchAttempt.Failed("the site did not respond in time");
+        }
+        catch (Exception ex)
+        {
+            return ArticleFetchAttempt.Failed(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Turns a refused status into a sentence that says whose decision it was.
+    ///
+    /// 403 and 401 are the ones worth naming. A publisher that answers them to
+    /// an ordinary GET has chosen not to serve automated clients, and saying
+    /// "could not fetch" for that reads as a bug in this app rather than as
+    /// somebody else's policy. Ars Technica does exactly this: the same URL
+    /// returns 403 to mylo's User-Agent and 200 to a browser's.
+    ///
+    /// 429 is separated for the opposite reason: it is temporary and retrying
+    /// later is the right response, which the other two are not.
+    /// </summary>
+    private static string DescribeStatus(HttpStatusCode status) => status switch
+    {
+        HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized =>
+            "this publisher does not allow automated article downloads "
+            + $"(HTTP {(int)status}). The feed summary is all it offers.",
+        HttpStatusCode.TooManyRequests =>
+            "the publisher is rate limiting downloads (HTTP 429). It will be retried later.",
+        HttpStatusCode.NotFound or HttpStatusCode.Gone =>
+            $"the article page is gone (HTTP {(int)status})",
+        _ => $"the site answered HTTP {(int)status}"
+    };
 
     /// <summary>
     /// Follows a &lt;link rel="alternate" type="text/markdown"&gt; when the
@@ -146,7 +223,8 @@ public sealed partial class ArticleFetcher(HttpClient http)
 
             using var response = await http.SendAsync(
                 request, HttpCompletionOption.ResponseHeadersRead, ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+                return null;
 
             // A site that advertises a markdown alternate and then answers
             // with HTML has sent us the thing we were trying to avoid, so the
@@ -157,7 +235,8 @@ public sealed partial class ArticleFetcher(HttpClient http)
                 && !mediaType.Equals("text/plain", StringComparison.OrdinalIgnoreCase))
                 return null;
 
-            if (response.Content.Headers.ContentLength > MaxArticleBytes) return null;
+            if (response.Content.Headers.ContentLength > MaxArticleBytes)
+                return null;
 
             return await ReadBoundedAsync(response.Content, ct);
         }
