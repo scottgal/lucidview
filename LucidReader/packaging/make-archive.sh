@@ -76,6 +76,39 @@ for lib in "${NATIVE[@]}"; do
 done
 [[ -f "$PAYLOAD/manual/user-manual.md" ]] || { echo "missing bundled manual" >&2; exit 1; }
 
+# Run the thing we just built, when this machine can run it. See
+# LucidReader/SmokeTest.cs for why a check that executes the packaged binary
+# exists at all: 0.2.4 shipped a build that aborted on its first HTTPS request
+# with the whole unit suite green, because the fault was in the published
+# artifact and nothing ever ran the published artifact.
+#
+# Only when the RID matches this host, and stated rather than hidden. A
+# win-x64 payload cannot be executed on a Linux runner, so a cross-RID build
+# genuinely is not verified here and should not print anything suggesting it
+# was. release-mylo.yml builds each RID on a matching runner, which is where
+# the coverage is real.
+HOST_RID=""
+case "$(uname -s)/$(uname -m)" in
+    Linux/x86_64)  HOST_RID="linux-x64" ;;
+    Linux/aarch64) HOST_RID="linux-arm64" ;;
+    MINGW*|MSYS*|CYGWIN*)
+        case "$(uname -m)" in
+            x86_64) HOST_RID="win-x64" ;;
+            aarch64|arm64) HOST_RID="win-arm64" ;;
+        esac
+        ;;
+esac
+
+if [[ "$RID" == "$HOST_RID" ]]; then
+    echo "running smoke test against the built payload"
+    if ! "$EXE" --smoke-test; then
+        echo "smoke test failed: this build does not work, refusing to package it" >&2
+        exit 1
+    fi
+else
+    echo "skipping smoke test: $RID cannot be executed on this host (${HOST_RID:-unknown})"
+fi
+
 if [[ "$RID" == win-* ]]; then
     cat >"$PAYLOAD/install.txt" <<EOF
 mylo $VERSION for Windows ($RID)

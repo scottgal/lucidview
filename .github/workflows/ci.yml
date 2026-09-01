@@ -97,7 +97,6 @@ jobs:
         dotnet publish ${{ env.PROJECT_PATH }} -c Release -r win-x64 \
           --self-contained true \
           -p:PublishSingleFile=true \
-          -p:EnableCompressionInSingleFile=true \
           -p:IncludeNativeLibrariesForSelfExtract=true \
           -p:IncludeAllContentForSelfExtract=true \
           -p:PublishReadyToRun=true \

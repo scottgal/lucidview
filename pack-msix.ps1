@@ -65,7 +65,6 @@ Write-Host '=== Publishing win-x64 ===' -ForegroundColor Cyan
     -p:PublishSingleFile=true `
     -p:SelfContained=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:EnableCompressionInSingleFile=true `
     -p:IncludeAllContentForSelfExtract=true `
     -p:PublishReadyToRun=true `
     -p:PublishReadyToRunComposite=false `

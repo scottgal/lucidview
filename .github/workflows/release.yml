@@ -60,7 +60,6 @@ jobs:
         dotnet publish ${{ env.PROJECT_PATH }} -c Release -r ${{ matrix.rid }} -o publish/${{ matrix.rid }} \
           -p:PublishSingleFile=true \
           -p:SelfContained=true \
-          -p:EnableCompressionInSingleFile=true \
           -p:IncludeNativeLibrariesForSelfExtract=true \
           -p:IncludeAllContentForSelfExtract=true \
           -p:PublishReadyToRun=true \

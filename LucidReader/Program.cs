@@ -10,8 +10,21 @@ namespace LucidReader;
 internal static class Program
 {
     [STAThread]
-    public static void Main(string[] args) =>
-        BuildAvaloniaApp(args).StartWithClassicDesktopLifetime(args);
+    public static int Main(string[] args)
+    {
+        // Handled before Avalonia is touched, so the check runs on a machine
+        // with no display and cannot be affected by anything the UI does.
+        //
+        // This is the one piece of test tooling that ships in Release rather
+        // than living behind #if DEBUG, and SmokeTest's own summary records
+        // why: a Debug-only check cannot answer the question that mattered,
+        // which is whether the packaged binary works. See the packaging
+        // scripts, which refuse to produce an artifact this exits non-zero on.
+        if (args.Contains("--smoke-test"))
+            return SmokeTest.RunAsync().GetAwaiter().GetResult();
+
+        return BuildAvaloniaApp(args).StartWithClassicDesktopLifetime(args);
+    }
 
     public static AppBuilder BuildAvaloniaApp() => BuildAvaloniaApp([]);
 

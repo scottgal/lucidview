@@ -38,7 +38,6 @@ $commonArgs = @(
     '-p:PublishSingleFile=true'
     '-p:SelfContained=true'
     '-p:IncludeNativeLibrariesForSelfExtract=true'
-    '-p:EnableCompressionInSingleFile=true'
     '-p:IncludeAllContentForSelfExtract=true'
     '-p:DebugType=none'
     '-p:DebugSymbols=false'

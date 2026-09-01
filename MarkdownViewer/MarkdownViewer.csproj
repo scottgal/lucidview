@@ -14,7 +14,25 @@
         <PublishSingleFile>true</PublishSingleFile>
         <SelfContained>true</SelfContained>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+        <!-- OFF, and it must stay off. It was true here until mylo, which had
+             the same setting, shipped 0.2.4 as a build that aborted the
+             process on its first HTTPS request.
+
+             A compressed single-file publish on osx-arm64 (SDK 10.0.201)
+             produces a binary that reads or writes memory it does not own. It
+             dies with an AccessViolationException, which cannot be caught, and
+             the reported frame is wherever the damage was touched first rather
+             than anywhere near the cause. It was reproduced away from either
+             app with a twenty-line console program: five runs out of five
+             abort with this on, five out of five pass with it off, and no
+             other flag makes a difference. The full account is on the same
+             property in LucidReader.csproj.
+
+             lucidVIEW ships the same shape from the same runtime on the same
+             platforms, so it was carrying the same fault whether or not anyone
+             had hit it yet. The cost of turning it off is a larger download
+             and a slower cold start. -->
+        <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
         <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
 
         <!-- Markdown.Avalonia uses custom IBinding / StaticBinding reflection.
@@ -131,5 +149,18 @@
     <ItemGroup>
         <AvaloniaResource Include="Assets\Raleway-*.ttf" />
     </ItemGroup>
+
+    <!--
+      The property is set to false above, but ci.yml and release.yml publish
+      lucidVIEW with an explicit -p: list, and both used to pass
+      -p:EnableCompressionInSingleFile=true, which would override it. Removing
+      it from those files is not enough on its own: a command line is easy to
+      copy from one job to another, and the resulting build looks completely
+      normal until it aborts on a user's machine. So it fails the publish.
+    -->
+    <Target Name="RefuseCompressedSingleFile" BeforeTargets="Publish">
+        <Error Condition="'$(EnableCompressionInSingleFile)' == 'true'"
+               Text="EnableCompressionInSingleFile must stay false for lucidVIEW. A compressed single-file publish corrupts the process and the app aborts on its first HTTPS request. See the comment on the property in MarkdownViewer.csproj." />
+    </Target>
 
 </Project>
