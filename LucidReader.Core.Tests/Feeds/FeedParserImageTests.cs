@@ -175,6 +175,41 @@ public class FeedParserImageTests
         }
     }
 
+    /// <summary>
+    /// The real APOD document, reduced to one item but otherwise verbatim from
+    /// https://apod.nasa.gov/apod.rss.
+    ///
+    /// Worth its own test because it is unlike every other feed here and it
+    /// broke on all of them: the title is EMPTY, there is no guid, there is no
+    /// media or enclosure element of any kind, and the picture exists only as
+    /// an img inside an a inside the escaped description. A picture-of-the-day
+    /// feed with no picture is the most visible way this could fail.
+    /// </summary>
+    [Fact]
+    public void Reads_the_APOD_image_out_of_its_escaped_description()
+    {
+        const string xml =
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>APOD</title>
+                <link>https://apod.nasa.gov/</link>
+                <item>
+                <title></title>
+                <link>https://apod.nasa.gov/apod/astropix.html</link>
+                <description>&#60;p>&#60;a href="https://apod.nasa.gov/apod/astropix.html">&#60;img src="https://apod.nasa.gov/apod/calendar/S_260901.jpg" align="left" alt="Did you need to be on the right side of this airplane to see this eclipse?" border="0" />&#60;/a> Did you need to be on the right side of this airplane to see this eclipse?&#60;/p>&#60;br clear="all"/></description>
+                </item>
+              </channel>
+            </rss>
+            """;
+
+        var feed = new FeedParser().Parse(xml, new Uri("https://apod.nasa.gov/apod.rss"));
+        var item = Assert.Single(feed.Items);
+
+        Assert.Equal("https://apod.nasa.gov/apod/calendar/S_260901.jpg", item.ImageUrl);
+    }
+
     [Fact]
     public void Names_no_image_when_the_feed_names_none()
     {

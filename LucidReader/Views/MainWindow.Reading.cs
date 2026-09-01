@@ -2,6 +2,7 @@ using Avalonia.Threading;
 using LucidReader.Core.Model;
 using LucidReader.Models;
 using LucidReader.Services;
+using MarkdownViewer.Services;
 
 namespace LucidReader.Views;
 
@@ -146,9 +147,7 @@ public partial class MainWindow
             parts.Add(published.ToLocalTime().ToString("f"));
         ArticleMeta = string.Join("  ·  ", parts);
 
-        ArticleMarkdown = item.ContentMarkdown
-            ?? item.Summary
-            ?? "This article has no content yet.";
+        ArticleMarkdown = BodyMarkdown(item);
 
         // ContentSource.Extracted and ContentSource.FeedArticle are both the
         // whole article, so neither is badged. Only ContentSource.Feed - a
@@ -383,6 +382,72 @@ public partial class MainWindow
     /// SafeLinkOpener. The allowlist only holds if nothing downstream gets a
     /// second go at the URL.
     /// </summary>
+    /// <summary>
+    /// The body to render, as markdown.
+    ///
+    /// Three sources, best first, and only the first was ever used properly:
+    ///
+    ///   1. ContentMarkdown, written by OfflineDownloader from an article it
+    ///      fetched. Already markdown, already absolute, nothing to do.
+    ///   2. ContentHtml, the full body a publisher put in content:encoded or
+    ///      an Atom content element. This was NOT consulted at all, so a feed
+    ///      that ships whole articles showed its short summary until something
+    ///      downloaded the page a second time over the same content.
+    ///   3. Summary, the teaser.
+    ///
+    /// Both 2 and 3 are publisher HTML and were previously assigned to
+    /// ArticleMarkdown unconverted, which is to say a markdown renderer was
+    /// handed a fragment of HTML. Headings did not render as headings, an
+    /// anchor did not become a link, and an img rendered as nothing, so a feed
+    /// whose content is a picture - APOD is exactly one img inside one a -
+    /// showed an article with no image in it.
+    ///
+    /// The item's own link is passed as the base URI, which is what makes
+    /// relative addresses work. AngleSharp resolves href and src against it
+    /// during the parse, so "/apod/ap260901.html" comes out absolute. Without
+    /// it those links reached SafeLinkOpener as relative strings, and that gate
+    /// requires UriKind.Absolute, so clicking one did nothing at all: correct
+    /// of the gate, and useless to the reader.
+    /// </summary>
+    private static string BodyMarkdown(FeedItem item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.ContentMarkdown)) return item.ContentMarkdown!;
+
+        var html = !string.IsNullOrWhiteSpace(item.ContentHtml) ? item.ContentHtml : item.Summary;
+        if (string.IsNullOrWhiteSpace(html)) return "This article has no content yet.";
+
+        // Absolute only. A feed can carry a relative or malformed link, and a
+        // bad base is worth less than no base.
+        Uri.TryCreate(item.Link, UriKind.Absolute, out var baseUri);
+
+        try
+        {
+            // FeedFragmentToMarkdown, NOT the StyloExtract pipeline that
+            // OfflineDownloader uses. That pipeline finds an article inside a
+            // full page and discards the chrome around it, and a feed fragment
+            // has no chrome: it decides there is no article here and returns a
+            // single newline. Measured against the real APOD body in six
+            // wrappings, including a complete document with a title and an h1.
+            // See the summary on FeedFragmentToMarkdown.
+            var markdown = FeedFragmentToMarkdown.Convert(html, baseUri);
+
+            // An empty result means the fragment held no text and no image.
+            // Falling back to the raw HTML would put markup on screen, which
+            // is the bug this method exists to fix, so say plainly that there
+            // is nothing rather than showing something that is not an article.
+            return string.IsNullOrWhiteSpace(markdown)
+                ? "This article has no content yet."
+                : markdown;
+        }
+        catch (Exception)
+        {
+            // Whatever a publisher wrote can be malformed in ways nothing
+            // anticipated. The text alone is a poor article, and still better
+            // than an empty pane or a wall of tags.
+            return html!;
+        }
+    }
+
     private void OnArticleLinkClicked(object? sender, LiveMarkdown.Avalonia.LinkClickedEventArgs e)
     {
         e.Handled = true;
