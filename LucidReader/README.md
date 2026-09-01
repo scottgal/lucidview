@@ -41,17 +41,50 @@ dotnet run   --project LucidReader/LucidReader.csproj
 dotnet test  LucidReader.Core.Tests/LucidReader.Core.Tests.csproj
 ```
 
-A macOS `.app` bundle, which is what releases ship:
+## Packaging
+
+Two scripts, one per shape, and releases run exactly these:
 
 ```bash
-LucidReader/macos/make-bundle.sh
+LucidReader/macos/make-bundle.sh osx-arm64        # or osx-x64
+LucidReader/packaging/make-archive.sh win-x64     # win-arm64, linux-x64, linux-arm64
 ```
 
-The bundle matters beyond packaging. `IncludeNativeLibrariesForSelfExtract` is
-off for the hardened runtime, so a publish leaves five dylibs beside the
-executable; copying only the binary produces an app that starts and then dies
-at the first database access. The bundle script fails the build if any of them
-is missing.
+`make-bundle.sh` produces `mylo.app`: an Info.plist, an `.icns` and an ad-hoc
+signature around the publish output. `make-archive.sh` produces a folder
+archived as a `.zip` for Windows and a `.tar.gz` for Linux, with an
+`install.txt` and, on Linux, a `mylo.desktop` and an icon.
+
+Both fail the build if the executable, any native library or the bundled
+manual is missing from the payload, and that check is the point of having
+scripts at all. `IncludeNativeLibrariesForSelfExtract` is off on **every** RID,
+so no platform's publish is one file: it is the executable plus its native
+libraries (five dylibs on macOS, five DLLs on Windows, four `.so` files on
+Linux) plus `manual/`. Copy out only the binary, as any naive packaging step
+would, and you ship something that opens a window and then dies at the first
+database access.
+
+macOS has to have it off, because self-extracting the SQLite library into a
+temp directory makes the hardened runtime refuse to load it. Windows and Linux
+do not have to, and it is still off there on purpose; the reasoning is in
+`LucidReader.csproj` next to the property.
+
+The Homebrew cask for the macOS builds is in
+[`packaging/homebrew`](../packaging/homebrew) at the repository root, with a
+README covering the tap and Gatekeeper.
+
+### Window chrome is not the same on every platform
+
+macOS extends the client area under the title bar so the toolbar and the
+traffic lights share a band, which is why the toolbar carries an 80px left
+margin. Windows and Linux put their system buttons on the **right**, so that
+layout gives them a dead gutter on the left and system buttons drawn over the
+Settings button on the right. `ConfigurePlatformChrome` in
+`MainWindow.Layout.cs` switches the extended client area back off on those
+platforms, restores the ordinary system title bar and evens the margin up. The
+toolbar's drag and double-click-to-zoom handlers are macOS-only for the same
+reason: on Windows and Linux the real title bar is still there and already
+does both.
 
 ## Driving the UI
 
@@ -59,7 +92,7 @@ The scripts under `ux-scripts/` drive the real application through
 `Mostlylucid.Avalonia.UITesting`, which is a Debug-only reference.
 
 ```bash
-ux-scripts/run-reader-smoke.sh          # any of the 22 runners
+ux-scripts/run-reader-smoke.sh          # any of the 24 runners
 ux-scripts/capture-reader-manual.sh     # regenerate every manual screenshot
 ```
 

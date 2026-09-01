@@ -477,6 +477,12 @@ in the menu bar" are separate wants:
   available while the menu bar item is shown, since otherwise there would be
   no way back to the window.
 
+Both of those depend on the platform, and section 17 has the detail. In short:
+the notification is a real system notification on macOS and a toast inside the
+mylo window on Windows and Linux, and the status item is a menu bar item on
+macOS, a tray icon on Windows, and on Linux only appears if the desktop
+session runs a StatusNotifierItem host.
+
 ---
 
 ## 11. Per-feed settings
@@ -628,3 +634,69 @@ a publisher a handful of small requests a day.
 
 If something in this manual does not match what mylo does, the manual is
 wrong. Please say so on the issue tracker.
+
+---
+
+## 17. Installing mylo on another machine
+
+Builds for macOS, Windows and Linux are on the
+[releases page](https://github.com/scottgal/lucidview/releases). Every one is
+self-contained: the machine does not need a .NET runtime.
+
+Each download is a folder rather than a bare executable, and it has to stay
+one. Beside the executable sit the graphics, text-shaping and database
+libraries mylo loads at startup, and the `manual/` directory this page is read
+from. An executable moved out on its own starts and then fails the moment it
+touches the database.
+
+### macOS
+
+With Homebrew, `brew install --cask scottgal/tap/mylo`. By hand:
+
+```bash
+cd ~/Downloads
+unzip -o mylo-osx-arm64.zip          # mylo-osx-x64.zip on an Intel Mac
+mv mylo.app /Applications/
+xattr -dr com.apple.quarantine /Applications/mylo.app
+open /Applications/mylo.app
+```
+
+mylo is ad-hoc codesigned but not notarised with an Apple Developer ID, so
+Gatekeeper refuses the first launch and says the developer cannot be verified.
+The `xattr` line tells macOS to trust this build. Right-clicking the app and
+choosing Open makes the same decision through a dialog, and the Homebrew cask
+does it for you after installing.
+
+### Windows
+
+Unzip `mylo-win-x64.zip`, or `mylo-win-arm64.zip` on Windows on Arm, and run
+`mylo.exe`. SmartScreen warns on the first run because the build is not signed
+with a paid code-signing certificate: choose **More info**, then **Run
+anyway**.
+
+### Linux
+
+```bash
+tar -xzf mylo-linux-x64.tar.gz       # or mylo-linux-arm64.tar.gz
+cd mylo-linux-x64
+./mylo
+```
+
+A `mylo.desktop` and an icon are in the archive if you want a menu entry, with
+the two commands in `install.txt`.
+
+### What differs by platform
+
+The reader itself is the same everywhere. Three things around it are not:
+
+- **The menus.** On macOS they are in the system menu bar at the top of the
+  screen. On Windows and Linux they are a menu bar inside the window, above
+  the toolbar, which is the native shape on both. Same six menus, same items.
+- **The status item** (section 10, Alerts) is a menu bar item on macOS and a
+  system tray icon on Windows. On Linux it needs the desktop session to run a
+  StatusNotifierItem host: GNOME without an AppIndicator extension has none,
+  so the icon will not appear there at all. Nothing is lost when it does not,
+  since Open, Refresh all, Mark all read and Quit are all on the menu bar too.
+- **New-article alerts** are handed to the system notification centre on
+  macOS. On Windows and Linux they are drawn as a toast inside the mylo
+  window instead, so they only arrive while mylo is running and visible.

@@ -12,6 +12,14 @@
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="PreferSystemChrome"
         ExtendClientAreaTitleBarHeightHint="-1">
+    <!--
+        The three ExtendClientArea properties above are the macOS layout and
+        are switched off again at runtime on Windows and Linux by
+        ConfigurePlatformChrome (MainWindow.Layout.cs). They are declared
+        here rather than only in code because the macOS case is the one the
+        toolbar below is drawn for, and a designer opening this file should
+        see the layout it was written against.
+    -->
 
     <Window.Resources>
         <controls:PathToBitmapConverter x:Key="PathToBitmapConverter" />
@@ -80,7 +88,17 @@
                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource HairlineBrush}"
                 PointerPressed="OnTitleBarPointerPressed"
                 DoubleTapped="OnTitleBarDoubleTapped">
-            <Grid ColumnDefinitions="Auto,*,Auto" Margin="80,10,12,10">
+            <!--
+                The 80 on the left is the macOS traffic lights, which sit at
+                the top left of the window and are drawn over this row once
+                the client area is extended. It is not a universal gutter:
+                ConfigurePlatformChrome (MainWindow.Layout.cs) rewrites this
+                margin to an even 12 on Windows and Linux, where the system
+                buttons are on the right and the client area is not extended
+                at all, so an 80px hole on the left would be dead space and
+                nothing else.
+            -->
+            <Grid x:Name="ToolbarGrid" ColumnDefinitions="Auto,*,Auto" Margin="80,10,12,10">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <!--
                         The layout button, first in the row because that is

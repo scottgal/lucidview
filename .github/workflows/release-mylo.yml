@@ -20,11 +20,16 @@ env:
   PROJECT_PATH: 'LucidReader/LucidReader.csproj'
 
 jobs:
-  # The maintainer's pre-release gate. mylo's 898 tests were invisible to a
-  # solution-wide run until LucidReader.Core.Tests was added to
-  # lucid.viewer.sln, so run them by project here and do not let a publish
-  # start until they pass.
+  # The maintainer's pre-release gate. mylo's tests, 1457 of them at the time
+  # of writing, were invisible to a solution-wide run until
+  # LucidReader.Core.Tests was added to lucid.viewer.sln, so run them by
+  # project here and do not let a publish start until they pass.
   test:
+    # macOS because that is where mylo is developed and where the macOS-only
+    # code paths (NativeMenu, MacUserNotificationSink, the status item) are
+    # actually exercised. The same project runs on Windows and Linux in the
+    # repository's main CI workflow, so the non-UI logic behind the Windows and
+    # Linux artifacts is covered on the platforms they ship to.
     runs-on: macos-latest
     steps:
     - name: Checkout
@@ -40,7 +45,11 @@ jobs:
     - name: Test
       run: dotnet test LucidReader.Core.Tests/LucidReader.Core.Tests.csproj -c Debug
 
-  build:
+  # macOS, which is its own job because its packaging is its own thing: a .app
+  # bundle with an Info.plist, an .icns and an ad-hoc signature, none of which
+  # the Windows and Linux archives have. codesign also only exists on a macOS
+  # runner, so this cannot be folded into the cross-published job below.
+  build-macos:
     needs: test
     strategy:
       matrix:
@@ -50,13 +59,6 @@ jobs:
           - rid: osx-x64
             artifact: mylo-osx-x64
 
-    # macOS only, and that is not an oversight. mylo publishes with
-    # IncludeNativeLibrariesForSelfExtract=false, so every platform's output is
-    # an executable plus loose native libraries that something has to place
-    # correctly. On macOS the .app bundle is that something and it is built and
-    # launched. Windows and Linux would each need their own layout decided and
-    # tested on that platform first, so they are left out rather than shipped
-    # on a guess.
     runs-on: macos-latest
 
     steps:
@@ -115,13 +117,105 @@ jobs:
         path: ${{ matrix.artifact }}.zip
         retention-days: 1
 
+  # Windows and Linux. One job, cross-published from a Linux runner rather than
+  # four jobs on their native runners, and the reason is that there is nothing
+  # to run natively. Packaging here is a publish, a zip or a tar, and neither
+  # step needs the target OS. What would need it is launching the app to see
+  # whether it works, and CI cannot do that on any of these platforms anyway.
+  #
+  # A windows-latest runner would also have to be talked into a bash script and
+  # a `zip` it does not ship, for a build whose output is byte-identical.
+  #
+  # The non-UI logic these builds share is covered on all three platforms
+  # already: the test job runs LucidReader.Core.Tests, and the repository's
+  # main CI workflow runs it on Windows and Linux too.
+  build-desktop:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - rid: win-x64
+            artifact: mylo-win-x64
+            ext: zip
+          - rid: win-arm64
+            artifact: mylo-win-arm64
+            ext: zip
+          - rid: linux-x64
+            artifact: mylo-linux-x64
+            ext: tar.gz
+          - rid: linux-arm64
+            artifact: mylo-linux-arm64
+            ext: tar.gz
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    # The same script a maintainer runs locally, for the same reason the macOS
+    # job uses make-bundle.sh. It fails if the executable, any native library
+    # or the bundled manual is missing from the payload.
+    - name: Build the archive
+      run: ./LucidReader/packaging/make-archive.sh ${{ matrix.rid }} release/${{ matrix.rid }}
+
+    - name: Check the payload carries no debug files
+      run: |
+        set -e
+        DIR="release/${{ matrix.rid }}/mylo-${{ matrix.rid }}"
+        LEFTOVERS=$(find "$DIR" \( -name '*.pdb' -o -name '*.xml' \) | wc -l | tr -d ' ')
+        if [ "$LEFTOVERS" != "0" ]; then
+          echo "payload carries $LEFTOVERS debug files:"
+          find "$DIR" \( -name '*.pdb' -o -name '*.xml' \)
+          exit 1
+        fi
+        echo "payload size: $(du -sh "$DIR" | cut -f1)"
+
+    # Same check as the macOS job. The UITesting harness and
+    # Avalonia.Diagnostics are Debug-only references; if either leaks into a
+    # Release publish it is caught here, before the artifact is uploaded.
+    - name: Check no dev harness in the shipped binary
+      run: |
+        set -e
+        DIR="release/${{ matrix.rid }}/mylo-${{ matrix.rid }}"
+        case "${{ matrix.rid }}" in
+          win-*) BIN="$DIR/mylo.exe" ;;
+          *)     BIN="$DIR/mylo" ;;
+        esac
+        HITS=$(strings -a "$BIN" | grep -c "Mostlylucid.Avalonia.UITesting" || true)
+        if [ "$HITS" != "0" ]; then
+          echo "UITesting harness found in the Release binary: $HITS hits"
+          exit 1
+        fi
+        echo "no harness references in the Release binary"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact }}
+        path: release/${{ matrix.rid }}/${{ matrix.artifact }}.${{ matrix.ext }}
+        retention-days: 1
+
   release:
-    needs: build
+    needs: [build-macos, build-desktop]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
+    # This job used to need no checkout, because all it did was move files
+    # between two other jobs' outputs. It does now: the cask step below reads
+    # packaging/homebrew/mylo.rb. No submodules, since nothing here builds.
+    - name: Checkout
+      uses: actions/checkout@v4
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
@@ -130,8 +224,31 @@ jobs:
     - name: Flatten artifacts
       run: |
         mkdir -p release-files
-        find artifacts -name "*.zip" -exec cp {} release-files/ \;
+        find artifacts \( -name "*.zip" -o -name "*.tar.gz" \) -exec cp {} release-files/ \;
         ls -la release-files/
+
+    # The Homebrew cask, with the checksums of the two macOS zips this run just
+    # produced written into it, attached to the draft so it can be copied
+    # straight into the tap. Generated rather than hand-edited because a
+    # sha256 with one character wrong fails at install time with a message
+    # about a mismatched download, which reads like a tampered-with file
+    # rather than a stale cask.
+    #
+    # It is attached, not committed. This workflow has no business pushing to
+    # the tap repository, and the tap is a separate repository anyway; see
+    # packaging/homebrew/README.md for what to do with the file.
+    - name: Generate the Homebrew cask
+      run: |
+        set -e
+        VERSION="${{ github.event.inputs.version }}"
+        VERSION="${VERSION#mylo-v}"
+        ARM=$(sha256sum release-files/mylo-osx-arm64.zip | cut -d' ' -f1)
+        INTEL=$(sha256sum release-files/mylo-osx-x64.zip | cut -d' ' -f1)
+        sed -e "s/^  version \".*\"$/  version \"$VERSION\"/" \
+            -e "s/^  sha256 arm:   \".*\",$/  sha256 arm:   \"$ARM\",/" \
+            -e "s/^         intel: \".*\"$/         intel: \"$INTEL\"/" \
+            packaging/homebrew/mylo.rb >release-files/mylo.rb
+        grep -E '^  version |^  sha256 arm:|^         intel:' release-files/mylo.rb
 
     # Draft on purpose. The workflow puts the files together; a person still
     # has to read the notes and press publish. That is one more place for a
@@ -143,7 +260,10 @@ jobs:
         name: mylo ${{ github.event.inputs.version }}
         draft: true
         prerelease: true
-        files: release-files/*.zip
+        files: |
+          release-files/*.zip
+          release-files/*.tar.gz
+          release-files/mylo.rb
         generate_release_notes: true
         body: |
           ## mylo ${{ github.event.inputs.version }}
@@ -156,8 +276,20 @@ jobs:
           |---|---|
           | macOS Apple Silicon (M1/M2/M3/M4/M5) | `mylo-osx-arm64.zip` |
           | macOS Intel | `mylo-osx-x64.zip` |
+          | Windows x64 | `mylo-win-x64.zip` |
+          | Windows on Arm | `mylo-win-arm64.zip` |
+          | Linux x64 | `mylo-linux-x64.tar.gz` |
+          | Linux arm64 | `mylo-linux-arm64.tar.gz` |
 
-          ### Install
+          ### macOS
+
+          With Homebrew, once the tap exists:
+
+          ```bash
+          brew install --cask scottgal/tap/mylo
+          ```
+
+          Or by hand:
 
           ```bash
           cd ~/Downloads
@@ -170,10 +302,59 @@ jobs:
           **Why the `xattr` step?** mylo is ad-hoc codesigned, not notarized with
           an Apple Developer ID, so Gatekeeper refuses the first launch and says
           the developer cannot be verified. That command tells macOS to trust
-          this build. Right-click the app and choose Open works too.
+          this build. Right-click the app and choose Open works too. The cask
+          does the same thing for you after it installs.
+
+          ### Windows
+
+          Unzip the folder somewhere you keep applications and run `mylo.exe`.
+          Keep the folder together: the `.dll` files beside the executable are
+          the graphics, text-shaping and database libraries mylo loads at
+          startup, and `manual\` is the built-in user manual.
+
+          SmartScreen warns on the first run, because this build is not signed
+          with a paid Windows code-signing certificate. Choose **More info**,
+          then **Run anyway**.
+
+          Data lives in `%APPDATA%\mylo\`.
+
+          ### Linux
+
+          ```bash
+          tar -xzf mylo-linux-x64.tar.gz
+          cd mylo-linux-x64
+          ./mylo
+          ```
+
+          Keep the folder together, for the same reason as on Windows. A
+          `mylo.desktop` and an icon are in the archive if you want a menu
+          entry; `install.txt` has the two commands.
+
+          Data lives in `~/.config/mylo/`.
+
+          Two things work differently on Linux than on macOS, by design rather
+          than as pending work:
+
+          - **The tray icon needs a StatusNotifierItem host.** GNOME without an
+            AppIndicator extension has none, so the status item will not appear
+            there. Everything it offers is also on the menu bar in the window.
+          - **New-article alerts are an in-window toast**, not a desktop
+            notification. The only native notification route mylo has is the
+            macOS one.
+
+          The application menu is a menu bar inside the window on both Windows
+          and Linux, rather than a system menu bar. That is the native shape on
+          those platforms and it is fully working.
 
           ### Where mylo keeps your data
 
-          `~/Library/Application Support/mylo/` holds `reader.db` and
+          `~/Library/Application Support/mylo/` on macOS, `%APPDATA%\mylo\` on
+          Windows, `~/.config/mylo/` on Linux. Each holds `reader.db` and
           `settings.json`. Delete that folder for a clean slate. Subscriptions
           import and export as OPML from the Settings dialog.
+
+          ### Not in this release
+
+          `mylo.rb` attached above is the Homebrew cask for these artifacts,
+          with their checksums already filled in. It is here to be copied into
+          the tap; it is not something to download.

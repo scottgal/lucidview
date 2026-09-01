@@ -32,9 +32,34 @@
     <PublishReadyToRun>true</PublishReadyToRun>
     <PublishReadyToRunComposite>false</PublishReadyToRunComposite>
     <PublishTrimmed>false</PublishTrimmed>
-    <!-- Must stay false. Self-extracting the SQLite native library into a temp
-         directory makes the macOS hardened runtime refuse to load it, which
-         kills the app at first database access on a notarised build. -->
+    <!-- False on every RID, not only the macOS ones.
+
+         macOS is the hard constraint: self-extracting the SQLite native
+         library into a temp directory makes the hardened runtime refuse to
+         load it, which kills the app at first database access on a notarised
+         build. That argument does not apply on Windows or Linux, so setting
+         this true per-RID there to get one real single file was considered
+         and rejected, for two reasons.
+
+         First, it buys almost nothing. The bundled user manual is shipped as
+         loose files beside the executable (see the Content items below): it
+         is markdown read with File.ReadAllText and screenshots resolved as
+         paths on disk, so a manual/ directory sits next to mylo whatever this
+         setting says. The package is a folder either way, and folding four
+         native libraries into the executable only changes how many files are
+         in a folder the user unzips as a unit.
+
+         Second, self-extract has a failure mode on Linux that a folder does
+         not. The bundle unpacks to DOTNET_BUNDLE_EXTRACT_BASE_DIR, defaulting
+         under /var/tmp, and a distribution or site policy that mounts that
+         noexec makes the app refuse to start with nothing useful said about
+         why. Loose libraries load from beside the executable and never touch
+         it.
+
+         So all four platforms get one layout: the executable, its native
+         libraries and manual/ beside it. That is the layout the macOS .app
+         already carries and the one CI checks, rather than a second shape
+         nobody can run here. -->
     <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
     <!-- Measured on an M-series Mac, osx-arm64, time from exec to first
          window, five runs each:
@@ -65,6 +90,26 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
   </PropertyGroup>
+
+  <!--
+    AllowedReferenceRelatedFileExtensions above stops the .pdb and .xml beside
+    a managed reference. It does not reach a .pdb that a runtime package ships
+    as a native asset, because that arrives as a file to publish in its own
+    right rather than as a file related to an assembly. SkiaSharp does exactly
+    that on Windows: a win-x64 publish came out carrying an 80 MiB
+    libSkiaSharp.pdb next to an 11 MiB libSkiaSharp.dll, more than half the
+    download, for a symbol file nothing on a user's machine reads. Removing it
+    from ResolvedFileToPublish is the only place it can be caught, since by
+    then the native assets have been resolved and the list is still editable.
+    Release only, so a Debug publish keeps its symbols.
+  -->
+  <Target Name="DropNativeSymbolsFromPublish"
+          AfterTargets="ComputeResolvedFilesToPublishList"
+          Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.12" />

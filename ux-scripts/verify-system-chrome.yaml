@@ -1,0 +1,47 @@
+name: verify-system-chrome
+description: >
+  Captures the toolbar so the left-hand gutter can be measured in pixels.
+
+  Run it through ux-scripts/run-system-chrome.sh, not directly. That script
+  runs it twice against the same seeded profile, once normally and once with
+  MYLO_FORCE_SYSTEM_CHROME=1, and compares the two screenshots. On its own
+  this file proves nothing: one screenshot of a toolbar is a picture, not a
+  measurement.
+
+  What the pair is for. MainWindow.axaml gives the toolbar Margin="80,10,12,10"
+  because the macOS traffic lights sit in that 80. Windows and Linux put their
+  system buttons on the right, so ConfigurePlatformChrome
+  (MainWindow.Layout.cs) turns the extended client area off there and rewrites
+  the margin to an even 12. That branch never runs on the machine mylo is
+  developed on, and its one silent failure is FindControl returning null,
+  which would leave the 80 in place with nothing thrown and nothing logged.
+  The environment variable makes the branch reachable here.
+
+  This is not evidence about how Windows looks. It is evidence that the code
+  path runs, finds the toolbar and moves it.
+
+  The theme is forced to Light by the runner so the measurement can name exact
+  colours rather than depend on the machine's appearance that afternoon.
+default_delay: 250
+
+actions:
+  - type: Wait
+    value: "2500"
+    description: Startup and the first tree load
+
+  # The layout button is the leftmost thing in the toolbar, so its dark icon
+  # strokes are what the measurement looks for. If it is not on screen the
+  # screenshot below means nothing, so fail here rather than there.
+  - type: Expect
+    target: LayoutButton
+    matcher: IsVisible
+
+  - type: Expect
+    target: SettingsButton
+    matcher: IsVisible
+    description: >
+      The right end of the same row. On Windows with the client area extended
+      this is what the system buttons were drawn over.
+
+  - type: Screenshot
+    value: toolbar

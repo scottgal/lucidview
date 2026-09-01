@@ -93,15 +93,77 @@ telemetry, and creates no account.
 
 ## Installing
 
-Download the build for your platform from the
-[releases page](https://github.com/scottgal/lucidview/releases) and run it. Each
-build is a single self-contained executable; no .NET runtime is needed on the
-machine.
+Builds for all three platforms are on the
+[releases page](https://github.com/scottgal/lucidview/releases). Every one is
+self-contained: no .NET runtime is needed on the machine.
 
-- **macOS**: open the `.app` bundle. On first launch, right-click and choose
-  Open if Gatekeeper asks.
-- **Windows**: run the `.exe`.
-- **Linux**: mark the file executable and run it.
+Each download is a folder, not a bare executable. Keep it together. Beside the
+executable sit the graphics, text-shaping and database libraries mylo loads at
+startup, and a `manual/` directory holding the user manual the Help menu and
+F1 open. An executable moved out on its own starts and then fails at the first
+database read.
+
+### macOS
+
+With Homebrew:
+
+```bash
+brew install --cask scottgal/tap/mylo
+```
+
+That needs the tap to exist; see [packaging/homebrew](packaging/homebrew) for
+what it is and how it is published.
+
+By hand, from `mylo-osx-arm64.zip` on Apple Silicon or `mylo-osx-x64.zip` on
+Intel:
+
+```bash
+cd ~/Downloads
+unzip -o mylo-osx-arm64.zip
+mv mylo.app /Applications/
+xattr -dr com.apple.quarantine /Applications/mylo.app
+open /Applications/mylo.app
+```
+
+mylo is ad-hoc codesigned, not notarised with an Apple Developer ID, so
+Gatekeeper refuses the first launch and says the developer cannot be verified.
+The `xattr` line is what tells macOS to trust this build; right-clicking the
+app and choosing Open does the same thing through a dialog. The Homebrew cask
+runs it for you after installing.
+
+### Windows
+
+Unzip `mylo-win-x64.zip`, or `mylo-win-arm64.zip` on Windows on Arm, somewhere
+you keep applications and run `mylo.exe`.
+
+SmartScreen warns on the first run, because this build is not signed with a
+paid Windows code-signing certificate. Choose **More info**, then **Run
+anyway**.
+
+### Linux
+
+```bash
+tar -xzf mylo-linux-x64.tar.gz      # or mylo-linux-arm64.tar.gz
+cd mylo-linux-x64
+./mylo
+```
+
+A `mylo.desktop` and an icon are in the archive if you want a menu entry;
+`install.txt` beside them has the two `install` commands.
+
+Two things work differently on Linux than on macOS, by design rather than as
+pending work:
+
+- **The tray icon needs the desktop session to run a StatusNotifierItem host.**
+  GNOME without an AppIndicator extension has none, so the status item will not
+  appear there. Everything it offers is also on the menu bar inside the window.
+- **New-article alerts are drawn as a toast inside the mylo window**, not
+  handed to the desktop notification service. The macOS route is the only
+  native one mylo has.
+
+On Windows and Linux alike the application menu is a menu bar inside the
+window rather than a system menu bar, which is the native shape on both. That
+part is fully working.
 
 ### Building it yourself
 

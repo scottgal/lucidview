@@ -71,6 +71,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         FetchFullArticleCommand = new RelayCommand(FetchFullArticleAsync);
         ConfigurePlatformKeyBindings();
 
+        // Before the window is shown, and before InstallMenus, so the toolbar
+        // margin and the extended-client-area hints are already the right ones
+        // for this platform the first time anything measures. See
+        // ConfigurePlatformChrome in MainWindow.Layout.cs.
+        ConfigurePlatformChrome();
+
         // After ConfigurePlatformKeyBindings, which resolves the command
         // modifier the menu accelerators are built from, and after
         // InitializeComponent, which is what gives InstallWindowMenu a
