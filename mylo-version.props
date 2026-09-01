@@ -13,6 +13,6 @@
     no version at all, so it reported 1.0.0 while the app shipped as 0.1.0.
   -->
   <PropertyGroup>
-    <MyloVersion>0.2.3</MyloVersion>
+    <MyloVersion>0.2.4</MyloVersion>
   </PropertyGroup>
 </Project>
