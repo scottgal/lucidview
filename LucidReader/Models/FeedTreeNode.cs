@@ -133,7 +133,45 @@ public sealed class FeedTreeNode : INotifyPropertyChanged
 
     public bool HasUnread => _unreadCount > 0;
     public string UnreadLabel => _unreadCount > 0 ? _unreadCount.ToString() : string.Empty;
+
+    /// <summary>
+    /// Whether this feed is queued or being fetched right now.
+    ///
+    /// Settable rather than init-only, unlike the rest of this row's state,
+    /// and that is the point: everything else here is a snapshot taken when
+    /// LoadFeedTreeAsync built the tree, but a refresh starts and finishes
+    /// while the same rows stay on screen. Rebuilding the whole tree to move
+    /// one spinner would throw away and recreate every node several times a
+    /// second during a Refresh All, and take the selection with it.
+    ///
+    /// Kept in step by MainWindow from FeedRefreshService.InFlightChanged.
+    /// </summary>
+    public bool IsRefreshing
+    {
+        get => _isRefreshing;
+        set
+        {
+            if (_isRefreshing == value) return;
+            _isRefreshing = value;
+            Raise();
+            Raise(nameof(ShowProblem));
+        }
+    }
+
+    private bool _isRefreshing;
+
     public bool HasProblem => ConsecutiveFailures > 0 || IsAutoPaused;
+
+    /// <summary>
+    /// The problem marker is hidden while this feed is actually being
+    /// retried, so a row does not show "!" and a spinner at once. The failure
+    /// state is still true - ConsecutiveFailures has not been cleared yet, and
+    /// will not be until the attempt succeeds - but saying "this is broken"
+    /// beside "this is being fetched right now" reads as two contradictory
+    /// claims about the same row. If the retry fails, the marker comes back
+    /// when the spinner goes.
+    /// </summary>
+    public bool ShowProblem => HasProblem && !IsRefreshing;
 
     /// <summary>
     /// Tooltip for the sidebar's problem marker. An auto-paused feed says so

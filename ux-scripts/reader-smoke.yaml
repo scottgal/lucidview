@@ -499,10 +499,19 @@ actions:
     target: RefreshAllButton
   - type: Wait
     value: "900"
+  # Contains, not HasText, and the reason is the point of the assertion.
+  # The status line is no longer a single fixed string: it moves through
+  # "Refreshing N feeds..." while the fetches run and settles on "Refresh
+  # finished.", with the first failure named when there was one. This profile's
+  # feeds are unreachable by design, so the settled line here names a failure
+  # and the exact wording depends on which feed lost the race. What has to hold
+  # is that Refresh All is reported as having finished at all, which is the
+  # thing that was silently missing before: the old line said "Refresh
+  # started." and nothing ever replaced it.
   - type: Expect
     target: StatusText
-    matcher: HasText
-    value: "Refresh started."
+    matcher: Contains
+    value: "Refresh finished."
 
   - type: Screenshot
     value: 11-refresh-started

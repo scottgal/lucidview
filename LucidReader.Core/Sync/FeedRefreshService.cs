@@ -113,6 +113,54 @@ public sealed class FeedRefreshService : IAsyncDisposable
     public event Action<FeedRefreshOutcome>? Completed;
 
     /// <summary>
+    /// Raised whenever the set of feeds in flight changes: one entering,
+    /// one leaving, or a queue attempt that was refused because the feed was
+    /// already there.
+    ///
+    /// Completed was not enough on its own for a UI that wants to say which
+    /// feeds are refreshing right now. It fires when work FINISHES, so a
+    /// sidebar driven by it alone can only ever remove a spinner it was never
+    /// told to draw: nothing announces the moment a feed is queued, and
+    /// Refresh All queues everything at once and then goes quiet for as long
+    /// as the fetches take.
+    ///
+    /// Deliberately carries no payload. A subscriber that wants to know
+    /// whether a particular feed is busy asks <see cref="IsInFlight"/>, which
+    /// is the authoritative answer at the moment it is asked; an event
+    /// argument would be a snapshot that could already be wrong by the time it
+    /// was read, and this fires from the pool as well as from the caller's
+    /// thread.
+    ///
+    /// Raised OUTSIDE the lock-free add and remove, never between them, so a
+    /// handler that immediately reads IsInFlight sees the state the event is
+    /// telling it about rather than the one being left behind.
+    /// </summary>
+    public event Action? InFlightChanged;
+
+    /// <summary>
+    /// Fires <see cref="InFlightChanged"/> without letting a subscriber's
+    /// exception escape into the refresh pipeline.
+    ///
+    /// This runs on the coordinator's own threads, and on the finally path of
+    /// a refresh in particular. A UI handler that throws there would otherwise
+    /// take out the refresh that was completing, or worse, propagate out of a
+    /// finally block and lose the outcome that was about to be reported. A
+    /// progress indicator is never worth that.
+    /// </summary>
+    private void RaiseInFlightChanged()
+    {
+        try
+        {
+            InFlightChanged?.Invoke();
+        }
+        catch (Exception)
+        {
+            // Nothing to record: this event exists so a UI can draw a spinner,
+            // and a handler that cannot is not a refresh failure.
+        }
+    }
+
+    /// <summary>
     /// Whether this feed is queued or currently being fetched. The same set
     /// <see cref="TryQueue"/> coalesces on, exposed so a UI can say "refreshing
     /// now" for the feed the user is looking at instead of having to keep its
@@ -130,7 +178,10 @@ public sealed class FeedRefreshService : IAsyncDisposable
         if (!_inFlight.TryAdd(feedId, 0)) return false;
 
         if (_coordinator.TryEnqueue(new FeedRefreshRequest(feedId, isManual)))
+        {
+            RaiseInFlightChanged();
             return true;
+        }
 
         _inFlight.TryRemove(feedId, out _);
         return false;
@@ -143,6 +194,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
         try
         {
             await _coordinator.EnqueueAsync(new FeedRefreshRequest(feedId, isManual), ct);
+            RaiseInFlightChanged();
         }
         catch
         {
@@ -194,7 +246,18 @@ public sealed class FeedRefreshService : IAsyncDisposable
             _inFlight.TryRemove(request.FeedId, out _);
         }
 
+        // Completed FIRST, then InFlightChanged, and the order is load-bearing.
+        //
+        // InFlightChanged is how a UI learns the last feed has left the set,
+        // which is how it learns a burst of refreshing is over and it can
+        // report the result. Raising it before Completed means the burst is
+        // declared finished before this feed's outcome has been delivered, so
+        // the failure that just happened arrives after the summary that should
+        // have mentioned it. That is not theoretical: it shipped that way for
+        // one build and verify-reader-smoke read "Refresh finished." on a
+        // profile where every feed had failed.
         Completed?.Invoke(outcome);
+        RaiseInFlightChanged();
     }
 
     /// <summary>
@@ -218,6 +281,8 @@ public sealed class FeedRefreshService : IAsyncDisposable
         if (!_inFlight.TryAdd(feedId, 0))
             return new FeedRefreshOutcome(feedId, true, 0, true, null);
 
+        RaiseInFlightChanged();
+
         try
         {
             return await RefreshWithTimeoutGuardAsync(feedId, ct);
@@ -225,6 +290,7 @@ public sealed class FeedRefreshService : IAsyncDisposable
         finally
         {
             _inFlight.TryRemove(feedId, out _);
+            RaiseInFlightChanged();
         }
     }
 

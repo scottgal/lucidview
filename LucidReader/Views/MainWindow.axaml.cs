@@ -216,6 +216,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // FeedRefreshService.Completed, and that service outlives this window
         // on the close-to-status-item path.
         StopNotifications();
+        StopRefreshProgress();
 
         // Same reason as the dwell above: a health tick that fired after
         // this point would read _services.Feeds against a store that is
@@ -449,6 +450,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // unread count the status item is given has to be a real one, and the
         // tree is where that number comes from.
         StartNotifications();
+
+        // After the tree, like everything else here: SyncRefreshState walks
+        // the feed rows, and there are none until LoadFeedTreeAsync has run.
+        StartRefreshProgress();
         UpdateStatusItemUnreadCount();
 
         // PauseWhenOffline finally does something, so say so on the one

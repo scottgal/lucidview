@@ -345,9 +345,28 @@
                                                             so an auto-paused feed says it is paused even when
                                                             no error text was recorded.
                                                         -->
+                                                        <!--
+                                                            The refreshing marker, sharing column 2 with the
+                                                            problem marker because the two are mutually
+                                                            exclusive by construction (ShowProblem is false
+                                                            while IsRefreshing is true) and a row that
+                                                            reserved space for both would leave a gap on
+                                                            every feed that has neither, which is nearly all
+                                                            of them nearly all the time.
+
+                                                            A glyph rather than a spinning control. An
+                                                            animation per row costs a running render loop
+                                                            for every feed being fetched, and Refresh All
+                                                            starts all of them at once; the state changes
+                                                            here are seconds apart, not frames.
+                                                        -->
+                                                        <TextBlock Grid.Column="2" Text="&#x21BB;" Classes="row-secondary"
+                                                                   Margin="6,0,0,0"
+                                                                   IsVisible="{Binding IsRefreshing}"
+                                                                   ToolTip.Tip="Refreshing this feed now" />
                                                         <TextBlock Grid.Column="2" Text="!" Classes="row-problem"
                                                                    Margin="6,0,0,0"
-                                                                   IsVisible="{Binding HasProblem}"
+                                                                   IsVisible="{Binding ShowProblem}"
                                                                    ToolTip.Tip="{Binding ProblemTip}" />
                                                         <TextBlock Grid.Column="3" Text="{Binding UnreadLabel}" Classes="row-secondary"
                                                                    Margin="6,0,0,0"
