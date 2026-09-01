@@ -31,9 +31,10 @@ cask "mylo" do
   desc "Native RSS and Atom reader built on the lucidVIEW rendering stack"
   homepage "https://github.com/scottgal/lucidview"
 
-  # mylo's releases are all marked pre-release while the version is below 1.0,
-  # so the default livecheck, which only looks at the latest full release,
-  # would never see one. This matches the tag shape instead.
+  # Matches the tag shape rather than relying on the default livecheck. The
+  # repository releases two products from one tag namespace, lucidVIEW as
+  # v4.2.0 and mylo as mylo-v0.2.4, so "the latest release" is not necessarily
+  # a mylo one. The mylo- prefix in this regex is what keeps them apart.
   livecheck do
     url :url
     regex(/^mylo[._-]v?(\d+(?:\.\d+)+)$/i)
