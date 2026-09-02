@@ -100,6 +100,43 @@ public partial class MainWindow
         _ = ResolveThumbnailsAsync(ItemRows.ToList());
     }
 
+    /// <summary>
+    /// Opens the first article in the list, without starting the mark-as-read
+    /// dwell, and does nothing if the user has already selected something.
+    ///
+    /// The reading pane came up empty on launch. The sidebar had a selection
+    /// and the list had articles, but nothing was open, so two thirds of the
+    /// window was blank and the app looked like it had failed to load rather
+    /// than like it was waiting to be clicked.
+    ///
+    /// The dwell is the reason this is not simply "set SelectedItemRow".
+    /// Doing that runs OnItemSelectedAsync, which starts an 800ms timer that
+    /// marks the article read - so opening the app and walking away would
+    /// silently consume the newest unread article, every single launch, an
+    /// article the user never saw. Nothing about starting the app is a
+    /// statement that anything has been read.
+    ///
+    /// So the backing field is assigned directly. That is the same reason
+    /// ClearArticleSelectionAsync does it, and it gives the row the selected
+    /// highlight and the pane its content while leaving the mark-read
+    /// behaviour to an actual interaction. Selecting the row by hand, or
+    /// moving off it and back with J and K, marks it read as it always did.
+    /// </summary>
+    private async Task ShowFirstArticleOnOpenAsync()
+    {
+        // A user quick enough to click during startup owns the selection; this
+        // must not steal it back.
+        if (_selectedItemRow is not null) return;
+
+        if (ItemRows.FirstOrDefault() is not { } first) return;
+
+        _selectedItemRow = first;
+        Raise(nameof(SelectedItemRow));
+        UpdateMenuEnablement();
+
+        await ShowArticleAsync(first);
+    }
+
     private async Task OnItemSelectedAsync(ItemRow? row)
     {
         // Cancel any pending mark-as-read from the previously selected item.

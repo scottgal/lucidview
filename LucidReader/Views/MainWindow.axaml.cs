@@ -431,6 +431,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // does not exist until the tree has been built.
         SelectUnreadList();
 
+        // And then open the first article, so the reading pane is not blank.
+        //
+        // Awaited, and the load awaited before it, because selecting the
+        // sidebar row only STARTS the item load: SelectedFeedNode's setter
+        // fires LoadItemsAsync without awaiting it, so ItemRows is still
+        // empty on the line after. Reading the first row without this would
+        // reliably find nothing and quietly do nothing at all.
+        await LoadItemsAsync();
+        await ShowFirstArticleOnOpenAsync();
+
         // Said once, on the one launch it can be true, and only when nothing
         // more important is already on the status line: a first run that
         // arrives with five subscriptions nobody typed should say where they
