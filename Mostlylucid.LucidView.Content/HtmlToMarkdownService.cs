@@ -18,6 +18,11 @@ public sealed class HtmlToMarkdownService : IHtmlToMarkdownService
         var doc = _parser.Parse(html, sourceUri);
         HtmlPreProcessor.PromoteHtmxLinks(doc);
         HtmlPreProcessor.TagMermaidPres(doc);
+        // After PromoteHtmxLinks, so an href copied out of hx-get is resolved
+        // too, and before the cleaner, so the renderer only ever sees absolute
+        // addresses. See ResolveRelativeUrls for why the parse's own source
+        // URI was not enough on its own.
+        HtmlPreProcessor.ResolveRelativeUrls(doc, sourceUri);
         _cleaner.Clean(doc);
         var blocks = _classifier.Classify(_segmenter.Segment(doc));
         return _renderer.Render(blocks, ExtractionProfile.RagFull);

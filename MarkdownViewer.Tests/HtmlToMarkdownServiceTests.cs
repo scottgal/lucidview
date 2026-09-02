@@ -49,7 +49,14 @@ public class HtmlToMarkdownServiceTests
 
         var md = _service.Convert(html, new Uri("https://example.com/"));
 
-        Assert.Contains("[here](/blog/foo)", md);
+        // Absolute, not "/blog/foo". The subject of this test is that the
+        // address came from hx-get, and it still proves that: the path is the
+        // one hx-get named. The form changed because the pipeline now
+        // resolves relative addresses against the page they came from, which
+        // it has to - a relative href reaches the link gate as a refusal, so
+        // links like this one did nothing at all when clicked. See
+        // HtmlPreProcessor.ResolveRelativeUrls.
+        Assert.Contains("[here](https://example.com/blog/foo)", md);
     }
 
     [Fact]
@@ -66,7 +73,9 @@ public class HtmlToMarkdownServiceTests
 
         var md = _service.Convert(html, new Uri("https://example.com/"));
 
-        Assert.Contains("[link](/real)", md);
+        // Resolved, for the reason given on the test above. What this one
+        // asserts is unchanged: the href won and hx-get was not consulted.
+        Assert.Contains("[link](https://example.com/real)", md);
         Assert.DoesNotContain("/htmx-only", md);
     }
 
