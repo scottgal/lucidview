@@ -53,6 +53,12 @@ public partial class MainWindow
         // the meantime.
         _thumbnailCoordinator.CancelPending();
 
+        // Anything held for the list being replaced is meaningless in the one
+        // that follows: a different feed, filter or tag is a different
+        // question, and the fresh query below already contains whatever those
+        // rows were. See MainWindow.LiveUpdates.cs.
+        ClearPendingNewItems();
+
         var ticket = _loadGuard.Begin();
         var items = await _services.Items.QueryAsync(BuildQuery());
         var feeds = (await _services.Feeds.GetAllAsync())

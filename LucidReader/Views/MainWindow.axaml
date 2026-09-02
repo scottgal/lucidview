@@ -449,20 +449,45 @@
                     -->
                     <StackPanel x:Name="FeedUpdateStrip" Orientation="Horizontal"
                                 VerticalAlignment="Center" Spacing="6"
-                                IsVisible="{Binding IsFeedUpdateVisible}">
+                                IsVisible="{Binding IsFeedUpdateStripVisible}">
                         <TextBlock x:Name="FeedUpdateLineText"
                                    Text="{Binding FeedUpdateShortText}" Classes="row-secondary"
+                                   IsVisible="{Binding IsFeedUpdateVisible}"
                                    ToolTip.Tip="{Binding FeedUpdateText}"
                                    VerticalAlignment="Center" />
                         <!-- Glyph, not the word "Refresh": the label alone was
                              wider than the time it sits next to. -->
                         <Button x:Name="FeedUpdateRefreshButton"
                                 Classes="feed-update-refresh" Content="&#x21BB;"
-                                IsVisible="{Binding CanRefreshSelectedFeed}"
-                                ToolTip.Tip="Refresh this feed now"
+                                IsVisible="{Binding CanRefreshSelection}"
+                                ToolTip.Tip="Refresh what is shown here now"
                                 Click="OnFeedUpdateRefreshClicked" />
                     </StackPanel>
                 </WrapPanel>
+
+                <!--
+                    The held-articles strip. Only ever visible when new
+                    articles arrived while the reader was scrolled away from
+                    the top of the list, which is the one case where inserting
+                    them straight away would shift what is being read down the
+                    screen. Clicking it inserts them and returns to the top:
+                    the content moves, but only because it was asked to.
+
+                    Above the list rather than over it, so it never covers a
+                    row, and Grid.Row="1" shared with the list so an empty
+                    strip takes no height at all. See
+                    MainWindow.LiveUpdates.cs.
+                -->
+                <Button Grid.Row="1" x:Name="ShowPendingNewButton"
+                        Classes="row-toolbar"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Top"
+                        Margin="8,6,8,0"
+                        ZIndex="1"
+                        IsVisible="{Binding HasPendingNew}"
+                        Content="{Binding PendingNewLabel}"
+                        ToolTip.Tip="Show the articles that arrived while you were reading"
+                        Click="OnShowPendingNewClicked" />
 
                 <ListBox Grid.Row="1" x:Name="ItemList"
                          ItemsSource="{Binding ItemRows}"

@@ -46,6 +46,18 @@ public sealed class ItemRow : INotifyPropertyChanged
     public bool IsSearchResult { get; init; }
 
     /// <summary>
+    /// True for a row that arrived while the list was already on screen, so
+    /// the reader can see at a glance what is new rather than having to
+    /// remember where the list used to end.
+    ///
+    /// Set once when the row is built and never cleared, because the row
+    /// itself does not outlive the view of the list it appeared in: the next
+    /// real load builds fresh rows, and those are not new arrivals. See
+    /// MainWindow.LiveUpdates.cs.
+    /// </summary>
+    public bool IsNewArrival { get; init; }
+
+    /// <summary>
     /// The matched passage split into words, each flagged as matching or not,
     /// which is how the row highlights the query terms. Computed once here
     /// rather than in a converter, same as <see cref="Snippet"/>.

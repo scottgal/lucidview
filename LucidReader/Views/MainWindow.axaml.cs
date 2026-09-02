@@ -217,6 +217,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // on the close-to-status-item path.
         StopNotifications();
         StopRefreshProgress();
+        StopLiveUpdates();
 
         // Same reason as the dwell above: a health tick that fired after
         // this point would read _services.Feeds against a store that is
@@ -289,6 +290,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             // state and its label change with it.
             Raise(nameof(CanScopeSearchToSelection));
             Raise(nameof(SearchScopeLabel));
+
+            // The refresh control is offered for grouping rows now, not only
+            // for feeds, so both of these change with any selection rather
+            // than only when a feed is picked. See MainWindow.FeedUpdate.cs.
+            Raise(nameof(CanRefreshSelection));
+            Raise(nameof(IsFeedUpdateStripVisible));
 
             // A feed click must win over a search debounce that started
             // earlier but has not yet elapsed. LoadSequenceGuard alone
@@ -469,6 +476,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // After the tree, like everything else here: SyncRefreshState walks
         // the feed rows, and there are none until LoadFeedTreeAsync has run.
         StartRefreshProgress();
+
+        // After the tree too: a refresh completing before the first list is
+        // on screen has nothing to merge into.
+        StartLiveUpdates();
         UpdateStatusItemUnreadCount();
 
         // PauseWhenOffline finally does something, so say so on the one
