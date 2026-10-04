@@ -95,6 +95,11 @@ jobs:
         rm -rf "$APP"
         mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
         cp MarkdownViewer/macos/Info.plist "$APP/Contents/Info.plist"
+        # Resolve the same version placeholders as publish.ps1 before signing.
+        APP_VERSION="${{ github.event.inputs.version }}"
+        APP_VERSION="${APP_VERSION#v}"
+        /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" "$APP/Contents/Info.plist"
+        /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$APP/Contents/Info.plist"
         cp MarkdownViewer/Assets/lucidVIEW.icns "$APP/Contents/Resources/lucidVIEW.icns"
         cp -R publish/${{ matrix.rid }}/. "$APP/Contents/MacOS/"
         chmod +x "$APP/Contents/MacOS/lucidVIEW"
@@ -130,6 +135,9 @@ jobs:
       contents: write
 
     steps:
+    - name: Checkout release source
+      uses: actions/checkout@v4
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
@@ -145,9 +153,9 @@ jobs:
       id: version
       run: |
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
         else
-          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Flatten artifacts
@@ -155,6 +163,26 @@ jobs:
         mkdir -p release-files
         find artifacts -name "*.zip" -exec cp {} release-files/ \;
         ls -la release-files/
+
+    - name: Read release changelog
+      id: changelog
+      shell: python
+      env:
+        RELEASE_VERSION: ${{ steps.version.outputs.version }}
+      run: |
+        import os
+        import re
+        import uuid
+        from pathlib import Path
+
+        version = os.environ["RELEASE_VERSION"]
+        changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+        entry = re.search(r"^## " + re.escape(version) + r" - [^\n]+\n(.*?)(?=^## |\Z)", changelog, re.M | re.S)
+        if entry is None:
+            raise SystemExit(f"Missing changelog entry for {version}")
+        delimiter = "CHANGELOG_" + uuid.uuid4().hex
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            output.write(f"notes<<{delimiter}\n{entry.group(1).strip()}\n{delimiter}\n")
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
@@ -164,13 +192,17 @@ jobs:
         draft: false
         prerelease: false
         files: release-files/*.zip
-        generate_release_notes: true
+        generate_release_notes: false
         body: |
           ## lucidVIEW ${{ steps.version.outputs.version }}
 
           A modern, lightweight cross-platform markdown viewer with mermaid diagrams,
           syntax highlighting, seven themes, real print, PDF export and an in-app
           self-documenting user manual.
+
+          ## Changes in this release
+
+          ${{ steps.changelog.outputs.notes }}
 
           ### Downloads
 

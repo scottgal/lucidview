@@ -288,6 +288,7 @@ public partial class MainWindow : Window
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
+        _largeFileOpenCancellation?.Cancel();
         Interlocked.Increment(ref _markdownRenderGeneration);
         _markdownService.CancelRenderBatch();
 

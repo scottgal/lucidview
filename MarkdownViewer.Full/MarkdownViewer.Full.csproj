@@ -11,7 +11,7 @@
 
     <AssemblyName>lucidVIEW</AssemblyName>
     <RootNamespace>MarkdownViewer</RootNamespace>
-    <Version>4.1.0</Version>
+    <Version>4.3.0</Version>
     <Product>lucidVIEW-FULL</Product>
     <Description>Dogfood build of lucidVIEW with the preview StyloExtract LLM + Playwright stack</Description>
     <ApplicationIcon>..\MarkdownViewer\favicon.ico</ApplicationIcon>
@@ -92,6 +92,7 @@
     <ProjectReference Include="..\Mostlylucid.ImageSharp.Svg\Mostlylucid.ImageSharp.Svg.csproj" />
     <ProjectReference Include="..\Mostlylucid.LucidView.Content\Mostlylucid.LucidView.Content.csproj" />
     <ProjectReference Include="..\Mostlylucid.LucidView.Shell\Mostlylucid.LucidView.Shell.csproj" />
+    <ProjectReference Include="..\Mostlylucid.LucidView.Markdown\Mostlylucid.LucidView.Markdown.csproj" />
     <!-- LiveMarkdown.Avalonia fork (HtmlInline/HtmlBlock <img> renderer patch)
          via external/LiveMarkdown.Avalonia submodule pointing at
          scottgal/LiveMarkdown.Avalonia#feat/html-img-renderer. -->

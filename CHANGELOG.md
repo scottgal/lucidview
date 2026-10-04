@@ -4,6 +4,51 @@ All notable changes to lucidVIEW are documented here. Format loosely based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [SemVer](https://semver.org/).
 
+## v4.3.0 - 2026-10-04
+
+### Added
+
+- **Large local text and Markdown files.** Files of 16 MiB or more open in a
+  separate read-only reader. A sparse byte-offset index and bounded pages keep
+  file contents on disk and only the current page in the visual tree.
+- **Paged native Markdown preview.** Source is available while a streaming block
+  parser prepares preview pages. Ordinary code blocks, lists, and tables stay
+  together; oversized blocks remain accessible as source fragments. Preview uses
+  the native Markdown and diagram control.
+- **Complete long-line reading.** Source pages contain up to 120 lines or 65,536
+  characters, with continuation pages for longer lines. Page Up/Down, the file
+  scrollbar, `line:column` navigation, and Ctrl+Home/End make the content reachable.
+  Unicode surrogate pairs stay together across page boundaries.
+- **Full-file literal search.** Ctrl+F, Enter, and Shift+Enter find the next or
+  previous match, including multiple matches on one line and text far beyond its
+  first page. Matches open in source with an exact selection and context snippet;
+  searches can be cancelled.
+- **Heading navigation across preview pages.** Supports duplicate titles, setext
+  headings, and explicit IDs. Compact heading fingerprints avoid retaining every
+  heading string and inline tree.
+- **Encoding and change detection.** UTF-8 and BOM-marked UTF-16/UTF-32 work with
+  LF, CRLF, and CR line endings. Files changed after indexing require reopening.
+
+### Fixed
+
+- Opening another document or closing the main window cancels pending local-file
+  indexing, preventing a stale reader from opening afterwards.
+- Single-file compression is disabled to avoid the previously diagnosed macOS
+  memory-corruption crash on HTTPS requests.
+- Native diagram markers continue resolving while the visual layout is prepared.
+- Release macOS bundles receive the application version instead of unresolved
+  version placeholders; GitHub releases include the matching changelog entry.
+
+### Changed
+
+- Both lucidVIEW editions report version 4.3.0. Large-file preview reuses the
+  shared native Markdown control; HTML conversion, themes, and print also use
+  shared components introduced since 4.2.0.
+- Large-file mode is read-only. Whole-document editing and PDF export remain in
+  the regular reader. Reference definitions have a 256 KiB preview metadata
+  budget; cross-page footnotes and heading IDs depending on reference definitions
+  elsewhere in the file can differ from a full-document render.
+
 ## v4.2.0 - 2026-08-01
 
 ### Changed

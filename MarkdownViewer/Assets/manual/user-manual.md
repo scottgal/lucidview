@@ -49,6 +49,24 @@ Four ways to open a document, all equivalent:
 
 Recent files appear in the side panel for one-click reopening.
 
+### Large local text and Markdown files
+
+Files of 16 MiB or more open in a separate read-only reader. Source appears while
+the file is indexed; Markdown preview then renders one page at a time. Use
+**Preview/Source** to switch views. Oversized Markdown blocks are shown as source.
+
+- Drag the file scrollbar, use **Page Up/Down**, or press **Ctrl+Home/End**.
+- Enter a line number or `line:column` in the line field and press **Enter**.
+  Lines and columns start at 1. Very long lines continue across pages.
+- Press **Ctrl+F**, enter literal text, then press **Enter** for the next match
+  or **Shift+Enter** for the previous one. **Cancel** stops a running search.
+- Click heading links to navigate across Markdown preview pages.
+
+UTF-8 and BOM-marked UTF-16/UTF-32 are supported with LF, CRLF, or CR line endings.
+Reopen a file if it changes after indexing. Large-file mode does not provide
+editing, printing, or whole-document PDF export. Cross-page footnotes and some
+reference-dependent heading IDs can differ from a full-document preview.
+
 ![Document loaded](screenshots/02-loaded-default.png)
 
 The default theme is Light. The window remembers your last theme, font size,

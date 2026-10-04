@@ -51,7 +51,7 @@
         <!-- App Info -->
         <AssemblyName>lucidVIEW</AssemblyName>
         <RootNamespace>MarkdownViewer</RootNamespace>
-        <Version>4.2.0</Version>
+        <Version>4.3.0</Version>
         <Product>lucidVIEW</Product>
         <Description>A modern, lightweight cross-platform markdown viewer</Description>
         <Copyright>Copyright 2026</Copyright>
@@ -78,6 +78,7 @@
              feat/html-img-renderer. Drop back to a PackageReference once the
              upstream LiveMarkdown.Avalonia ships the patch. -->
         <ProjectReference Include="..\external\LiveMarkdown.Avalonia\src\LiveMarkdown.Avalonia\LiveMarkdown.Avalonia.csproj" />
+        <ProjectReference Include="..\Mostlylucid.LucidView.Markdown\Mostlylucid.LucidView.Markdown.csproj" />
         <!-- LiveMarkdown.Avalonia.Svg.Skia removed: ImageCacheService /
              MarkdownService now rasterize all SVGs (remote shields, local
              icons, mermaid diagrams) up front via Mostlylucid.ImageSharp.Svg,

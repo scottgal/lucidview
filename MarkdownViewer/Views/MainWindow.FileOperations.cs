@@ -19,6 +19,7 @@ public partial class MainWindow
 
     // Re-entry guard for overlapping picker triggers (Click + IActivatableLifetime).
     private bool _filePickerOpen;
+    private CancellationTokenSource? _largeFileOpenCancellation;
 
     private static readonly HashSet<string> ExecutableExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -232,13 +233,47 @@ public partial class MainWindow
 
     private async Task LoadFile(string path)
     {
+        _largeFileOpenCancellation?.Cancel();
+        _largeFileOpenCancellation = new CancellationTokenSource();
+        var openCancellation = _largeFileOpenCancellation;
         try
         {
             StatusText.Text = $"Loading {Path.GetFileName(path)}...";
 
+            // The regular renderer and visual editor each keep the complete document.
+            // Route large local files to the file-backed reader before allocating a string.
+            var fileInfo = new FileInfo(path);
+            if (fileInfo.Length >= 16L * 1024 * 1024)
+            {
+                StatusText.Text = $"Indexing {Path.GetFileName(path)}...";
+                var progress = new Progress<long>(bytes =>
+                {
+                    if (ReferenceEquals(_largeFileOpenCancellation, openCancellation)
+                        && !openCancellation.IsCancellationRequested)
+                        StatusText.Text = $"Indexing {Path.GetFileName(path)}... {bytes * 100.0 / fileInfo.Length:F0}%";
+                });
+                var indexed = await Task.Run(() =>
+                    IndexedTextFile.OpenAsync(path, openCancellation.Token, progress), openCancellation.Token);
+                openCancellation.Token.ThrowIfCancellationRequested();
+                var reader = new LargeFileWindow(path, indexed);
+                reader.OpenDocumentRequested += target =>
+                {
+                    if (Uri.TryCreate(target, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
+                        _ = LoadWebPage(target);
+                    else _ = LoadFile(target);
+                };
+                if (IsVisible) reader.Show(this);
+                else reader.Show();
+                _settings.AddRecentFile(path);
+                UpdateRecentFiles();
+                StatusText.Text = $"Opened {Path.GetFileName(path)} in large file reader";
+                return;
+            }
+
             _imageCacheService.InvalidateInMemoryCache();
 
-            var content = await File.ReadAllTextAsync(path);
+            var content = await File.ReadAllTextAsync(path, openCancellation.Token);
+            openCancellation.Token.ThrowIfCancellationRequested();
             var basePath = Path.GetDirectoryName(path);
             _markdownService.SetBasePath(basePath);
 
@@ -247,7 +282,6 @@ public partial class MainWindow
             _settings.AddRecentFile(path);
             UpdateRecentFiles();
 
-            var fileInfo = new FileInfo(path);
             ApplyLoadedDocumentState(
                 sourcePath: path,
                 displayTitle: Path.GetFileName(path),
@@ -260,9 +294,15 @@ public partial class MainWindow
             SetSourceMode(SourceMode.LocalFile);
             QueueImageCaching(content);
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex) when (!IsIgnorableError(ex))
         {
             StatusText.Text = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            if (ReferenceEquals(_largeFileOpenCancellation, openCancellation)) _largeFileOpenCancellation = null;
+            openCancellation.Dispose();
         }
     }
 
@@ -318,6 +358,7 @@ public partial class MainWindow
 
     private async Task LoadWebPage(string url)
     {
+        _largeFileOpenCancellation?.Cancel();
         try
         {
 #if !FULL
