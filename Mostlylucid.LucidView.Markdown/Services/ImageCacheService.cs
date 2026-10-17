@@ -4,7 +4,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Mostlylucid.LucidView.Markdown.Models;
-using Mostlylucid.ImageSharp.Svg;
 using SkiaSharp;
 
 namespace Mostlylucid.LucidView.Markdown.Services;
@@ -15,7 +14,7 @@ namespace Mostlylucid.LucidView.Markdown.Services;
 /// conditional <c>If-None-Match</c> / <c>If-Modified-Since</c> requests so
 /// reopening a document within the freshness window skips the network
 /// entirely, and stale entries revalidate via 304 instead of refetching.
-/// SVG content is rendered to PNG via <see cref="SvgImage"/>.
+/// SVG content is rendered to PNG via <see cref="SvgRasterizer"/>.
 /// </summary>
 public class ImageCacheService : IDisposable
 {
@@ -192,8 +191,7 @@ public class ImageCacheService : IDisposable
     }
 
     /// <summary>
-    /// Convert a local <c>.svg</c> file to a cached PNG via the AOT-clean
-    /// Mostlylucid.ImageSharp.Svg renderer. Synchronous because there's no
+    /// Convert a local <c>.svg</c> file to a cached PNG via the Skia SVG renderer. Synchronous because there's no
     /// network IO involved. Cache key includes the file's mtime so the
     /// rasterized PNG is invalidated automatically when the source SVG
     /// changes on disk.
@@ -218,7 +216,7 @@ public class ImageCacheService : IDisposable
             var hash = ComputeUrlHash(cacheKey);
             var pngPath = Path.Combine(_cacheDir, $"{hash}.png");
 
-            var result = SvgImage.LoadAsPng(svgContent, new SvgRenderOptions { Scale = 2f });
+            var result = SvgRasterizer.LoadAsPng(svgContent, 2f);
             if (result.Bytes.Length == 0 || result.NaturalWidth <= 0 || result.NaturalHeight <= 0)
                 return null;
 
@@ -639,7 +637,7 @@ public class ImageCacheService : IDisposable
     {
         try
         {
-            var result = SvgImage.LoadAsPng(svgContent, new SvgRenderOptions { Scale = 2f });
+            var result = SvgRasterizer.LoadAsPng(svgContent, 2f);
             if (result.Bytes.Length == 0 || result.NaturalWidth <= 0 || result.NaturalHeight <= 0)
                 return null;
             return (result.Bytes, result.NaturalWidth, result.NaturalHeight);

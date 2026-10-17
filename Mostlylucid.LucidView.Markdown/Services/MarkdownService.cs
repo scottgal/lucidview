@@ -506,9 +506,9 @@ public partial class MarkdownService
 
     /// <summary>
     /// Emit markdown for a local image. SVGs are routed through
-    /// <see cref="ImageCacheService.CacheLocalSvg"/> so the AOT-clean
+    /// <see cref="ImageCacheService.CacheLocalSvg"/> so the shared
     /// renderer rasterizes them to PNG up front — that lets us drop the
-    /// LiveMarkdown.Avalonia.Svg.Skia plugin entirely. PNG/JPEG/etc. dimensions
+    /// LiveMarkdown SVG plugin entirely. PNG/JPEG/etc. dimensions
     /// are extracted via SKCodec and emitted as raw <c>&lt;img width=W height=H&gt;</c>
     /// so the explicit-dim HtmlInlineNode path renders them at their natural
     /// size on first measure — the bare <c>![]()</c> path collapses to text-line
@@ -1021,15 +1021,11 @@ public partial class MarkdownService
     }
 
     /// <summary>
-    /// Rasterize a Naiad/mermaid SVG via Mostlylucid.ImageSharp.Svg — the
-    /// AOT-clean managed renderer. Replaces the previous SKSvg path so the
-    /// app no longer pulls SkiaSharp's SVG glue into AOT publish output.
+    /// Rasterize a Naiad/mermaid SVG with the shared Skia SVG renderer.
     /// </summary>
     private static byte[] RasterizeMermaidSvg(string svgContent, float scale)
     {
-        var result = Mostlylucid.ImageSharp.Svg.SvgImage.LoadAsPng(
-            svgContent,
-            new Mostlylucid.ImageSharp.Svg.SvgRenderOptions { Scale = scale });
+        var result = SvgRasterizer.LoadAsPng(svgContent, scale);
         if (result.Bytes.Length == 0)
             throw new InvalidOperationException("SVG produced empty PNG");
         return result.Bytes;
