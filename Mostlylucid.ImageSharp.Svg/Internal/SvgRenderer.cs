@@ -3,9 +3,9 @@ using System.Numerics;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing;
+using SixLabors.ImageSharp.Drawing.Text;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
 using DrawingPath = SixLabors.ImageSharp.Drawing.Path;
 
 namespace Mostlylucid.ImageSharp.Svg.Internal;
@@ -76,11 +76,11 @@ internal sealed class SvgRenderer
             : new Image<Rgba32>(pxW, pxH);
         var background = _options.Background ?? Color.Transparent;
         var rootStyle = InheritedStyle.Default;
-        image.Mutate(ctx =>
+        using (var canvas = image.Frames.RootFrame.CreateCanvas(image.Configuration, new DrawingOptions()))
         {
-            ctx.Clear(background);
-            DrawChildren(ctx, root, rootTransform, rootStyle);
-        });
+            canvas.Clear(new SolidBrush(background));
+            DrawChildren(canvas, root, rootTransform, rootStyle);
+        }
         return image;
     }
 
@@ -107,13 +107,13 @@ internal sealed class SvgRenderer
             IndexDefs(child);
     }
 
-    private void DrawChildren(IImageProcessingContext ctx, SvgNode parent, Matrix3x2 transform, InheritedStyle style)
+    private void DrawChildren(DrawingCanvas ctx, SvgNode parent, Matrix3x2 transform, InheritedStyle style)
     {
         foreach (var child in parent.Children)
             DrawElement(ctx, child, transform, style);
     }
 
-    private void DrawElement(IImageProcessingContext ctx, SvgNode node, Matrix3x2 parentTransform, InheritedStyle parentStyle)
+    private void DrawElement(DrawingCanvas ctx, SvgNode node, Matrix3x2 parentTransform, InheritedStyle parentStyle)
     {
         var transform = Matrix3x2.Multiply(
             SvgValueParser.ParseTransform(node.Get("transform")),
@@ -130,7 +130,9 @@ internal sealed class SvgRenderer
             var clipGeom = TryBuildClipPathGeometry(clipPathAttr, transform);
             if (clipGeom != null)
             {
-                ctx.Clip(clipGeom, inner => DrawElementInner(inner, node, transform, style));
+                ctx.Save();
+                try { ctx.Clip(clipGeom); DrawElementInner(ctx, node, transform, style); }
+                finally { ctx.Restore(); }
                 return;
             }
         }
@@ -138,7 +140,7 @@ internal sealed class SvgRenderer
         DrawElementInner(ctx, node, transform, style);
     }
 
-    private void DrawElementInner(IImageProcessingContext ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
+    private void DrawElementInner(DrawingCanvas ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
     {
         switch (node.Name)
         {
@@ -181,7 +183,7 @@ internal sealed class SvgRenderer
     // Shape draw handlers
     // ────────────────────────────────────────────────────────────────────
 
-    private void DrawRect(IImageProcessingContext ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
+    private void DrawRect(DrawingCanvas ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
     {
         var x  = (float)SvgValueParser.ParseNumber(node.Get("x"));
         var y  = (float)SvgValueParser.ParseNumber(node.Get("y"));
@@ -193,12 +195,12 @@ internal sealed class SvgRenderer
 
         IPath shape = (rx > 0 || ry > 0)
             ? BuildRoundedRect(x, y, w, h, MathF.Max(rx, ry), MathF.Max(ry, rx))
-            : new RectangularPolygon(x, y, w, h);
+            : new RectanglePolygon(x, y, w, h);
 
         FillAndStroke(ctx, shape, transform, style, defaultFill: true);
     }
 
-    private void DrawCircle(IImageProcessingContext ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
+    private void DrawCircle(DrawingCanvas ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
     {
         var cx = (float)SvgValueParser.ParseNumber(node.Get("cx"));
         var cy = (float)SvgValueParser.ParseNumber(node.Get("cy"));
@@ -207,7 +209,7 @@ internal sealed class SvgRenderer
         FillAndStroke(ctx, new EllipsePolygon(cx, cy, r), transform, style, defaultFill: true);
     }
 
-    private void DrawEllipse(IImageProcessingContext ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
+    private void DrawEllipse(DrawingCanvas ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
     {
         var cx = (float)SvgValueParser.ParseNumber(node.Get("cx"));
         var cy = (float)SvgValueParser.ParseNumber(node.Get("cy"));
@@ -217,7 +219,7 @@ internal sealed class SvgRenderer
         FillAndStroke(ctx, new EllipsePolygon(cx, cy, rx, ry), transform, style, defaultFill: true);
     }
 
-    private void DrawLine(IImageProcessingContext ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
+    private void DrawLine(DrawingCanvas ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
     {
         var x1 = (float)SvgValueParser.ParseNumber(node.Get("x1"));
         var y1 = (float)SvgValueParser.ParseNumber(node.Get("y1"));
@@ -228,7 +230,7 @@ internal sealed class SvgRenderer
         FillAndStroke(ctx, pb.Build(), transform, style, defaultFill: false);
     }
 
-    private void DrawPolygon(IImageProcessingContext ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style, bool closed)
+    private void DrawPolygon(DrawingCanvas ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style, bool closed)
     {
         var points = SvgValueParser.ParseNumberList(node.Get("points"));
         if (points.Count < 4) return;
@@ -251,7 +253,7 @@ internal sealed class SvgRenderer
         return pb.Build();
     }
 
-    private void DrawPath(IImageProcessingContext ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
+    private void DrawPath(DrawingCanvas ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
     {
         var d = node.Get("d");
         if (string.IsNullOrWhiteSpace(d)) return;
@@ -315,7 +317,7 @@ internal sealed class SvgRenderer
     /// dispatch with the new transform composed onto the parent.
     /// </summary>
     private void DrawMarker(
-        IImageProcessingContext ctx,
+        DrawingCanvas ctx,
         string markerId,
         SvgPathEndpoints.Endpoint endpoint,
         Matrix3x2 parentTransform,
@@ -405,7 +407,7 @@ internal sealed class SvgRenderer
             // Apply the clipPath child's own transform (rare).
             var childTransform = SvgValueParser.ParseTransform(child.Get("transform"));
             if (!childTransform.IsIdentity)
-                shape = shape.Transform(childTransform);
+                shape = shape.Transform(new Matrix4x4(childTransform));
 
             combined = combined == null ? shape : combined; // Phase 1: first shape only.
         }
@@ -413,7 +415,7 @@ internal sealed class SvgRenderer
         if (combined == null) return null;
         // Apply the element's own transform so the clip aligns with the
         // shape we're about to draw.
-        return transform.IsIdentity ? combined : combined.Transform(transform);
+        return transform.IsIdentity ? combined : combined.Transform(new Matrix4x4(transform));
     }
 
     /// <summary>
@@ -435,7 +437,7 @@ internal sealed class SvgRenderer
                 if (w <= 0 || h <= 0) return null;
                 return (rx > 0 || ry > 0)
                     ? BuildRoundedRect(x, y, w, h, MathF.Max(rx, ry), MathF.Max(ry, rx))
-                    : new RectangularPolygon(x, y, w, h);
+                    : new RectanglePolygon(x, y, w, h);
             }
             case "circle":
             {
@@ -564,7 +566,7 @@ internal sealed class SvgRenderer
     // Text
     // ────────────────────────────────────────────────────────────────────
 
-    private void DrawText(IImageProcessingContext ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
+    private void DrawText(DrawingCanvas ctx, SvgNode node, Matrix3x2 transform, InheritedStyle style)
     {
         var content = ExtractTextContent(node);
         if (string.IsNullOrWhiteSpace(content)) return;
@@ -597,7 +599,7 @@ internal sealed class SvgRenderer
         if (string.Equals(anchor, "middle", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(anchor, "end", StringComparison.OrdinalIgnoreCase))
         {
-            var measured = TextMeasurer.MeasureSize(content, new TextOptions(font));
+            var measured = TextMeasurer.MeasureAdvance(content, new TextOptions(font));
             if (string.Equals(anchor, "middle", StringComparison.OrdinalIgnoreCase))
                 origin.X -= measured.Width / 2f;
             else
@@ -621,14 +623,14 @@ internal sealed class SvgRenderer
             {
                 Origin = new PointF(origin.X, origin.Y),
             };
-            var glyphPaths = TextBuilder.GenerateGlyphs(content, textOptions);
-            ctx.Fill(color, glyphPaths);
+            var glyphPaths = TextBuilder.GeneratePaths(content, textOptions);
+            ctx.Fill(new SolidBrush(color), glyphPaths);
         }
         catch
         {
             // Fall back to the heavy path if glyph extraction fails for
             // any reason (font without outline data, exotic input, etc.).
-            ctx.DrawText(content, font, color, new PointF(origin.X, origin.Y));
+            ctx.DrawText(new RichTextOptions(font) { Origin = new PointF(origin.X, origin.Y) }, content, new SolidBrush(color), null);
         }
     }
 
@@ -648,26 +650,20 @@ internal sealed class SvgRenderer
     // ────────────────────────────────────────────────────────────────────
 
     private void FillAndStroke(
-        IImageProcessingContext ctx,
+        DrawingCanvas ctx,
         IPath shape,
         Matrix3x2 transform,
         InheritedStyle style,
         bool defaultFill)
     {
-        var path = transform.IsIdentity ? shape : shape.Transform(transform);
+        var path = transform.IsIdentity ? shape : shape.Transform(new Matrix4x4(transform));
 
-        // Fast path: if both fill and stroke are solid colours (the common
-        // case for almost everything), avoid the brush allocation entirely
-        // and use ImageSharp's Color-typed overloads. This is the dominant
-        // allocation in the render hot path — every Fill via a Brush
-        // instance allocates internal fill state, but Fill via Color uses
-        // a stack-allocated SolidBrush internally.
+        // Resolve opacity once for each paint before recording commands on the canvas.
         var fillAlpha   = style.Opacity * style.FillOpacity;
         var strokeAlpha = style.Opacity * style.StrokeOpacity;
 
-        // Resolve fill: only build a Brush if the paint is a paint-server
-        // (gradient / pattern). Solid colours collapse to a Color value
-        // and the dedicated overload below.
+        // Resolve solid paints separately from gradients and patterns, then submit the
+        // corresponding brush to the drawing canvas.
         Color? solidFill;
         Brush? complexFill = null;
         if (TryResolveSolidPaint(style.Fill, defaultFill ? Color.Black : (Color?)null, fillAlpha, out solidFill))
@@ -680,7 +676,7 @@ internal sealed class SvgRenderer
         }
 
         if (solidFill.HasValue)
-            ctx.Fill(solidFill.Value, path);
+            ctx.Fill(new SolidBrush(solidFill.Value), path);
         else if (complexFill != null)
             ctx.Fill(complexFill, path);
 
@@ -697,9 +693,9 @@ internal sealed class SvgRenderer
 
         var thickness = (float)Math.Max(0.1, (style.StrokeWidth ?? 1d) * GetApproxScale(transform));
         if (solidStroke.HasValue)
-            ctx.Draw(solidStroke.Value, thickness, path);
+            ctx.Draw(new SolidPen(solidStroke.Value, thickness), path);
         else if (complexStroke != null)
-            ctx.Draw(complexStroke, thickness, path);
+            ctx.Draw(new SolidPen(complexStroke, thickness), path);
     }
 
     /// <summary>
